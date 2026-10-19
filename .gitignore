@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+*.egg-info/
+dist/
+build/
+*.spec
+
+# App data (portable + local)
+data/
+out/
+*.db
+*.log
+
+# Tests
+.pytest_cache/
+.coverage*
+htmlcov/
+__pycache__/
+*.pyc
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

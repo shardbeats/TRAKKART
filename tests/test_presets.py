@@ -1,0 +1,167 @@
+"""Presets tests: roundtrip, bundled, validation, delete."""
+
+from pathlib import Path
+
+import pytest
+
+from app.presets import (
+    BUNDLED,
+    Preset,
+    delete_preset,
+    ensure_bundled,
+    list_presets,
+    load_preset,
+    save_preset,
+)
+
+
+@pytest.fixture
+def pdir(tmp_path: Path) -> Path:
+    d = tmp_path / "presets"
+    d.mkdir()
+    return d
+
+
+def test_roundtrip(pdir: Path):
+    p = Preset(name="My Test", method="floyd", palette="VAPOR", pixel_size=3, threshold=100)
+    path = save_preset(p, pdir)
+    assert path.exists()
+    back = load_preset("My Test", pdir)
+    assert back.to_dict() == p.to_dict()
+
+
+def test_ensure_bundled_no_overwrite(pdir: Path):
+    created = ensure_bundled(pdir)
+    assert set(created) == set(BUNDLED.keys())
+    # edit one and re-ensure: never overwrites
+    custom = pdir / "SLIME_FS.json"
+    custom.write_text('{"custom": true}', encoding="utf-8")
+    assert ensure_bundled(pdir) == []
+    assert custom.read_text(encoding="utf-8") == '{"custom": true}'
+
+
+def test_delete(pdir: Path):
+    save_preset(Preset(name="DeleteMe", method="bayer4"), pdir)
+    assert "DeleteMe" in list_presets(pdir)
+    assert delete_preset("DeleteMe", pdir) is True
+    assert delete_preset("DeleteMe", pdir) is False
+
+
+def test_validation_rejects():
+    with pytest.raises(ValueError):
+        Preset(name="x", method="nope").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", palette="NOPE").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pixel_size=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", threshold=999).validate()
+    with pytest.raises(ValueError):
+        save_preset(Preset(name="   "), Path("/tmp"))
+    with pytest.raises(FileNotFoundError):
+        load_preset("nope-xyz", Path("/tmp/nope_trakkart_123"))
+
+
+def test_bundled_all_valid():
+    for name, params in BUNDLED.items():
+        Preset(name=name, **params).validate()
+
+
+def test_roundtrip_extended_fields(pdir: Path):
+    p = Preset(name="Full", method="bayer8", palette="EMBER", pixel_size=3, threshold=150,
+               brightness=1.2, contrast=0.9, saturation=1.3,
+               ratio="9:16", crop_mode="contain", focus_x=20, focus_y=80)
+    back = load_preset(save_preset(p, pdir).stem, pdir)
+    assert back.to_dict() == p.to_dict()
+    assert back.meta()["ratio"] == "9:16"
+
+
+def test_old_format_loads_with_defaults(pdir: Path):
+    import json
+
+    (pdir / "Oldie.json").write_text(json.dumps({"name": "Oldie", "method": "floyd"}), encoding="utf-8")
+    back = load_preset("Oldie", pdir)
+    assert (back.palette, back.brightness, back.ratio) == ("SLIME", 1.0, "1:1")
+    # v0.12 presets with title still load (field ignored, no crash)
+    (pdir / "Withtitle.json").write_text(
+        json.dumps({"name": "Withtitle", "method": "floyd", "title": "X", "title_position": "top"}),
+        encoding="utf-8",
+    )
+    back2 = load_preset("Withtitle", pdir)
+    assert back2.method == "floyd" and not hasattr(back2, "title")
+
+
+def test_list_presets_missing_dir(tmp_path: Path):
+    assert list_presets(tmp_path / "nodir") == []
+
+
+def test_roundtrip_crop_zoom(pdir: Path):
+    p = Preset(name="Zoomy", method="floyd", crop_zoom=2.5,
+               ratio="9:16", focus_x=20, focus_y=80)
+    back = load_preset(save_preset(p, pdir).stem, pdir)
+    assert back.to_dict() == p.to_dict()
+    assert back.meta()["zoom"] == 2.5
+
+
+def test_old_preset_defaults_crop_zoom(pdir: Path):
+    import json
+
+    (pdir / "Nozoom.json").write_text(json.dumps({"name": "Nozoom", "method": "floyd"}), encoding="utf-8")
+    assert load_preset("Nozoom", pdir).crop_zoom == 1.0
+
+
+def test_validation_rejects_crop_zoom():
+    with pytest.raises(ValueError):
+        Preset(name="x", crop_zoom=9).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", crop_zoom=0.5).validate()
+
+
+def test_validation_rejects_extended():
+    with pytest.raises(ValueError):
+        Preset(name="x", brightness=9).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", ratio="99:99").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", crop_mode="weird").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", focus_x=999).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pre_blur=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pre_sharpen=9).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", glow_radius=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", grain=101).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", scanlines=5).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pre_hue=999).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", scanlines=5).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pre_denoise=9).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", pre_smooth=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", vector_cell=3).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", glitch_chroma=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", glitch_slice_bands=5).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", glitch_slice_max=999).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", gif_frames=99).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", gif_mode="nope").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", replace_color="red").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", custom_palette=[[0, 0, 0]]).validate()
+
+
+def test_safe_name_fallback(pdir: Path):
+    path = save_preset(Preset(name="!!!", method="bayer4"), pdir)
+    assert path.name == "preset.json"

@@ -1,0 +1,7 @@
+{
+  "name": "SLIME_FS",
+  "method": "floyd",
+  "palette": "SLIME",
+  "pixel_size": 2,
+  "threshold": 128
+}

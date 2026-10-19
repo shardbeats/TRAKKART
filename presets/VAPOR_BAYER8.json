@@ -1,0 +1,7 @@
+{
+  "name": "VAPOR_BAYER8",
+  "method": "bayer8",
+  "palette": "VAPOR",
+  "pixel_size": 3,
+  "threshold": 128
+}

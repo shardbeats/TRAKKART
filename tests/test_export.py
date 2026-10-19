@@ -1,0 +1,37 @@
+from pathlib import Path
+
+from app.exporter import export_bundle
+from app.palettes import PALETTES, get_palette, palette_names
+
+
+def _img():
+    from PIL import Image
+
+    return Image.new("RGB", (128, 128), (200, 50, 90))
+
+
+def test_palettes_present():
+    assert set(palette_names()) == set(PALETTES.keys())
+    assert get_palette("BW") is None
+    assert len(get_palette("SLIME")) == 4
+
+
+def test_export_bundle_sizes(tmp_path: Path):
+    from PIL import Image
+
+    paths = export_bundle(_img(), tmp_path, base="t")
+    assert paths["cover"].exists()
+    assert paths["small"].exists()
+    assert paths["thumb_1080p"].exists()
+    with Image.open(paths["thumb_1080p"]) as im:
+        assert im.size == (1920, 1080)
+    with Image.open(paths["cover"]) as im:
+        assert im.size == (3000, 3000)
+
+
+def test_export_bundle_invalid_ratio_falls_back(tmp_path: Path):
+    from PIL import Image
+
+    paths = export_bundle(_img(), tmp_path, base="x", meta={"ratio": "99:99"})
+    with Image.open(paths["cover"]) as im:
+        assert im.size == (3000, 3000)

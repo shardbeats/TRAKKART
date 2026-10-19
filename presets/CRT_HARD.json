@@ -1,0 +1,7 @@
+{
+  "name": "CRT_HARD",
+  "method": "bayer4",
+  "palette": "BW",
+  "pixel_size": 4,
+  "threshold": 160
+}

@@ -1,0 +1,210 @@
+"""UI dialogs & actions: open/batch/crop/share/ops/layout (fixtures en conftest)."""
+
+from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.slow
+
+
+def test_open_image_cancel(window, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
+    window.open_image()  # must not crash on cancel
+
+
+def test_run_batch_sync(window, tmp_path: Path):
+    from PIL import Image as Img
+
+    src = tmp_path / "in"
+    dst = tmp_path / "dst"
+    src.mkdir()
+    for i in range(2):
+        Img.new("RGB", (32, 32), (50, 100, 150)).save(src / f"c{i}.png")
+    window.cmb_preset.setCurrentText("SLIME_FS")
+    results = window.run_batch_sync(src, dst)
+    assert len(results) == 2
+    assert all(r["status"] == "ok" for r in results)
+    assert len(list(dst.glob("*.png"))) == 6
+
+
+def test_batch_dialog_cancel(window, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **k: "")
+    window.run_batch_dialog()  # cancelled input: does nothing
+
+
+def test_batch_handlers(window):
+    window._on_batch_progress(1, 2, "a.png")
+    assert "1/2" in window.lbl_status.text()
+    window._on_batch_finished([{"status": "ok"}, {"status": "skipped"}, {"status": "error"}])
+    assert window.btn_batch.isEnabled()
+    window._on_batch_error("boom")
+    assert window.btn_batch.isEnabled()
+
+
+def test_run_batch_starts_worker(window, tmp_path: Path, monkeypatch):
+    calls: dict = {}
+
+    class FakeSig:
+        def __init__(self):
+            self.slot = None
+
+        def connect(self, slot):
+            self.slot = slot
+
+    class FakeWorker:
+        def __init__(self, *a, **k):
+            self.progress = FakeSig()
+            self.finished = FakeSig()
+            self.error = FakeSig()
+            calls["created"] = True
+
+        def isRunning(self):
+            return False
+
+        def start(self):
+            calls["started"] = True
+            self.finished.slot([])
+
+    import app.ui.main_window as MW
+
+    monkeypatch.setattr(MW, "BatchWorker", FakeWorker)
+    monkeypatch.setattr(MW.QMessageBox, "information", lambda *a, **k: None)
+    src = tmp_path / "in"
+    dst = tmp_path / "dst"
+    src.mkdir()
+    window.run_batch(src, dst)
+    assert calls.get("started") is True
+
+
+def test_crop_editor_accept_applies(window, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    import app.ui.crop_editor as CE
+
+    seen: dict = {}
+
+    class FakeDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, *a, **k):
+            seen["created"] = True
+            self.ratio, self.mode = "4:5", "cover"
+            self.fx, self.fy, self.zoom = 20.0, 30.0, 2.0
+            self.turns, self.image = 0, window.src
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(CE, "CropEditorDialog", FakeDialog)
+    window.open_crop_editor()
+    assert seen.get("created") is True
+    assert (window.crop_fx, window.crop_fy, window.crop_zoom) == (20.0, 30.0, 2.0)
+    assert window.cmb_ratio.currentText() == "4:5"
+    assert "Crop set" in window.lbl_status.text()
+
+
+def test_crop_editor_cancel_keeps_values(window, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    import app.ui.crop_editor as CE
+
+    class FakeDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, *a, **k):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(CE, "CropEditorDialog", FakeDialog)
+    before = (window.crop_fx, window.crop_fy, window.crop_zoom)
+    window.open_crop_editor()
+    assert (window.crop_fx, window.crop_fy, window.crop_zoom) == before
+    assert "unchanged" in window.lbl_status.text()
+
+
+def test_crop_editor_real_dialog(qt_app):
+    from PIL import Image as Img
+    from PySide6.QtCore import QPointF
+
+    from app.ui.crop_editor import CropEditorDialog, CropView
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    dlg = CropEditorDialog(src, ratio="1:1", mode="cover")
+    assert dlg.ratio == "1:1" and dlg.zoom == 1.0
+    dlg.view.pan_by(40, 0)
+    assert dlg.view.fx != 50.0
+    dlg.view.zoom_at(QPointF(300, 300), 2.0)
+    assert dlg.zoom == 2.0
+    dlg.reset_crop()
+    assert (dlg.fx, dlg.fy, dlg.zoom) == (50.0, 50.0, 1.0)
+    before = dlg.image.size
+    dlg.rotate_cw()
+    assert dlg.turns == 1 and dlg.image.size == (before[1], before[0])
+    dlg.accept()
+    assert dlg.result() == dlg.DialogCode.Accepted
+    view = CropView(src, "16:9", "cover", 0, 0, 1.0)
+    view.resize(600, 600)
+    lay = view._layout()
+    assert lay["frame"].width() > 0 and lay["frame"].height() > 0
+    dlg.close()
+
+
+def test_share_export_import(window, tmp_path, isolated_presets, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    target = tmp_path / "shared.json"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(target), ""))
+    window.share_preset_export()
+    assert target.exists()
+    (isolated_presets / "shared.json").write_bytes(target.read_bytes())
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(target), ""))
+    window.sld_thr.setValue(100)
+    window.share_preset_import()
+    assert window.sld_thr.value() == 128
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
+    window.share_preset_import()  # cancel: does nothing
+    bad = tmp_path / "bad.json"
+    bad.write_text("{no json", encoding="utf-8")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(bad), ""))
+    window.share_preset_import()  # invalid: warning, no crash
+
+
+def test_ops_and_undo(window):
+    from app.ops import flip_h
+
+    assert window.history.undo() is None
+    window._op_image(flip_h, "flip")
+    assert len(window.history) == 1
+    window.undo_image()
+    assert window.lbl_status.text() == "Undone"
+    window.undo_image()
+    assert "Nothing to undo" in window.lbl_status.text()
+    assert window.result is not None
+
+
+def test_action_bar_layout(window, qt_app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QScrollArea
+
+    assert window.btn_export.objectName() == "exportBtn"
+    assert window.btn_preset_save.minimumWidth() >= 80
+    # Export/batch/cancel live outside the scroll: always visible
+    assert window.btn_export.parent() is not None
+    assert window.btn_cancel.parent() is not None
+    assert window.progress.parent() is not None
+    assert window.lbl_status.parent() is not None
+    scrolls = window.findChildren(QScrollArea)
+    assert scrolls, "scroll panel must exist"
+    assert scrolls[0].horizontalScrollBarPolicy() == Qt.ScrollBarAlwaysOff
+
+
+def test_cancel_button(window):
+    window.cancel_batch()
+    assert window._batch_cancel == [True]
+    assert "Cancelling" in window.lbl_status.text()

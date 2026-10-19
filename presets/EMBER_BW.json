@@ -1,0 +1,7 @@
+{
+  "name": "EMBER_BW",
+  "method": "floyd",
+  "palette": "BW",
+  "pixel_size": 2,
+  "threshold": 128
+}
