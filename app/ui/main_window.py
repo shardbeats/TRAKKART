@@ -16,27 +16,16 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (  # noqa: F401 (QMessageBox: test seam, see note below)
-    QCheckBox,
     QHBoxLayout,
-    QLabel,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
-    QWidget,
 )
 
-from app import __version__
 from app.adjust import Adjust
-from app.canvas import CROP_MODES, ratio_names
-from app.dither import METHODS
 from app.history import HistoryStore
-from app.ops import ImageHistory, flip_h, flip_v, invert, rotate_left, rotate_right
+from app.ops import ImageHistory
 from app.paths import get_db_path, get_out_dir
 from app.presets import Preset, ensure_bundled
 # NOTE: QMessageBox/BatchDialog stay imported (no direct use below) because
@@ -147,18 +136,6 @@ class MainWindow(QMainWindow):
         if not self._preview_timer.isActive():
             self._preview_timer.start()
 
-    def _labeled_slider(self, parent, label, lo, hi, val, tooltip="", div=None):
-        """Row [label | slider | value]. Double-click resets to default."""
-        from app.ui import panels as _panels
-
-        return _panels.labeled_slider(self, parent, label, lo, hi, val, tooltip, div)
-
-    def _mini_slider(self, lo, hi, val, tooltip="", div=None):
-        """Slider + value label (for shared rows)."""
-        from app.ui import panels as _panels
-
-        return _panels.mini_slider(self, lo, hi, val, tooltip, div)
-
     def _status(self, msg: str) -> None:
         """Single status point: label + status bar (family pattern)."""
         self.lbl_status.setText(msg)
@@ -168,173 +145,27 @@ class MainWindow(QMainWindow):
             pass
 
     # ------------------------------------------------------------------
-    # UI construction (orquesta panels.py; cada sección < 30 líneas)
+    # UI construction (cuerpo en window_assembly; orquesta, no construye)
     # ------------------------------------------------------------------
     def _setup_ui(self) -> None:
-        self.setWindowTitle(f"TRAKKART v{__version__} — dither covers")
-        self.resize(1280, 780)
-        self.setMinimumSize(1060, 640)
-        icon = Path(__file__).resolve().parent.parent.parent / "icon.png"
-        if icon.exists():
-            from PySide6.QtGui import QIcon
+        from app.ui import window_assembly as _wa
 
-            self.setWindowIcon(QIcon(str(icon)))
-        try:
-            from app.ui.theme import load_stylesheet
-
-            qss = load_stylesheet()
-            if qss:
-                self.setStyleSheet(qss)
-        except Exception:
-            pass
-        central = QWidget()
-        self.setCentralWidget(central)
-        col = QVBoxLayout(central)
-        col.setContentsMargins(8, 8, 8, 8)
-        col.setSpacing(4)
-
-        header = QHBoxLayout()
-        title = QLabel("TRAKKART")
-        title.setObjectName("titleLabel")
-        header.addWidget(title)
-        subtitle = QLabel(f"v{__version__} · offline dither covers")
-        subtitle.setObjectName("subtitleLabel")
-        header.addWidget(subtitle)
-        header.addStretch()
-        col.addLayout(header)
-
-        root = QHBoxLayout()
-        root.setSpacing(8)
-        col.addLayout(root, 1)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setMinimumWidth(360)
-        scroll.setMaximumWidth(460)
-        panel_host = QWidget()
-        panel = QVBoxLayout(panel_host)
-        panel.setContentsMargins(2, 2, 6, 2)
-        scroll.setWidget(panel_host)
-        left_col = QVBoxLayout()
-        left_col.setSpacing(4)
-        left_col.setContentsMargins(0, 0, 0, 0)
-        left_col.addWidget(scroll, 1)
-        root.addLayout(left_col, 0)
-        self._action_bar = QVBoxLayout()
-        self._action_bar.setSpacing(4)
-        left_col.addLayout(self._action_bar)
-
-        self._setup_control_panel(panel)
-        self._setup_action_bar()
-        self._setup_previews(root)
-
-        self.statusBar().showMessage("TRAKKART ready")
-        ver = QLabel(f"v{__version__} offline")
-        ver.setObjectName("subtitleLabel")
-        self.statusBar().addPermanentWidget(ver)
-        self._sync_crop_label()
+        _wa.setup_ui(self)
 
     def _setup_control_panel(self, panel: QVBoxLayout) -> None:
-        from app.ui import panels as P
+        from app.ui import window_assembly as _wa
 
-        P.build_image_section(self, P.make_group(panel, "IMAGE"))
-        P.build_preset_section(self, P.make_group(panel, "PRESET"))
-        P.build_method_section(self, P.make_group(panel, "METHOD"), METHODS)
-        P.build_pixel_section(self, P.make_group(panel, "PIXEL"))
-        P.build_color_section(self, P.make_group(panel, "COLOR"))
-        P.build_canvas_section(self, P.make_group(panel, "CANVAS"), ratio_names(), CROP_MODES)
-        P.build_pre_section(self, P.make_group(panel, "PRE-PROCESS"))
-        P.build_grade_section(self, P.make_group(panel, "GRADE"))
-        P.build_texture_section(self, P.make_group(panel, "TEXTURE"))
-        P.build_glitch_section(self, P.make_group(panel, "GLITCH"))
-        P.build_video_section(self, P.make_group(panel, "VIDEO"))
-        P.build_custom_palette_section(self, P.make_group(panel, "CUSTOM PALETTE"))
-        panel.addStretch()
+        _wa.setup_control_panel(self, panel)
 
     def _setup_action_bar(self) -> None:
-        self.btn_export = QPushButton("Export…")
-        self.btn_export.setToolTip("Export with options (Ctrl+Shift+S) · Quick export (Ctrl+S)")
-        self.btn_export.setObjectName("exportBtn")
-        self.btn_export.clicked.connect(lambda: self.export(False))
-        self._action_bar.addWidget(self.btn_export)
+        from app.ui import window_assembly as _wa
 
-        batch_row = QHBoxLayout()
-        self.btn_batch = QPushButton("Batch folder...")
-        self.btn_batch.setToolTip("Process every image in a folder with the current preset")
-        self.btn_batch.clicked.connect(self.run_batch_dialog)
-        batch_row.addWidget(self.btn_batch, 1)
-        self.btn_cancel = QPushButton("X")
-        self.btn_cancel.setToolTip("Cancel batch")
-        self.btn_cancel.clicked.connect(self.cancel_batch)
-        self.btn_cancel.hide()
-        batch_row.addWidget(self.btn_cancel)
-        self.chk_batch_drop = QCheckBox("Drop=Batch")
-        self.chk_batch_drop.setToolTip("OFF = dropping only loads images. ON = dropping a folder asks for confirmation and processes it.")
-        self.chk_batch_drop.setChecked(False)
-        batch_row.addWidget(self.chk_batch_drop)
-        batch_row.addWidget(QLabel("Jobs:"))
-        from PySide6.QtWidgets import QSpinBox
-
-        self.spn_jobs = QSpinBox()
-        self.spn_jobs.setRange(1, 8)
-        self.spn_jobs.setValue(1)
-        self.spn_jobs.setFixedWidth(56)
-        self.spn_jobs.setToolTip("1 = sequential (safe). >1 = multiprocessing.")
-        batch_row.addWidget(self.spn_jobs)
-        self._action_bar.addLayout(batch_row)
-
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 100)
-        self.progress.setValue(0)
-        self.progress.hide()
-        self._action_bar.addWidget(self.progress)
-        self.lbl_status = QLabel("Open an image to start.")
-        self.lbl_status.setWordWrap(True)
-        self._action_bar.addWidget(self.lbl_status)
+        _wa.setup_action_bar(self)
 
     def _setup_previews(self, root: QHBoxLayout) -> None:
-        previews = QHBoxLayout()
-        previews.setSpacing(8)
-        res_col = QVBoxLayout()
-        title_row = QHBoxLayout()
-        self.lbl_res_title = QLabel("COVER")
-        self.lbl_res_title.setObjectName("previewTitle")
-        self.lbl_res_title.setAlignment(Qt.AlignCenter)
-        title_row.addWidget(self.lbl_res_title, 1)
-        # Hold-to-compare: mantener pulsado (o Espacio) = ORIGINAL.
-        self.btn_compare = QPushButton("Hold to compare")
-        self.btn_compare.setToolTip("Hold to see ORIGINAL (or hold Space). Release to go back.")
-        self.btn_compare.setMinimumWidth(140)
-        self.btn_compare.pressed.connect(self._compare_pressed)
-        self.btn_compare.released.connect(self._compare_released)
-        title_row.addWidget(self.btn_compare)
-        res_col.addLayout(title_row)
-        # Video toolbar: scrub + counter (solo visible en modo Video).
-        from PySide6.QtWidgets import QSlider
+        from app.ui import window_assembly as _wa
 
-        self._video_bar = QHBoxLayout()
-        self.sld_video = QSlider(Qt.Horizontal)
-        self.sld_video.setRange(0, 0)
-        self.sld_video.setValue(0)
-        self.sld_video.valueChanged.connect(self._on_video_scrub)
-        self._video_bar.addWidget(self.sld_video, 1)
-        self.lbl_video_pos = QLabel("0/0")
-        self.lbl_video_pos.setMinimumWidth(52)
-        self.lbl_video_pos.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._video_bar.addWidget(self.lbl_video_pos)
-        self._video_bar_widget = QWidget()
-        self._video_bar_widget.setLayout(self._video_bar)
-        self._video_bar_widget.setVisible(False)
-        res_col.addWidget(self._video_bar_widget)
-        self.lbl_res = QLabel("NO IMAGE")
-        self.lbl_res.setObjectName("previewFrame")
-        self.lbl_res.setAlignment(Qt.AlignCenter)
-        self.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.lbl_res.setMinimumSize(200, 200)
-        res_col.addWidget(self.lbl_res, 1)
-        previews.addLayout(res_col, 1)
-        root.addLayout(previews, 1)
+        _wa.setup_previews(self, root)
 
     def open_image(self) -> None:
         """Compat: opens dialog (use open_image_dialog)."""
@@ -724,55 +555,11 @@ class MainWindow(QMainWindow):
 
         _bf.on_error(self, msg)
 
-    # -- menus --
+    # -- menus (cuerpo en menus.py) --
     def _build_menus(self) -> None:
-        bar = self.menuBar()
+        from app.ui import menus as _menus
 
-        m_file = bar.addMenu("File")
-        for label, shortcut, slot in [
-            ("Open image...", "Ctrl+O", self.open_image_dialog),
-            ("Export…", "Ctrl+Shift+S", lambda: self.export(False)),
-            ("Quick export", "Ctrl+S", lambda: self.export(True)),
-            ("Batch folder...", "Ctrl+B", self.run_batch_dialog),
-            ("Export preset...", "", self.share_preset_export),
-            ("Import preset...", "", self.share_preset_import),
-        ]:
-            a = QAction(label, self)
-            if shortcut:
-                a.setShortcut(shortcut)
-            a.triggered.connect(slot)
-            m_file.addAction(a)
-
-        m_edit = bar.addMenu("Edit")
-        for label, shortcut, slot in [
-            ("Undo image", "Ctrl+Z", self.undo_image),
-            ("Random", "Ctrl+R", self.randomize),
-            ("Rotate left", "", lambda: self._op_image(rotate_left, "rotate left")),
-            ("Rotate right", "", lambda: self._op_image(rotate_right, "rotate right")),
-            ("Flip H", "", lambda: self._op_image(flip_h, "flip H")),
-            ("Flip V", "", lambda: self._op_image(flip_v, "flip V")),
-            ("Invert", "", lambda: self._op_image(invert, "invert")),
-        ]:
-            a = QAction(label, self)
-            if shortcut:
-                a.setShortcut(shortcut)
-            a.triggered.connect(slot)
-            m_edit.addAction(a)
-
-        m_view = bar.addMenu("View")
-        for label, shortcut, slot in [
-            ("Zoom +", "Ctrl+=", lambda: self._zoom_step(1.25)),
-            ("Zoom -", "Ctrl+-", lambda: self._zoom_step(1 / 1.25)),
-            ("Fit", "Ctrl+0", self._zoom_fit),
-            ("100%", "Ctrl+1", self._zoom_full),
-            ("Copy result", "Ctrl+C", self.copy_result),
-            ("Paste image", "Ctrl+V", self.paste_image),
-        ]:
-            a = QAction(label, self)
-            if shortcut:
-                a.setShortcut(shortcut)
-            a.triggered.connect(slot)
-            m_view.addAction(a)
+        _menus.build_menus(self)
 
     # -- image ops + undo (cuerpo en image_flow) --
     def _op_image(self, fn, what: str) -> None:
