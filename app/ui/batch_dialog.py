@@ -1,4 +1,4 @@
-"""Batch dialog — dither-guy style: in/out en un solo sitio, validado antes.
+"""Batch dialog: in/out en un solo sitio, validado antes.
 
 Valida carpetas y cuenta imágenes ANTES de lanzar (nada de dos diálogos
 seguidos a ciegas). Las salidas vector/GIF se eligen aquí por operación

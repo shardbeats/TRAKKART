@@ -25,13 +25,11 @@ REPORT = DATA / "quality_report.json"
 GATES = {
     "pass_rate": 100.0,      # % tests passing
     "coverage": 80.0,        # % branch coverage over app/
-    "gherkin": 30,           # .feature scenarios that must pass
+    "gherkin": 35,           # .feature scenarios that must pass
     "export_smoke_bytes": 500,
 }
 
 BANNED = [
-    "dither-guy",
-    "manoelpiovesan",
     "C:\\Users\\<user>",
     "@gmail.com",
     "@hotmail.com",

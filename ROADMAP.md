@@ -7,7 +7,7 @@
 TRAKKART = offline dither cover generator for beatmakers, part of the ShardBeats TRAKK family.
 Flow: `Image → method + palette + pixel + threshold → preview → bundle → TRAKKOUT`.
 
-Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (do not copy GPL from dither-guy / Dither Boy).
+Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).
 
 ## 2. Current state — v0.17.0 (done)
 
@@ -26,8 +26,8 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 - `app/fx.py`: pre (blur/sharpen/hue/denoise/smooth) + post (glow/grain/vignette/scanlines) + replace-color + custom palette. Pipeline: canvas→pre→adjust→dither→brand→post→text.
 - `app/kernels.py`: generic ED (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3) + Hilbert-ordered diffusion. Ordered: bayer2/4/8/16, halftone, cluster, pattern, checker, ign, cross, bluenoise. 23 methods in `METHODS`.
 - `app/vector.py`: grid re-render + RLE + SVG (no post-fx, transparent background, size estimate). Flag in preset + UI checkbox.
-- `app/ops.py` (rotate/flip/invert + undo cap 20) + `app/glitch.py` (chromatic aberration + slice shift). Menus, zoom, dnd, clipboard, randomize, preset share via file.
-- Quality: 170 tests, 30/30 Gherkin, 5/5 gates PASS (coverage 87.7%, clean flake8).
+- `app/ops.py` (rotate/flip/invert + undo cap 20) + `app/glitch.py` (chromatic aberration, slice shift, pixel sort, wave, datamosh + RGB grille). Menus, zoom, dnd, clipboard, randomize, preset share via file.
+- Quality: 264 tests, 35/35 Gherkin, 5/5 gates PASS (coverage ≥80%, clean flake8).
 - Base: `main.py`, `requirements.txt` (PySide6/Pillow/numpy), `start.bat`/`run.bat`, `build_exe.py`, `README.md`, `LICENSE` MIT.
 
 ## 3. Roadmap
@@ -127,13 +127,19 @@ Root cause of the WhatsApp bug: `Path("")` == `Path(".")` -> `is_dir()` True + u
 - [x] `ValueSlider` with visible value + double-click reset on every slider; export always full-res.
 - [x] Gherkin 30/30 (suite 170), gates 5/5.
 
+### Unreleased (post-v0.17)
+- [x] Named palette library (`palettes/*.json`, editable swatches, dirty "(Custom)" state, random Oklch generator ramp/harmony).
+- [x] Pro export: size presets + PNG/JPG/WebP, per-dialog outputs, overwrite policies, quick export with prefs.
+- [x] FX packs: GRADE (duotone/posterize/split-tone/fade/glow threshold), TEXTURE (halftone/dust/border/letterbox), GLITCH+ (pixelsort/wave/mosh/grille) in 3 panel groups.
+- [x] 7 new engines (shiaufan/filterlite/sierralite/sierra3, ign, checker, hilbert). 23 methods, 35/35 Gherkin.
+
 ### v1.0 — Standalone release
 TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each app lives on its own.
 - [ ] EN docs + screenshots (before/after, sample GIF) + GitHub release `shardbeats/TRAKKART`.
 
 ## 4. Decisions made (do not reopen without reason)
 
-- 100% original MIT code. dither-guy is GPL-3.0: ideas only, never copy files.
+- 100% original MIT code: public-domain math only, third-party files are never copied.
 - No OpenCV / GPU in the core. Numba only as an OPTIONAL accelerator with numpy fallback (the base exe does not include it).
 - Pillow + numpy is enough and keeps the `.exe` light.
 - PySide6 UI (not PyQt6). Preview with `QLabel + QPixmap`, no `QGraphicsScene` in v0.
@@ -149,4 +155,4 @@ TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each
 
 - Video (`imageio-ffmpeg`), webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
-- Explicitly rejected (seen in Dither Boy / dither-guy, adds nothing): GPU backends (cupy/opencl), video tab, app themes, preset download from GitHub (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG).
+- Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), video tab, app themes, preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG).

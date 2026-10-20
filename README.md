@@ -3,7 +3,7 @@
 Part of the ShardBeats **TRAKK** family. Offline dither cover generator (own MIT code, no GPL copied).
 
 ```
-Image → method (16 engines) + palette + pixel + threshold → preview → export
+Image → method (23 engines) + palette + pixel + threshold → preview → export
 → main image (size + format you choose) + optional 1080p thumb + metadata.json
 + optional vector SVG (logos/merch) + animated GIF (socials)
 ```
@@ -59,5 +59,5 @@ export smoke (>500B per PNG), no-leak scan (no GPL code, no personal data).
 
 ## Legal note
 
-Inspired by the *idea* of Dither Boy / dither-guy (GPL-3.0), but implementation
-is 100% original. No GPL code is copied.
+100% original implementation (MIT, clean-room): algorithms reimplemented
+from public-domain math. No third-party GPL code is used or copied.

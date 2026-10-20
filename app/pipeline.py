@@ -1,8 +1,7 @@
 """TRAKKART pipeline: canvas -> pre -> grade -> dither -> brand -> post.
 
-Orden (signal chain, estilo Dither Boy): los adjustments y el grade
-van ANTES del dither sobre tono continuo; textura y glitch van después
-sobre el dither.
+Orden (signal chain): los adjustments y el grade van ANTES del dither
+sobre tono continuo; textura y glitch van después sobre el dither.
 """
 
 from __future__ import annotations

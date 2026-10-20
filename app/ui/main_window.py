@@ -645,7 +645,7 @@ class MainWindow(QMainWindow):
         self.cmb_pal_preset.blockSignals(False)
 
     def _on_palette_preset_changed(self, name: str) -> None:
-        """Elegir paleta = cargarla como copia editable (dither-guy style)."""
+        """Elegir paleta = cargarla como copia editable en la tira."""
         from app.palette_library import CUSTOM_SENTINEL, palette_colors
 
         if not name or name == CUSTOM_SENTINEL:
@@ -810,7 +810,7 @@ class MainWindow(QMainWindow):
 
     # -- batch --
     def run_batch_dialog(self) -> None:
-        """Un solo diálogo validado (dither-guy style), no dos seguidos a ciegas."""
+        """Un solo diálogo validado, no dos seguidos a ciegas."""
         from dataclasses import replace
 
         preset = self.current_params()

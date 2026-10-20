@@ -48,7 +48,7 @@ app/ui/workers.py        :: BatchWorker QThread (jobs + cancel)
 app/ui/preview_worker.py :: PreviewWorker QThread (tokens, 640px preview)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
 presets/*.json           :: 4 bundled (never overwritten)
-features/*.feature       :: 30 Gherkin scenarios
+features/*.feature       :: 35 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
 ```
