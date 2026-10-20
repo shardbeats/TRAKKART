@@ -3,9 +3,10 @@
 Part of the ShardBeats **TRAKK** family. Offline dither cover generator (own MIT code, no GPL copied).
 
 ```
-Image → method (23 engines) + palette + pixel + threshold → preview → export
-→ main image (size + format you choose) + optional 1080p thumb + metadata.json
-+ optional vector SVG (logos/merch) + animated GIF (socials)
+Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)
+→ method (23 engines) + palette + pixel + threshold → still/video preview → export
+→ main image (canvas W×H + format you choose) + optional 1080p thumb + metadata.json
++ optional vector SVG (logos/merch) + animated GIF (phase/hue/glitch/mix, socials)
 ```
 
 ## Quick start
@@ -27,24 +28,36 @@ app/accelerate.py        :: optional numba backend (bit-identical output, falls 
 app/adjust.py            :: brightness / contrast / saturation
 app/fx.py                :: pre/post fx (blur, sharpen, hue, denoise, smooth, glow, grain, vignette, scanlines)
 app/glitch.py            :: chromatic aberration + slice shift
-app/canvas.py            :: aspect ratios + crop cover/contain
+app/canvas.py            :: ratios + free Custom W×H + cover/contain/stretch/blur
 app/palettes.py          :: original TRAKK palettes (BW/SLIME/VAPOR/EMBER)
-app/presets.py           :: JSON presets (bundled + user)
+app/presets.py           :: JSON presets (bundled + user) + declarative FIELDS schema
 app/batch.py             :: offline folder batch (sequential/multiprocess + cancel + history)
-app/exporter.py          :: per-ratio bundle + 1080p thumb + metadata.json (+SVG +GIF)
+app/exporter.py          :: canvas-size bundle + 1080p thumb + metadata.json (+SVG +GIF)
+app/render_params.py     :: shared normalizers (scan/slice/grille/posterize/halftone)
+app/pipeline.py          :: RenderSpec (single ~40-param dataclass) + render_spec/render
 app/vector.py            :: SVG renderer (gridded re-render + RLE)
-app/gif.py               :: animated GIF (Pillow only, no ffmpeg)
+app/gif.py               :: animated GIF modes (phase/hue/both/glitch/mix, Pillow only)
 app/paths.py             :: portable data dir (env / frozen data/ / APPDATA)
 app/history.py           :: SQLite export history (capped)
 app/safety.py            :: image/vector size guards (TooBigError)
 app/dnd.py               :: drop classifier (image/data/url/folder)
 app/ops.py               :: rotate/flip/invert + undo stack
-app/ui/main_window.py    :: PySide6 shell (grouped panel, menus, offscreen-tested)
-app/ui/preview_worker.py :: background preview worker (tokens, drops stale renders)
+app/ui/main_window.py    :: thin orchestrator (~700 lines): setup + refresh router + delegation
+app/ui/window_assembly.py:: frame, panel groups, action bar, single-canvas preview
+app/ui/menus.py          :: File/Edit/View menus
+app/ui/params_controller.py :: widgets <-> Preset (BINDINGS table + doc/anim readers)
+app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy player
+app/ui/preview_controller.py:: still preview (sync render or background thread)
+app/ui/compare_controller.py:: hold-to-compare (Space or button shows ORIGINAL)
+app/ui/export_flow.py    :: export dialog orchestration + bundle + history
+app/ui/batch_flow.py     :: batch dialog + worker + progress/ETA
+app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
+app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
+app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale renders)
 app/ui/workers.py        :: batch QThread
 app/ui/widgets.py        :: ValueSlider with reset on double-click
 app/ui/theme.qss         :: TRAKK family dark theme
-features/*.feature       :: 30 Gherkin acceptance scenarios (pytest-bdd)
+features/*.feature       :: 38 Gherkin acceptance scenarios (pytest-bdd)
 tools/quality_metrics.py :: 5 quality gates -> data/quality_report.json
 ```
 

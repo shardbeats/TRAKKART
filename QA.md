@@ -38,27 +38,28 @@ features/batch.feature    :: 1 scenario (3-image batch, 2 PNGs each)
 features/adjust_text.feature :: 2 scenarios (brightness differs, valid metadata)
 features/history.feature  :: 1 scenario (export gets logged)
 features/dnd.feature      :: 2 scenarios (blob is not batch, http download)
-features/canvas.feature   :: 2 scenarios (9:16 export, crop clamp)
+features/canvas.feature   :: 3 scenarios (9:16 export, crop clamp, free Custom 1920x800)
 features/kernels.feature  :: 7 scenarios (Atkinson, blue-noise, halftone, JJN, numba parity, new kernels, Hilbert)
 features/fx.feature       :: 4 scenarios (scanlines, replace-color, duotone, halftone)
 features/vector.feature   :: 1 scenario (valid SVG with rects)
 features/flow.feature     :: 3 scenarios (chromatic aberration, deterministic slice, pixel sort)
-features/gif.feature      :: 1 scenario (GIF N frames max 480px)
+features/gif.feature      :: 3 scenarios (N frames, glitch animates ED, mix ping-pong loop)
 features/safety.feature   :: 2 scenarios (giant image, huge vector)
 ```
 
-Total: 35/35. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 264 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Total: 38/38. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 281 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
 ## Manual GUI checklist (before each release)
 
 1. `run.bat` opens without traceback (offscreen in CI: `QT_QPA_PLATFORM=offscreen`).
-2. Open PNG/JPG → original vs dither preview updates when moving threshold/pixel/method/palette/brightness/ratio. CUSTOM PALETTE loads named palettes as editable swatches (dirty shows "(Custom)"); 🎲 generates harmonious ramps.
-3. Preset saves, reloads and applies sliders (incl. grade/texture/glitch + size/format).
-3b. CANVAS → "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode); Done applies, Cancel keeps values.
-4. Export dialog generates `<base>.png|jpg|webp` at the chosen long side (default 3000) + optional `*_thumb1080p`, `*_vector.svg`, `*_anim.gif`, `*_metadata.json` in the chosen folder.
+2. Open PNG/JPG → single-canvas preview updates when moving threshold/pixel/method/palette/brightness/ratio. Hold "Hold to compare" (or Space) shows ORIGINAL; release returns to result. CUSTOM PALETTE loads named palettes as editable swatches (dirty shows "(Custom)"); 🎲 generates harmonious ramps.
+2b. VIDEO mode: animated preview plays (Draft 720p default); switching to Full (doc) re-renders bigger; FPS change does NOT re-render (only retimes).
+3. Preset saves, reloads and applies sliders (incl. grade/texture/glitch + canvas W/H + anim).
+3b. CANVAS → ratio presets fill W/H; typing W/H flips Ratio to Custom. "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode incl. Custom with free frame); Done applies, Cancel keeps values.
+4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_anim.gif`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
 
@@ -66,3 +67,5 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 
 - Floyd B&W 3000px < 30s, Floyd color 1080px < 12s (measured in dev with `tools/bench.py` if present).
 - If Floyd color gets close to the limit, raise the preset `pixel_size` before touching the algorithm.
+- Video preview: 6 mix frames at Draft 720p < 1s; Full-doc render may take seconds on ED presets (background thread, debounced) — expected, not a freeze.
+- GIF exports at canvas size: check the `~MB` plan estimate in the export dialog before writing 12f 3000px+ GIFs.

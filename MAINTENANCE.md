@@ -19,36 +19,46 @@ app/__init__.py          :: version
 app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert (23 methods)
 app/kernels.py           :: COEFFS (11 kernels) + diffuse_* (numpy/numba) + Hilbert order/diffusion
 app/accelerate.py        :: optional njit + fallback (bit-identical parity)
-app/canvas.py            :: ratios + crop cover/contain
+app/canvas.py            :: ratios + free Custom WxH + cover/contain/stretch/blur
 app/adjust.py            :: brightness/contrast/saturation
 app/fx.py                :: pre (hue/denoise/smooth) + post + replace + custom
-app/pipeline.py          :: render() + meta_dict() (canvas/pre/adjust/dither/brand/post/glitch, no text since v0.14)
+app/pipeline.py          :: RenderSpec + render_spec/render + meta_dict (no text since v0.14)
+app/render_params.py     :: shared normalizers (delegates to RenderSpec.from_preset)
 app/palettes.py          :: original palettes
 app/palette_library.py   :: named palette JSONs (bundled + user) + BW equivalence
 app/palette_gen.py       :: random ramp/harmony palettes in Oklch (seedable)
-app/presets.py           :: JSON presets (bundled + user, no title since v0.14)
+app/presets.py           :: FIELDS schema + JSON presets (bundled + user, no title since v0.14)
 app/batch.py             :: sequential/multiprocess batch (fallback + cancel) + history
-app/ui/main_window.py    :: PySide6 (sections + menus + safe drop with toggle)
-app/ui/crop_editor.py    :: CropEditorDialog (visual crop: frame + grid + drag + zoom)
+app/ui/main_window.py    :: thin orchestrator: setup + refresh router + delegation (~700 lines)
+app/ui/window_assembly.py:: frame + panel groups + action bar + single-canvas preview
+app/ui/menus.py          :: File/Edit/View menus
+app/ui/params_controller.py :: widgets<->Preset (BINDINGS table + doc/anim readers)
+app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy player
+app/ui/preview_controller.py:: still preview (sync or background thread)
+app/ui/compare_controller.py:: hold-to-compare (Space/button)
+app/ui/export_flow.py    :: export dialog orchestration + bundle + history
+app/ui/batch_flow.py     :: batch dialog + worker + progress/ETA
+app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
+app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
+app/ui/crop_editor.py    :: CropEditorDialog (visual crop incl. free Custom frame)
 app/dnd.py               :: drop classification (http/data/blob/local/ignore)
 app/safety.py            :: size/vector guards (TooBigError)
-app/exporter.py          :: export tamaño+formato, plan, skip/rename (+SVG/GIF/meta)
+app/exporter.py          :: export canvas WxH + plan, skip/rename (+SVG/GIF/meta)
 app/vector.py            :: grid re-render + RLE + SVG
-app/gif.py               :: phase/hue frames + save_gif (max 480px)
+app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
 app/ops.py               :: rotate/flip/invert + undo cap 20
 app/glitch.py            :: chroma/slice + pixelsort/wave/mosh/grille
 app/grade.py             :: duotone/posterize/split-tone/fade (pre/post dither)
 app/texture.py           :: halftone/dust/border/letterbox (post-dither)
 app/paths.py             :: portable data (env/frozen/APPDATA)
 app/history.py           :: SQLite export history
-app/ui/main_window.py    :: PySide6 (QGroupBox sections + menus + preview + statusbar)
 app/ui/theme.qss         :: TRAKK family theme (tokens #151617/#F5A623)
 app/ui/theme.py          :: load_stylesheet() with fallback
 app/ui/workers.py        :: BatchWorker QThread (jobs + cancel)
-app/ui/preview_worker.py :: PreviewWorker QThread (tokens, 640px preview)
+app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, stale drops)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
 presets/*.json           :: 4 bundled (never overwritten)
-features/*.feature       :: 35 Gherkin scenarios
+features/*.feature       :: 38 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
 ```

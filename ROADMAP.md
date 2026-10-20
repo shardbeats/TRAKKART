@@ -27,7 +27,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 - `app/kernels.py`: generic ED (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3) + Hilbert-ordered diffusion. Ordered: bayer2/4/8/16, halftone, cluster, pattern, checker, ign, cross, bluenoise. 23 methods in `METHODS`.
 - `app/vector.py`: grid re-render + RLE + SVG (no post-fx, transparent background, size estimate). Flag in preset + UI checkbox.
 - `app/ops.py` (rotate/flip/invert + undo cap 20) + `app/glitch.py` (chromatic aberration, slice shift, pixel sort, wave, datamosh + RGB grille). Menus, zoom, dnd, clipboard, randomize, preset share via file.
-- Quality: 264 tests, 35/35 Gherkin, 5/5 gates PASS (coverage ≥80%, clean flake8).
+- Quality: 281 tests, 38/38 Gherkin, 5/5 gates PASS (coverage ≥80%, clean flake8 on `app` + `tests`).
 - Base: `main.py`, `requirements.txt` (PySide6/Pillow/numpy), `start.bat`/`run.bat`, `build_exe.py`, `README.md`, `LICENSE` MIT.
 
 ## 3. Roadmap
@@ -132,6 +132,13 @@ Root cause of the WhatsApp bug: `Path("")` == `Path(".")` -> `is_dir()` True + u
 - [x] Pro export: size presets + PNG/JPG/WebP, per-dialog outputs, overwrite policies, quick export with prefs.
 - [x] FX packs: GRADE (duotone/posterize/split-tone/fade/glow threshold), TEXTURE (halftone/dust/border/letterbox), GLITCH+ (pixelsort/wave/mosh/grille) in 3 panel groups.
 - [x] 7 new engines (shiaufan/filterlite/sierralite/sierra3, ign, checker, hilbert). 23 methods, 35/35 Gherkin.
+- [x] GIF overhaul: modes `phase/hue/both/glitch/mix`, 2–24 frames, 2–60 fps, ping-pong, anim at canvas size, shared 128-color palette (no per-frame flicker), deterministic seeded post-fx.
+- [x] Video mode: full-canvas animated preview (QThread worker + tokens) with play/pause/scrub, Draft 720p / HD 1080p / Full proxy tiers — export always full-doc. FPS changes retime only (no re-render).
+- [x] Single canvas + hold-to-compare (button or Space shows ORIGINAL); export GIF preview removed from the dialog (lives in VIDEO mode).
+- [x] Free Custom canvas (Photoshop-style): `Custom` ratio + free W×H (presets refill W/H, typing flips to Custom); `cover/contain/stretch/blur` honor free aspect; old presets migrate via `ratio+export_size`.
+- [x] Doc único + anim único: CANVAS owns size, VIDEO owns animation (no duplicated size/GIF controls in dialogs).
+- [x] Grille `every=2` crash fixed (mixed bool+list fancy index).
+- [x] Refactor: `main_window` 1686→~700 lines (8 controllers + assembly + menus); `FIELDS` preset schema; `BINDINGS` widget table; `RenderSpec` single ~40-param dataclass; unified exporter writer (legacy kept byte-identical). 281 tests, 38/38 Gherkin, gates 5/5.
 
 ### v1.0 — Standalone release
 TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each app lives on its own.
@@ -144,12 +151,17 @@ TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each
 - Pillow + numpy is enough and keeps the `.exe` light.
 - PySide6 UI (not PyQt6). Preview with `QLabel + QPixmap`, no `QGraphicsScene` in v0.
 - Original palettes, not 1:1 GameBoy/C64/NES clones.
+- Custom canvas is Photoshop-style: presets fill W/H, typing W/H flips to Custom. No GIMP-style chain toggle (one interaction model only).
+- Single canvas + hold-to-compare instead of side-by-side ORIGINAL/DITHER (pro look, less layout).
+- Preview proxies (Draft/HD/Full) decouple playback resolution from export: editing stays light on low-end PCs, export is always full-doc.
+- Refactor rule: logic lives in `app/ui/*_controller|flow|assembly` modules; `MainWindow` only orchestrates and keeps the test-facing API.
 
 ## 5. Known tech debt
 
 - Tests use `get_flattened_data()` (Pillow ≥10). Downgrading Pillow will break them.
-- `floyd_steinberg` color at 3000px is still slow (~45s numpy); with numba <1s. The real flow dithers at source size.
+- `floyd_steinberg` color at 3000px is still slow (~45s numpy); with numba <1s. The real flow dithers at source size; video preview defaults to Draft 720p so ED presets stay interactive.
 - Multiprocess batch in loose scripts requires the `if __name__ == "__main__"` guard (Windows spawn); without it there is automatic fallback to sequential.
+- Legacy `export_bundle()` (cover/small/1080p/metadata) is kept byte-identical for tests + the export-smoke gate; new code uses `export_with_options()`.
 
 ## 6. Out of scope (for now)
 
