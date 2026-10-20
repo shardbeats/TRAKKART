@@ -458,6 +458,16 @@ class MainWindow(QMainWindow):
             self._set_custom_colors([*self.custom_colors, rgb])
         self.refresh()
 
+    def gen_palette(self) -> None:
+        """🎲 Sorpresa: genera una paleta armoniosa (ramp/harmony en Oklch)."""
+        from app.palette_gen import generate_palette
+
+        n = max(2, len(self.custom_colors) or 4)
+        style = self.cmb_palgen.currentText().lower() if hasattr(self, "cmb_palgen") else "ramp"
+        self._set_custom_colors(generate_palette(n, style=style))
+        self.refresh()
+        self._status(f"Generated {style} palette: {len(self.custom_colors)} colors (editable)")
+
     def edit_custom_palette(self) -> None:
         """Full editor: swatches, hex, roles, usage, reorder, sort."""
         from app.ui.palette_dialog import CustomPaletteDialog
