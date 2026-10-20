@@ -90,6 +90,25 @@ def jjn_slime(ctx):
     ctx["out"] = error_diffusion(ctx["img"], kernel="jjn", palette=ctx["pal"])
 
 
+@when("I apply shiaufan, filterlite, sierralite, sierra3 and ign in B&W")
+def new_kernels_bw(ctx):
+    ctx["outs"] = [apply_method(ctx["img"], method=m, palette=None)
+                   for m in ("shiaufan", "filterlite", "sierralite", "sierra3")]
+    ctx["outs"].append(ordered(ctx["img"], palette=None, map_name="ign"))
+
+
+@then("the outputs are not all identical")
+def outputs_differ(ctx):
+    flats = [tuple(o.get_flattened_data()) for o in ctx["outs"]]
+    assert len(set(flats)) > 1
+
+
+@when("I apply Hilbert twice")
+def hilbert_twice(ctx):
+    ctx["out_a"] = apply_method(ctx["img"], palette=None, method="hilbert")
+    ctx["out_b"] = apply_method(ctx["img"], palette=None, method="hilbert")
+
+
 # -- adjust_text.feature --
 @when("I apply 4x4 Bayer with brightness 1.5 and with brightness 1.0")
 def bayer_brightness(ctx):

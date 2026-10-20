@@ -1,7 +1,9 @@
 """TRAKKART dither engine (MIT, clean-room).
 
-Ordered: bayer4/bayer8/bayer16/cross/bluenoise (own maps or standard
-math). Error-diffusion: floyd/atkinson/burkes/sierra via app/kernels.py.
+Ordered: bayer2/4/8/16, halftone/cluster/pattern/checker/ign/cross/bluenoise
+(own maps or standard math). Error-diffusion: floyd/atkinson/burkes/sierra/
+jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3 via app/kernels.py.
+Hilbert: error diffusion along a space-filling curve (Riemersma-style).
 
 Numpy + Pillow only. No numba, no opencv, no GPU.
 """
@@ -83,9 +85,11 @@ _ORDERED_DEFS: dict[str, tuple[np.ndarray, float]] = {
     "halftone": (HALFTONE_4X4, 16.0),
     "cluster": (CLUSTER_4X4, 16.0),
     "pattern": (_PATTERN_8X8, 256.0),
+    "checker": (np.array([[0, 1], [1, 0]], dtype=np.float32), 2.0),
 }
 
-ORDERED_MAPS = ("bayer4", "bayer8", "bayer16", "bayer2", "halftone", "cluster", "pattern", "cross", "bluenoise")
+ORDERED_MAPS = ("bayer4", "bayer8", "bayer16", "bayer2", "halftone", "cluster",
+                "pattern", "cross", "bluenoise", "checker", "ign")
 
 _BLUE_BASE: np.ndarray | None = None
 _CROSS_CACHE: dict[tuple[int, int], np.ndarray] = {}
@@ -134,6 +138,19 @@ def _crosshatch(h: int, w: int) -> np.ndarray:
     return out
 
 
+def _ign(h: int, w: int) -> np.ndarray:
+    """Interleaved Gradient Noise (Jorge Jimenez, fórmula pública).
+
+    Ruido azulado barato sin tablas: f(n) = fract(52.98 * fract(dot(p))).
+    Determinista; `phase` lo desplaza para animar (marching sin coste).
+    """
+    ys = np.arange(h, dtype=np.float64)[:, None]
+    xs = np.arange(w, dtype=np.float64)[None, :]
+    d = xs * 0.06711056 + ys * 0.00583715
+    f = d - np.floor(d)
+    return (52.9829189 * f - np.floor(52.9829189 * f)).astype(np.float32) * 255.0
+
+
 def _threshold_bias(map_name: str, h: int, w: int, threshold: float, phase: int = 0) -> np.ndarray:
     """Additive bias on a 0-255 scale per map and threshold. phase rotates the matrix."""
     spread = 255.0 - abs(float(threshold) - 127.5) * 2.0
@@ -142,6 +159,8 @@ def _threshold_bias(map_name: str, h: int, w: int, threshold: float, phase: int 
         return (np.roll(_crosshatch(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
     if map_name == "bluenoise":
         return (np.roll(_blue_noise(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "ign":
+        return (np.roll(_ign(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
     mat, div = _ORDERED_DEFS.get(map_name, _ORDERED_DEFS["bayer4"])
     tiled = _tile_matrix(mat, h, w)
     if phase:
@@ -231,7 +250,7 @@ def error_diffusion(
     adjust: Adjust | dict | None = None,
     backend: str = "auto",
 ) -> Image.Image:
-    """Generic error diffusion (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson)."""
+    """Generic error diffusion (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson + nuevos)."""
     if kernel not in COEFFS:
         kernel = "floyd"
     base = apply_adjust(img.convert("RGB"), adjust)
@@ -240,6 +259,34 @@ def error_diffusion(
         sh = max(1, base.height // pixel_size)
         base = base.resize((sw, sh), Image.NEAREST)
     res = run_kernel(base, kernel, palette, float(threshold), backend=backend)
+    if pixel_size > 1:
+        res = res.resize((res.width * pixel_size, res.height * pixel_size), Image.NEAREST)
+    return res
+
+
+def hilbert_diffusion(
+    img: Image.Image,
+    palette: list[tuple] | None = None,
+    threshold: float = 128.0,
+    pixel_size: int = 1,
+    adjust: Adjust | dict | None = None,
+) -> Image.Image:
+    """Hilbert-ordered error diffusion (Riemersma-style, sin vetas de barrido)."""
+    from app.kernels import diffuse_hilbert
+
+    base = apply_adjust(img.convert("RGB"), adjust)
+    if pixel_size > 1:
+        sw = max(1, base.width // pixel_size)
+        sh = max(1, base.height // pixel_size)
+        base = base.resize((sw, sh), Image.NEAREST)
+    if palette is None:
+        lum = np.array(base.convert("L"), dtype=np.float32)
+        out = diffuse_hilbert(lum, None, threshold=float(threshold))
+        res = Image.fromarray(out, mode="L").convert("RGB")
+    else:
+        arr = np.array(base, dtype=np.float32)
+        res = Image.fromarray(
+            diffuse_hilbert(arr, palette, threshold=float(threshold)), mode="RGB")
     if pixel_size > 1:
         res = res.resize((res.width * pixel_size, res.height * pixel_size), Image.NEAREST)
     return res
@@ -259,7 +306,10 @@ def floyd_steinberg(
 METHODS = (
     "bayer2", "bayer4", "bayer8", "bayer16",
     "halftone", "cluster", "pattern", "cross", "bluenoise",
+    "checker", "ign",
     "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson",
+    "shiaufan", "filterlite", "sierralite", "sierra3",
+    "hilbert",
 )
 
 
@@ -276,4 +326,6 @@ def apply_method(
         return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
     if method in ORDERED_MAPS:
         return ordered(img, palette=palette, map_name=method, threshold=threshold, pixel_size=pixel_size, adjust=adjust, phase=phase)
+    if method == "hilbert":
+        return hilbert_diffusion(img, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
     return ordered_bayer(img, palette=palette, matrix="4x4", threshold=threshold, pixel_size=pixel_size, adjust=adjust)

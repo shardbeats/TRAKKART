@@ -16,8 +16,8 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 ```
 main.py                  :: entry
 app/__init__.py          :: version
-app/dither.py            :: 9 ordered + ED via kernels (16 methods)
-app/kernels.py           :: COEFFS (7 kernels) + diffuse_* (numpy/numba backend)
+app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert (23 methods)
+app/kernels.py           :: COEFFS (11 kernels) + diffuse_* (numpy/numba) + Hilbert order/diffusion
 app/accelerate.py        :: optional njit + fallback (bit-identical parity)
 app/canvas.py            :: ratios + crop cover/contain
 app/adjust.py            :: brightness/contrast/saturation

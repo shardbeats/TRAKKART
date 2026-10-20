@@ -2,6 +2,8 @@
 
 Standard coefficient tables (public error-diffusion math).
 The `_diffuse` engine is original work, row-vectorized like the v0.4 Floyd.
+Hilbert-ordered diffusion (Riemersma-style) lives here too: same error
+fractions, but the image is walked along a Hilbert curve instead of rows.
 """
 
 from __future__ import annotations
@@ -41,9 +43,29 @@ COEFFS: dict[str, list[tuple[int, int, float]]] = {
         (2, -2, 12 / 200), (2, 0, 26 / 200), (2, 2, 12 / 200),
         (3, -3, 5 / 200), (3, -1, 12 / 200), (3, 1, 12 / 200), (3, 3, 5 / 200),
     ],
+    # Shiau-Fan 5x3 en su forma publicada habitual (suma 42): denso y suave,
+    # a medio camino entre Burkes y Stucki en agresividad.
+    "shiaufan": [
+        (0, 1, 8 / 42), (0, 2, 4 / 42),
+        (1, -2, 2 / 42), (1, -1, 4 / 42), (1, 0, 8 / 42), (1, 1, 4 / 42), (1, 2, 2 / 42),
+        (2, -2, 1 / 42), (2, -1, 2 / 42), (2, 0, 4 / 42), (2, 1, 2 / 42), (2, 2, 1 / 42),
+    ],
+    # Filter Lite: rapidísimo (2 toques), granulado fino tipo semitono.
+    "filterlite": [(0, 1, 7 / 8), (1, 0, 1 / 8)],
+    # Sierra Lite: el clásico mínimo de 2 filas (divisor 4).
+    "sierralite": [(0, 1, 2 / 4), (1, -1, 1 / 4), (1, 0, 1 / 4)],
+    # Sierra-3 completo de 3 filas (divisor 32), el más suave de la familia.
+    "sierra3": [
+        (0, 1, 5 / 32), (0, 2, 3 / 32),
+        (1, -2, 2 / 32), (1, -1, 4 / 32), (1, 0, 5 / 32), (1, 1, 4 / 32), (1, 2, 2 / 32),
+        (2, -1, 2 / 32), (2, 0, 3 / 32), (2, 1, 2 / 32),
+    ],
 }
 
-ED_METHODS = ("floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson")
+ED_METHODS = (
+    "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson",
+    "shiaufan", "filterlite", "sierralite", "sierra3",
+)
 
 
 from app.accelerate import coeffs_to_arrays, ed_bw, ed_color, has_numba
@@ -147,3 +169,124 @@ def run_kernel(
         return Image.fromarray(out, mode="L").convert("RGB")
     arr = np.array(img.convert("RGB"), dtype=np.float32)
     return Image.fromarray(diffuse_color(arr, palette, coeffs, backend=backend), mode="RGB")
+
+
+# ---------------------------------------------------------------------------
+# Hilbert-ordered diffusion (Riemersma-style). Recorre la imagen por una
+# curva de Hilbert en vez de por filas: el error se reparte a los siguientes
+# píxeles de la curva (fracciones de Floyd). Sin vetas horizontales.
+# ---------------------------------------------------------------------------
+
+_HILBERT_CACHE: dict[tuple[int, int], np.ndarray] = {}
+_HILBERT_CHUNK = 1 << 18  # trozos de 256k puntos: memoria acotada (~12MB)
+
+
+def _d2xy_chunk(d: np.ndarray, n: int) -> tuple[np.ndarray, np.ndarray]:
+    """Distancia Hilbert -> (x, y). Vectorizado (algoritmo público d2xy)."""
+    x = np.zeros_like(d)
+    y = np.zeros_like(d)
+    s = 1
+    t = d.copy()
+    while s < n:
+        rx = (t // 2) & 1
+        ry = (t ^ rx) & 1
+        m0 = ry == 0
+        m1 = m0 & (rx == 1)
+        x = np.where(m1, s - 1 - x, x)
+        y = np.where(m1, s - 1 - y, y)
+        nx = np.where(m0, y, x)
+        ny = np.where(m0, x, y)
+        x, y = nx, ny
+        x = x + s * rx
+        y = y + s * ry
+        t //= 4
+        s *= 2
+    return x, y
+
+
+def hilbert_order(h: int, w: int) -> np.ndarray:
+    """Índices planos (y*w+x) en orden Hilbert. Cacheado por tamaño."""
+    key = (int(h), int(w))
+    cached = _HILBERT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    n = 1
+    while n < max(h, w):
+        n *= 2
+    parts: list[np.ndarray] = []
+    for start in range(0, n * n, _HILBERT_CHUNK):
+        d = np.arange(start, min(start + _HILBERT_CHUNK, n * n), dtype=np.int64)
+        xs, ys = _d2xy_chunk(d, n)
+        ok = (xs < w) & (ys < h)
+        parts.append((ys[ok].astype(np.int64) * w + xs[ok].astype(np.int64)))
+    order = np.concatenate(parts) if parts else np.zeros(0, dtype=np.int64)
+    if len(_HILBERT_CACHE) >= 4:
+        _HILBERT_CACHE.pop(next(iter(_HILBERT_CACHE)))
+    _HILBERT_CACHE[key] = order
+    return order
+
+
+# Fracciones de Floyd a los 4 siguientes de la curva (suman 1).
+_HILBERT_WTS = (7 / 16, 3 / 16, 5 / 16, 1 / 16)
+
+
+def diffuse_hilbert(
+    arr: np.ndarray,
+    palette: list[tuple] | None,
+    threshold: float = 128.0,
+) -> np.ndarray:
+    """Difunde en orden Hilbert. arr float32 (H,W) gris o (H,W,3) RGB.
+
+    Devuelve uint8. Secuencial por construcción (como todo ED): para
+    full-res grande se recomienda numba en el resto de motores; aquí el
+    recorrido numpy-vectorizado compensa el orden.
+    """
+    order = hilbert_order(arr.shape[0], arr.shape[1])
+    n = len(order)
+    if palette is None:
+        buf = np.array(arr, dtype=np.float32).reshape(-1).copy()
+        t = float(threshold)
+        out = np.empty(n, dtype=np.uint8)
+        wts = _HILBERT_WTS
+        for pos in range(n):
+            idx = int(order[pos])
+            old = float(buf[idx])
+            new = 255.0 if old > t else 0.0
+            out[pos] = 255 if new > 127 else 0
+            buf[idx] = new
+            err = old - new
+            if err:
+                for k in range(1, 5):
+                    j = pos + k
+                    if j < n:
+                        buf[int(order[j])] += err * wts[k - 1]
+        res = np.empty_like(buf, dtype=np.uint8)
+        res[order] = out
+        h, w = arr.shape[:2]
+        return res.reshape(h, w)
+    pc = np.asarray(palette, dtype=np.float32)
+    buf = np.array(arr, dtype=np.float32).reshape(-1, 3).copy()
+    out = np.empty((n, 3), dtype=np.uint8)
+    wts = _HILBERT_WTS
+    for pos in range(n):
+        idx = int(order[pos])
+        px = buf[idx]
+        r0, g0, b0 = float(px[0]), float(px[1]), float(px[2])
+        d = np.sum((pc - px) ** 2, axis=1)
+        best = int(np.argmin(d))
+        nr, ng, nb = float(pc[best, 0]), float(pc[best, 1]), float(pc[best, 2])
+        out[pos] = (nr, ng, nb)
+        buf[idx] = (nr, ng, nb)
+        er, eg, eb = r0 - nr, g0 - ng, b0 - nb
+        if er or eg or eb:
+            for k in range(1, 5):
+                j = pos + k
+                if j < n:
+                    tgt = buf[int(order[j])]
+                    tgt[0] += er * wts[k - 1]
+                    tgt[1] += eg * wts[k - 1]
+                    tgt[2] += eb * wts[k - 1]
+    res = np.empty_like(buf)
+    res[order] = out.astype(np.float32)
+    h, w = arr.shape[:2]
+    return np.clip(res.reshape(h, w, 3), 0, 255).astype(np.uint8)

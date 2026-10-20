@@ -37,6 +37,41 @@ def test_floyd_bw_only_two_colors():
 def test_apply_method_dispatch():
     from app.dither import METHODS
 
+    assert len(METHODS) == 23  # 11 ordered + 11 ED + hilbert
     for m in METHODS:
         out = apply_method(_img(), method=m, palette=None)
         assert out.size == (64, 64)
+
+
+def test_ign_deterministic_and_phased():
+    from app.dither import ordered
+
+    a = ordered(_img(), palette=None, map_name="ign")
+    b = ordered(_img(), palette=None, map_name="ign")
+    assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+    c = ordered(_img(), palette=None, map_name="ign", phase=7)
+    assert list(a.get_flattened_data()) != list(c.get_flattened_data())
+    assert set(a.convert("L").get_flattened_data()) <= {0, 255}
+
+
+def test_checker_exact_pattern():
+    from app.dither import ordered
+
+    solid = Image.new("RGB", (4, 4), (200, 200, 200))
+    out = ordered(solid, palette=None, map_name="checker", threshold=128)
+    px = list(out.convert("L").get_flattened_data())
+    # Tablero 2x2 repetido: esquinas opuestas iguales, adyacentes distintas.
+    assert px[0] == px[1 + 4] != px[1] == px[4]
+
+
+def test_hilbert_dispatch_and_deterministic():
+    from app.dither import apply_method, hilbert_diffusion
+
+    a = apply_method(_img(), method="hilbert", palette=None)
+    b = hilbert_diffusion(_img(), palette=None)
+    assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+    assert set(a.convert("L").get_flattened_data()) <= {0, 255}
+    pal = get_palette("SLIME")
+    assert pal is not None
+    c = apply_method(_img(), method="hilbert", palette=pal)
+    assert set(c.get_flattened_data()) <= set(pal)

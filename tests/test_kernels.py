@@ -59,3 +59,34 @@ def test_bluenoise_deterministic():
 
 def test_coeffs_present():
     assert set(COEFFS.keys()) == set(ED_METHODS)
+
+
+def test_coeffs_weights_sum_to_one():
+    for k, coeffs in COEFFS.items():
+        s = sum(w for _, _, w in coeffs)
+        if k == "atkinson":  # pérdida intencional (contraste alto)
+            assert s == 0.75
+        else:
+            assert abs(s - 1.0) < 1e-9, k
+
+
+def test_hilbert_order_covers_once():
+    from app.kernels import hilbert_order
+
+    o2 = hilbert_order(2, 2)
+    assert [int(i) for i in o2] == [0, 2, 3, 1]  # curva en U
+    o = hilbert_order(4, 5)
+    assert len(o) == 20 and len(set(int(i) for i in o)) == 20
+    assert hilbert_order(4, 5) is o  # cacheado por tamaño
+
+
+def test_hilbert_diffusion_deterministic():
+    import numpy as np
+
+    from app.kernels import diffuse_hilbert
+
+    arr = np.array(_img(32).convert("RGB"), dtype=np.float32)
+    a = diffuse_hilbert(arr.copy(), get_palette("SLIME"), 128.0)
+    b = diffuse_hilbert(arr.copy(), get_palette("SLIME"), 128.0)
+    assert (a == b).all()
+    assert set(map(tuple, a.reshape(-1, 3).tolist())) <= set(get_palette("SLIME"))

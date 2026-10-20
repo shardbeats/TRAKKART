@@ -28,3 +28,14 @@ Feature: Extra dither engines
     Given a 64x64 test gradient
     When I diffuse Floyd with both backends
     Then both outputs are identical
+
+  Scenario: New kernels keep size and stay deterministic
+    Given a 64x64 test gradient
+    When I apply shiaufan, filterlite, sierralite, sierra3 and ign in B&W
+    Then every result keeps the 64x64 size
+    And the outputs are not all identical
+
+  Scenario: Hilbert is deterministic
+    Given a 64x64 test gradient
+    When I apply Hilbert twice
+    Then both outputs are identical

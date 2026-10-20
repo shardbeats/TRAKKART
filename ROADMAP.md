@@ -24,7 +24,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 - `app/canvas.py`: ratios 1:1/4:3/3:2/4:5/16:9/9:16, crop cover (X/Y focus) / contain, clamp. Export per ratio (long side 3000/960) + 1080p thumb contain over blur.
 - `app/kernels.py`: generic ED (floyd/atkinson/burkes/sierra) + ordered bayer16/cross/bluenoise custom and deterministic. 9 methods in `METHODS`.
 - `app/fx.py`: pre (blur/sharpen/hue/denoise/smooth) + post (glow/grain/vignette/scanlines) + replace-color + custom palette. Pipeline: canvas→pre→adjust→dither→brand→post→text.
-- `app/kernels.py`: generic ED (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson). Ordered: bayer2/4/8/16, halftone, cluster, pattern, cross, bluenoise. 16 methods in `METHODS`.
+- `app/kernels.py`: generic ED (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3) + Hilbert-ordered diffusion. Ordered: bayer2/4/8/16, halftone, cluster, pattern, checker, ign, cross, bluenoise. 23 methods in `METHODS`.
 - `app/vector.py`: grid re-render + RLE + SVG (no post-fx, transparent background, size estimate). Flag in preset + UI checkbox.
 - `app/ops.py` (rotate/flip/invert + undo cap 20) + `app/glitch.py` (chromatic aberration + slice shift). Menus, zoom, dnd, clipboard, randomize, preset share via file.
 - Quality: 170 tests, 30/30 Gherkin, 5/5 gates PASS (coverage 87.7%, clean flake8).
