@@ -213,6 +213,73 @@ def export_with_options(
     return _write_bundle(img, out_dir, base, keys, options, meta, vector_svg, gif_frames, gif_fps), []
 
 
+# ---------------------------------------------------------------------------
+# Escritores compartidos: el esquema nuevo y el legacy usan el mismo arte.
+# Cada writer es una receta fina (nombres + dimensiones); el cómo se escribe
+# vive aquí una sola vez. Salida byte-idéntica a la versión anterior.
+# ---------------------------------------------------------------------------
+def _thumb_image(rgb: Image.Image, w: int, h: int) -> Image.Image:
+    """Cover encajado sobre fondo blur (compartido: mismo algoritmo, mismos bytes)."""
+    bg_src = rgb.resize((w, h)).filter(ImageFilter.GaussianBlur(40))
+    dim = Image.new("RGB", (w, h), (0, 0, 0))
+    bg = Image.blend(bg_src, dim, 0.25)
+    r = min(w / rgb.width, h / rgb.height)
+    nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
+    small_fit = rgb.resize((nw, nh), Image.NEAREST)
+    bg.paste(small_fit, ((w - nw) // 2, (h - nh) // 2))
+    return bg
+
+
+def _write_raster(rgb: Image.Image, path: Path, w: int, h: int,
+                  fmt: str, quality: int) -> None:
+    _save_raster(rgb.resize((w, h), Image.NEAREST), path, fmt, quality)
+
+
+def _info_base(base: str, files: list[str], export: dict | None) -> dict:
+    info = {
+        "app": "TRAKKART",
+        "version": __version__,
+        "base": base,
+        "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "files": files,
+    }
+    if export is not None:
+        info["export"] = export
+    return info
+
+
+def _attach_vector(result: dict, info: dict, out_dir: Path, base: str,
+                   suffix: str, vector_svg: str) -> None:
+    pvec = out_dir / f"{base}{suffix}"
+    pvec.write_text(vector_svg, encoding="utf-8")
+    info["files"].append(pvec.name)
+    result["vector"] = pvec
+    info["vector"] = {"bytes": len(vector_svg.encode("utf-8"))}
+
+
+def _attach_anim(result: dict, info: dict, out_dir: Path, base: str,
+                 suffix: str, gif_frames: list, fps: int | None) -> None:
+    from app.gif import save_gif
+
+    panim = out_dir / f"{base}{suffix}"
+    if fps is None:
+        save_gif(gif_frames, panim)  # legacy: default del motor
+    else:
+        save_gif(gif_frames, panim, fps=int(fps))
+    info["files"].append(panim.name)
+    entry: dict = {"bytes": panim.stat().st_size, "frames": len(gif_frames)}
+    if fps is not None:
+        entry["fps"] = int(fps)
+    info["gif"] = entry
+    result["anim"] = panim
+
+
+def _attach_meta(result: dict, info: dict, out_dir: Path, base: str, suffix: str) -> None:
+    pmeta = out_dir / f"{base}{suffix}"
+    pmeta.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+    result["metadata"] = pmeta
+
+
 def _write_bundle(
     img: Image.Image,
     out_dir: Path,
@@ -230,54 +297,29 @@ def _write_bundle(
     result: dict[str, Path] = {}
     if "image" in keys:
         pmain = out_dir / _raster_name(base, "image", options.format)
-        _save_raster(rgb.resize((main_w, main_h), Image.NEAREST), pmain, options.format, options.quality)
+        _write_raster(rgb, pmain, main_w, main_h, options.format, options.quality)
         result["image"] = pmain
 
     if "thumb_1080p" in keys:
         # 1080p thumb: cover fitted over a blurred background (works for any ratio)
-        bg_src = rgb.resize((THUMB_LONG_SIDE, THUMB_SHORT_SIDE)).filter(ImageFilter.GaussianBlur(40))
-        dim = Image.new("RGB", (THUMB_LONG_SIDE, THUMB_SHORT_SIDE), (0, 0, 0))
-        bg = Image.blend(bg_src, dim, 0.25)
-        r = min(THUMB_LONG_SIDE / rgb.width, THUMB_SHORT_SIDE / rgb.height)
-        nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
-        small_fit = rgb.resize((nw, nh), Image.NEAREST)
-        bg.paste(small_fit, ((THUMB_LONG_SIDE - nw) // 2, (THUMB_SHORT_SIDE - nh) // 2))
         p1080 = out_dir / _raster_name(base, "thumb_1080p", options.format)
-        _save_raster(bg, p1080, options.format, options.quality)
+        _save_raster(_thumb_image(rgb, THUMB_LONG_SIDE, THUMB_SHORT_SIDE),
+                     p1080, options.format, options.quality)
         result["thumb_1080p"] = p1080
 
     files = [result[k].name for k in ("image", "thumb_1080p") if k in result]
 
-    info = {
-        "app": "TRAKKART",
-        "version": __version__,
-        "base": base,
-        "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "files": files,
-        "export": {"size": int(options.size), "format": str(options.format),
-                   "quality": int(options.quality)},
-    }
+    info = _info_base(base, files, {"size": int(options.size),
+                                    "format": str(options.format),
+                                    "quality": int(options.quality)})
     if meta:
         info["params"] = meta
     if vector_svg and "vector" in keys:
-        pvec = out_dir / f"{base}{SUFFIXES['vector']}"
-        pvec.write_text(vector_svg, encoding="utf-8")
-        info["files"].append(pvec.name)
-        result["vector"] = pvec
-        info["vector"] = {"bytes": len(vector_svg.encode("utf-8"))}
+        _attach_vector(result, info, out_dir, base, SUFFIXES["vector"], vector_svg)
     if gif_frames and "anim" in keys:
-        from app.gif import save_gif
-
-        panim = out_dir / f"{base}{SUFFIXES['anim']}"
-        save_gif(gif_frames, panim, fps=int(gif_fps))
-        info["files"].append(panim.name)
-        info["gif"] = {"bytes": panim.stat().st_size, "frames": len(gif_frames),
-                       "fps": int(gif_fps)}
-        result["anim"] = panim
+        _attach_anim(result, info, out_dir, base, SUFFIXES["anim"], gif_frames, gif_fps)
     if "metadata" in keys:
-        pmeta = out_dir / f"{base}{SUFFIXES['metadata']}"
-        pmeta.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
-        result["metadata"] = pmeta
+        _attach_meta(result, info, out_dir, base, SUFFIXES["metadata"])
     return result
 
 
@@ -313,55 +355,28 @@ def _write_legacy_bundle(
     result: dict[str, Path] = {}
     if "cover" in keys:
         pcover = out_dir / f"{base}{_LEGACY_SUFFIXES['cover']}"
-        rgb.resize((big_w, big_h), Image.NEAREST).save(str(pcover), "PNG")
+        _write_raster(rgb, pcover, big_w, big_h, "png", 90)
         result["cover"] = pcover
     if "small" in keys:
         psmall = out_dir / f"{base}{_LEGACY_SUFFIXES['small']}"
-        rgb.resize((small_w, small_h), Image.NEAREST).save(str(psmall), "PNG")
+        _write_raster(rgb, psmall, small_w, small_h, "png", 90)
         result["small"] = psmall
 
-    files: list[str] = []
     if "thumb_1080p" in keys:
-        bg_src = rgb.resize((1920, 1080)).filter(ImageFilter.GaussianBlur(40))
-        dim = Image.new("RGB", (1920, 1080), (0, 0, 0))
-        bg = Image.blend(bg_src, dim, 0.25)
-        r = min(1920 / rgb.width, 1080 / rgb.height)
-        nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
-        small_fit = rgb.resize((nw, nh), Image.NEAREST)
-        bg.paste(small_fit, ((1920 - nw) // 2, (1080 - nh) // 2))
         p1080 = out_dir / f"{base}{_LEGACY_SUFFIXES['thumb_1080p']}"
-        bg.save(str(p1080), "PNG")
+        _thumb_image(rgb, 1920, 1080).save(str(p1080), "PNG")
         result["thumb_1080p"] = p1080
-        files.append(p1080.name)
     files = [result[k].name for k in ("cover", "small", "thumb_1080p") if k in result]
 
-    info = {
-        "app": "TRAKKART",
-        "version": __version__,
-        "base": base,
-        "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "files": files,
-    }
+    info = _info_base(base, files, None)
     if meta:
         info["params"] = meta
     if vector_svg and "vector" in keys:
-        pvec = out_dir / f"{base}{_LEGACY_SUFFIXES['vector']}"
-        pvec.write_text(vector_svg, encoding="utf-8")
-        info["files"].append(pvec.name)
-        result["vector"] = pvec
-        info["vector"] = {"bytes": len(vector_svg.encode("utf-8"))}
+        _attach_vector(result, info, out_dir, base, _LEGACY_SUFFIXES["vector"], vector_svg)
     if gif_frames and "anim" in keys:
-        from app.gif import save_gif
-
-        panim = out_dir / f"{base}{_LEGACY_SUFFIXES['anim']}"
-        save_gif(gif_frames, panim)
-        info["files"].append(panim.name)
-        info["gif"] = {"bytes": panim.stat().st_size, "frames": len(gif_frames)}
-        result["anim"] = panim
+        _attach_anim(result, info, out_dir, base, _LEGACY_SUFFIXES["anim"], gif_frames, None)
     if "metadata" in keys:
-        pmeta = out_dir / f"{base}{_LEGACY_SUFFIXES['metadata']}"
-        pmeta.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
-        result["metadata"] = pmeta
+        _attach_meta(result, info, out_dir, base, _LEGACY_SUFFIXES["metadata"])
     return result
 
 

@@ -11,8 +11,188 @@ from __future__ import annotations
 
 
 # ------------------------------------------------------------------
-# Widget readers (doc único CANVAS + anim único VIDEO)
+# Widget readers (doc único CANVAS + anim único VIDEO) + tabla de bindings.
+# Añadir un control = 1 fila en BINDINGS (antes: tocar build y apply a mano).
+# Cada fila: (campo, get(win) -> valor, set(win, valor)).
 # ------------------------------------------------------------------
+
+
+def _slider(attr: str, div: float = 1.0):
+    def get(win):
+        return getattr(win, attr).value() / div
+
+    def set(win, v):
+        getattr(win, attr).setValue(int(round(float(v) * div)))
+
+    return get, set
+
+
+def _spin(attr: str):
+    def get(win):
+        return int(getattr(win, attr).value())
+
+    def set(win, v):
+        getattr(win, attr).setValue(int(v))
+
+    return get, set
+
+
+def _combo(attr: str):
+    def get(win):
+        return getattr(win, attr).currentText()
+
+    def set(win, v):
+        w = getattr(win, attr)
+        if w.findText(str(v)) >= 0:
+            w.setCurrentText(str(v))
+
+    return get, set
+
+
+def _anim_combo(attr: str, lo: int, hi: int, default: int):
+    def get(win):
+        return anim_combo_int(getattr(win, attr), default, lo, hi)
+
+    def set(win, v):
+        set_anim_combo(getattr(win, attr), max(lo, min(hi, int(v))))
+
+    return get, set
+
+
+def _brand_get(win):
+    return win.brand_color
+
+
+def _brand_set(win, v):
+    win.set_brand_color(v or "")
+
+
+def _duo_mid_get(win):
+    return float(win.sld_duo_mid.value())
+
+
+def _duo_mid_set(win, v):
+    win.sld_duo_mid.setValue(int(float(v)))
+
+
+def _border_color_get(win):
+    return win.border_color
+
+
+def _border_color_set(win, v):
+    win.set_border_color(str(v or "#000000"))
+
+
+def _scan_get(win):
+    return int(win.spn_scan.value())
+
+
+def _scan_set(win, v):
+    win.spn_scan.setValue(int(v))
+
+
+def _glow_radius_get(win):
+    # Radio 0 si el glow está apagado (el spin conserva su último valor).
+    if win.sld_glow.value() <= 0:
+        return 0.0
+    return float(win.spn_glowrad.value())
+
+
+def _glow_radius_set(win, v):
+    win.spn_glowrad.setValue(int(float(v)))
+
+
+# Normalizaciones de render_params que el build aplica (la UI admite
+# intermedios que el motor redondea al válido más cercano).
+def _norms():
+    from app.render_params import (
+        normalize_grille,
+        normalize_halftone,
+        normalize_posterize,
+        normalize_scanlines,
+        normalize_slice_bands,
+    )
+
+    return {
+        "scanlines": normalize_scanlines,
+        "posterize": normalize_posterize,
+        "halftone": normalize_halftone,
+        "grille": normalize_grille,
+        "glitch_slice_bands": lambda v: normalize_slice_bands(int(v)),
+    }
+
+
+def _video_mode_get(win):
+    return gif_anim_mode(win)
+
+
+def _video_mode_set(win, v):
+    w = win.cmb_video_mode
+    try:
+        w.blockSignals(True)
+        if w.findText(str(v)) >= 0:
+            w.setCurrentText(str(v))
+    finally:
+        w.blockSignals(False)
+
+
+def _pingpong_get(win):
+    return bool(win.chk_video_pingpong.isChecked())
+
+
+def _pingpong_set(win, v):
+    w = win.chk_video_pingpong
+    try:
+        w.blockSignals(True)
+        w.setChecked(bool(v))
+    finally:
+        w.blockSignals(False)
+
+
+BINDINGS: tuple = (
+    ("method",) + _combo("cmb_method"),
+    ("pixel_size",) + _spin("spn_pixel"),
+    ("threshold",) + _slider("sld_thr"),
+    ("brightness",) + _slider("sld_bri", 100.0),
+    ("contrast",) + _slider("sld_con", 100.0),
+    ("saturation",) + _slider("sld_sat", 100.0),
+    ("ratio",) + _combo("cmb_ratio"),
+    ("crop_mode",) + _combo("cmb_crop"),
+    ("pre_blur",) + _slider("sld_blur", 10.0),
+    ("pre_sharpen",) + _spin("spn_sharp"),
+    ("pre_hue",) + _slider("sld_hue"),
+    ("pre_denoise",) + _spin("spn_denoise"),
+    ("pre_smooth",) + _slider("sld_smooth", 10.0),
+    ("glow_radius", _glow_radius_get, _glow_radius_set),
+    ("glow_intensity",) + _slider("sld_glow"),
+    ("glow_threshold",) + _spin("spn_glowthr"),
+    ("grain",) + _slider("sld_grain"),
+    ("vignette",) + _slider("sld_vig"),
+    ("scanlines", _scan_get, _scan_set),
+    ("replace_color", _brand_get, _brand_set),
+    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 24, 6),
+    ("gif_mode", _video_mode_get, _video_mode_set),
+    ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
+    ("gif_pingpong", _pingpong_get, _pingpong_set),
+    ("duotone_mid", _duo_mid_get, _duo_mid_set),
+    ("posterize",) + _spin("spn_poster"),
+    ("split_tone",) + _slider("sld_split"),
+    ("fade",) + _slider("sld_fade"),
+    ("halftone",) + _spin("spn_halftone"),
+    ("halftone_shape",) + _combo("cmb_halftone"),
+    ("dust",) + _slider("sld_dust"),
+    ("border",) + _spin("spn_border"),
+    ("border_color", _border_color_get, _border_color_set),
+    ("letterbox",) + _spin("spn_letterbox"),
+    ("glitch_chroma",) + _slider("sld_chroma"),
+    ("glitch_slice_bands",) + _spin("spn_slice"),
+    ("pixelsort",) + _spin("spn_pixelsort"),
+    ("wave",) + _spin("spn_wave"),
+    ("mosh",) + _slider("sld_mosh"),
+    ("grille",) + _spin("spn_grille"),
+)
+
+
 def doc_size(win) -> int:
     from app.exporter import MAX_SIDE, MIN_SIDE
 
@@ -145,75 +325,56 @@ def current_adjust(win):
     )
 
 
+def _kinds() -> dict:
+    from app.presets import FIELDS
+
+    return {f.name: f.kind for f in FIELDS}
+
+
+def _coerce_kind(kind: str, value):
+    if kind == "int":
+        return int(value)
+    if kind == "float":
+        return float(value)
+    if kind == "str":
+        return str(value)
+    if kind == "bool":
+        return bool(value)
+    return value
+
+
 def build_params(win):
     """Preset from widgets. Única fuente (la UI es el editor)."""
     from app.palettes import palette_names
     from app.presets import Preset
-    from app.render_params import (
-        normalize_grille,
-        normalize_halftone,
-        normalize_posterize,
-        normalize_scanlines,
-    )
 
+    kinds = _kinds()
+    norms = _norms()
+    kwargs: dict = {}
+    for field, get, _set in BINDINGS:
+        v = get(win)
+        if field in norms:
+            v = norms[field](v)
+        kwargs[field] = _coerce_kind(kinds[field], v)
     base = win._palette_base if win._palette_base in palette_names() else "SLIME"
     return Preset(
         name=win.cmb_preset.currentText(),
-        method=win.cmb_method.currentText(),
         palette=base,
-        pixel_size=int(win.spn_pixel.value()),
-        threshold=int(win.sld_thr.value()),
-        brightness=win.sld_bri.value() / 100.0,
-        contrast=win.sld_con.value() / 100.0,
-        saturation=win.sld_sat.value() / 100.0,
-        ratio=win.cmb_ratio.currentText(),
-        crop_mode=win.cmb_crop.currentText(),
         focus_x=float(win.crop_fx),
         focus_y=float(win.crop_fy),
         crop_zoom=float(win.crop_zoom),
-        pre_blur=win.sld_blur.value() / 10.0,
-        pre_sharpen=int(win.spn_sharp.value()),
-        pre_hue=float(win.sld_hue.value()),
-        pre_denoise=int(win.spn_denoise.value()),
-        pre_smooth=win.sld_smooth.value() / 10.0,
-        glow_radius=float(win.spn_glowrad.value()) if win.sld_glow.value() > 0 else 0.0,
-        glow_intensity=float(win.sld_glow.value()),
-        glow_threshold=int(win.spn_glowthr.value()),
-        grain=float(win.sld_grain.value()),
-        vignette=float(win.sld_vig.value()),
-        scanlines=normalize_scanlines(int(win.spn_scan.value())),
-        replace_color=win.brand_color,
         custom_palette=[list(c) for c in win.custom_colors] or None,
         vector_export=bool(win._vector_export),
         vector_cell=int(win._vector_cell),
         gif_export=bool(win._gif_export),
-        gif_frames=int(gif_anim_frames(win)),
-        gif_mode=str(gif_anim_mode(win)),
-        gif_fps=int(gif_anim_fps(win)),
         gif_size=int(gif_anim_size(win)),
-        gif_pingpong=bool(gif_anim_pingpong(win)),
         export_size=int(doc_size(win)),
         export_format=str(win._export_format),
         export_quality=int(win._export_quality),
         duotone_dark=win.duotone_dark,
         duotone_light=win.duotone_light,
-        duotone_mid=float(win.sld_duo_mid.value()),
-        posterize=normalize_posterize(int(win.spn_poster.value())),
-        split_tone=float(win.sld_split.value()),
-        fade=float(win.sld_fade.value()),
-        halftone=normalize_halftone(int(win.spn_halftone.value())),
-        halftone_shape=win.cmb_halftone.currentText(),
-        dust=float(win.sld_dust.value()),
-        border=int(win.spn_border.value()),
-        border_color=win.border_color,
-        letterbox=int(win.spn_letterbox.value()),
-        glitch_chroma=int(win.sld_chroma.value()),
-        glitch_slice_bands=valid_slice_bands(win),
         glitch_slice_max=24,
-        pixelsort=int(win.spn_pixelsort.value()),
-        wave=int(win.spn_wave.value()),
-        mosh=float(win.sld_mosh.value()),
-        grille=normalize_grille(int(win.spn_grille.value())),
+        **kwargs,
     )
 
 
@@ -225,32 +386,13 @@ def apply_preset(win, name: str) -> None:
         p = load_preset(name)
     except Exception:
         return
-    win.cmb_method.setCurrentText(p.method)
-    win.spn_pixel.setValue(int(p.pixel_size))
-    win.sld_thr.setValue(int(p.threshold))
-    win.sld_bri.setValue(int(float(p.brightness) * 100))
-    win.sld_con.setValue(int(float(p.contrast) * 100))
-    win.sld_sat.setValue(int(float(p.saturation) * 100))
-    if win.cmb_ratio.findText(p.ratio) >= 0:
-        win.cmb_ratio.setCurrentText(p.ratio)
-    if win.cmb_crop.findText(p.crop_mode) >= 0:
-        win.cmb_crop.setCurrentText(p.crop_mode)
+    for field, _get, set in BINDINGS:
+        set(win, getattr(p, field))
+    # Crop vars (sin widget directo).
     win.crop_fx = float(p.focus_x)
     win.crop_fy = float(p.focus_y)
     win.crop_zoom = float(p.crop_zoom)
     win._sync_crop_label()
-    win.sld_blur.setValue(int(round(float(p.pre_blur) * 10)))
-    win.spn_sharp.setValue(int(p.pre_sharpen))
-    win.sld_hue.setValue(int(float(p.pre_hue)))
-    win.spn_denoise.setValue(int(p.pre_denoise))
-    win.sld_smooth.setValue(int(round(float(p.pre_smooth) * 10)))
-    win.sld_glow.setValue(int(float(p.glow_intensity)))
-    win.spn_glowrad.setValue(int(float(p.glow_radius)))
-    win.spn_glowthr.setValue(int(p.glow_threshold))
-    win.sld_grain.setValue(int(float(p.grain)))
-    win.sld_vig.setValue(int(float(p.vignette)))
-    win.spn_scan.setValue(int(p.scanlines))
-    win.set_brand_color(p.replace_color)
     # La paleta en uso es la tira custom: del preset, o la built-in base.
     win._palette_base = p.palette
     base_colors = palette_colors(p.palette)
@@ -280,45 +422,12 @@ def apply_preset(win, name: str) -> None:
         win.spn_docsize.blockSignals(False)
     sync_docsize_combo(win, int(p.export_size))
     sync_docdims(win)
-    # Anim único: VIDEO es el editor (widgets), vars como respaldo.
-    try:
-        win.cmb_video_mode.blockSignals(True)
-        if win.cmb_video_mode.findText(str(p.gif_mode)) >= 0:
-            win.cmb_video_mode.setCurrentText(str(p.gif_mode))
-    finally:
-        win.cmb_video_mode.blockSignals(False)
-    set_anim_combo(win.cmb_video_frames, max(2, min(24, int(p.gif_frames))))
-    set_anim_combo(win.cmb_video_fps, max(2, min(60, int(getattr(p, "gif_fps", 8)))))
-    try:
-        win.chk_video_pingpong.blockSignals(True)
-        win.chk_video_pingpong.setChecked(bool(getattr(p, "gif_pingpong", False)))
-    finally:
-        win.chk_video_pingpong.blockSignals(False)
-    # Grade pack.
+    # Grado + resto de etiquetas.
     win.duotone_dark = str(p.duotone_dark or "")
     win.duotone_light = str(p.duotone_light or "")
-    win.sld_duo_mid.setValue(int(float(p.duotone_mid)))
     win._sync_duo_label()
-    win.spn_poster.setValue(int(p.posterize))
-    win.sld_split.setValue(int(float(p.split_tone)))
-    win.sld_fade.setValue(int(float(p.fade)))
-    win._sync_duo_label()
-    # Texture pack.
-    win.spn_halftone.setValue(int(p.halftone))
-    if win.cmb_halftone.findText(p.halftone_shape) >= 0:
-        win.cmb_halftone.setCurrentText(p.halftone_shape)
-    win.sld_dust.setValue(int(float(p.dust)))
-    win.spn_border.setValue(int(p.border))
     win.border_color = str(p.border_color or "#000000")
     win.lbl_border.setText(win.border_color)
-    win.spn_letterbox.setValue(int(p.letterbox))
-    win.sld_chroma.setValue(int(p.glitch_chroma))
-    win.spn_slice.setValue(int(p.glitch_slice_bands))
-    # Glitch extra pack.
-    win.spn_pixelsort.setValue(int(p.pixelsort))
-    win.spn_wave.setValue(int(p.wave))
-    win.sld_mosh.setValue(int(float(p.mosh)))
-    win.spn_grille.setValue(int(p.grille))
     if win.cmb_preset.findText(name) < 0:
         win.refresh_presets()
     win.cmb_preset.setCurrentText(name)

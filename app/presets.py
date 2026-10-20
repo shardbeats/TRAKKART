@@ -14,6 +14,7 @@ from app.adjust import Adjust
 from app.canvas import CROP_MODES, ratio_names
 from app.dither import METHODS
 from app.fx import normalize_custom_palette, parse_hex
+from app.gif import GIF_MODES
 from app.palettes import palette_names
 
 PRESETS_DIR = Path(__file__).resolve().parent.parent / "presets"
@@ -24,6 +25,141 @@ BUNDLED: dict[str, dict] = {
     "EMBER_BW": {"method": "floyd", "palette": "BW", "pixel_size": 2, "threshold": 128},
     "CRT_HARD": {"method": "bayer4", "palette": "BW", "pixel_size": 4, "threshold": 160},
 }
+
+
+# ---------------------------------------------------------------------------
+# Declarative field schema: single source for validate/to_dict/from_dict.
+# Añadir un campo = 1 línea @dataclass + 1 línea aquí (antes: 5 ediciones).
+# kind: int|float|str|bool|colors. rule: ("range", lo, hi) | ("oneof", values|key)
+#        | ("hex",) | ("hexreq",) | ("palette",) | () = sin check.
+# Claves dinámicas de oneof: METHODS, PALETTES, RATIOS, CROPS, GIFMODES.
+# ---------------------------------------------------------------------------
+_DYNAMIC_CHOICES = {
+    "METHODS": lambda: METHODS,
+    "PALETTES": palette_names,
+    "RATIOS": ratio_names,
+    "CROPS": lambda: CROP_MODES,
+    "GIFMODES": lambda: GIF_MODES,
+}
+
+
+@dataclass(frozen=True)
+class _Field:
+    name: str
+    kind: str
+    rule: tuple = ()
+
+    def _oneof_values(self):
+        key = self.rule[1]
+        vals = _DYNAMIC_CHOICES[key]() if isinstance(key, str) else key
+        return tuple(vals)
+
+    def check_value(self, value) -> None:
+        if not self.rule:
+            return
+        kind = self.rule[0]
+        if kind == "range":
+            _, lo, hi = self.rule
+            v = float(value)
+            if not lo <= v <= hi:
+                raise ValueError(f"{self.name} out of range {lo:g}-{hi:g}: {value}")
+        elif kind == "oneof":
+            vals = self._oneof_values()
+            ok = str(value) in [str(x) for x in vals] if self.kind == "str" else value in vals
+            # numéricos con bool: int(True)==1, se evita comparando tipos vía int()
+            if not ok and self.kind == "int":
+                try:
+                    ok = int(value) in [int(x) for x in vals]
+                except (TypeError, ValueError):
+                    ok = False
+            if not ok:
+                raise ValueError(f"invalid {self.name}: {value!r}")
+        elif kind == "hex":
+            if value and parse_hex(value) is None:
+                raise ValueError(f"{self.name} is not #RRGGBB hex: {value!r}")
+        elif kind == "hexreq":
+            if parse_hex(value) is None:
+                raise ValueError(f"{self.name} is not #RRGGBB hex: {value!r}")
+        elif kind == "palette":
+            normalize_custom_palette(value)
+        else:  # pragma: no cover - tabla cerrada
+            raise ValueError(f"unknown rule: {kind}")
+
+
+FIELDS: tuple[_Field, ...] = (
+    _Field("name", "str"),
+    _Field("method", "str", ("oneof", "METHODS")),
+    _Field("palette", "str", ("oneof", "PALETTES")),
+    _Field("pixel_size", "int", ("range", 1, 8)),
+    _Field("threshold", "int", ("range", 1, 254)),
+    _Field("brightness", "float", ("range", 0.0, 3.0)),
+    _Field("contrast", "float", ("range", 0.0, 3.0)),
+    _Field("saturation", "float", ("range", 0.0, 3.0)),
+    _Field("ratio", "str", ("oneof", "RATIOS")),
+    _Field("crop_mode", "str", ("oneof", "CROPS")),
+    _Field("focus_x", "float", ("range", 0.0, 100.0)),
+    _Field("focus_y", "float", ("range", 0.0, 100.0)),
+    _Field("crop_zoom", "float", ("range", 1.0, 4.0)),
+    _Field("pre_blur", "float", ("range", 0.0, 5.0)),
+    _Field("pre_sharpen", "int", ("oneof", (0, 1, 2, 3))),
+    _Field("pre_hue", "float", ("range", -180.0, 180.0)),
+    _Field("pre_denoise", "int", ("oneof", (0, 1, 2, 3, 4, 5))),
+    _Field("pre_smooth", "float", ("range", 0.0, 5.0)),
+    _Field("glow_radius", "float", ("range", 0.0, 50.0)),
+    _Field("glow_intensity", "float", ("range", 0.0, 100.0)),
+    _Field("grain", "float", ("range", 0.0, 100.0)),
+    _Field("vignette", "float", ("range", 0.0, 100.0)),
+    _Field("scanlines", "int", ("oneof", (0, 2, 3, 4, 6, 8))),
+    _Field("replace_color", "str", ("hex",)),
+    _Field("custom_palette", "colors", ("palette",)),
+    _Field("vector_export", "bool"),
+    _Field("vector_cell", "int", ("range", 4, 16)),
+    _Field("glitch_chroma", "int", ("range", 0, 20)),
+    _Field("glitch_slice_bands", "int", ("oneof", (0, 2, 3, 4, 6, 8, 12, 16))),
+    _Field("glitch_slice_max", "int", ("range", 0, 64)),
+    _Field("gif_export", "bool"),
+    _Field("gif_frames", "int", ("range", 2, 24)),
+    _Field("gif_mode", "str", ("oneof", "GIFMODES")),
+    _Field("gif_fps", "int", ("range", 2, 60)),
+    _Field("gif_size", "int", ("range", 64, 8000)),
+    _Field("gif_pingpong", "bool"),
+    _Field("export_size", "int", ("range", 64, 8000)),
+    _Field("export_format", "str", ("oneof", ("png", "jpg", "webp"))),
+    _Field("export_quality", "int", ("range", 1, 100)),
+    _Field("duotone_dark", "str", ("hex",)),
+    _Field("duotone_light", "str", ("hex",)),
+    _Field("duotone_mid", "float", ("range", 0.0, 100.0)),
+    _Field("posterize", "int", ("oneof", (0, 2, 3, 4, 5, 6, 7, 8))),
+    _Field("split_tone", "float", ("range", 0.0, 100.0)),
+    _Field("fade", "float", ("range", 0.0, 100.0)),
+    _Field("glow_threshold", "int", ("range", 0, 255)),
+    _Field("halftone", "int", ("oneof", (0, *range(3, 13)))),
+    _Field("halftone_shape", "str", ("oneof", ("dots", "lines"))),
+    _Field("dust", "float", ("range", 0.0, 100.0)),
+    _Field("border", "int", ("range", 0, 64)),
+    _Field("border_color", "str", ("hexreq",)),
+    _Field("letterbox", "int", ("range", 0, 25)),
+    _Field("pixelsort", "int", ("range", 0, 255)),
+    _Field("wave", "int", ("range", 0, 30)),
+    _Field("mosh", "float", ("range", 0.0, 100.0)),
+    _Field("grille", "int", ("oneof", (0, 2, 3))),
+)
+
+
+def _coerce(kind: str, value):
+    if kind == "int":
+        return int(value)
+    if kind == "float":
+        return float(value)
+    if kind == "str":
+        return str(value)
+    if kind == "bool":
+        return bool(value)
+    return value  # colors: passthrough (valida, no transforma)
+
+
+def _field_default(name: str):
+    return Preset.__dataclass_fields__[name].default
 
 
 @dataclass
@@ -89,208 +225,28 @@ class Preset:
     grille: int = 0  # 0 = off, 2 | 3
 
     def validate(self) -> None:
-        if self.method not in METHODS:
-            raise ValueError(f"invalid method: {self.method}")
-        if self.palette not in palette_names():
-            raise ValueError(f"invalid palette: {self.palette}")
-        if not 1 <= int(self.pixel_size) <= 8:
-            raise ValueError(f"pixel_size out of range 1-8: {self.pixel_size}")
-        if not 1 <= int(self.threshold) <= 254:
-            raise ValueError(f"threshold out of range 1-254: {self.threshold}")
-        Adjust(
-            brightness=float(self.brightness),
-            contrast=float(self.contrast),
-            saturation=float(self.saturation),
-        ).validate()
-        if self.ratio not in ratio_names():
-            raise ValueError(f"invalid ratio: {self.ratio}")
-        if self.crop_mode not in CROP_MODES:
-            raise ValueError(f"invalid crop_mode: {self.crop_mode}")
-        for name in ("focus_x", "focus_y"):
-            v = float(getattr(self, name))
-            if not 0.0 <= v <= 100.0:
-                raise ValueError(f"{name} out of range 0-100: {v}")
-        if not 1.0 <= float(self.crop_zoom) <= 4.0:
-            raise ValueError(f"crop_zoom out of range 1-4: {self.crop_zoom}")
-        if not 0.0 <= float(self.pre_blur) <= 5.0:
-            raise ValueError(f"pre_blur out of range 0-5: {self.pre_blur}")
-        if int(self.pre_sharpen) not in (0, 1, 2, 3):
-            raise ValueError(f"pre_sharpen out of range 0-3: {self.pre_sharpen}")
-        if not -180.0 <= float(self.pre_hue) <= 180.0:
-            raise ValueError(f"pre_hue out of range -180-180: {self.pre_hue}")
-        if int(self.pre_denoise) not in (0, 1, 2, 3, 4, 5):
-            raise ValueError(f"pre_denoise out of range 0-5: {self.pre_denoise}")
-        if not 0.0 <= float(self.pre_smooth) <= 5.0:
-            raise ValueError(f"pre_smooth out of range 0-5: {self.pre_smooth}")
-        if not 0.0 <= float(self.glow_radius) <= 50.0:
-            raise ValueError(f"glow_radius out of range 0-50: {self.glow_radius}")
-        for name in ("glow_intensity", "grain", "vignette"):
-            v = float(getattr(self, name))
-            if not 0.0 <= v <= 100.0:
-                raise ValueError(f"{name} out of range 0-100: {v}")
-        if int(self.scanlines) not in (0, 2, 3, 4, 6, 8):
-            raise ValueError(f"scanlines must be 0,2,3,4,6 or 8: {self.scanlines}")
-        if self.replace_color and parse_hex(self.replace_color) is None:
-            raise ValueError(f"replace_color is not #RRGGBB hex: {self.replace_color!r}")
-        normalize_custom_palette(self.custom_palette)
-        if int(self.vector_cell) not in range(4, 17):
-            raise ValueError(f"vector_cell out of range 4-16: {self.vector_cell}")
-        if not 0 <= int(self.glitch_chroma) <= 20:
-            raise ValueError(f"glitch_chroma out of range 0-20: {self.glitch_chroma}")
-        if int(self.glitch_slice_bands) not in (0, 2, 3, 4, 6, 8, 12, 16):
-            raise ValueError(f"invalid glitch_slice_bands: {self.glitch_slice_bands}")
-        if not 0 <= int(self.glitch_slice_max) <= 64:
-            raise ValueError(f"glitch_slice_max out of range 0-64: {self.glitch_slice_max}")
-        if not 2 <= int(self.gif_frames) <= 24:
-            raise ValueError(f"gif_frames out of range 2-24: {self.gif_frames}")
-        if self.gif_mode not in ("phase", "hue", "both", "glitch", "mix"):
-            raise ValueError(f"invalid gif_mode: {self.gif_mode}")
-        if not 2 <= int(self.gif_fps) <= 60:
-            raise ValueError(f"gif_fps out of range 2-60: {self.gif_fps}")
-        if not 64 <= int(self.gif_size) <= 8000:
-            raise ValueError(f"gif_size out of range 64-8000: {self.gif_size}")
-        if not 64 <= int(self.export_size) <= 8000:
-            raise ValueError(f"export_size out of range 64-8000: {self.export_size}")
-        if str(self.export_format) not in ("png", "jpg", "webp"):
-            raise ValueError(f"invalid export_format: {self.export_format!r}")
-        if not 1 <= int(self.export_quality) <= 100:
-            raise ValueError(f"export_quality out of range 1-100: {self.export_quality}")
-        for _hex, label in ((self.duotone_dark, "duotone_dark"),
-                            (self.duotone_light, "duotone_light")):
-            if _hex and parse_hex(_hex) is None:
-                raise ValueError(f"{label} is not #RRGGBB hex: {_hex!r}")
-        if not 0.0 <= float(self.duotone_mid) <= 100.0:
-            raise ValueError(f"duotone_mid out of range 0-100: {self.duotone_mid}")
-        if int(self.posterize) not in (0, 2, 3, 4, 5, 6, 7, 8):
-            raise ValueError(f"posterize must be 0 or 2-8: {self.posterize}")
-        for name in ("split_tone", "fade", "dust", "mosh"):
-            v = float(getattr(self, name))
-            if not 0.0 <= v <= 100.0:
-                raise ValueError(f"{name} out of range 0-100: {v}")
-        if not 0 <= int(self.glow_threshold) <= 255:
-            raise ValueError(f"glow_threshold out of range 0-255: {self.glow_threshold}")
-        if int(self.halftone) not in (0, *range(3, 13)):
-            raise ValueError(f"halftone must be 0 or 3-12: {self.halftone}")
-        if self.halftone_shape not in ("dots", "lines"):
-            raise ValueError(f"invalid halftone_shape: {self.halftone_shape}")
-        if not 0 <= int(self.border) <= 64:
-            raise ValueError(f"border out of range 0-64: {self.border}")
-        if parse_hex(self.border_color) is None:
-            raise ValueError(f"border_color is not #RRGGBB hex: {self.border_color!r}")
-        if not 0 <= int(self.letterbox) <= 25:
-            raise ValueError(f"letterbox out of range 0-25: {self.letterbox}")
-        if not 0 <= int(self.pixelsort) <= 255:
-            raise ValueError(f"pixelsort out of range 0-255: {self.pixelsort}")
-        if not 0 <= int(self.wave) <= 30:
-            raise ValueError(f"wave out of range 0-30: {self.wave}")
-        if int(self.grille) not in (0, 2, 3):
-            raise ValueError(f"grille must be 0, 2 or 3: {self.grille}")
+        for spec in FIELDS:
+            spec.check_value(getattr(self, spec.name))
 
     def to_dict(self) -> dict:
         import copy
 
         d = asdict(self)
-        d["pixel_size"] = int(d["pixel_size"])
-        d["threshold"] = int(d["threshold"])
-        d["pre_sharpen"] = int(d["pre_sharpen"])
-        d["pre_denoise"] = int(d["pre_denoise"])
-        d["scanlines"] = int(d["scanlines"])
-        d["vector_cell"] = int(d["vector_cell"])
-        d["vector_export"] = bool(d["vector_export"])
-        d["glitch_chroma"] = int(d["glitch_chroma"])
-        d["glitch_slice_bands"] = int(d["glitch_slice_bands"])
-        d["glitch_slice_max"] = int(d["glitch_slice_max"])
-        d["gif_frames"] = int(d["gif_frames"])
-        d["gif_export"] = bool(d["gif_export"])
-        d["gif_fps"] = int(d.get("gif_fps", 8))
-        d["gif_size"] = int(d.get("gif_size", 1200))
-        d["gif_pingpong"] = bool(d.get("gif_pingpong", False))
-        d["export_size"] = int(d["export_size"])
-        d["export_format"] = str(d["export_format"])
-        d["export_quality"] = int(d["export_quality"])
-        d["duotone_mid"] = float(d["duotone_mid"])
-        d["posterize"] = int(d["posterize"])
-        d["split_tone"] = float(d["split_tone"])
-        d["fade"] = float(d["fade"])
-        d["glow_threshold"] = int(d["glow_threshold"])
-        d["halftone"] = int(d["halftone"])
-        d["halftone_shape"] = str(d["halftone_shape"])
-        d["dust"] = float(d["dust"])
-        d["border"] = int(d["border"])
-        d["border_color"] = str(d["border_color"])
-        d["letterbox"] = int(d["letterbox"])
-        d["pixelsort"] = int(d["pixelsort"])
-        d["wave"] = int(d["wave"])
-        d["mosh"] = float(d["mosh"])
-        d["grille"] = int(d["grille"])
-        for k in ("brightness", "contrast", "saturation", "focus_x", "focus_y",
-                  "crop_zoom",
-                  "pre_blur", "pre_hue", "pre_smooth",
-                  "glow_radius", "glow_intensity", "grain", "vignette"):
-            d[k] = float(d[k])
-        d["custom_palette"] = copy.deepcopy(d["custom_palette"])
+        for spec in FIELDS:
+            if spec.kind == "colors":
+                d[spec.name] = copy.deepcopy(d[spec.name])
+            else:
+                d[spec.name] = _coerce(spec.kind, d[spec.name])
         return d
 
     @staticmethod
     def from_dict(d: dict) -> "Preset":
-        p = Preset(
-            name=str(d.get("name", "")),
-            method=str(d.get("method", "bayer4")),
-            palette=str(d.get("palette", "SLIME")),
-            pixel_size=int(d.get("pixel_size", 2)),
-            threshold=int(d.get("threshold", 128)),
-            brightness=float(d.get("brightness", 1.0)),
-            contrast=float(d.get("contrast", 1.0)),
-            saturation=float(d.get("saturation", 1.0)),
-            ratio=str(d.get("ratio", "1:1")),
-            crop_mode=str(d.get("crop_mode", "cover")),
-            focus_x=float(d.get("focus_x", 50.0)),
-            focus_y=float(d.get("focus_y", 50.0)),
-            crop_zoom=float(d.get("crop_zoom", 1.0)),
-            pre_blur=float(d.get("pre_blur", 0.0)),
-            pre_sharpen=int(d.get("pre_sharpen", 0)),
-            pre_hue=float(d.get("pre_hue", 0.0)),
-            pre_denoise=int(d.get("pre_denoise", 0)),
-            pre_smooth=float(d.get("pre_smooth", 0.0)),
-            glow_radius=float(d.get("glow_radius", 0.0)),
-            glow_intensity=float(d.get("glow_intensity", 0.0)),
-            grain=float(d.get("grain", 0.0)),
-            vignette=float(d.get("vignette", 0.0)),
-            scanlines=int(d.get("scanlines", 0)),
-            replace_color=str(d.get("replace_color", "")),
-            custom_palette=d.get("custom_palette"),
-            vector_export=bool(d.get("vector_export", False)),
-            vector_cell=int(d.get("vector_cell", 8)),
-            glitch_chroma=int(d.get("glitch_chroma", 0)),
-            glitch_slice_bands=int(d.get("glitch_slice_bands", 0)),
-            glitch_slice_max=int(d.get("glitch_slice_max", 24)),
-            gif_export=bool(d.get("gif_export", False)),
-            gif_frames=int(d.get("gif_frames", 6)),
-            gif_mode=str(d.get("gif_mode", "both")),
-            gif_fps=int(d.get("gif_fps", 8)),
-            gif_size=int(d.get("gif_size", 1200)),
-            gif_pingpong=bool(d.get("gif_pingpong", False)),
-            export_size=int(d.get("export_size", 3000)),
-            export_format=str(d.get("export_format", "png")),
-            export_quality=int(d.get("export_quality", 90)),
-            duotone_dark=str(d.get("duotone_dark", "")),
-            duotone_light=str(d.get("duotone_light", "")),
-            duotone_mid=float(d.get("duotone_mid", 50.0)),
-            posterize=int(d.get("posterize", 0)),
-            split_tone=float(d.get("split_tone", 0.0)),
-            fade=float(d.get("fade", 0.0)),
-            glow_threshold=int(d.get("glow_threshold", 0)),
-            halftone=int(d.get("halftone", 0)),
-            halftone_shape=str(d.get("halftone_shape", "dots")),
-            dust=float(d.get("dust", 0.0)),
-            border=int(d.get("border", 0)),
-            border_color=str(d.get("border_color", "#000000")),
-            letterbox=int(d.get("letterbox", 0)),
-            pixelsort=int(d.get("pixelsort", 0)),
-            wave=int(d.get("wave", 0)),
-            mosh=float(d.get("mosh", 0.0)),
-            grille=int(d.get("grille", 0)),
-        )
+        kwargs = {
+            spec.name: _coerce(spec.kind, d.get(spec.name, _field_default(spec.name)))
+            if spec.kind != "colors" else d.get(spec.name, _field_default(spec.name))
+            for spec in FIELDS
+        }
+        p = Preset(**kwargs)
         p.validate()
         return p
 
@@ -357,6 +313,12 @@ class Preset:
 def _safe_name(name: str) -> str:
     safe = "".join(c for c in name if c.isalnum() or c in (" ", "-", "_")).strip()
     return safe or "preset"
+
+
+# Guardia fail-fast: el schema cubre exactamente los campos del dataclass.
+assert {f.name for f in FIELDS} == set(Preset.__dataclass_fields__), (
+    "FIELDS desincronizado de Preset"
+)
 
 
 def ensure_bundled(presets_dir: Path | None = None) -> list[str]:

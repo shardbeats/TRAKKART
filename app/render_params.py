@@ -1,13 +1,9 @@
-"""TRAKKART render params — single source of truth.
+"""TRAKKART render params — normalizaciones compartidas.
 
-Antes: `MainWindow._render_kwargs()`, `MainWindow.current_params()`,
-`PreviewWorker.current_params_snapshot()`, `batch._render_one()`,
-`gif.gif_frames()` y `pipeline.meta_dict()` duplicaban la misma lista
-de ~25 parámetros. Cualquier cambio había que hacerlo en 6 sitios.
-
-Ahora: `Preset.to_render_kwargs()` (vía `preset_to_render_kwargs()`)
-es la única conversión Preset -> kwargs de `pipeline.render()`.
-Las normalizaciones de scanlines/slice también viven aquí.
+La conversión Preset -> render vive en `pipeline.RenderSpec.from_preset`
+(este módulo delega en él para no duplicar la lista de ~40 params).
+Aquí quedan los normalizadores (scanlines/slice/grille/halftone/posterize)
+usados por UI y presets.
 """
 
 from __future__ import annotations
@@ -74,54 +70,12 @@ def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
     """Convierte un Preset a kwargs de `pipeline.render()`.
 
     Acepta duck-typing (no importa Preset para evitar ciclos).
-    Normaliza scanlines/slice para que batch, UI, GIF y worker
-    produzcan exactamente lo mismo.
+    Delega en RenderSpec.from_preset: la normalización vive en un
+    solo sitio (batch, UI, GIF y worker producen exactamente lo mismo).
     """
-    return {
-        "method": preset.method,
-        "palette_name": preset.palette,
-        "threshold": float(preset.threshold),
-        "pixel_size": int(preset.pixel_size),
-        "adjust": preset.adjust(),
-        "ratio": preset.ratio,
-        "crop_mode": preset.crop_mode,
-        "focus_x": float(preset.focus_x),
-        "focus_y": float(preset.focus_y),
-        "crop_zoom": float(preset.crop_zoom),
-        "pre_blur": float(preset.pre_blur),
-        "pre_sharpen": int(preset.pre_sharpen),
-        "pre_hue": float(preset.pre_hue),
-        "pre_denoise": int(preset.pre_denoise),
-        "pre_smooth": float(preset.pre_smooth),
-        "glow_radius": float(preset.glow_radius),
-        "glow_intensity": float(preset.glow_intensity),
-        "grain": float(preset.grain),
-        "vignette": float(preset.vignette),
-        "scanlines": normalize_scanlines(int(preset.scanlines)),
-        "replace_color": preset.replace_color,
-        "custom_palette": preset.custom_palette,
-        "phase": int(phase),
-        "glitch_chroma": int(preset.glitch_chroma),
-        "glitch_slice_bands": normalize_slice_bands(int(preset.glitch_slice_bands)),
-        "glitch_slice_max": int(preset.glitch_slice_max),
-        "duotone_dark": str(getattr(preset, "duotone_dark", "")),
-        "duotone_light": str(getattr(preset, "duotone_light", "")),
-        "duotone_mid": float(getattr(preset, "duotone_mid", 50.0)),
-        "posterize": normalize_posterize(int(getattr(preset, "posterize", 0))),
-        "split_tone": float(getattr(preset, "split_tone", 0.0)),
-        "fade": float(getattr(preset, "fade", 0.0)),
-        "glow_threshold": int(getattr(preset, "glow_threshold", 0)),
-        "halftone": normalize_halftone(int(getattr(preset, "halftone", 0))),
-        "halftone_shape": str(getattr(preset, "halftone_shape", "dots")),
-        "dust": float(getattr(preset, "dust", 0.0)),
-        "border": int(getattr(preset, "border", 0)),
-        "border_color": str(getattr(preset, "border_color", "#000000")),
-        "letterbox": int(getattr(preset, "letterbox", 0)),
-        "pixelsort": int(getattr(preset, "pixelsort", 0)),
-        "wave": int(getattr(preset, "wave", 0)),
-        "mosh": float(getattr(preset, "mosh", 0.0)),
-        "grille": normalize_grille(int(getattr(preset, "grille", 0))),
-    }
+    from app.pipeline import RenderSpec
+
+    return RenderSpec.from_preset(preset, phase=phase).as_kwargs()
 
 
 __all__ = [
