@@ -137,9 +137,11 @@ def rgb_grille(img: Image.Image, every: int = 0) -> Image.Image:
     mask = np.ones_like(arr)
     if e == 2:
         # Alterna columnas con tinte R / cian para simular la rejilla.
+        # (Un solo array por indexado: mezclar bool + lista revienta en numpy.)
+        odd = phase == 1
         mask[:, phase == 0, 1:] *= 0.55
-        mask[:, phase == 1, [0, 2]] *= 0.55
-        mask[:, phase == 1, 1] *= 1.0
+        mask[:, odd, 0] *= 0.55
+        mask[:, odd, 2] *= 0.55
     else:
         for c in range(3):
             keep = (phase % 3) == c

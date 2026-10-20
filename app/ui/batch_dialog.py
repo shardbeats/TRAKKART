@@ -128,9 +128,9 @@ class BatchDialog(QDialog):
         vec_row.addWidget(self.lbl_vec_est, 1)
         col.addLayout(vec_row)
         self._gif_spec = {
-            "frames": max(2, min(12, int(gif_frames))),
+            "frames": max(2, min(24, int(gif_frames))),
             "mode": gif_mode if gif_mode in self.GIF_MODES else "both",
-            "fps": max(2, min(24, int(gif_fps))),
+            "fps": max(2, min(60, int(gif_fps))),
             "pingpong": bool(gif_pingpong),
         }
         gif_row = QHBoxLayout()

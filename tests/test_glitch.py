@@ -69,3 +69,23 @@ def test_mosh_and_grille():
     assert _flat(rgb_grille(_img())) == _flat(_img())
     assert _flat(rgb_grille(_img(), every=1)) == _flat(_img())
     assert _flat(rgb_grille(_img(), every=3)) != _flat(_img())
+
+
+def test_grille_every2_no_crash_and_tints():
+    # Regresión: mask[:, bool, [0, 2]] reventaba en numpy
+    # "shape mismatch ... shapes (160,) (2,)".
+    import numpy as np
+
+    for w in (2, 3, 31, 320):
+        im = Image.new("RGB", (w, 16), (200, 100, 50))
+        out = rgb_grille(im, every=2)
+        assert out.size == (w, 16)
+        assert list(out.get_flattened_data()) != list(im.get_flattened_data())
+    # Columnas pares rojizas (G,B atenuados), impares verdosas (R,B atenuados).
+    im = Image.new("RGB", (4, 1), (200, 100, 50))
+    px = list(rgb_grille(im, every=2).get_flattened_data())
+    assert px[0][0] == 200 and px[0][1] < 100 and px[0][2] < 50
+    assert px[1][1] == 100 and px[1][0] < 200 and px[1][2] < 50
+    # Determinista.
+    a = rgb_grille(_img(), every=2)
+    assert _flat(rgb_grille(_img(), every=2)) == _flat(a)

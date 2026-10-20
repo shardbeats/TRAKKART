@@ -141,12 +141,12 @@ class Preset:
             raise ValueError(f"invalid glitch_slice_bands: {self.glitch_slice_bands}")
         if not 0 <= int(self.glitch_slice_max) <= 64:
             raise ValueError(f"glitch_slice_max out of range 0-64: {self.glitch_slice_max}")
-        if not 2 <= int(self.gif_frames) <= 12:
-            raise ValueError(f"gif_frames out of range 2-12: {self.gif_frames}")
+        if not 2 <= int(self.gif_frames) <= 24:
+            raise ValueError(f"gif_frames out of range 2-24: {self.gif_frames}")
         if self.gif_mode not in ("phase", "hue", "both", "glitch", "mix"):
             raise ValueError(f"invalid gif_mode: {self.gif_mode}")
-        if not 2 <= int(self.gif_fps) <= 24:
-            raise ValueError(f"gif_fps out of range 2-24: {self.gif_fps}")
+        if not 2 <= int(self.gif_fps) <= 60:
+            raise ValueError(f"gif_fps out of range 2-60: {self.gif_fps}")
         if not 64 <= int(self.gif_size) <= 8000:
             raise ValueError(f"gif_size out of range 64-8000: {self.gif_size}")
         if not 64 <= int(self.export_size) <= 8000:

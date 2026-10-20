@@ -393,9 +393,29 @@ class MainWindow(QMainWindow):
         except Exception:  # noqa: BLE001
             return 3000
 
+    @staticmethod
+    def _anim_combo_int(cmb, default: int, lo: int, hi: int) -> int:
+        """Lee un combo editable (lista sugerida + valor libre)."""
+        try:
+            return max(lo, min(hi, int(str(cmb.currentText()).strip())))
+        except Exception:  # noqa: BLE001
+            return int(default)
+
+    @staticmethod
+    def _set_anim_combo(cmb, value: int) -> None:
+        """Fija un combo editable conservando valores custom fuera de la lista."""
+        txt = str(int(value))
+        try:
+            if cmb.findText(txt) < 0:
+                cmb.addItem(txt)
+            cmb.blockSignals(True)
+            cmb.setCurrentText(txt)
+        finally:
+            cmb.blockSignals(False)
+
     def _gif_anim_frames(self) -> int:
         try:
-            return max(2, min(12, int(self.spn_video_frames.value())))
+            return self._anim_combo_int(self.cmb_video_frames, 6, 2, 24)
         except Exception:  # noqa: BLE001
             return int(getattr(self, "_gif_frames", 6))
 
@@ -410,7 +430,7 @@ class MainWindow(QMainWindow):
 
     def _gif_anim_fps(self) -> int:
         try:
-            return max(2, min(24, int(self.spn_video_fps.value())))
+            return self._anim_combo_int(self.cmb_video_fps, 8, 2, 60)
         except Exception:  # noqa: BLE001
             return int(getattr(self, "_gif_fps", 8))
 
@@ -488,8 +508,8 @@ class MainWindow(QMainWindow):
 
     def _on_video_fps_changed(self) -> None:
         try:
-            fps = max(2, min(24, int(self.spn_video_fps.value())))
-            self._video_timer.setInterval(1000 // fps)
+            fps = self._anim_combo_int(self.cmb_video_fps, 8, 2, 60)
+            self._video_timer.setInterval(max(1, 1000 // fps))
         except Exception:  # noqa: BLE001
             pass
         self._schedule_refresh()
@@ -1042,15 +1062,8 @@ class MainWindow(QMainWindow):
                 self.cmb_video_mode.setCurrentText(str(p.gif_mode))
         finally:
             self.cmb_video_mode.blockSignals(False)
-        for _spn, _val, _lo, _hi in (
-            (self.spn_video_frames, int(p.gif_frames), 2, 12),
-            (self.spn_video_fps, int(getattr(p, "gif_fps", 8)), 2, 24),
-        ):
-            try:
-                _spn.blockSignals(True)
-                _spn.setValue(max(_lo, min(_hi, int(_val))))
-            finally:
-                _spn.blockSignals(False)
+        self._set_anim_combo(self.cmb_video_frames, max(2, min(24, int(p.gif_frames))))
+        self._set_anim_combo(self.cmb_video_fps, max(2, min(60, int(getattr(p, "gif_fps", 8)))))
         try:
             self.chk_video_pingpong.blockSignals(True)
             self.chk_video_pingpong.setChecked(bool(getattr(p, "gif_pingpong", False)))
