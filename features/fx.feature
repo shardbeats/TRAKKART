@@ -13,3 +13,13 @@ Feature: Finishing effects
     Given a fully white test image
     When I replace white with #112233
     Then the whole image ends up in that color
+
+  Scenario: Duotone maps darks and lights
+    Given a test image with gradient
+    When I apply duotone black to white
+    Then darks stay dark and lights stay light
+
+  Scenario: Halftone dots reshape the image
+    Given a 128x128 test image
+    When I apply halftone dots of size 6
+    Then the image keeps its size and changes

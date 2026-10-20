@@ -55,3 +55,22 @@ def test_render_with_glitch():
     assert out.size == (64, 64)
     plain = render(_img(), method="bayer4")
     assert list(out.get_flattened_data()) != list(plain.get_flattened_data())
+
+
+def test_render_with_grade_and_texture():
+    from app.presets import Preset
+
+    p = Preset(
+        name="t", method="bayer4", palette="SLIME",
+        duotone_dark="#101020", duotone_light="#f0e0c0", duotone_mid=50.0,
+        posterize=4, split_tone=30.0, fade=10.0, glow_radius=8.0,
+        glow_intensity=20.0, glow_threshold=200,
+        halftone=6, halftone_shape="dots", dust=10.0, vignette=20.0,
+        scanlines=4, grille=3, border=4, border_color="#ffffff", letterbox=10,
+        pixelsort=100, wave=4, mosh=20.0,
+    )
+    p.validate()
+    out = render(_img(), **p.to_render_kwargs())
+    assert out.size == (64 + 8, 64 + 8)  # borde de 4px por lado
+    plain = render(_img(), method="bayer4", palette_name="SLIME")
+    assert list(out.get_flattened_data()) != list(plain.get_flattened_data())

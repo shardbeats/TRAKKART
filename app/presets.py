@@ -64,6 +64,26 @@ class Preset:
     export_size: int = 3000  # lado largo px de la imagen principal
     export_format: str = "png"  # png | jpg | webp
     export_quality: int = 90  # solo jpg/webp, 1-100
+    # -- grade (pack A) --
+    duotone_dark: str = ""  # #RRGGBB o "" = off (requiere duotone_light)
+    duotone_light: str = ""
+    duotone_mid: float = 50.0  # corte 0-100
+    posterize: int = 0  # 0 = off, 2-8 niveles
+    split_tone: float = 0.0  # 0-100
+    fade: float = 0.0  # 0-100
+    glow_threshold: int = 0  # 0-255, 0 = todo brilla
+    # -- texture/decay (pack B) --
+    halftone: int = 0  # 0 = off, si no 3-12 px por celda
+    halftone_shape: str = "dots"  # dots | lines
+    dust: float = 0.0  # 0-100
+    border: int = 0  # 0-64 px, 0 = off
+    border_color: str = "#000000"
+    letterbox: int = 0  # 0-25 % por lado, 0 = off
+    # -- glitch extra (pack C) --
+    pixelsort: int = 0  # umbral luminancia 0-255, 0 = off
+    wave: int = 0  # amplitud px 0-30, 0 = off
+    mosh: float = 0.0  # 0-100
+    grille: int = 0  # 0 = off, 2 | 3
 
     def validate(self) -> None:
         if self.method not in METHODS:
@@ -128,6 +148,36 @@ class Preset:
             raise ValueError(f"invalid export_format: {self.export_format!r}")
         if not 1 <= int(self.export_quality) <= 100:
             raise ValueError(f"export_quality out of range 1-100: {self.export_quality}")
+        for _hex, label in ((self.duotone_dark, "duotone_dark"),
+                            (self.duotone_light, "duotone_light")):
+            if _hex and parse_hex(_hex) is None:
+                raise ValueError(f"{label} is not #RRGGBB hex: {_hex!r}")
+        if not 0.0 <= float(self.duotone_mid) <= 100.0:
+            raise ValueError(f"duotone_mid out of range 0-100: {self.duotone_mid}")
+        if int(self.posterize) not in (0, 2, 3, 4, 5, 6, 7, 8):
+            raise ValueError(f"posterize must be 0 or 2-8: {self.posterize}")
+        for name in ("split_tone", "fade", "dust", "mosh"):
+            v = float(getattr(self, name))
+            if not 0.0 <= v <= 100.0:
+                raise ValueError(f"{name} out of range 0-100: {v}")
+        if not 0 <= int(self.glow_threshold) <= 255:
+            raise ValueError(f"glow_threshold out of range 0-255: {self.glow_threshold}")
+        if int(self.halftone) not in (0, *range(3, 13)):
+            raise ValueError(f"halftone must be 0 or 3-12: {self.halftone}")
+        if self.halftone_shape not in ("dots", "lines"):
+            raise ValueError(f"invalid halftone_shape: {self.halftone_shape}")
+        if not 0 <= int(self.border) <= 64:
+            raise ValueError(f"border out of range 0-64: {self.border}")
+        if parse_hex(self.border_color) is None:
+            raise ValueError(f"border_color is not #RRGGBB hex: {self.border_color!r}")
+        if not 0 <= int(self.letterbox) <= 25:
+            raise ValueError(f"letterbox out of range 0-25: {self.letterbox}")
+        if not 0 <= int(self.pixelsort) <= 255:
+            raise ValueError(f"pixelsort out of range 0-255: {self.pixelsort}")
+        if not 0 <= int(self.wave) <= 30:
+            raise ValueError(f"wave out of range 0-30: {self.wave}")
+        if int(self.grille) not in (0, 2, 3):
+            raise ValueError(f"grille must be 0, 2 or 3: {self.grille}")
 
     def to_dict(self) -> dict:
         import copy
@@ -148,6 +198,21 @@ class Preset:
         d["export_size"] = int(d["export_size"])
         d["export_format"] = str(d["export_format"])
         d["export_quality"] = int(d["export_quality"])
+        d["duotone_mid"] = float(d["duotone_mid"])
+        d["posterize"] = int(d["posterize"])
+        d["split_tone"] = float(d["split_tone"])
+        d["fade"] = float(d["fade"])
+        d["glow_threshold"] = int(d["glow_threshold"])
+        d["halftone"] = int(d["halftone"])
+        d["halftone_shape"] = str(d["halftone_shape"])
+        d["dust"] = float(d["dust"])
+        d["border"] = int(d["border"])
+        d["border_color"] = str(d["border_color"])
+        d["letterbox"] = int(d["letterbox"])
+        d["pixelsort"] = int(d["pixelsort"])
+        d["wave"] = int(d["wave"])
+        d["mosh"] = float(d["mosh"])
+        d["grille"] = int(d["grille"])
         for k in ("brightness", "contrast", "saturation", "focus_x", "focus_y",
                   "crop_zoom",
                   "pre_blur", "pre_hue", "pre_smooth",
@@ -195,6 +260,23 @@ class Preset:
             export_size=int(d.get("export_size", 3000)),
             export_format=str(d.get("export_format", "png")),
             export_quality=int(d.get("export_quality", 90)),
+            duotone_dark=str(d.get("duotone_dark", "")),
+            duotone_light=str(d.get("duotone_light", "")),
+            duotone_mid=float(d.get("duotone_mid", 50.0)),
+            posterize=int(d.get("posterize", 0)),
+            split_tone=float(d.get("split_tone", 0.0)),
+            fade=float(d.get("fade", 0.0)),
+            glow_threshold=int(d.get("glow_threshold", 0)),
+            halftone=int(d.get("halftone", 0)),
+            halftone_shape=str(d.get("halftone_shape", "dots")),
+            dust=float(d.get("dust", 0.0)),
+            border=int(d.get("border", 0)),
+            border_color=str(d.get("border_color", "#000000")),
+            letterbox=int(d.get("letterbox", 0)),
+            pixelsort=int(d.get("pixelsort", 0)),
+            wave=int(d.get("wave", 0)),
+            mosh=float(d.get("mosh", 0.0)),
+            grille=int(d.get("grille", 0)),
         )
         p.validate()
         return p
@@ -234,6 +316,25 @@ class Preset:
             "format": str(self.export_format),
             "quality": int(self.export_quality),
         }
+        m["grade"] = {
+            "duotone": [self.duotone_dark, self.duotone_light, float(self.duotone_mid)],
+            "posterize": int(self.posterize),
+            "split_tone": float(self.split_tone),
+            "fade": float(self.fade),
+            "glow_threshold": int(self.glow_threshold),
+        }
+        m["texture"] = {
+            "halftone": int(self.halftone),
+            "halftone_shape": str(self.halftone_shape),
+            "dust": float(self.dust),
+            "border": int(self.border),
+            "border_color": str(self.border_color),
+            "letterbox": int(self.letterbox),
+        }
+        m["glitch"]["pixelsort"] = int(self.pixelsort)
+        m["glitch"]["wave"] = int(self.wave)
+        m["glitch"]["mosh"] = float(self.mosh)
+        m["glitch"]["grille"] = int(self.grille)
         return m
 
 

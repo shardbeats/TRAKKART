@@ -46,6 +46,30 @@ def normalize_slice_bands(value: int) -> int:
     return 16
 
 
+def normalize_grille(value: int) -> int:
+    """RGB grille: solo 0 (off), 2, 3. 1->2 como scanlines."""
+    v = int(value)
+    if v in (0, 2, 3):
+        return v
+    return 2 if v == 1 else 0
+
+
+def normalize_halftone(value: int) -> int:
+    """Halftone: 0 = off, si no celdas 3-12 (1,2 -> 3)."""
+    v = int(value)
+    if v <= 0:
+        return 0
+    return min(12, max(3, v))
+
+
+def normalize_posterize(value: int) -> int:
+    """Posterize: 0 = off, si no niveles 2-8 (1 -> 2)."""
+    v = int(value)
+    if v <= 0:
+        return 0
+    return min(8, max(2, v))
+
+
 def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
     """Convierte un Preset a kwargs de `pipeline.render()`.
 
@@ -80,6 +104,23 @@ def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
         "glitch_chroma": int(preset.glitch_chroma),
         "glitch_slice_bands": normalize_slice_bands(int(preset.glitch_slice_bands)),
         "glitch_slice_max": int(preset.glitch_slice_max),
+        "duotone_dark": str(getattr(preset, "duotone_dark", "")),
+        "duotone_light": str(getattr(preset, "duotone_light", "")),
+        "duotone_mid": float(getattr(preset, "duotone_mid", 50.0)),
+        "posterize": normalize_posterize(int(getattr(preset, "posterize", 0))),
+        "split_tone": float(getattr(preset, "split_tone", 0.0)),
+        "fade": float(getattr(preset, "fade", 0.0)),
+        "glow_threshold": int(getattr(preset, "glow_threshold", 0)),
+        "halftone": normalize_halftone(int(getattr(preset, "halftone", 0))),
+        "halftone_shape": str(getattr(preset, "halftone_shape", "dots")),
+        "dust": float(getattr(preset, "dust", 0.0)),
+        "border": int(getattr(preset, "border", 0)),
+        "border_color": str(getattr(preset, "border_color", "#000000")),
+        "letterbox": int(getattr(preset, "letterbox", 0)),
+        "pixelsort": int(getattr(preset, "pixelsort", 0)),
+        "wave": int(getattr(preset, "wave", 0)),
+        "mosh": float(getattr(preset, "mosh", 0.0)),
+        "grille": normalize_grille(int(getattr(preset, "grille", 0))),
     }
 
 
@@ -88,5 +129,8 @@ __all__ = [
     "VALID_SLICE_BANDS",
     "normalize_scanlines",
     "normalize_slice_bands",
+    "normalize_grille",
+    "normalize_halftone",
+    "normalize_posterize",
     "preset_to_render_kwargs",
 ]

@@ -146,6 +146,11 @@ def test_export_dialog_plan_and_options(qt_app):
     assert opts.base == "d" and out == Path("/tmp")
     assert opts.selection.thumb_1080p is False
     assert (gframes, gmode) == (6, "both")
+    # tamaño + formato viajan en las opciones
+    dlg2 = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
+    o2, _, _, _ = dlg2.options()
+    assert (o2.size, o2.format, o2.quality) == (1920, "jpg", 80)
+    close_dialog(dlg2)
     close_dialog(dlg)
 
 

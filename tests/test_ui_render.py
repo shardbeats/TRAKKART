@@ -168,6 +168,56 @@ def test_export_settings_follow_preset(window, isolated_presets, monkeypatch):
     assert (back.export_size, back.export_format) == (1080, "jpg")
 
 
+def test_fx_pack_roundtrip(window, isolated_presets, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    from app.presets import load_preset
+
+    window.set_duotone_color("dark", "#112233")
+    window.set_duotone_color("light", "#aabbcc")
+    assert "(off)" not in window.lbl_duo.text()
+    window.set_duotone_color("dark", "nope")  # inválido: se conserva
+    assert window.duotone_dark == "#112233"
+    window.sld_duo_mid.setValue(60)
+    window.spn_poster.setValue(1)  # inválido -> 2 en current_params
+    window.sld_glow.setValue(40)  # sin intensidad no hay radio
+    window.spn_glowrad.setValue(12)
+    window.sld_split.setValue(30)
+    window.sld_fade.setValue(10)
+    window.spn_glowthr.setValue(200)
+    window.spn_halftone.setValue(2)  # inválido -> 3
+    window.cmb_halftone.setCurrentText("lines")
+    window.sld_dust.setValue(20)
+    window.spn_border.setValue(8)
+    window.set_border_color("#ff0000")
+    window.spn_letterbox.setValue(10)
+    window.spn_pixelsort.setValue(100)
+    window.spn_wave.setValue(5)
+    window.sld_mosh.setValue(25)
+    window.spn_grille.setValue(1)  # inválido -> 2
+    window.set_border_color("nope")  # inválido: se conserva
+    assert window.border_color == "#FF0000"
+    p = window.current_params()
+    assert (p.duotone_dark, p.duotone_light, p.duotone_mid) == ("#112233", "#AABBCC", 60.0)
+    assert p.posterize == 2 and p.halftone == 3 and p.grille == 2
+    assert (p.split_tone, p.fade, p.dust, p.mosh) == (30.0, 10.0, 20.0, 25.0)
+    assert (p.border, p.border_color, p.letterbox) == (8, "#FF0000", 10)
+    assert (p.pixelsort, p.wave, p.glow_threshold) == (100, 5, 200)
+    assert p.glow_radius == 12.0 and p.halftone_shape == "lines"
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("WithFX2", True))
+    window.save_current_preset()
+    back = load_preset("WithFX2", isolated_presets)
+    assert (back.posterize, back.grille, back.border) == (2, 2, 8)
+    assert (back.duotone_dark, back.halftone_shape) == ("#112233", "lines")
+    window.sld_split.setValue(0)
+    window._apply_preset("WithFX2")
+    assert window.sld_split.value() == 30
+    assert window.spn_poster.value() == 2
+    assert window.spn_wave.value() == 5
+    assert window.duotone_light == "#AABBCC"
+    assert window.lbl_duo.text() != "(off)"
+
+
 def test_debounce_schedules(window):
     assert window._preview_timer.isSingleShot()
     assert window._preview_timer.interval() == 350

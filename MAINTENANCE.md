@@ -32,11 +32,13 @@ app/ui/main_window.py    :: PySide6 (sections + menus + safe drop with toggle)
 app/ui/crop_editor.py    :: CropEditorDialog (visual crop: frame + grid + drag + zoom)
 app/dnd.py               :: drop classification (http/data/blob/local/ignore)
 app/safety.py            :: size/vector guards (TooBigError)
-app/exporter.py          :: per-ratio bundle + 1080p thumb + metadata.json (+SVG)
+app/exporter.py          :: export tamaño+formato, plan, skip/rename (+SVG/GIF/meta)
 app/vector.py            :: grid re-render + RLE + SVG
 app/gif.py               :: phase/hue frames + save_gif (max 480px)
 app/ops.py               :: rotate/flip/invert + undo cap 20
-app/glitch.py            :: chromatic aberration + slice shift
+app/glitch.py            :: chroma/slice + pixelsort/wave/mosh/grille
+app/grade.py             :: duotone/posterize/split-tone/fade (pre/post dither)
+app/texture.py           :: halftone/dust/border/letterbox (post-dither)
 app/paths.py             :: portable data (env/frozen/APPDATA)
 app/history.py           :: SQLite export history
 app/ui/main_window.py    :: PySide6 (QGroupBox sections + menus + preview + statusbar)

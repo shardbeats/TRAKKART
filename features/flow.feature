@@ -13,3 +13,8 @@ Feature: Cover flow and glitch
     Given a test image with gradient
     When I apply slice shift twice
     Then both outputs are identical
+
+  Scenario: Pixel sort orders bright runs
+    Given a test image with gradient
+    When I apply pixel sort with threshold 128
+    Then the image keeps its size and changes

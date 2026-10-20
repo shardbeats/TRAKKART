@@ -1,4 +1,9 @@
-"""TRAKKART pipeline: canvas -> pre -> adjust -> dither -> brand -> post."""
+"""TRAKKART pipeline: canvas -> pre -> grade -> dither -> brand -> post.
+
+Orden (signal chain, estilo Dither Boy): los adjustments y el grade
+van ANTES del dither sobre tono continuo; textura y glitch van después
+sobre el dither.
+"""
 
 from __future__ import annotations
 
@@ -16,8 +21,23 @@ from app.fx import (
     normalize_custom_palette,
     replace_white,
 )
-from app.glitch import chromatic_aberration, slice_shift
+from app.glitch import (
+    chromatic_aberration,
+    datamosh,
+    pixel_sort,
+    rgb_grille,
+    slice_shift,
+)
+from app.glitch import wave as _glitch_wave
+from app.grade import fade as _grade_fade
+from app.grade import gradient_map
+from app.grade import posterize as _grade_posterize
+from app.grade import split_tone as _grade_split_tone
 from app.palettes import get_palette
+from app.texture import border as _frame_border
+from app.texture import dust as _grain_dust
+from app.texture import halftone as _halftone_dots
+from app.texture import letterbox as _cine_bars
 
 
 def resolve_palette(palette_name: str, custom: list | None):
@@ -59,8 +79,25 @@ def render(
     glitch_chroma: int = 0,
     glitch_slice_bands: int = 0,
     glitch_slice_max: int = 24,
+    duotone_dark: str = "",
+    duotone_light: str = "",
+    duotone_mid: float = 50.0,
+    posterize: int = 0,
+    split_tone: float = 0.0,
+    fade: float = 0.0,
+    glow_threshold: int = 0,
+    halftone: int = 0,
+    halftone_shape: str = "dots",
+    dust: float = 0.0,
+    border: int = 0,
+    border_color: str = "#000000",
+    letterbox: int = 0,
+    pixelsort: int = 0,
+    wave: int = 0,
+    mosh: float = 0.0,
+    grille: int = 0,
 ) -> Image.Image:
-    """Pipeline completo: canvas -> pre -> dither -> brand -> post.
+    """Pipeline completo: canvas -> pre -> grade -> dither -> brand -> post.
 
     Cada etapa con valor neutro se salta (las funciones ya tienen
     early-return, aquí se hace explícito para legibilidad y evitar
@@ -71,6 +108,11 @@ def render(
     if pre_blur or pre_sharpen or pre_hue or pre_denoise or pre_smooth:
         canvas = apply_pre(canvas, blur=pre_blur, sharpen=pre_sharpen, hue=pre_hue,
                            denoise=pre_denoise, smooth=pre_smooth)
+    if duotone_dark or duotone_light:
+        canvas = gradient_map(canvas, color_dark=duotone_dark, color_light=duotone_light,
+                              mid=float(duotone_mid))
+    if posterize:
+        canvas = _grade_posterize(canvas, levels=int(posterize))
     pal, _ = resolve_palette(palette_name, custom_palette)
     dithered = apply_method(
         canvas,
@@ -83,19 +125,40 @@ def render(
     )
     if replace_color:
         dithered = replace_white(dithered, color=replace_color)
+    if split_tone:
+        dithered = _grade_split_tone(dithered, strength=float(split_tone))
+    if fade:
+        dithered = _grade_fade(dithered, amount=float(fade))
     if glow_radius and glow_intensity:
-        dithered = apply_glow(dithered, radius=glow_radius, intensity=glow_intensity)
+        dithered = apply_glow(dithered, radius=glow_radius, intensity=glow_intensity,
+                              threshold=int(glow_threshold))
     if grain:
         dithered = apply_grain(dithered, amount=grain)
+    if halftone:
+        dithered = _halftone_dots(dithered, cell=int(halftone), shape=halftone_shape)
+    if dust:
+        dithered = _grain_dust(dithered, amount=float(dust))
     if vignette:
         dithered = apply_vignette(dithered, strength=vignette)
     if scanlines:
         dithered = apply_scanlines(dithered, every=scanlines)
+    if grille:
+        dithered = rgb_grille(dithered, every=int(grille))
+    if border:
+        dithered = _frame_border(dithered, px=int(border), color=border_color)
+    if letterbox:
+        dithered = _cine_bars(dithered, pct=int(letterbox))
     if glitch_chroma:
         dithered = chromatic_aberration(dithered, dx=int(glitch_chroma))
     if glitch_slice_bands:
         dithered = slice_shift(dithered, bands=int(glitch_slice_bands),
                                max_offset=int(glitch_slice_max))
+    if pixelsort:
+        dithered = pixel_sort(dithered, threshold=int(pixelsort))
+    if wave:
+        dithered = _glitch_wave(dithered, amplitude=int(wave))
+    if mosh:
+        dithered = datamosh(dithered, amount=float(mosh))
     return dithered
 
 

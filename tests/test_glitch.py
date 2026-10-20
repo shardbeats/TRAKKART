@@ -1,8 +1,15 @@
-"""Tests glitch pack: chromatic aberration + slice shift."""
+"""Tests glitch pack: chromatic aberration, slice shift, pixel sort, wave, mosh, grille."""
 
 from PIL import Image
 
-from app.glitch import chromatic_aberration, slice_shift
+from app.glitch import (
+    chromatic_aberration,
+    datamosh,
+    pixel_sort,
+    rgb_grille,
+    slice_shift,
+    wave,
+)
 
 
 def _img(size: int = 32) -> Image.Image:
@@ -36,3 +43,29 @@ def test_slice_identity_and_deterministic():
     assert _flat(a) == _flat(b)
     assert _flat(a) != _flat(_img())
     assert a.size == (32, 32)
+
+
+def test_pixelsort_identity_and_sorts():
+    assert _flat(pixel_sort(_img())) == _flat(_img())
+    assert _flat(pixel_sort(Image.new("RGB", (8, 8), (9, 9, 9)), threshold=128)) == [(9, 9, 9)] * 64
+    out = pixel_sort(_img(), threshold=128)
+    assert out.size == (32, 32)
+    assert _flat(out) != _flat(_img())
+    assert _flat(pixel_sort(_img(), threshold=128)) == _flat(out)  # determinista
+
+
+def test_wave_identity_and_moves():
+    assert _flat(wave(_img())) == _flat(_img())
+    assert wave(_img(), amplitude=99).size == (32, 32)  # clamp a 30
+    out = wave(_img(), amplitude=8)
+    assert _flat(out) != _flat(_img())
+
+
+def test_mosh_and_grille():
+    assert _flat(datamosh(_img())) == _flat(_img())
+    a = datamosh(_img(), amount=50)
+    assert _flat(a) != _flat(_img())
+    assert _flat(datamosh(_img(), amount=50)) == _flat(a)  # determinista
+    assert _flat(rgb_grille(_img())) == _flat(_img())
+    assert _flat(rgb_grille(_img(), every=1)) == _flat(_img())
+    assert _flat(rgb_grille(_img(), every=3)) != _flat(_img())

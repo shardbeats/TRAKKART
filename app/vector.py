@@ -36,6 +36,10 @@ def render_cells(
     pre_smooth: float = 0.0,
     replace_color: str = "",
     custom_palette: list | None = None,
+    duotone_dark: str = "",
+    duotone_light: str = "",
+    duotone_mid: float = 50.0,
+    posterize: int = 0,
 ) -> Image.Image:
     """Small raster (cols x rows) ready to vectorize."""
     canvas = to_canvas(img, ratio=ratio, mode=crop_mode, fx=focus_x, fy=focus_y,
@@ -43,6 +47,15 @@ def render_cells(
     if pre_blur or pre_sharpen or pre_hue or pre_denoise or pre_smooth:
         canvas = apply_pre(canvas, blur=pre_blur, sharpen=pre_sharpen,
                            hue=pre_hue, denoise=pre_denoise, smooth=pre_smooth)
+    if duotone_dark or duotone_light:
+        from app.grade import gradient_map
+
+        canvas = gradient_map(canvas, color_dark=duotone_dark,
+                              color_light=duotone_light, mid=float(duotone_mid))
+    if posterize:
+        from app.grade import posterize as _posterize
+
+        canvas = _posterize(canvas, levels=int(posterize))
     small = canvas.resize((max(1, int(cols)), max(1, int(rows))), Image.BICUBIC)
     pal, _ = resolve_palette(palette_name, custom_palette)
     dithered = apply_method(small, method=method, palette=pal,
@@ -85,6 +98,10 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
         pre_hue=float(preset.pre_hue), pre_denoise=int(preset.pre_denoise),
         pre_smooth=float(preset.pre_smooth),
         replace_color=preset.replace_color, custom_palette=preset.custom_palette,
+        duotone_dark=str(getattr(preset, "duotone_dark", "")),
+        duotone_light=str(getattr(preset, "duotone_light", "")),
+        duotone_mid=float(getattr(preset, "duotone_mid", 50.0)),
+        posterize=int(getattr(preset, "posterize", 0)),
     )
     return raster_to_svg(raster, cell), cols, rows
 

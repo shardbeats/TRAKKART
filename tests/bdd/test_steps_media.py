@@ -59,6 +59,43 @@ def all_branded(ctx):
     assert set(ctx["out"].get_flattened_data()) == {(17, 34, 51)}
 
 
+@when("I apply duotone black to white")
+def duotone_bw(ctx):
+    from app.grade import gradient_map
+
+    ctx["out"] = gradient_map(ctx["img"], "#000000", "#ffffff")
+
+
+@then("darks stay dark and lights stay light")
+def duotone_order(ctx):
+    dark = gradient_map_for(ctx, (0, 0, 0))
+    light = gradient_map_for(ctx, (255, 255, 255))
+    assert sum(dark) < 128 * 3
+    assert sum(light) > 128 * 3
+
+
+def gradient_map_for(ctx, rgb):
+    """Aplica el mismo duotone del step a un color plano (helper, no step)."""
+    from PIL import Image as Img
+
+    from app.grade import gradient_map
+
+    return gradient_map(Img.new("RGB", (4, 4), rgb), "#000000", "#ffffff").load()[0, 0]
+
+
+@when("I apply halftone dots of size 6")
+def halftone_6(ctx):
+    from app.texture import halftone
+
+    ctx["out"] = halftone(ctx["img"], cell=6)
+
+
+@then("the image keeps its size and changes")
+def size_kept_changed(ctx):
+    assert ctx["out"].size == ctx["img"].size
+    assert list(ctx["out"].get_flattened_data()) != list(ctx["img"].get_flattened_data())
+
+
 # -- dnd.feature --
 @given(parsers.parse('the text "{url}"'))
 def text_url(ctx, url):
@@ -229,3 +266,10 @@ def slice_twice(ctx):
 
     ctx["out_a"] = slice_shift(ctx["img"], bands=4, max_offset=8)
     ctx["out_b"] = slice_shift(ctx["img"], bands=4, max_offset=8)
+
+
+@when("I apply pixel sort with threshold 128")
+def pixelsort_128(ctx):
+    from app.glitch import pixel_sort
+
+    ctx["out"] = pixel_sort(ctx["img"], threshold=128)

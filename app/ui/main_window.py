@@ -90,6 +90,9 @@ class MainWindow(QMainWindow):
         self._export_size: int = 3000
         self._export_format: str = "png"
         self._export_quality: int = 90
+        self.duotone_dark: str = ""
+        self.duotone_light: str = ""
+        self.border_color: str = "#000000"
         # La paleta en uso es la tira custom (los presets con nombre son
         # puntos de partida). _palette_base recuerda de cuál se derivó.
         self._palette_base: str = "SLIME"
@@ -238,7 +241,9 @@ class MainWindow(QMainWindow):
         P.build_color_section(self, P.make_group(panel, "COLOR"))
         P.build_canvas_section(self, P.make_group(panel, "CANVAS"), ratio_names(), CROP_MODES)
         P.build_pre_section(self, P.make_group(panel, "PRE-PROCESS"))
-        P.build_effects_section(self, P.make_group(panel, "EFFECTS"))
+        P.build_grade_section(self, P.make_group(panel, "GRADE"))
+        P.build_texture_section(self, P.make_group(panel, "TEXTURE"))
+        P.build_glitch_section(self, P.make_group(panel, "GLITCH"))
         P.build_custom_palette_section(self, P.make_group(panel, "CUSTOM PALETTE"))
         panel.addStretch()
 
@@ -393,6 +398,12 @@ class MainWindow(QMainWindow):
 
     # -- presets --
     def current_params(self) -> Preset:
+        from app.render_params import (
+            normalize_grille,
+            normalize_halftone,
+            normalize_posterize,
+        )
+
         base = self._palette_base if self._palette_base in palette_names() else "SLIME"
         return Preset(
             name=self.cmb_preset.currentText(),
@@ -413,8 +424,9 @@ class MainWindow(QMainWindow):
             pre_hue=float(self.sld_hue.value()),
             pre_denoise=int(self.spn_denoise.value()),
             pre_smooth=self.sld_smooth.value() / 10.0,
-            glow_radius=8.0 if self.sld_glow.value() > 0 else 0.0,
+            glow_radius=float(self.spn_glowrad.value()) if self.sld_glow.value() > 0 else 0.0,
             glow_intensity=float(self.sld_glow.value()),
+            glow_threshold=int(self.spn_glowthr.value()),
             grain=float(self.sld_grain.value()),
             vignette=float(self.sld_vig.value()),
             scanlines=normalize_scanlines(int(self.spn_scan.value())),
@@ -428,9 +440,25 @@ class MainWindow(QMainWindow):
             export_size=int(self._export_size),
             export_format=str(self._export_format),
             export_quality=int(self._export_quality),
+            duotone_dark=self.duotone_dark,
+            duotone_light=self.duotone_light,
+            duotone_mid=float(self.sld_duo_mid.value()),
+            posterize=normalize_posterize(int(self.spn_poster.value())),
+            split_tone=float(self.sld_split.value()),
+            fade=float(self.sld_fade.value()),
+            halftone=normalize_halftone(int(self.spn_halftone.value())),
+            halftone_shape=self.cmb_halftone.currentText(),
+            dust=float(self.sld_dust.value()),
+            border=int(self.spn_border.value()),
+            border_color=self.border_color,
+            letterbox=int(self.spn_letterbox.value()),
             glitch_chroma=int(self.sld_chroma.value()),
             glitch_slice_bands=self._valid_slice_bands(),
             glitch_slice_max=24,
+            pixelsort=int(self.spn_pixelsort.value()),
+            wave=int(self.spn_wave.value()),
+            mosh=float(self.sld_mosh.value()),
+            grille=normalize_grille(int(self.spn_grille.value())),
         )
 
     def pick_brand_color(self) -> None:
@@ -447,6 +475,54 @@ class MainWindow(QMainWindow):
             return
         self.brand_color = hex_color or ""
         self.lbl_brand.setText(self.brand_color if self.brand_color else "(no brand)")
+        self.refresh()
+
+    def pick_duotone_color(self, which: str) -> None:
+        color = QColorDialog.getColor()
+        if not color.isValid():
+            return
+        self.set_duotone_color(which, color.name().upper())
+
+    def set_duotone_color(self, which: str, hex_color: str) -> None:
+        from app.fx import parse_hex
+
+        if hex_color and parse_hex(hex_color) is None:
+            self._status("Invalid duotone color (use #RRGGBB)")
+            return
+        hex_color = (hex_color or "").upper()
+        if which == "light":
+            self.duotone_light = hex_color
+        else:
+            self.duotone_dark = hex_color
+        self._sync_duo_label()
+        self.refresh()
+
+    def clear_duotone(self) -> None:
+        self.duotone_dark = ""
+        self.duotone_light = ""
+        self._sync_duo_label()
+        self.refresh()
+
+    def _sync_duo_label(self) -> None:
+        if self.duotone_dark or self.duotone_light:
+            self.lbl_duo.setText(f"{self.duotone_dark or '—'} → {self.duotone_light or '—'}")
+        else:
+            self.lbl_duo.setText("(off)")
+
+    def pick_border_color(self) -> None:
+        color = QColorDialog.getColor()
+        if not color.isValid():
+            return
+        self.set_border_color(color.name().upper())
+
+    def set_border_color(self, hex_color: str) -> None:
+        from app.fx import parse_hex
+
+        if not hex_color or parse_hex(hex_color) is None:
+            self._status("Invalid border color (use #RRGGBB)")
+            return
+        self.border_color = hex_color.upper()
+        self.lbl_border.setText(self.border_color)
         self.refresh()
 
     def add_custom_color(self) -> None:
@@ -628,6 +704,8 @@ class MainWindow(QMainWindow):
         self.spn_denoise.setValue(int(p.pre_denoise))
         self.sld_smooth.setValue(int(round(float(p.pre_smooth) * 10)))
         self.sld_glow.setValue(int(float(p.glow_intensity)))
+        self.spn_glowrad.setValue(int(float(p.glow_radius)))
+        self.spn_glowthr.setValue(int(p.glow_threshold))
         self.sld_grain.setValue(int(float(p.grain)))
         self.sld_vig.setValue(int(float(p.vignette)))
         self.spn_scan.setValue(int(p.scanlines))
@@ -652,8 +730,31 @@ class MainWindow(QMainWindow):
         self._export_size = int(p.export_size)
         self._export_format = str(p.export_format)
         self._export_quality = int(p.export_quality)
+        # Grade pack.
+        self.duotone_dark = str(p.duotone_dark or "")
+        self.duotone_light = str(p.duotone_light or "")
+        self.sld_duo_mid.setValue(int(float(p.duotone_mid)))
+        self._sync_duo_label()
+        self.spn_poster.setValue(int(p.posterize))
+        self.sld_split.setValue(int(float(p.split_tone)))
+        self.sld_fade.setValue(int(float(p.fade)))
+        self._sync_duo_label()
+        # Texture pack.
+        self.spn_halftone.setValue(int(p.halftone))
+        if self.cmb_halftone.findText(p.halftone_shape) >= 0:
+            self.cmb_halftone.setCurrentText(p.halftone_shape)
+        self.sld_dust.setValue(int(float(p.dust)))
+        self.spn_border.setValue(int(p.border))
+        self.border_color = str(p.border_color or "#000000")
+        self.lbl_border.setText(self.border_color)
+        self.spn_letterbox.setValue(int(p.letterbox))
         self.sld_chroma.setValue(int(p.glitch_chroma))
         self.spn_slice.setValue(int(p.glitch_slice_bands))
+        # Glitch extra pack.
+        self.spn_pixelsort.setValue(int(p.pixelsort))
+        self.spn_wave.setValue(int(p.wave))
+        self.sld_mosh.setValue(int(float(p.mosh)))
+        self.spn_grille.setValue(int(p.grille))
         if self.cmb_preset.findText(name) < 0:
             self.refresh_presets()
         self.cmb_preset.setCurrentText(name)
