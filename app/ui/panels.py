@@ -151,6 +151,7 @@ def build_color_section(win, g: QVBoxLayout) -> None:
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     """Documento único estilo GIMP: Ratio + Modo + Tamaño (la imagen sale a esto)."""
+    from app.canvas import MODE_TIPS
     from app.exporter import MAX_SIDE, MIN_SIDE, SIZE_PRESETS
 
     g.addWidget(QLabel("Ratio / Mode:"))
@@ -158,24 +159,27 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.cmb_ratio = QComboBox()
     win.cmb_ratio.addItems(ratios)
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    win.cmb_ratio.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_ratio, 1)
     win.cmb_crop = QComboBox()
     win.cmb_crop.addItems(list(crop_modes))
+    win.cmb_crop.setToolTip("; ".join(f"{m}: {MODE_TIPS.get(m, '')}" for m in crop_modes))
     win.cmb_crop.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    win.cmb_crop.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_crop, 1)
     g.addLayout(row)
-    g.addWidget(QLabel("Document size (long side):"))
+    g.addWidget(QLabel("Canvas Size:"))
     doc_row = QHBoxLayout()
     win.cmb_docsize = QComboBox()
     win.cmb_docsize.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
-    win.cmb_docsize.setToolTip("Presets or Custom (like GIMP Image Size)")
+    win.cmb_docsize.setToolTip("Presets or Custom (like GIMP Canvas Size)")
     win.cmb_docsize.currentTextChanged.connect(win._on_docsize_preset)
     doc_row.addWidget(win.cmb_docsize)
     win.spn_docsize = QSpinBox()
     win.spn_docsize.setRange(MIN_SIDE, MAX_SIDE)
     win.spn_docsize.setValue(3000)
     win.spn_docsize.setSuffix(" px")
-    win.spn_docsize.setToolTip("Long side of the document: main export renders at this")
+    win.spn_docsize.setToolTip("Long side of the canvas: main export renders at this exactly")
     win.spn_docsize.valueChanged.connect(win._on_docsize_custom)
     doc_row.addWidget(win.spn_docsize, 1)
     win.lbl_docdims = QLabel()
@@ -367,8 +371,8 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
-    """Modo Video: preview animado a canvas completo + controles propios."""
-    from app.gif import GIF_MODES, VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE
+    """Único sitio para animar: Mode/Frames/FPS/Ping-pong. El tamaño lo manda el canvas."""
+    from app.gif import GIF_MODES
 
     win.chk_video = QCheckBox("Video mode (animated preview)")
     win.chk_video.setToolTip("OFF = still dither · ON = full video preview on canvas")
@@ -404,13 +408,9 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     g.addLayout(row2)
     row3 = QHBoxLayout()
     row3.addWidget(QLabel("Size:"))
-    win.spn_video_size = QSpinBox()
-    win.spn_video_size.setRange(VIDEO_MIN_SIZE, VIDEO_MAX_SIZE)
-    win.spn_video_size.setValue(VIDEO_DEFAULT_SIZE)
-    win.spn_video_size.setSuffix(" px")
-    win.spn_video_size.setToolTip("Canvas long side 480-1920 (1200 default)")
-    win.spn_video_size.valueChanged.connect(lambda _: win._schedule_refresh())
-    row3.addWidget(win.spn_video_size, 1)
+    win.lbl_video_size = QLabel("canvas")
+    win.lbl_video_size.setToolTip("Animation renders at the CANVAS document size")
+    row3.addWidget(win.lbl_video_size, 1)
     from PySide6.QtWidgets import QCheckBox as _Chk
 
     win.chk_video_pingpong = _Chk("Ping-pong")

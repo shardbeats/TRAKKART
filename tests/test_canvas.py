@@ -50,7 +50,23 @@ def test_contain_pads_without_cropping():
 def test_invalid_ratio_and_mode_fallback():
     assert to_canvas(_img(), ratio="99:99").size == (300, 300)
     assert to_canvas(_img(), ratio="1:1", mode="weird").size == (300, 300)
-    assert set(CROP_MODES) == {"cover", "contain"}
+    assert set(CROP_MODES) == {"cover", "contain", "stretch", "blur"}
+
+
+def test_stretch_honors_ratio_without_crop():
+    out = to_canvas(_img(), ratio="9:16", mode="stretch")
+    assert out.size[0] / out.size[1] == 9 / 16
+    # Misma magnitud que la fuente: lado largo preservado.
+    assert max(out.size) == 400
+
+
+def test_blur_fits_whole_image_without_bars():
+    out = to_canvas(_img(), ratio="1:1", mode="blur")
+    assert out.size == (400, 400)
+    # Sin barras negras puras en las esquinas: el fondo es blur, no (0,0,0).
+    assert out.getpixel((0, 0)) != (0, 0, 0)
+    out169 = to_canvas(_img(), ratio="16:9", mode="blur")
+    assert out169.size == (400, 225)
 
 
 def test_crop_zoom_one_matches_classic():

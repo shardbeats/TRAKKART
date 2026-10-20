@@ -108,8 +108,6 @@ def test_e2e_gif_svg_export(window, qt_app):
     def _on(dlg):
         dlg.chk_vector.setChecked(True)
         dlg.chk_anim.setChecked(True)
-        dlg.spn_gframes.setValue(2)
-        dlg.cmb_gifmode.setCurrentText("phase")
 
     window._vector_cell = 8
     window.refresh()

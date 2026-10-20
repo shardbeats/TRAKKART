@@ -1,8 +1,14 @@
-"""TRAKKART canvas — ratios and cropping (cover/contain) with safe clamp."""
+"""TRAKKART canvas — ratios and framing (cover/contain/stretch/blur).
+
+cover   = fill the ratio, crop overflow (focus + zoom).
+contain = fit the whole image, black bars (no crop).
+stretch = distort to the exact ratio (no crop, no bars).
+blur    = fit the whole image over a blurred fill (no crop, no black bars).
+"""
 
 from __future__ import annotations
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 RATIOS: dict[str, tuple[int, int]] = {
     "1:1": (1, 1),
@@ -13,7 +19,14 @@ RATIOS: dict[str, tuple[int, int]] = {
     "9:16": (9, 16),
 }
 
-CROP_MODES = ("cover", "contain")
+CROP_MODES = ("cover", "contain", "stretch", "blur")
+
+MODE_TIPS = {
+    "cover": "Fill the ratio, crop overflow (focus + zoom apply)",
+    "contain": "Fit whole image, black bars (no crop)",
+    "stretch": "Distort to the exact ratio (no crop, no bars)",
+    "blur": "Fit whole image over a blurred fill (no black bars)",
+}
 
 
 def ratio_names() -> list[str]:
@@ -103,6 +116,33 @@ def fit_contain(img: Image.Image, ratio: str, fill: tuple[int, int, int] = (0, 0
     return canvas
 
 
+def fit_stretch(img: Image.Image, ratio: str) -> Image.Image:
+    """Distort to the exact ratio at source magnitude (no crop, no bars)."""
+    rgb = img.convert("RGB")
+    w, h = canvas_size_for(ratio, max(rgb.width, rgb.height))
+    if (rgb.width, rgb.height) == (w, h):
+        return rgb.copy()
+    return rgb.resize((w, h), Image.BICUBIC)
+
+
+def fit_blur(img: Image.Image, ratio: str) -> Image.Image:
+    """Fit the whole image over a blurred cover fill (no crop, no black bars)."""
+    rgb = img.convert("RGB")
+    w, h = canvas_size_for(ratio, max(rgb.width, rgb.height))
+    bg = crop_cover(rgb, ratio).resize((w, h), Image.BICUBIC)
+    bg = bg.filter(ImageFilter.GaussianBlur(radius=max(8, min(w, h) // 24)))
+    dim = Image.new("RGB", (w, h), (0, 0, 0))
+    bg = Image.blend(bg, dim, 0.15)
+    r = min(w / rgb.width, h / rgb.height)
+    nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
+    if (nw, nh) != (rgb.width, rgb.height):
+        fg = rgb.resize((nw, nh), Image.BICUBIC)
+    else:
+        fg = rgb
+    bg.paste(fg, ((w - nw) // 2, (h - nh) // 2))
+    return bg
+
+
 def to_canvas(
     img: Image.Image,
     ratio: str = "1:1",
@@ -116,4 +156,8 @@ def to_canvas(
         ratio = "1:1"
     if mode == "contain":
         return fit_contain(img.convert("RGB"), ratio)
+    if mode == "stretch":
+        return fit_stretch(img.convert("RGB"), ratio)
+    if mode == "blur":
+        return fit_blur(img.convert("RGB"), ratio)
     return crop_cover(img.convert("RGB"), ratio, fx, fy, zoom)

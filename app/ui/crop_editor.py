@@ -58,15 +58,15 @@ class CropView(QWidget):
     def _layout(self) -> dict:
         w, h = max(1, self.width()), max(1, self.height())
         iw, ih = self._img.width, self._img.height
-        if self.mode == "contain":
-            from app.canvas import fit_contain
+        if self.mode != "cover":
+            from app.canvas import to_canvas
 
-            canvas = fit_contain(self._img, self.ratio)
+            canvas = to_canvas(self._img, self.ratio, self.mode)
             cw, ch = canvas.width, canvas.height
             s = min(w / cw, h / ch)
             dw, dh = cw * s, ch * s
             ox, oy = (w - dw) / 2.0, (h - dh) / 2.0
-            return {"mode": "contain", "canvas": canvas, "s": s, "ox": ox, "oy": oy,
+            return {"mode": self.mode, "canvas": canvas, "s": s, "ox": ox, "oy": oy,
                     "frame": QRectF(ox, oy, dw, dh), "img_rect": QRectF(ox, oy, dw, dh)}
         s = min(w / iw, h / ih)
         dw, dh = iw * s, ih * s
@@ -83,7 +83,7 @@ class CropView(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.fillRect(self.rect(), Qt.black)
-        if lay["mode"] == "contain":
+        if lay["mode"] != "cover":
             pix = _pil_to_pixmap(lay["canvas"])
             p.drawPixmap(lay["img_rect"].toRect(), pix)
         else:
@@ -262,7 +262,7 @@ class CropEditorDialog(QDialog):
 
     def _on_mode(self, name: str) -> None:
         self.view.mode = name
-        if name == "contain":
+        if name != "cover":
             self.view.reset_crop()
         self.view.update()
         self._sync_summary()

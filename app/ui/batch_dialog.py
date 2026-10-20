@@ -53,7 +53,6 @@ class BatchDialog(QDialog):
         gif_frames: int = 6,
         gif_mode: str = "both",
         gif_fps: int = 8,
-        gif_size: int = 1200,
         gif_pingpong: bool = False,
         canvas_size: tuple[int, int] | None = None,
         size: int = 3000,
@@ -128,38 +127,26 @@ class BatchDialog(QDialog):
         self.lbl_vec_est = QLabel("")
         vec_row.addWidget(self.lbl_vec_est, 1)
         col.addLayout(vec_row)
+        self._gif_spec = {
+            "frames": max(2, min(12, int(gif_frames))),
+            "mode": gif_mode if gif_mode in self.GIF_MODES else "both",
+            "fps": max(2, min(24, int(gif_fps))),
+            "pingpong": bool(gif_pingpong),
+        }
         gif_row = QHBoxLayout()
-        self.chk_gif = QCheckBox("GIF")
-        self.chk_gif.setToolTip("Animation for socials (phase/hue/glitch/mix)")
+        self.chk_gif = QCheckBox("Animation GIF")
+        self.chk_gif.setToolTip("Animation uses the VIDEO panel setup at canvas size")
         self.chk_gif.setChecked(bool(gif_export))
         gif_row.addWidget(self.chk_gif)
-        self.spn_gframes = QSpinBox()
-        self.spn_gframes.setRange(2, 12)
-        self.spn_gframes.setValue(max(2, min(12, int(gif_frames))))
-        self.spn_gframes.setToolTip("Frames 2-12")
-        gif_row.addWidget(self.spn_gframes)
-        self.cmb_gifmode = QComboBox()
-        self.cmb_gifmode.addItems(list(self.GIF_MODES))
-        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in self.GIF_MODES else "both")
-        gif_row.addWidget(self.cmb_gifmode, 1)
+        self.lbl_gifspec = QLabel(
+            f"{self._gif_spec['frames']}f · {self._gif_spec['mode']} · "
+            f"{self._gif_spec['fps']}fps"
+            f"{' · ping-pong' if self._gif_spec['pingpong'] else ''} · canvas px"
+        )
+        self.lbl_gifspec.setObjectName("subtitleLabel")
+        self.lbl_gifspec.setWordWrap(True)
+        gif_row.addWidget(self.lbl_gifspec, 1)
         col.addLayout(gif_row)
-        gif_row2 = QHBoxLayout()
-        gif_row2.addWidget(QLabel("FPS:"))
-        self.spn_gfps = QSpinBox()
-        self.spn_gfps.setRange(2, 24)
-        self.spn_gfps.setValue(max(2, min(24, int(gif_fps))))
-        gif_row2.addWidget(self.spn_gfps)
-        gif_row2.addWidget(QLabel("Size:"))
-        self.spn_gsize = QSpinBox()
-        self.spn_gsize.setRange(240, 1920)
-        self.spn_gsize.setValue(max(240, min(1920, int(gif_size))))
-        self.spn_gsize.setSuffix(" px")
-        gif_row2.addWidget(self.spn_gsize)
-        self.chk_pingpong = QCheckBox("Ping-pong")
-        self.chk_pingpong.setChecked(bool(gif_pingpong))
-        self.chk_pingpong.setToolTip("Forward-backward loop")
-        gif_row2.addWidget(self.chk_pingpong)
-        col.addLayout(gif_row2)
 
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
@@ -228,15 +215,16 @@ class BatchDialog(QDialog):
 
     def output_options(self) -> dict:
         """Flags vector/gif + formato elegidos para este batch. Solo tras Accept."""
+        g = dict(getattr(self, "_gif_spec", {}))
         return {
             "vector_export": self.chk_vector.isChecked(),
             "vector_cell": int(self.spn_vcell.value()),
             "gif_export": self.chk_gif.isChecked(),
-            "gif_frames": int(self.spn_gframes.value()),
-            "gif_mode": self.cmb_gifmode.currentText(),
-            "gif_fps": int(self.spn_gfps.value()),
-            "gif_size": int(self.spn_gsize.value()),
-            "gif_pingpong": bool(self.chk_pingpong.isChecked()),
+            "gif_frames": int(g.get("frames", 6)),
+            "gif_mode": str(g.get("mode", "both")),
+            "gif_fps": int(g.get("fps", 8)),
+            "gif_size": int(getattr(self, "_doc_size", 3000)),
+            "gif_pingpong": bool(g.get("pingpong", False)),
             "export_size": int(getattr(self, "_doc_size", 3000)),
             "export_format": self.cmb_format.currentText(),
             "export_quality": int(self.spn_quality.value()),

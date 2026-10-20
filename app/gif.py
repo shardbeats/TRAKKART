@@ -22,7 +22,7 @@ from PIL import Image
 GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
 GIF_MAX_SIDE = 480
 GIF_MIN_SIDE = 240
-GIF_LIMIT_SIDE = 1920
+GIF_LIMIT_SIDE = 8000  # el canvas manda: el anim sale al tamaño del documento
 GIF_MIN_FPS = 2
 GIF_MAX_FPS = 24
 GIF_MIN_FRAMES = 2

@@ -147,8 +147,8 @@ class Preset:
             raise ValueError(f"invalid gif_mode: {self.gif_mode}")
         if not 2 <= int(self.gif_fps) <= 24:
             raise ValueError(f"gif_fps out of range 2-24: {self.gif_fps}")
-        if not 240 <= int(self.gif_size) <= 1920:
-            raise ValueError(f"gif_size out of range 240-1920: {self.gif_size}")
+        if not 64 <= int(self.gif_size) <= 8000:
+            raise ValueError(f"gif_size out of range 64-8000: {self.gif_size}")
         if not 64 <= int(self.export_size) <= 8000:
             raise ValueError(f"export_size out of range 64-8000: {self.export_size}")
         if str(self.export_format) not in ("png", "jpg", "webp"):

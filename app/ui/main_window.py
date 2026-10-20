@@ -415,10 +415,8 @@ class MainWindow(QMainWindow):
             return int(getattr(self, "_gif_fps", 8))
 
     def _gif_anim_size(self) -> int:
-        try:
-            return max(240, min(1920, int(self.spn_video_size.value())))
-        except Exception:  # noqa: BLE001
-            return int(getattr(self, "_gif_size", 1200))
+        # Sin Size en VIDEO: el anim sale al tamaño del documento canvas.
+        return int(self._doc_size())
 
     def _gif_anim_pingpong(self) -> bool:
         try:
@@ -462,7 +460,11 @@ class MainWindow(QMainWindow):
             from app.canvas import canvas_size_for
 
             w, h = canvas_size_for(self.cmb_ratio.currentText(), self._doc_size())
-            self.lbl_docdims.setText(f"{w}×{h}")
+            self.lbl_docdims.setText(f"{w}×{h} px")
+            try:
+                self.lbl_video_size.setText(f"{w}×{h} px (canvas)")
+            except Exception:  # noqa: BLE001
+                pass
         except Exception:  # noqa: BLE001
             pass
 
@@ -1043,7 +1045,6 @@ class MainWindow(QMainWindow):
         for _spn, _val, _lo, _hi in (
             (self.spn_video_frames, int(p.gif_frames), 2, 12),
             (self.spn_video_fps, int(getattr(p, "gif_fps", 8)), 2, 24),
-            (self.spn_video_size, int(getattr(p, "gif_size", 1200)), 240, 1920),
         ):
             try:
                 _spn.blockSignals(True)
@@ -1156,7 +1157,6 @@ class MainWindow(QMainWindow):
             vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
             gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
             gif_mode=preset.gif_mode, gif_fps=int(getattr(preset, "gif_fps", 8)),
-            gif_size=int(getattr(preset, "gif_size", 1200)),
             gif_pingpong=bool(getattr(preset, "gif_pingpong", False)),
             canvas_size=canvas_size,
             size=int(preset.export_size), format=str(preset.export_format),
@@ -1599,7 +1599,7 @@ class MainWindow(QMainWindow):
                 self.src, preset.meta(), base=init_base, out_dir=init_out,
                 selection=init_sel,
                 gif_frames=int(init_gopts["frames"]), gif_mode=str(init_gopts["mode"]),
-                gif_fps=int(init_gopts["fps"]), gif_size=int(init_gopts["size"]),
+                gif_fps=int(init_gopts["fps"]),
                 gif_pingpong=bool(init_gopts["pingpong"]),
                 overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
                 preset=preset, size=init_size, format=init_fmt, quality=init_q,

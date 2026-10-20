@@ -57,7 +57,6 @@ class ExportDialog(QDialog):
         gif_frames: int = 6,
         gif_mode: str = "both",
         gif_fps: int = 8,
-        gif_size: int = 1200,
         gif_pingpong: bool = False,
         overwrite: str = "overwrite",
         vector_cells: tuple[int, int] | None = None,
@@ -142,44 +141,18 @@ class ExportDialog(QDialog):
                     self.chk_vector, self.chk_anim, self.chk_meta):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
-        # -- gif (frames / mode / fps / size / pingpong) --
-        gif_row = QHBoxLayout()
-        gif_row.addWidget(QLabel("GIF frames:"))
-        self.spn_gframes = QSpinBox()
-        self.spn_gframes.setRange(2, 12)
-        self.spn_gframes.setValue(max(2, min(12, int(gif_frames))))
-        self.spn_gframes.setToolTip("2-12 frames (more = heavier)")
-        self.spn_gframes.valueChanged.connect(self._refresh_plan)
-        gif_row.addWidget(self.spn_gframes)
-        self.cmb_gifmode = QComboBox()
-        self.cmb_gifmode.addItems(list(self.GIF_MODES))
-        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in self.GIF_MODES else "both")
-        self.cmb_gifmode.setToolTip("phase=march · hue=cycle · both=legacy · glitch=CRT · mix=all")
-        self.cmb_gifmode.currentTextChanged.connect(self._refresh_plan)
-        gif_row.addWidget(self.cmb_gifmode, 1)
-        col.addLayout(gif_row)
-        gif_row2 = QHBoxLayout()
-        gif_row2.addWidget(QLabel("FPS:"))
-        self.spn_gfps = QSpinBox()
-        self.spn_gfps.setRange(2, 24)
-        self.spn_gfps.setValue(max(2, min(24, int(gif_fps))))
-        self.spn_gfps.setToolTip("Playback speed 2-24 fps")
-        self.spn_gfps.valueChanged.connect(self._refresh_plan)
-        gif_row2.addWidget(self.spn_gfps)
-        gif_row2.addWidget(QLabel("Size:"))
-        self.spn_gsize = QSpinBox()
-        self.spn_gsize.setRange(240, 1920)
-        self.spn_gsize.setValue(max(240, min(1920, int(gif_size))))
-        self.spn_gsize.setSuffix(" px")
-        self.spn_gsize.setToolTip("Long side 240-1920px (480 = socials, 1200 = HD)")
-        self.spn_gsize.valueChanged.connect(self._refresh_plan)
-        gif_row2.addWidget(self.spn_gsize)
-        self.chk_pingpong = QCheckBox("Ping-pong")
-        self.chk_pingpong.setChecked(bool(gif_pingpong))
-        self.chk_pingpong.setToolTip("Forward-backward loop (no jump cut)")
-        gif_row2.addWidget(self.chk_pingpong)
-        col.addLayout(gif_row2)
-        col.addWidget(QLabel("Tip: preview the animation live in VIDEO mode (main window)."))
+        # -- animación: sin duplicados (se edita solo en VIDEO); aquí solo on/off --
+        self._gif_spec = {
+            "frames": max(2, min(12, int(gif_frames))),
+            "mode": gif_mode if gif_mode in self.GIF_MODES else "both",
+            "fps": max(2, min(24, int(gif_fps))),
+            "pingpong": bool(gif_pingpong),
+        }
+        self.lbl_gifspec = QLabel()
+        self.lbl_gifspec.setWordWrap(True)
+        self.lbl_gifspec.setObjectName("subtitleLabel")
+        col.addWidget(self.lbl_gifspec)
+        self._sync_gifspec_label()
         # -- colisión (GIMP pregunta; aquí se elige política) --
         ow_row = QHBoxLayout()
         ow_row.addWidget(QLabel("If files exist:"))
@@ -249,8 +222,8 @@ class ExportDialog(QDialog):
                 self._img, opts, meta=self._meta,
                 has_vector=True, has_gif=True,
                 extra={"vector_cells": self._vector_cells or (0, 0),
-                       "gif_frames": int(self.spn_gframes.value()),
-                       "gif_size": int(self.spn_gsize.value())},
+                       "gif_frames": int(self._gif_opts()["frames"]),
+                       "gif_size": int(self._gif_opts()["size"])},
             )
         except ValueError:
             plan = []
@@ -268,15 +241,21 @@ class ExportDialog(QDialog):
         if d:
             self.edit_dir.setText(d)
 
-    # -- gif opts (sin preview: el preview vive en modo VIDEO) --
+    # -- animación: la spec viene de VIDEO (aquí no se edita, solo se muestra) --
+    def _sync_gifspec_label(self) -> None:
+        g = getattr(self, "_gif_spec", {})
+        self.lbl_gifspec.setText(
+            f"Animation: {g.get('frames', 6)}f · {g.get('mode', 'both')} · "
+            f"{g.get('fps', 8)}fps"
+            f"{' · ping-pong' if g.get('pingpong') else ''} "
+            f"· {self._current_size()}px (canvas). Edit it in VIDEO."
+        )
+
     def _gif_opts(self) -> dict:
-        return {
-            "frames": int(self.spn_gframes.value()),
-            "mode": self.cmb_gifmode.currentText(),
-            "fps": int(self.spn_gfps.value()),
-            "size": int(self.spn_gsize.value()),
-            "pingpong": bool(self.chk_pingpong.isChecked()),
-        }
+        g = dict(getattr(self, "_gif_spec", {}))
+        g["size"] = self._current_size()  # el canvas manda también en el anim
+        g["pingpong"] = bool(g.get("pingpong", False))
+        return g
 
     def _on_export(self) -> None:
         if not self.edit_base.text().strip():
