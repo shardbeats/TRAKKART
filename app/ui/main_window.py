@@ -12,19 +12,14 @@ API pública intacta (tests test_ui_* dependen de ella).
 
 from __future__ import annotations
 
-import json
-import random
 from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QPixmap
-from PySide6.QtWidgets import (
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (  # noqa: F401 (QMessageBox: test seam, see note below)
     QCheckBox,
-    QColorDialog,
-    QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -38,27 +33,17 @@ from PySide6.QtWidgets import (
 
 from app import __version__
 from app.adjust import Adjust
-from app.batch import batch_process
 from app.canvas import CROP_MODES, ratio_names
 from app.dither import METHODS
 from app.history import HistoryStore
 from app.ops import ImageHistory, flip_h, flip_v, invert, rotate_left, rotate_right
-from app.palettes import palette_names
 from app.paths import get_db_path, get_out_dir
-from app.presets import Preset, ensure_bundled, list_presets, load_preset, save_preset
-from app.render_params import normalize_scanlines, normalize_slice_bands
-from app.export_prefs import ExportPrefs, load_prefs, save_prefs
-from app.exporter import ExportSelection
-from app.ui.batch_dialog import BatchDialog
-from app.ui.export_dialog import ExportDialog
-from app.ui.qt_image import pil_to_pixmap as _pil_to_pixmap_impl
-from app.ui.qt_image import qimage_to_pil
+from app.presets import Preset, ensure_bundled
+# NOTE: QMessageBox/BatchDialog stay imported (no direct use below) because
+# tests stub them as MW.QMessageBox / MW.BatchDialog. BatchWorker is resolved
+# through this namespace by batch_flow for the same reason.
+from app.ui.batch_dialog import BatchDialog  # noqa: F401
 from app.ui.workers import BatchWorker
-
-
-def pil_to_pixmap(img: Image.Image, max_side: int = 520) -> QPixmap:
-    """Compat: implementación única en app.ui.qt_image."""
-    return _pil_to_pixmap_impl(img, max_side=max_side)
 
 
 class MainWindow(QMainWindow):
@@ -372,239 +357,138 @@ class MainWindow(QMainWindow):
             self._start_video_async()
             return
         try:
-            from app.services.render_service import render_full, should_render_async
+            from app.ui import preview_controller as _pc
 
-            if should_render_async(self.src):
-                self._start_preview_async()  # no numba and big: do not freeze
-                return
-            self.result = render_full(self.src, self.current_params())
-            self._show_preview(self.src, self.result)
+            _pc.render_still(self)
         except Exception as e:  # noqa: BLE001
             self._status(f"Error: {e}")
 
     # ------------------------------------------------------------------
     # Doc único (CANVAS) + anim único (VIDEO): una sola fuente por tamaño
     # ------------------------------------------------------------------
+    # Widget readers (doc CANVAS + anim VIDEO): params_controller es la única fuente.
     def _doc_size(self) -> int:
-        from app.exporter import MAX_SIDE, MIN_SIDE
+        from app.ui import params_controller as _par
 
-        try:
-            return max(MIN_SIDE, min(MAX_SIDE, int(self.spn_docsize.value())))
-        except Exception:  # noqa: BLE001
-            return 3000
+        return _par.doc_size(self)
 
     @staticmethod
     def _anim_combo_int(cmb, default: int, lo: int, hi: int) -> int:
-        """Lee un combo editable (lista sugerida + valor libre)."""
-        try:
-            return max(lo, min(hi, int(str(cmb.currentText()).strip())))
-        except Exception:  # noqa: BLE001
-            return int(default)
+        from app.ui import params_controller as _par
+
+        return _par.anim_combo_int(cmb, default, lo, hi)
 
     @staticmethod
     def _set_anim_combo(cmb, value: int) -> None:
-        """Fija un combo editable conservando valores custom fuera de la lista."""
-        txt = str(int(value))
-        try:
-            if cmb.findText(txt) < 0:
-                cmb.addItem(txt)
-            cmb.blockSignals(True)
-            cmb.setCurrentText(txt)
-        finally:
-            cmb.blockSignals(False)
+        from app.ui import params_controller as _par
+
+        _par.set_anim_combo(cmb, value)
 
     def _gif_anim_frames(self) -> int:
-        try:
-            return self._anim_combo_int(self.cmb_video_frames, 6, 2, 24)
-        except Exception:  # noqa: BLE001
-            return int(getattr(self, "_gif_frames", 6))
+        from app.ui import params_controller as _par
+
+        return _par.gif_anim_frames(self)
 
     def _gif_anim_mode(self) -> str:
-        from app.gif import GIF_MODES
+        from app.ui import params_controller as _par
 
-        try:
-            m = self.cmb_video_mode.currentText()
-            return m if m in GIF_MODES else "both"
-        except Exception:  # noqa: BLE001
-            return str(getattr(self, "_gif_mode", "both"))
+        return _par.gif_anim_mode(self)
 
     def _gif_anim_fps(self) -> int:
-        try:
-            return self._anim_combo_int(self.cmb_video_fps, 8, 2, 60)
-        except Exception:  # noqa: BLE001
-            return int(getattr(self, "_gif_fps", 8))
+        from app.ui import params_controller as _par
+
+        return _par.gif_anim_fps(self)
 
     def _gif_anim_size(self) -> int:
-        # Sin Size en VIDEO: el anim sale al tamaño del documento canvas.
-        return int(self._doc_size())
+        from app.ui import params_controller as _par
+
+        return _par.gif_anim_size(self)
 
     def _gif_anim_pingpong(self) -> bool:
-        try:
-            return bool(self.chk_video_pingpong.isChecked())
-        except Exception:  # noqa: BLE001
-            return bool(getattr(self, "_gif_pingpong", False))
+        from app.ui import params_controller as _par
+
+        return _par.gif_anim_pingpong(self)
 
     def _on_docsize_preset(self, text: str) -> None:
-        if text == "Custom":
-            return
-        try:
-            self.spn_docsize.blockSignals(True)
-            self.spn_docsize.setValue(int(text))
-        finally:
-            self.spn_docsize.blockSignals(False)
-        self._sync_docsize_combo(int(text))
-        self._schedule_refresh()
+        from app.ui import params_controller as _par
+
+        _par.on_docsize_preset(self, text)
 
     def _on_docsize_custom(self) -> None:
-        try:
-            self._sync_docsize_combo(int(self.spn_docsize.value()))
-        except Exception:  # noqa: BLE001
-            pass
-        self._sync_docdims()
-        self._schedule_refresh()
+        from app.ui import params_controller as _par
+
+        _par.on_docsize_custom(self)
 
     def _sync_docsize_combo(self, size: int) -> None:
-        from app.exporter import SIZE_PRESETS
+        from app.ui import params_controller as _par
 
-        txt = str(size) if size in SIZE_PRESETS else "Custom"
-        try:
-            if self.cmb_docsize.currentText() != txt:
-                self.cmb_docsize.blockSignals(True)
-                self.cmb_docsize.setCurrentText(txt)
-                self.cmb_docsize.blockSignals(False)
-        except Exception:  # noqa: BLE001
-            pass
+        _par.sync_docsize_combo(self, size)
 
     def _sync_docdims(self) -> None:
-        try:
-            from app.canvas import canvas_size_for
+        from app.ui import params_controller as _par
 
-            w, h = canvas_size_for(self.cmb_ratio.currentText(), self._doc_size())
-            self.lbl_docdims.setText(f"{w}×{h} px")
-            try:
-                self.lbl_video_size.setText(f"{w}×{h} px (canvas)")
-            except Exception:  # noqa: BLE001
-                pass
-        except Exception:  # noqa: BLE001
-            pass
+        _par.sync_docdims(self)
 
     def _video_spec(self) -> dict:
-        return {"size": self._gif_anim_size(), "mode": self._gif_anim_mode(),
-                "frames": self._gif_anim_frames(), "fps": self._gif_anim_fps(),
-                "pingpong": self._gif_anim_pingpong()}
+        from app.ui import video_controller as _vc
+
+        return _vc.spec(self)
 
     def _on_video_toggle(self) -> None:
-        self._video_on = bool(self.chk_video.isChecked())
-        self._video_bar_widget.setVisible(self._video_on)
-        if self._video_on:
-            self._video_playing = True
-            try:
-                self.btn_video_play.setText("⏸ Pause")
-            except Exception:  # noqa: BLE001
-                pass
-        else:
-            self._video_timer.stop()
-        self.refresh()
+        from app.ui import video_controller as _vc
+
+        _vc.toggle(self)
 
     def _on_video_fps_changed(self) -> None:
-        try:
-            fps = self._anim_combo_int(self.cmb_video_fps, 8, 2, 60)
-            self._video_timer.setInterval(max(1, 1000 // fps))
-        except Exception:  # noqa: BLE001
-            pass
-        self._schedule_refresh()
+        from app.ui import video_controller as _vc
+
+        _vc.fps_changed(self)
 
     def _on_video_playpause(self) -> None:
-        self._video_playing = not self._video_playing
-        try:
-            self.btn_video_play.setText("⏸ Pause" if self._video_playing else "▶ Play")
-        except Exception:  # noqa: BLE001
-            pass
-        if self._video_playing and self._video_frames and not self._video_timer.isActive():
-            self._video_timer.start()
+        from app.ui import video_controller as _vc
+
+        _vc.playpause(self)
 
     def _on_video_scrub(self, v: int) -> None:
-        if not self._video_on or not self._video_frames:
-            return
-        # El scrub pausa el auto-play un momento sin pelear con el timer.
-        self._video_idx = max(0, min(len(self._video_frames) - 1, int(v)))
-        self._show_video_frame()
+        from app.ui import video_controller as _vc
+
+        _vc.scrub(self, v)
 
     def _start_video_async(self) -> None:
-        from app.ui.preview_worker import VideoWorker
+        from app.ui import video_controller as _vc
 
-        if self.src is None:
-            return
-        if self._video_worker is not None and self._video_worker.isRunning():
-            return  # uno en vuelo basta; el debounce reintentará
-        spec = self._video_spec()
-        self._video_token += 1
-        self._video_timer.stop()
-        self._status(f"Rendering video {spec['frames']}f {spec['mode']} @{spec['size']}px…")
-        self._video_worker = VideoWorker(
-            self.src.copy(), self.current_params(), spec["size"],
-            spec["frames"], spec["mode"], spec["pingpong"], self._video_token,
-        )
-        self._video_worker.finished_ok.connect(self._on_video_done)
-        self._video_worker.finished_err.connect(self._on_video_error)
-        self._video_worker.start()
+        _vc.start_async(self)
 
     def _on_video_done(self, frames: list, token: int) -> None:
-        if token != self._video_token:
-            return
-        from app.gif import GIF_MAX_FPS, GIF_MIN_FPS
+        from app.ui import video_controller as _vc
 
-        self._video_frames = list(frames or [])
-        self.result = self._video_frames[0] if self._video_frames else self.result
-        spec = self._video_spec()
-        fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(spec["fps"])))
-        self._video_timer.setInterval(1000 // fps)
-        self.sld_video.blockSignals(True)
-        self.sld_video.setRange(0, max(0, len(self._video_frames) - 1))
-        self.sld_video.setValue(0)
-        self.sld_video.blockSignals(False)
-        self._video_idx = 0
-        self._show_video_frame()
-        if self._video_playing and len(self._video_frames) > 1:
-            self._video_timer.start()
-        self._status(f"Video ready: {len(self._video_frames)}f "
-                     f"{spec['mode']} @{self.result.width}x{self.result.height}")
+        _vc.on_done(self, frames, token)
 
     def _on_video_error(self, msg: str, token: int) -> None:
         if token != self._video_token:
             return
         self._status(f"Video error: {msg}")
 
-    # -- hold-to-compare (single canvas) --
+    # -- hold-to-compare (single canvas; behavior in compare_controller) --
     def _compare_pressed(self) -> None:
-        if self.src is None:
-            return
-        self._comparing = True
-        self._paint_compare_orig()
+        from app.ui import compare_controller as _cc
+
+        _cc.pressed(self)
 
     def _compare_released(self) -> None:
-        if not self._comparing:
-            return
-        self._comparing = False
-        self._paint_compare_result()
+        from app.ui import compare_controller as _cc
+
+        _cc.released(self)
 
     def _paint_compare_orig(self) -> None:
-        if self.src is None:
-            return
-        zoomed = int(520 * self.zoom)
-        self.lbl_res.setPixmap(pil_to_pixmap(self.src, max_side=zoomed))
-        self.lbl_res_title.setText(f"ORIGINAL (hold) · {self.src.width}x{self.src.height}")
+        from app.ui import compare_controller as _cc
+
+        _cc.paint_orig(self)
 
     def _paint_compare_result(self) -> None:
-        if self._video_on and self._video_frames:
-            self._comparing = False
-            self._show_video_frame(force=True)
-            return
-        if self.result is not None:
-            zoomed = int(520 * self.zoom)
-            self.lbl_res.setPixmap(pil_to_pixmap(self.result, max_side=zoomed))
-            kind = "VIDEO" if self._video_on else "DITHER"
-            self.lbl_res_title.setText(f"{kind} · {self.result.width}x{self.result.height}")
+        from app.ui import compare_controller as _cc
+
+        _cc.paint_result(self)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
         if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self.src is not None:
@@ -623,639 +507,222 @@ class MainWindow(QMainWindow):
         super().keyReleaseEvent(event)
 
     def _show_video_frame(self, force: bool = False) -> None:
-        if not self._video_frames:
-            return
-        if self._comparing and not force:
-            self._paint_compare_orig()
-            return
-        idx = max(0, min(len(self._video_frames) - 1, int(self._video_idx)))
-        frame = self._video_frames[idx]
-        zoomed = int(520 * self.zoom)
-        self.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=zoomed))
-        self.lbl_res_title.setText(f"VIDEO · {frame.width}x{frame.height} · f{idx + 1}/{len(self._video_frames)}")
-        self.lbl_video_pos.setText(f"{idx + 1}/{len(self._video_frames)}")
-        if self.sld_video.value() != idx:
-            self.sld_video.blockSignals(True)
-            self.sld_video.setValue(idx)
-            self.sld_video.blockSignals(False)
+        from app.ui import video_controller as _vc
+
+        _vc.show_frame(self, force=force)
 
     def _next_video_frame(self) -> None:
-        if not self._video_on or not self._video_playing or not self._video_frames:
-            return
-        self._video_idx = (self._video_idx + 1) % len(self._video_frames)
-        self._show_video_frame()
+        from app.ui import video_controller as _vc
+
+        _vc.next_frame(self)
 
     def _show_preview(self, orig: Image.Image, res: Image.Image) -> None:
-        zoomed = int(520 * self.zoom)
-        if self._comparing:
-            self.lbl_res.setPixmap(pil_to_pixmap(orig, max_side=zoomed))
-            self.lbl_res_title.setText(f"ORIGINAL (hold) · {orig.width}x{orig.height}")
-            return
-        self.lbl_res.setPixmap(pil_to_pixmap(res, max_side=zoomed))
-        self.lbl_res_title.setText(f"DITHER · {res.width}x{res.height}")
+        from app.ui import preview_controller as _pc
+
+        _pc.show(self, orig, res)
 
     def _start_preview_async(self) -> None:
-        from app.ui.preview_worker import PreviewWorker
+        from app.ui import preview_controller as _pc
 
-        if self._preview_worker is not None and self._preview_worker.isRunning():
-            self._preview_pending = True
-            self._status("Rendering heavy preview in the background...")
-            return
-        self._preview_token += 1
-        self._preview_worker = PreviewWorker(
-            self.src.copy(), self._render_kwargs(), self._preview_token
-        )
-        self._preview_worker.finished_ok.connect(self._on_preview_done)
-        self._preview_worker.finished_err.connect(self._on_preview_error)
-        self._status("Rendering heavy preview in the background...")
-        self._preview_worker.start()
+        _pc.start_async(self)
 
     def _on_preview_done(self, qimg, pil_img, token: int) -> None:
-        from PySide6.QtGui import QPixmap
+        from app.ui import preview_controller as _pc
 
-        if token != self._preview_token:
-            return  # stale: another render is already on its way
-        self.result = pil_img
-        if self._comparing and self.src is not None:
-            zoomed = int(520 * self.zoom)
-            self.lbl_res.setPixmap(pil_to_pixmap(self.src, max_side=zoomed))
-            self.lbl_res_title.setText(f"ORIGINAL (hold) · {self.src.width}x{self.src.height}")
-        else:
-            self.lbl_res.setPixmap(QPixmap.fromImage(qimg))
-            self.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
-        self._status("Preview ready")
-        if self._preview_pending:
-            self._preview_pending = False
-            self._start_preview_async()
+        _pc.on_done(self, qimg, pil_img, token)
 
     def _on_preview_error(self, msg: str, token: int) -> None:
-        if token != self._preview_token:
-            return
-        if self._preview_pending:
-            self._preview_pending = False
-            self._start_preview_async()
-            return
-        self._status(f"Preview error: {msg}")
+        from app.ui import preview_controller as _pc
+
+        _pc.on_error(self, msg, token)
 
     def _valid_slice_bands(self) -> int:
-        return normalize_slice_bands(int(self.spn_slice.value()))
+        from app.ui import params_controller as _par
+
+        return _par.valid_slice_bands(self)
 
     def current_adjust(self) -> Adjust:
-        return Adjust(
-            brightness=self.sld_bri.value() / 100.0,
-            contrast=self.sld_con.value() / 100.0,
-            saturation=self.sld_sat.value() / 100.0,
-        )
+        from app.ui import params_controller as _par
 
-    # -- presets --
+        return _par.current_adjust(self)
+
+    # -- presets (cuerpo en params_controller) --
     def current_params(self) -> Preset:
-        from app.render_params import (
-            normalize_grille,
-            normalize_halftone,
-            normalize_posterize,
-        )
+        from app.ui import params_controller as _par
 
-        base = self._palette_base if self._palette_base in palette_names() else "SLIME"
-        return Preset(
-            name=self.cmb_preset.currentText(),
-            method=self.cmb_method.currentText(),
-            palette=base,
-            pixel_size=int(self.spn_pixel.value()),
-            threshold=int(self.sld_thr.value()),
-            brightness=self.sld_bri.value() / 100.0,
-            contrast=self.sld_con.value() / 100.0,
-            saturation=self.sld_sat.value() / 100.0,
-            ratio=self.cmb_ratio.currentText(),
-            crop_mode=self.cmb_crop.currentText(),
-            focus_x=float(self.crop_fx),
-            focus_y=float(self.crop_fy),
-            crop_zoom=float(self.crop_zoom),
-            pre_blur=self.sld_blur.value() / 10.0,
-            pre_sharpen=int(self.spn_sharp.value()),
-            pre_hue=float(self.sld_hue.value()),
-            pre_denoise=int(self.spn_denoise.value()),
-            pre_smooth=self.sld_smooth.value() / 10.0,
-            glow_radius=float(self.spn_glowrad.value()) if self.sld_glow.value() > 0 else 0.0,
-            glow_intensity=float(self.sld_glow.value()),
-            glow_threshold=int(self.spn_glowthr.value()),
-            grain=float(self.sld_grain.value()),
-            vignette=float(self.sld_vig.value()),
-            scanlines=normalize_scanlines(int(self.spn_scan.value())),
-            replace_color=self.brand_color,
-            custom_palette=[list(c) for c in self.custom_colors] or None,
-            vector_export=bool(self._vector_export),
-            vector_cell=int(self._vector_cell),
-            gif_export=bool(self._gif_export),
-            gif_frames=int(self._gif_anim_frames()),
-            gif_mode=str(self._gif_anim_mode()),
-            gif_fps=int(self._gif_anim_fps()),
-            gif_size=int(self._gif_anim_size()),
-            gif_pingpong=bool(self._gif_anim_pingpong()),
-            export_size=int(self._doc_size()),
-            export_format=str(self._export_format),
-            export_quality=int(self._export_quality),
-            duotone_dark=self.duotone_dark,
-            duotone_light=self.duotone_light,
-            duotone_mid=float(self.sld_duo_mid.value()),
-            posterize=normalize_posterize(int(self.spn_poster.value())),
-            split_tone=float(self.sld_split.value()),
-            fade=float(self.sld_fade.value()),
-            halftone=normalize_halftone(int(self.spn_halftone.value())),
-            halftone_shape=self.cmb_halftone.currentText(),
-            dust=float(self.sld_dust.value()),
-            border=int(self.spn_border.value()),
-            border_color=self.border_color,
-            letterbox=int(self.spn_letterbox.value()),
-            glitch_chroma=int(self.sld_chroma.value()),
-            glitch_slice_bands=self._valid_slice_bands(),
-            glitch_slice_max=24,
-            pixelsort=int(self.spn_pixelsort.value()),
-            wave=int(self.spn_wave.value()),
-            mosh=float(self.sld_mosh.value()),
-            grille=normalize_grille(int(self.spn_grille.value())),
-        )
+        return _par.build_params(self)
 
+    # -- color/palette actions (cuerpo en color_actions) --
     def pick_brand_color(self) -> None:
-        color = QColorDialog.getColor()
-        if not color.isValid():
-            return
-        self.set_brand_color(color.name().upper())
+        from app.ui import color_actions as _ca
+
+        _ca.pick_brand_color(self)
 
     def set_brand_color(self, hex_color: str) -> None:
-        from app.fx import parse_hex
+        from app.ui import color_actions as _ca
 
-        if hex_color and parse_hex(hex_color) is None:
-            self._status("Invalid brand color (use #RRGGBB)")
-            return
-        self.brand_color = hex_color or ""
-        self.lbl_brand.setText(self.brand_color if self.brand_color else "(no brand)")
-        self.refresh()
+        _ca.set_brand_color(self, hex_color)
 
     def pick_duotone_color(self, which: str) -> None:
-        color = QColorDialog.getColor()
-        if not color.isValid():
-            return
-        self.set_duotone_color(which, color.name().upper())
+        from app.ui import color_actions as _ca
+
+        _ca.pick_duotone_color(self, which)
 
     def set_duotone_color(self, which: str, hex_color: str) -> None:
-        from app.fx import parse_hex
+        from app.ui import color_actions as _ca
 
-        if hex_color and parse_hex(hex_color) is None:
-            self._status("Invalid duotone color (use #RRGGBB)")
-            return
-        hex_color = (hex_color or "").upper()
-        if which == "light":
-            self.duotone_light = hex_color
-        else:
-            self.duotone_dark = hex_color
-        self._sync_duo_label()
-        self.refresh()
+        _ca.set_duotone_color(self, which, hex_color)
 
     def clear_duotone(self) -> None:
-        self.duotone_dark = ""
-        self.duotone_light = ""
-        self._sync_duo_label()
-        self.refresh()
+        from app.ui import color_actions as _ca
+
+        _ca.clear_duotone(self)
 
     def _sync_duo_label(self) -> None:
-        if self.duotone_dark or self.duotone_light:
-            self.lbl_duo.setText(f"{self.duotone_dark or '—'} → {self.duotone_light or '—'}")
-        else:
-            self.lbl_duo.setText("(off)")
+        from app.ui import color_actions as _ca
+
+        _ca.sync_duo_label(self)
 
     def pick_border_color(self) -> None:
-        color = QColorDialog.getColor()
-        if not color.isValid():
-            return
-        self.set_border_color(color.name().upper())
+        from app.ui import color_actions as _ca
+
+        _ca.pick_border_color(self)
 
     def set_border_color(self, hex_color: str) -> None:
-        from app.fx import parse_hex
+        from app.ui import color_actions as _ca
 
-        if not hex_color or parse_hex(hex_color) is None:
-            self._status("Invalid border color (use #RRGGBB)")
-            return
-        self.border_color = hex_color.upper()
-        self.lbl_border.setText(self.border_color)
-        self.refresh()
+        _ca.set_border_color(self, hex_color)
 
     def add_custom_color(self) -> None:
-        color = QColorDialog.getColor()
-        if not color.isValid():
-            return
-        rgb = (color.red(), color.green(), color.blue())
-        if rgb not in self.custom_colors and len(self.custom_colors) < 16:
-            self._set_custom_colors([*self.custom_colors, rgb])
-        self.refresh()
+        from app.ui import color_actions as _ca
+
+        _ca.add_custom_color(self)
 
     def gen_palette(self) -> None:
         """🎲 Sorpresa: genera una paleta armoniosa (ramp/harmony en Oklch)."""
-        from app.palette_gen import generate_palette
+        from app.ui import color_actions as _ca
 
-        n = max(2, len(self.custom_colors) or 4)
-        style = self.cmb_palgen.currentText().lower() if hasattr(self, "cmb_palgen") else "ramp"
-        self._set_custom_colors(generate_palette(n, style=style))
-        self.refresh()
-        self._status(f"Generated {style} palette: {len(self.custom_colors)} colors (editable)")
+        _ca.gen_palette(self)
 
     def edit_custom_palette(self) -> None:
         """Full editor: swatches, hex, roles, usage, reorder, sort."""
-        from app.ui.palette_dialog import CustomPaletteDialog
+        from app.ui import color_actions as _ca
 
-        dlg = CustomPaletteDialog(
-            self.custom_colors, preview=self._palette_preview_small(), parent=self
-        )
-        if dlg.exec() != dlg.DialogCode.Accepted:
-            return
-        self._set_custom_colors([tuple(c) for c in dlg.colors])
-        self.refresh()
-        self._status(f"Custom palette: {len(self.custom_colors)} colors")
+        _ca.edit_custom_palette(self)
 
     def _remove_custom_color(self, i: int) -> None:
-        if 0 <= i < len(self.custom_colors):
-            self._set_custom_colors([c for j, c in enumerate(self.custom_colors) if j != i])
-            self.refresh()
+        from app.ui import color_actions as _ca
+
+        _ca.remove_custom_color(self, i)
 
     def _palette_preview_small(self):
         """Canvas actual reducido (160px) para el % de uso. None sin imagen."""
-        if self.src is None:
-            return None
-        try:
-            from app.canvas import to_canvas
+        from app.ui import color_actions as _ca
 
-            canvas = to_canvas(
-                self.src, ratio=self.cmb_ratio.currentText(), mode=self.cmb_crop.currentText(),
-                fx=float(self.crop_fx), fy=float(self.crop_fy), zoom=float(self.crop_zoom),
-            )
-            m = max(canvas.size)
-            if m > 160:
-                f = 160.0 / m
-                canvas = canvas.resize(
-                    (max(1, round(canvas.width * f)), max(1, round(canvas.height * f))),
-                    Image.BICUBIC,
-                )
-            return canvas
-        except Exception:  # noqa: BLE001
-            return None
+        return _ca.palette_preview_small(self)
 
     def clear_custom_colors(self) -> None:
-        self._set_custom_colors([])
-        self.refresh()
+        from app.ui import color_actions as _ca
+
+        _ca.clear_custom_colors(self)
 
     def _set_custom_colors(self, colors: list, dirty: bool = True) -> None:
         """Único punto de escritura: actualiza tira + estado dirty."""
-        from app.palette_library import CUSTOM_SENTINEL
+        from app.ui import color_actions as _ca
 
-        self.custom_colors = [tuple(c) for c in colors]
-        if dirty:
-            self._palette_dirty = True
-            if self.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
-                self.cmb_pal_preset.addItem(CUSTOM_SENTINEL)
-            self.cmb_pal_preset.blockSignals(True)
-            self.cmb_pal_preset.setCurrentText(CUSTOM_SENTINEL)
-            self.cmb_pal_preset.blockSignals(False)
-        self._sync_custom_label()
+        _ca.set_custom_colors(self, colors, dirty)
 
     def _sync_custom_label(self) -> None:
-        from app.ui.palette_dialog import ColorSwatch, luminance_roles, rgb_to_hex
+        from app.ui import color_actions as _ca
 
-        n = len(self.custom_colors)
-        self.lbl_custom.setText(f"{n}/16")
-        lay = self.palette_strip
-        while lay.count():
-            item = lay.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        roles = luminance_roles(self.custom_colors)
-        for i, rgb in enumerate(self.custom_colors):
-            sw = ColorSwatch(rgb, i, size=26)
-            sw.setToolTip(f"{rgb_to_hex(rgb)} · {roles[i]} — click to remove")
-            sw.picked.connect(self._remove_custom_color)
-            lay.addWidget(sw)
-        lay.addStretch()
-        if n == 1:
-            self.lbl_palette_hint.setText("1 color is ignored: custom needs 2–16 colors.")
-        else:
-            self.lbl_palette_hint.setText("")
+        _ca.sync_custom_label(self)
 
     def refresh_presets(self) -> None:
-        self.cmb_preset.blockSignals(True)
-        self.cmb_preset.clear()
-        self.cmb_preset.addItems(list_presets())
-        self.cmb_preset.blockSignals(False)
+        from app.ui import params_controller as _par
+
+        _par.refresh_presets(self)
 
     def refresh_palette_list(self) -> None:
         """Combo de la biblioteca (built-ins + usuario)."""
-        from app.palette_library import CUSTOM_SENTINEL, list_palettes
+        from app.ui import color_actions as _ca
 
-        self.cmb_pal_preset.blockSignals(True)
-        self.cmb_pal_preset.clear()
-        self.cmb_pal_preset.addItems(list_palettes())
-        if self._palette_dirty and self.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
-            self.cmb_pal_preset.addItem(CUSTOM_SENTINEL)
-        cur = CUSTOM_SENTINEL if self._palette_dirty else self._palette_base
-        if self.cmb_pal_preset.findText(cur) >= 0:
-            self.cmb_pal_preset.setCurrentText(cur)
-        self.cmb_pal_preset.blockSignals(False)
+        _ca.refresh_palette_list(self)
 
     def _on_palette_preset_changed(self, name: str) -> None:
         """Elegir paleta = cargarla como copia editable en la tira."""
-        from app.palette_library import CUSTOM_SENTINEL, palette_colors
+        from app.ui import color_actions as _ca
 
-        if not name or name == CUSTOM_SENTINEL:
-            return
-        try:
-            colors = palette_colors(name)
-        except ValueError:
-            return
-        self._palette_base = name
-        self._set_custom_colors(colors, dirty=False)
-        self.refresh()
-        self._status(f"Palette loaded: {name} (editable)")
+        _ca.on_palette_preset_changed(self, name)
 
     def save_palette_preset(self) -> None:
-        from app.palette_library import save_palette
+        from app.ui import color_actions as _ca
 
-        name, ok = QInputDialog.getText(self, "Save palette", "Name:")
-        if not ok or not name.strip():
-            return
-        try:
-            save_palette(name.strip(), [list(c) for c in self.custom_colors])
-            self._palette_base = name.strip()
-            self._palette_dirty = False
-            self.refresh_palette_list()
-            self.cmb_pal_preset.setCurrentText(name.strip())
-            self._status(f"Palette saved: {name.strip()}")
-        except ValueError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Could not save:\n{e}")
+        _ca.save_palette_preset(self)
 
     def _on_preset_changed(self, name: str) -> None:
-        if name:
-            self._apply_preset(name)
+        from app.ui import params_controller as _par
+
+        _par.on_preset_changed(self, name)
 
     def _apply_preset(self, name: str) -> None:
-        try:
-            p = load_preset(name)
-        except Exception:
-            return
-        self.cmb_method.setCurrentText(p.method)
-        self.spn_pixel.setValue(int(p.pixel_size))
-        self.sld_thr.setValue(int(p.threshold))
-        self.sld_bri.setValue(int(float(p.brightness) * 100))
-        self.sld_con.setValue(int(float(p.contrast) * 100))
-        self.sld_sat.setValue(int(float(p.saturation) * 100))
-        if self.cmb_ratio.findText(p.ratio) >= 0:
-            self.cmb_ratio.setCurrentText(p.ratio)
-        if self.cmb_crop.findText(p.crop_mode) >= 0:
-            self.cmb_crop.setCurrentText(p.crop_mode)
-        self.crop_fx = float(p.focus_x)
-        self.crop_fy = float(p.focus_y)
-        self.crop_zoom = float(p.crop_zoom)
-        self._sync_crop_label()
-        self.sld_blur.setValue(int(round(float(p.pre_blur) * 10)))
-        self.spn_sharp.setValue(int(p.pre_sharpen))
-        self.sld_hue.setValue(int(float(p.pre_hue)))
-        self.spn_denoise.setValue(int(p.pre_denoise))
-        self.sld_smooth.setValue(int(round(float(p.pre_smooth) * 10)))
-        self.sld_glow.setValue(int(float(p.glow_intensity)))
-        self.spn_glowrad.setValue(int(float(p.glow_radius)))
-        self.spn_glowthr.setValue(int(p.glow_threshold))
-        self.sld_grain.setValue(int(float(p.grain)))
-        self.sld_vig.setValue(int(float(p.vignette)))
-        self.spn_scan.setValue(int(p.scanlines))
-        self.set_brand_color(p.replace_color)
-        # La paleta en uso es la tira custom: del preset, o la built-in base.
-        from app.palette_library import palette_colors
+        from app.ui import params_controller as _par
 
-        self._palette_base = p.palette
-        base_colors = palette_colors(p.palette)
-        self._set_custom_colors(
-            [tuple(c) for c in (p.custom_palette or [])] or base_colors,
-            dirty=False,
-        )
-        self._palette_dirty = False
-        self.refresh_palette_list()
-        # Salidas: el preset es la receta; los diálogos las aplican por operación.
-        self._vector_export = bool(p.vector_export)
-        self._vector_cell = int(p.vector_cell)
-        self._gif_export = bool(p.gif_export)
-        self._gif_frames = int(p.gif_frames)
-        self._gif_mode = str(p.gif_mode)
-        self._gif_fps = int(getattr(p, "gif_fps", 8))
-        self._gif_size = int(getattr(p, "gif_size", 1200))
-        self._gif_pingpong = bool(getattr(p, "gif_pingpong", False))
-        self._export_size = int(p.export_size)
-        self._export_format = str(p.export_format)
-        self._export_quality = int(p.export_quality)
-        # Doc único: tamaño documento en CANVAS.
-        try:
-            self.spn_docsize.blockSignals(True)
-            self.spn_docsize.setValue(int(p.export_size))
-        finally:
-            self.spn_docsize.blockSignals(False)
-        self._sync_docsize_combo(int(p.export_size))
-        self._sync_docdims()
-        # Anim único: VIDEO es el editor (widgets), vars como respaldo.
-        try:
-            self.cmb_video_mode.blockSignals(True)
-            if self.cmb_video_mode.findText(str(p.gif_mode)) >= 0:
-                self.cmb_video_mode.setCurrentText(str(p.gif_mode))
-        finally:
-            self.cmb_video_mode.blockSignals(False)
-        self._set_anim_combo(self.cmb_video_frames, max(2, min(24, int(p.gif_frames))))
-        self._set_anim_combo(self.cmb_video_fps, max(2, min(60, int(getattr(p, "gif_fps", 8)))))
-        try:
-            self.chk_video_pingpong.blockSignals(True)
-            self.chk_video_pingpong.setChecked(bool(getattr(p, "gif_pingpong", False)))
-        finally:
-            self.chk_video_pingpong.blockSignals(False)
-        # Grade pack.
-        self.duotone_dark = str(p.duotone_dark or "")
-        self.duotone_light = str(p.duotone_light or "")
-        self.sld_duo_mid.setValue(int(float(p.duotone_mid)))
-        self._sync_duo_label()
-        self.spn_poster.setValue(int(p.posterize))
-        self.sld_split.setValue(int(float(p.split_tone)))
-        self.sld_fade.setValue(int(float(p.fade)))
-        self._sync_duo_label()
-        # Texture pack.
-        self.spn_halftone.setValue(int(p.halftone))
-        if self.cmb_halftone.findText(p.halftone_shape) >= 0:
-            self.cmb_halftone.setCurrentText(p.halftone_shape)
-        self.sld_dust.setValue(int(float(p.dust)))
-        self.spn_border.setValue(int(p.border))
-        self.border_color = str(p.border_color or "#000000")
-        self.lbl_border.setText(self.border_color)
-        self.spn_letterbox.setValue(int(p.letterbox))
-        self.sld_chroma.setValue(int(p.glitch_chroma))
-        self.spn_slice.setValue(int(p.glitch_slice_bands))
-        # Glitch extra pack.
-        self.spn_pixelsort.setValue(int(p.pixelsort))
-        self.spn_wave.setValue(int(p.wave))
-        self.sld_mosh.setValue(int(float(p.mosh)))
-        self.spn_grille.setValue(int(p.grille))
-        if self.cmb_preset.findText(name) < 0:
-            self.refresh_presets()
-        self.cmb_preset.setCurrentText(name)
-        self.refresh()
+        _par.apply_preset(self, name)
 
     def _sync_crop_label(self) -> None:
-        self.lbl_crop.setText(f"{self.crop_fx:.0f}, {self.crop_fy:.0f} · {self.crop_zoom:.1f}x")
+        from app.ui import image_flow as _im
+
+        _im.sync_crop_label(self)
 
     def open_crop_editor(self) -> None:
         """Visual crop editor (frame + grid + drag + zoom). Applies on Done."""
-        if self.src is None:
-            QMessageBox.information(self, "TRAKKART", "Open an image first.")
-            return
-        from app.ui.crop_editor import CropEditorDialog
+        from app.ui import image_flow as _im
 
-        dlg = CropEditorDialog(
-            self.src.copy(),
-            ratio=self.cmb_ratio.currentText(),
-            mode=self.cmb_crop.currentText(),
-            fx=float(self.crop_fx), fy=float(self.crop_fy),
-            zoom=float(self.crop_zoom),
-            parent=self,
-        )
-        if dlg.exec() != dlg.DialogCode.Accepted:
-            self._status("Crop unchanged")
-            return
-        if dlg.turns:
-            self.history.push(self.src)
-            self.src = dlg.image
-        if self.cmb_ratio.findText(dlg.ratio) >= 0:
-            self.cmb_ratio.setCurrentText(dlg.ratio)
-        if self.cmb_crop.findText(dlg.mode) >= 0:
-            self.cmb_crop.setCurrentText(dlg.mode)
-        self.crop_fx, self.crop_fy, self.crop_zoom = dlg.fx, dlg.fy, dlg.zoom
-        self._sync_crop_label()
-        self.refresh()
-        self._status(f"Crop set: {dlg.ratio} {dlg.mode} "
-                     f"({dlg.fx:.0f}, {dlg.fy:.0f} · {dlg.zoom:.1f}x)")
+        _im.open_crop_editor(self)
 
     def save_current_preset(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save preset", "Name:")
-        if not ok or not name.strip():
-            return
-        try:
-            p = self.current_params()
-            p.name = name.strip()
-            save_preset(p)
-            self.refresh_presets()
-            self.cmb_preset.setCurrentText(name.strip())
-            self._status(f"Preset saved: {name.strip()}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not save:\n{e}")
+        from app.ui import params_controller as _par
 
-    # -- batch --
+        _par.save_current_preset(self)
+
+    # -- batch (cuerpo en batch_flow) --
     def run_batch_dialog(self) -> None:
         """Un solo diálogo validado, no dos seguidos a ciegas."""
-        from dataclasses import replace
+        from app.ui import batch_flow as _bf
 
-        preset = self.current_params()
-        canvas_size = None
-        if self.src is not None:
-            try:
-                from app.canvas import to_canvas
-
-                canvas = to_canvas(
-                    self.src, ratio=self.cmb_ratio.currentText(), mode=self.cmb_crop.currentText(),
-                    fx=float(self.crop_fx), fy=float(self.crop_fy), zoom=float(self.crop_zoom),
-                )
-                canvas_size = (canvas.width, canvas.height)
-            except Exception:  # noqa: BLE001
-                canvas_size = None
-        dlg = BatchDialog(
-            in_dir="", out_dir=str(self.out_dir), jobs=int(self.spn_jobs.value()),
-            vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
-            gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
-            gif_mode=preset.gif_mode, gif_fps=int(getattr(preset, "gif_fps", 8)),
-            gif_pingpong=bool(getattr(preset, "gif_pingpong", False)),
-            canvas_size=canvas_size,
-            size=int(preset.export_size), format=str(preset.export_format),
-            quality=int(preset.export_quality), parent=self)
-        if dlg.exec() != dlg.DialogCode.Accepted:
-            return
-        src, dst, jobs = dlg.paths()
-        outs = dlg.output_options()
-        preset = replace(
-            preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
-            gif_export=outs["gif_export"], gif_frames=outs["gif_frames"],
-            gif_mode=outs["gif_mode"], gif_fps=outs.get("gif_fps", 8),
-            gif_size=outs.get("gif_size", 1200),
-            gif_pingpong=outs.get("gif_pingpong", False),
-            export_size=outs["export_size"],
-            export_format=outs["export_format"], export_quality=outs["export_quality"])
-        self.run_batch(src, dst, jobs=jobs, preset=preset)
+        _bf.run_batch_dialog(self)
 
     def run_batch(self, src: Path, dst: Path, jobs: int | None = None,
                   preset: Preset | None = None) -> None:
-        import time
+        from app.ui import batch_flow as _bf
 
-        if self._batch_worker is not None and self._batch_worker.isRunning():
-            return
-        try:
-            preset = preset or self.current_params()
-            preset.validate()
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Invalid preset:\n{e}")
-            return
-        self._batch_cancel[0] = False
-        self._batch_start = time.time()
-        self._batch_out = Path(dst)
-        self._batch_worker = BatchWorker(
-            src, dst, preset, store=self.store,
-            jobs=int(jobs) if jobs else int(self.spn_jobs.value()), cancel=self._batch_cancel)
-        self._batch_worker.progress.connect(self._on_batch_progress)
-        self._batch_worker.finished.connect(self._on_batch_finished)
-        self._batch_worker.error.connect(self._on_batch_error)
-        self.btn_batch.setEnabled(False)
-        self.progress.setValue(0)
-        self.progress.show()
-        self.btn_cancel.show()
-        self._batch_worker.start()
+        _bf.run_batch(self, src, dst, jobs, preset)
 
     def cancel_batch(self) -> None:
-        self._batch_cancel[0] = True
-        self._status("Cancelling batch...")
+        from app.ui import batch_flow as _bf
+
+        _bf.cancel_batch(self)
 
     def run_batch_sync(self, src: Path, dst: Path) -> list[dict]:
         """Synchronous batch (tests + scripts)."""
-        return batch_process(src, dst, self.current_params(), store=self.store)
+        from app.ui import batch_flow as _bf
+
+        return _bf.run_batch_sync(self, src, dst)
 
     def _on_batch_progress(self, done: int, total: int, name: str) -> None:
-        import time
+        from app.ui import batch_flow as _bf
 
-        self.progress.setValue(int(done / total * 100) if total else 100)
-        elapsed = time.time() - (self._batch_start or time.time())
-        fps = done / elapsed if elapsed > 0 else 0.0
-        if fps > 0:
-            eta = (total - done) / fps
-            m, s = divmod(int(eta), 60)
-            h, m = divmod(m, 60)
-            eta_str = f"{h}h {m}m {s}s" if h > 0 else f"{m}m {s}s"
-        else:
-            eta_str = "…"
-        short = name if len(name) <= 24 else name[:21] + "…"
-        self._status(f"Batch {done}/{total} · {fps:.1f} img/s · ETA {eta_str} · {short}")
+        _bf.on_progress(self, done, total, name)
 
     def _on_batch_finished(self, results: list[dict]) -> None:
-        self.btn_batch.setEnabled(True)
-        self.progress.hide()
-        self.btn_cancel.hide()
-        ok = sum(1 for r in results if r["status"] == "ok")
-        sk = sum(1 for r in results if r["status"] == "skipped")
-        er = sum(1 for r in results if r["status"] == "error")
-        cancelled = " (cancelled)" if self._batch_cancel[0] else ""
-        where = f" → {self._batch_out}" if self._batch_out else ""
-        self._status(f"Batch done: {ok} ok, {sk} skipped, {er} errors{cancelled}{where}")
-        QMessageBox.information(self, "TRAKKART", f"Batch done:\n{ok} ok, {sk} skipped, {er} errors{cancelled}.\n{where}")
+        from app.ui import batch_flow as _bf
+
+        _bf.on_finished(self, results)
 
     def _on_batch_error(self, msg: str) -> None:
-        self.btn_batch.setEnabled(True)
-        self.progress.hide()
-        self.btn_cancel.hide()
-        QMessageBox.warning(self, "TRAKKART", f"Batch error:\n{msg}")
+        from app.ui import batch_flow as _bf
+
+        _bf.on_error(self, msg)
 
     # -- menus --
     def _build_menus(self) -> None:
@@ -1307,68 +774,47 @@ class MainWindow(QMainWindow):
             a.triggered.connect(slot)
             m_view.addAction(a)
 
-    # -- image ops + undo --
+    # -- image ops + undo (cuerpo en image_flow) --
     def _op_image(self, fn, what: str) -> None:
-        if self.src is None:
-            return
-        self.history.push(self.src)
-        self.src = fn(self.src)
-        self.refresh()
-        self._status(f"{what} (Ctrl+Z to undo)")
+        from app.ui import image_flow as _im
+
+        _im.op_image(self, fn, what)
 
     def undo_image(self) -> None:
-        prev = self.history.undo()
-        if prev is None:
-            self._status("Nothing to undo")
-            return
-        self.src = prev
-        self.refresh()
-        self._status("Undone")
+        from app.ui import image_flow as _im
+
+        _im.undo_image(self)
 
     def randomize(self) -> None:
-        from app.palette_library import list_palettes
+        from app.ui import image_flow as _im
 
-        self.cmb_method.setCurrentText(random.choice(list(METHODS)))
-        names = list_palettes() or palette_names()
-        self._on_palette_preset_changed(random.choice(names))
-        self.sld_thr.setValue(random.randint(80, 180))
-        self.spn_pixel.setValue(random.randint(1, 4))
-        self.refresh()
-        self._status("Random applied (save the preset if you like it)")
+        _im.randomize(self)
 
-    # -- zoom / clipboard / dnd --
+    # -- zoom / clipboard (cuerpo en image_flow) --
     def _zoom_step(self, factor: float) -> None:
-        self.zoom = min(4.0, max(0.25, self.zoom * factor))
-        self.refresh()
+        from app.ui import image_flow as _im
+
+        _im.zoom_step(self, factor)
 
     def _zoom_fit(self) -> None:
-        self.zoom = 1.0
-        self.refresh()
+        from app.ui import image_flow as _im
+
+        _im.zoom_fit(self)
 
     def _zoom_full(self) -> None:
-        self.zoom = 4.0
-        self.refresh()
+        from app.ui import image_flow as _im
+
+        _im.zoom_full(self)
 
     def copy_result(self) -> None:
-        if self.result is None:
-            return
-        from PySide6.QtGui import QGuiApplication
+        from app.ui import image_flow as _im
 
-        QGuiApplication.clipboard().setPixmap(pil_to_pixmap(self.result, max_side=1920))
-        self._status("Result copied to clipboard")
+        _im.copy_result(self)
 
     def paste_image(self) -> None:
-        from PySide6.QtGui import QGuiApplication
+        from app.ui import image_flow as _im
 
-        cb = QGuiApplication.clipboard()
-        qimg = cb.image()
-        if qimg.isNull():
-            self._status("No image in the clipboard")
-            return
-        try:
-            self._load_pil(qimage_to_pil(qimg))
-        except ValueError:
-            self._status("No image in the clipboard")
+        _im.paste_image(self)
 
     @property
     def lbl_orig(self):  # compat: single canvas (dnd/tests viejos)
@@ -1379,308 +825,96 @@ class MainWindow(QMainWindow):
         return self.lbl_res_title
 
     def _set_drag_hover(self, on: bool) -> None:
-        lbl = self.lbl_res
-        lbl.setProperty("dragHover", "true" if on else "false")
-        st = lbl.style()
-        st.unpolish(lbl)
-        st.polish(lbl)
-        lbl.update()
+        from app.ui import image_flow as _im
+
+        _im.set_drag_hover(self, on)
 
     def dragEnterEvent(self, event) -> None:  # noqa: N802
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-            self._set_drag_hover(True)
+        from app.ui import image_flow as _im
+
+        _im.drag_enter(self, event)
 
     def dragLeaveEvent(self, event) -> None:  # noqa: N802
-        self._set_drag_hover(False)
+        from app.ui import image_flow as _im
+
+        _im.drag_leave(self, event)
         super().dragLeaveEvent(event)
 
     def dropEvent(self, event) -> None:  # noqa: N802
-        from app.dnd import classify_drop
-        from app.safety import MAX_BYTES as _MAX_URL_BYTES
+        from app.ui import image_flow as _im
 
-        self._set_drag_hover(False)
-        mime = event.mimeData()
-        if mime.hasImage():
-            # Browsers sometimes drag the raw pixels
-            self._load_qimage(mime.imageData())
-            return
-        handled = False
-        for url in mime.urls():
-            kind = classify_drop(url.toString())
-            if kind == "http":
-                self._load_url(url.toString(), max_bytes=_MAX_URL_BYTES)
-                handled = True
-                break
-            if kind == "data":
-                self._load_data_url(url.toString())
-                handled = True
-                break
-            if kind == "blob":
-                self._status("That link (blob:) only lives in the browser: save the image or copy it (Ctrl+C)")
-                handled = True
-                break
-            if kind == "local":
-                p = Path(url.toLocalFile())
-                if not (p.is_absolute() and p.exists()):
-                    continue  # ghost path: never a folder nor a file
-                if p.is_dir():
-                    self._on_drop_folder(p)
-                    handled = True
-                    break
-                if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".bmp"):
-                    self._load_path(p)
-                    handled = True
-                    break
-        if not handled:
-            self._status("Nothing to import: drop images, an image URL or a folder")
+        _im.drop(self, event)
 
     def _load_qimage(self, qimg) -> None:
-        try:
-            self._load_pil(qimage_to_pil(qimg))
-        except ValueError:
-            self._status("Nothing to drop: no image")
+        from app.ui import image_flow as _im
+
+        _im.load_qimage(self, qimg)
 
     def _load_url(self, url: str, max_bytes: int = 40_000_000, timeout: int = 15) -> None:
         """Download a dropped image from the browser (explicit user action)."""
-        from app.safety import TooBigError
-        from app.services.image_io import download_image
+        from app.ui import image_flow as _im
 
-        self._status("Downloading image...")
-        try:
-            img, nbytes = download_image(url, max_bytes=max_bytes, timeout=timeout)
-            self._load_pil(img)
-            self._status(f"Loaded from web ({nbytes // 1024}KB)")
-        except TooBigError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Image too large:\n{e}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not download:\n{e}")
+        _im.load_url(self, url, max_bytes=max_bytes, timeout=timeout)
 
     def _load_data_url(self, url: str) -> None:
         """Decode a dropped data:image/... base64 blob from the browser (no network)."""
-        from app.safety import TooBigError
-        from app.services.image_io import decode_data_url
+        from app.ui import image_flow as _im
 
-        try:
-            img, nbytes = decode_data_url(url)
-            self._load_pil(img)
-            self._status(f"Loaded from browser ({nbytes // 1024}KB)")
-        except TooBigError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Image too large:\n{e}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not read what was dropped:\n{e}")
+        _im.load_data_url(self, url)
 
     def run_batch_with_input(self, src: Path) -> None:
-        dst = QFileDialog.getExistingDirectory(self, "Output folder")
-        if not dst:
-            return
-        self.run_batch(Path(src), Path(dst))
+        from app.ui import batch_flow as _bf
+
+        _bf.run_batch_with_input(self, src)
 
     def _on_drop_folder(self, src: Path) -> None:
         """Dropping a folder ONLY processes with the toggle armed + confirmation."""
-        from app.batch import EXTS
+        from app.ui import batch_flow as _bf
 
-        if not self.chk_batch_drop.isChecked():
-            self._status("Folder received: enable 'Drop folder = batch' or use the Batch button")
-            return
-        try:
-            files = [f for f in src.iterdir() if f.is_file() and f.suffix.lower() in EXTS]
-        except OSError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Could not read the folder:\n{e}")
-            return
-        if not files:
-            self._status("The folder has no compatible images")
-            return
-        preset = self.current_params()
-        ok = QMessageBox.question(
-            self, "Drop batch",
-            f"Process {len(files)} images with preset '{preset.name or 'current'}'?\nOutput: {self.out_dir}",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if ok != QMessageBox.StandardButton.Yes:
-            self._status("Batch cancelled")
-            return
-        self.run_batch(src, self.out_dir)
+        _bf.on_drop_folder(self, src)
 
     def open_image_dialog(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
-        )
-        if path:
-            self._load_path(Path(path))
+        from app.ui import image_flow as _im
+
+        _im.open_image_dialog(self)
 
     def _load_path(self, path: Path) -> None:
-        from app.safety import TooBigError
-        from app.services.image_io import load_path
+        from app.ui import image_flow as _im
 
-        try:
-            self._load_pil(load_path(path))
-            self.src_name = Path(path).stem  # default export base (GIMP style)
-            self._status(f"Loaded: {path.name}")
-        except TooBigError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Image too large:\n{e}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not open:\n{e}")
+        _im.load_path(self, path)
 
     def _load_pil(self, img: Image.Image) -> None:
-        from app.safety import TooBigError, check_image
+        from app.ui import image_flow as _im
 
-        try:
-            check_image(img)
-        except TooBigError as e:
-            QMessageBox.warning(self, "TRAKKART", f"Image too large:\n{e}")
-            return
-        self.history.clear()
-        self.history.push(img)
-        self.src = img
-        self.refresh()
+        _im.load_pil(self, img)
 
-    # -- preset share --
+    # -- preset share (cuerpo en params_controller) --
     def share_preset_export(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export preset", "my_preset.json", "JSON (*.json)")
-        if not path:
-            return
-        try:
-            p = self.current_params()
-            p.name = Path(path).stem
-            Path(path).write_text(json.dumps(p.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
-            self._status(f"Preset exported: {Path(path).name}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not export:\n{e}")
+        from app.ui import params_controller as _par
+
+        _par.share_export(self)
 
     def share_preset_import(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Import preset", "", "JSON (*.json)")
-        if not path:
-            return
-        try:
-            raw = json.loads(Path(path).read_text(encoding="utf-8"))
-            p = Preset.from_dict(raw)
-            save_preset(p)
-            self.refresh_presets()
-            self._apply_preset(p.name)
-            self._status(f"Preset imported: {p.name}")
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Invalid preset:\n{e}")
+        from app.ui import params_controller as _par
+
+        _par.share_import(self)
 
     def export(self, quick: bool = False) -> None:
-        """Export bundle. Dialogo profesional por defecto; `quick` repite el último.
+        """Export bundle. Dialogo profesional por defecto; `quick` repite el último."""
+        from app.ui import export_flow as _ef
 
-        GIMP-style: Quick export reusa la última config sin preguntar.
-        La primera vez (sin prefs) siempre abre el diálogo.
-        """
-        if self.src is None:
-            QMessageBox.information(self, "TRAKKART", "Open an image first.")
-            return
-        try:
-            preset = self.current_params()
-            prefs = load_prefs(self._prefs_path)
-            if quick and prefs.out_dir:
-                selection = prefs.to_selection()
-                self._run_export(
-                    base=prefs.base or self.src_name, out_dir=Path(prefs.out_dir),
-                    selection=selection,
-                    gif_opts={"frames": prefs.gif_frames, "mode": prefs.gif_mode,
-                              "fps": getattr(prefs, "gif_fps", 8),
-                              "size": getattr(prefs, "gif_size", 1200),
-                              "pingpong": getattr(prefs, "gif_pingpong", False)},
-                    overwrite=prefs.overwrite,
-                    size=prefs.size, format=prefs.format, quality=prefs.quality,
-                )
-                return
-            if prefs.out_dir:
-                init_sel = prefs.to_selection()
-                init_base, init_out = prefs.base, prefs.out_dir
-                init_gopts = {"frames": prefs.gif_frames, "mode": prefs.gif_mode,
-                              "fps": getattr(prefs, "gif_fps", 8),
-                              "size": getattr(prefs, "gif_size", 1200),
-                              "pingpong": getattr(prefs, "gif_pingpong", False)}
-                init_overwrite = prefs.overwrite
-                init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
-            else:
-                init_sel = ExportSelection(vector=bool(preset.vector_export),
-                                           anim=bool(preset.gif_export))
-                init_base, init_out = self.src_name, str(self.out_dir)
-                init_gopts = {"frames": int(preset.gif_frames), "mode": preset.gif_mode,
-                              "fps": int(getattr(preset, "gif_fps", 8)),
-                              "size": int(getattr(preset, "gif_size", 1200)),
-                              "pingpong": bool(getattr(preset, "gif_pingpong", False))}
-                init_overwrite = "overwrite"
-                init_size, init_fmt, init_q = (int(preset.export_size),
-                                               str(preset.export_format), int(preset.export_quality))
-            dlg = ExportDialog(
-                self.src, preset.meta(), base=init_base, out_dir=init_out,
-                selection=init_sel,
-                gif_frames=int(init_gopts["frames"]), gif_mode=str(init_gopts["mode"]),
-                gif_fps=int(init_gopts["fps"]),
-                gif_pingpong=bool(init_gopts["pingpong"]),
-                overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
-                preset=preset, size=init_size, format=init_fmt, quality=init_q,
-                parent=self,
-            )
-            if dlg.exec() != dlg.DialogCode.Accepted:
-                self._status("Export cancelled")
-                return
-            options, out_dir, gopts = dlg.options()
-            self._run_export(
-                base=options.base, out_dir=out_dir, selection=options.selection,
-                gif_opts=gopts, overwrite=options.overwrite,
-                size=options.size, format=options.format, quality=options.quality,
-            )
-            save_prefs(ExportPrefs(
-                out_dir=str(out_dir), base=options.base,
-                image=options.selection.image,
-                thumb_1080p=options.selection.thumb_1080p,
-                vector=options.selection.vector, anim=options.selection.anim,
-                metadata=options.selection.metadata,
-                gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
-                gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
-                gif_pingpong=bool(gopts["pingpong"]),
-                overwrite=options.overwrite,
-                size=options.size, format=options.format, quality=options.quality,
-            ), self._prefs_path)
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Export error: {e}")
+        _ef.export(self, quick)
 
     def _estimate_vector_cells(self, preset) -> tuple[int, int] | None:
-        """Celdas SVG estimadas para el plan del diálogo (barato, sin dither)."""
-        if self.src is None:
-            return None
-        try:
-            from app.canvas import to_canvas
-            from app.vector import estimate_cells
+        from app.ui import export_flow as _ef
 
-            canvas = to_canvas(
-                self.src, ratio=preset.ratio, mode=preset.crop_mode,
-                fx=float(preset.focus_x), fy=float(preset.focus_y),
-                zoom=float(preset.crop_zoom),
-            )
-            return estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
-        except Exception:  # noqa: BLE001
-            return None
+        return _ef.estimate_vector_cells(self, preset)
 
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
                     quality: int) -> None:
         """Render full-res + bundle según opciones. Full-res siempre."""
-        from app.services.export_service import export_full
+        from app.ui import export_flow as _ef
 
-        preset = self.current_params()
-        go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
-        paths, skipped = export_full(
-            self.src, preset, out_dir, base=base, store=self.store,
-            preset_name=self.cmb_preset.currentText(), selection=selection,
-            overwrite=overwrite,
-            gif_frames=int(go.get("frames", 6)), gif_mode=str(go.get("mode", "both")),
-            gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
-            gif_pingpong=bool(go.get("pingpong", False)),
-            size=int(size), format=str(format), quality=int(quality),
-        )
-        if skipped and not paths:
-            QMessageBox.information(
-                self, "TRAKKART",
-                f"Skipped: {base} already exists (policy: skip).")
-            self._status(f"Export skipped (exists): {base}")
-            return
-        QMessageBox.information(self, "TRAKKART", "Exported:\n" + "\n".join(p.name for p in paths.values()))
-        self._status(f"Exported to {Path(out_dir).resolve()}")
+        _ef.run_export(self, base, out_dir, selection, gif_opts,
+                       overwrite, size, format, quality)
