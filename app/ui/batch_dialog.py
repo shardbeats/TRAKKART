@@ -55,7 +55,8 @@ class BatchDialog(QDialog):
         gif_fps: int = 8,
         gif_pingpong: bool = False,
         canvas_size: tuple[int, int] | None = None,
-        size: int = 3000,
+        doc_w: int = 3000,
+        doc_h: int = 3000,
         format: str = "png",
         quality: int = 90,
         parent=None,
@@ -89,13 +90,16 @@ class BatchDialog(QDialog):
         jobs_row.addStretch()
         col.addLayout(jobs_row)
 
-        # -- documento único: el tamaño viene del preset CANVAS; aquí solo formato --
-        from app.exporter import EXPORT_FORMATS, MAX_SIDE, MIN_SIDE
+        # -- documento único: W/H vienen del preset CANVAS; aquí solo formato --
+        from app.canvas import MAX_DIM, MIN_DIM
+        from app.exporter import EXPORT_FORMATS
 
-        self._doc_size = max(MIN_SIDE, min(MAX_SIDE, int(size)))
+        self._doc_w = max(MIN_DIM, min(MAX_DIM, int(doc_w)))
+        self._doc_h = max(MIN_DIM, min(MAX_DIM, int(doc_h)))
+        self._doc_size = max(self._doc_w, self._doc_h)
         doc_row = QHBoxLayout()
         doc_row.addWidget(QLabel("Document:"))
-        self.lbl_doc = QLabel(f"{self._doc_size} px (from CANVAS preset)")
+        self.lbl_doc = QLabel(f"{self._doc_w}×{self._doc_h} px (from CANVAS preset)")
         doc_row.addWidget(self.lbl_doc, 1)
         col.addLayout(doc_row)
         fmt_row = QHBoxLayout()
@@ -225,6 +229,8 @@ class BatchDialog(QDialog):
             "gif_fps": int(g.get("fps", 8)),
             "gif_size": int(getattr(self, "_doc_size", 3000)),
             "gif_pingpong": bool(g.get("pingpong", False)),
+            "canvas_w": int(getattr(self, "_doc_w", 3000)),
+            "canvas_h": int(getattr(self, "_doc_h", 3000)),
             "export_size": int(getattr(self, "_doc_size", 3000)),
             "export_format": self.cmb_format.currentText(),
             "export_quality": int(self.spn_quality.value()),

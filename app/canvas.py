@@ -4,6 +4,9 @@ cover   = fill the ratio, crop overflow (focus + zoom).
 contain = fit the whole image, black bars (no crop).
 stretch = distort to the exact ratio (no crop, no bars).
 blur    = fit the whole image over a blurred fill (no crop, no black bars).
+
+Custom mode (Photoshop-style): ratio presets lock the aspect, "custom"
+frees W/H entirely (W/H spins are the size; typing them flips to custom).
 """
 
 from __future__ import annotations
@@ -19,6 +22,13 @@ RATIOS: dict[str, tuple[int, int]] = {
     "9:16": (9, 16),
 }
 
+#: Ratio value for free W/H (not in RATIOS on purpose: aspect comes from W/H).
+CUSTOM_RATIO = "custom"
+
+#: Hard document bounds shared with the exporter (no import cycle: defined here).
+MIN_DIM = 64
+MAX_DIM = 8000
+
 CROP_MODES = ("cover", "contain", "stretch", "blur")
 
 MODE_TIPS = {
@@ -33,6 +43,24 @@ def ratio_names() -> list[str]:
     return list(RATIOS.keys())
 
 
+CUSTOM_LABEL = "Custom"
+
+
+def ratio_label(value: str) -> str:
+    """Valor interno -> texto del combo (custom se muestra 'Custom')."""
+    return CUSTOM_LABEL if value == CUSTOM_RATIO else value
+
+
+def ratio_value(label: str) -> str:
+    """Texto del combo -> valor interno."""
+    return CUSTOM_RATIO if label == CUSTOM_LABEL else label
+
+
+def canvas_ratios() -> list[str]:
+    """Entradas del combo: presets + Custom libre (display; ver ratio_value)."""
+    return [*RATIOS.keys(), CUSTOM_LABEL]
+
+
 def canvas_size_for(ratio: str, long_side: int = 3000) -> tuple[int, int]:
     """Export dimensions for a ratio (long side = long_side)."""
     rw, rh = RATIOS[ratio]
@@ -41,15 +69,36 @@ def canvas_size_for(ratio: str, long_side: int = 3000) -> tuple[int, int]:
     return (max(1, round(long_side * rw / rh)), long_side)
 
 
-def crop_cover(img: Image.Image, ratio: str, fx: float = 50.0, fy: float = 50.0,
-               zoom: float = 1.0) -> Image.Image:
+def resolve_frame(ratio: str, long_side: int, canvas_w: int = 0,
+                  canvas_h: int = 0) -> tuple[float, int, int]:
+    """(aspect, W, H): absolute doc dims. Custom uses explicit W/H, else ratio."""
+    if (ratio == CUSTOM_RATIO and MIN_DIM <= int(canvas_w or 0) <= MAX_DIM
+            and MIN_DIM <= int(canvas_h or 0) <= MAX_DIM):
+        w, h = int(canvas_w), int(canvas_h)
+        return w / h, w, h
+    r = ratio if ratio in RATIOS else "1:1"
+    w, h = canvas_size_for(r, max(MIN_DIM, min(MAX_DIM, int(long_side or 3000))))
+    return w / h, w, h
+
+
+def doc_dimensions(ratio: str, long_side: int, canvas_w: int = 0,
+                   canvas_h: int = 0) -> tuple[int, int]:
+    """Absolute (W, H) of the document for export/sizing (no source needed)."""
+    _, w, h = resolve_frame(ratio, long_side, canvas_w, canvas_h)
+    return w, h
+
+
+def crop_cover(
+    img: Image.Image, ratio: str, fx: float = 50.0, fy: float = 50.0,
+    zoom: float = 1.0, canvas_w: int = 0, canvas_h: int = 0,
+) -> Image.Image:
     """Crop to the ratio (focus 0-100, 50 = center). Clamped if out of range.
 
     zoom >= 1 crops tighter inside the cover box (visual-crop-editor style);
     zoom == 1 keeps the classic full-bleed cover.
+    Custom ratio uses the explicit W/H aspect (source magnitude preserved).
     """
-    rw, rh = RATIOS[ratio]
-    want = rw / rh
+    want, _, _ = resolve_frame(ratio, max(img.size), canvas_w, canvas_h)
     w, h = img.size
     fx = min(100.0, max(0.0, float(fx)))
     fy = min(100.0, max(0.0, float(fy)))
@@ -73,11 +122,13 @@ def crop_cover(img: Image.Image, ratio: str, fx: float = 50.0, fy: float = 50.0,
     return img.crop((x, y, x + bw, y + bh))
 
 
-def crop_box_for(img_w: int, img_h: int, ratio: str, fx: float = 50.0,
-                 fy: float = 50.0, zoom: float = 1.0) -> tuple[int, int, int, int]:
+def crop_box_for(
+    img_w: int, img_h: int, ratio: str, fx: float = 50.0,
+    fy: float = 50.0, zoom: float = 1.0,
+    canvas_w: int = 0, canvas_h: int = 0,
+) -> tuple[int, int, int, int]:
     """Source-pixel crop box (x, y, w, h) mirroring crop_cover (for the editor)."""
-    rw, rh = RATIOS[ratio]
-    want = rw / rh
+    want, _, _ = resolve_frame(ratio, max(img_w, img_h), canvas_w, canvas_h)
     fx = min(100.0, max(0.0, float(fx)))
     fy = min(100.0, max(0.0, float(fy)))
     zoom = max(1.0, float(zoom))
@@ -100,10 +151,23 @@ def crop_box_for(img_w: int, img_h: int, ratio: str, fx: float = 50.0,
     return (x, y, bw, bh)
 
 
-def fit_contain(img: Image.Image, ratio: str, fill: tuple[int, int, int] = (0, 0, 0)) -> Image.Image:
+def _scaled_frame(
+    ratio: str, canvas_w: int, canvas_h: int, ref_long: int,
+) -> tuple[int, int]:
+    """Frame dims scaled so the long side == ref_long (source magnitude kept)."""
+    want, fw, fh = resolve_frame(ratio, max(ref_long, MIN_DIM), canvas_w, canvas_h)
+    if max(fw, fh) == max(ref_long, 1):
+        return fw, fh
+    f = max(ref_long, 1) / max(fw, fh)
+    return max(1, round(fw * f)), max(1, round(fh * f))
+
+
+def fit_contain(
+    img: Image.Image, ratio: str, fill: tuple[int, int, int] = (0, 0, 0),
+    canvas_w: int = 0, canvas_h: int = 0,
+) -> Image.Image:
     """Fit the whole image into the ratio with bars (no cropping)."""
-    rw, rh = RATIOS[ratio]
-    want = rw / rh
+    want, _, _ = resolve_frame(ratio, max(img.size), canvas_w, canvas_h)
     w, h = img.size
     if abs(w / h - want) < 1e-9:
         return img.copy()
@@ -116,20 +180,24 @@ def fit_contain(img: Image.Image, ratio: str, fill: tuple[int, int, int] = (0, 0
     return canvas
 
 
-def fit_stretch(img: Image.Image, ratio: str) -> Image.Image:
+def fit_stretch(
+    img: Image.Image, ratio: str, canvas_w: int = 0, canvas_h: int = 0,
+) -> Image.Image:
     """Distort to the exact ratio at source magnitude (no crop, no bars)."""
     rgb = img.convert("RGB")
-    w, h = canvas_size_for(ratio, max(rgb.width, rgb.height))
+    w, h = _scaled_frame(ratio, canvas_w, canvas_h, max(rgb.width, rgb.height))
     if (rgb.width, rgb.height) == (w, h):
         return rgb.copy()
     return rgb.resize((w, h), Image.BICUBIC)
 
 
-def fit_blur(img: Image.Image, ratio: str) -> Image.Image:
+def fit_blur(
+    img: Image.Image, ratio: str, canvas_w: int = 0, canvas_h: int = 0,
+) -> Image.Image:
     """Fit the whole image over a blurred cover fill (no crop, no black bars)."""
     rgb = img.convert("RGB")
-    w, h = canvas_size_for(ratio, max(rgb.width, rgb.height))
-    bg = crop_cover(rgb, ratio).resize((w, h), Image.BICUBIC)
+    w, h = _scaled_frame(ratio, canvas_w, canvas_h, max(rgb.width, rgb.height))
+    bg = crop_cover(rgb, ratio, canvas_w=canvas_w, canvas_h=canvas_h).resize((w, h), Image.BICUBIC)
     bg = bg.filter(ImageFilter.GaussianBlur(radius=max(8, min(w, h) // 24)))
     dim = Image.new("RGB", (w, h), (0, 0, 0))
     bg = Image.blend(bg, dim, 0.15)
@@ -150,14 +218,23 @@ def to_canvas(
     fx: float = 50.0,
     fy: float = 50.0,
     zoom: float = 1.0,
+    canvas_w: int = 0,
+    canvas_h: int = 0,
 ) -> Image.Image:
-    """Final canvas at the requested ratio. Unknown ratio/mode -> 1:1 cover."""
-    if ratio not in RATIOS:
+    """Final canvas at the requested ratio. Unknown ratio/mode -> 1:1 cover.
+
+    Custom ratio uses the explicit W/H aspect (source magnitude preserved,
+    like presets: absolute doc dims only apply at export).
+    """
+    if ratio not in RATIOS and ratio != CUSTOM_RATIO:
         ratio = "1:1"
     if mode == "contain":
-        return fit_contain(img.convert("RGB"), ratio)
+        return fit_contain(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
     if mode == "stretch":
-        return fit_stretch(img.convert("RGB"), ratio)
+        return fit_stretch(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
     if mode == "blur":
-        return fit_blur(img.convert("RGB"), ratio)
-    return crop_cover(img.convert("RGB"), ratio, fx, fy, zoom)
+        return fit_blur(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
+    return crop_cover(
+        img.convert("RGB"), ratio, fx, fy, zoom,
+        canvas_w=canvas_w, canvas_h=canvas_h,
+    )

@@ -1,8 +1,19 @@
-"""Canvas tests: exact ratios, clamp, contain, fallbacks."""
+"""Canvas tests: exact ratios, clamp, contain, fallbacks + free custom."""
 
 from PIL import Image
 
-from app.canvas import CROP_MODES, canvas_size_for, fit_contain, ratio_names, to_canvas
+from app.canvas import (
+    CROP_MODES,
+    CUSTOM_RATIO,
+    canvas_ratios,
+    canvas_size_for,
+    doc_dimensions,
+    fit_contain,
+    ratio_label,
+    ratio_names,
+    ratio_value,
+    to_canvas,
+)
 
 
 def _img(w: int = 400, h: int = 300) -> Image.Image:
@@ -80,6 +91,27 @@ def test_crop_zoom_tighter_same_ratio():
     out = to_canvas(_img(), ratio="1:1", zoom=2.0)
     assert out.size == (150, 150)
     assert out.size[0] / out.size[1] == 1.0
+
+
+def test_custom_ratio_free_dimensions():
+    # Photoshop-style: custom = W/H libres, sin 1:1 forzado.
+    assert CUSTOM_RATIO not in ratio_names()
+    assert canvas_ratios() == ratio_names() + ["Custom"]
+    assert ratio_label("custom") == "Custom"
+    assert ratio_value("Custom") == "custom"
+    assert ratio_value("16:9") == "16:9"
+    assert doc_dimensions("custom", 3000, 1920, 800) == (1920, 800)
+    assert doc_dimensions("1:1", 3000, 0, 0) == (3000, 3000)
+    out = to_canvas(_img(), ratio="custom", canvas_w=1920, canvas_h=800)
+    assert out.size == (400, 167)  # aspecto libre a escala de la fuente
+    out = to_canvas(_img(), ratio="custom", mode="contain", canvas_w=1920, canvas_h=800)
+    assert out.size[0] / out.size[1] == 1920 / 800
+    out = to_canvas(_img(), ratio="custom", mode="stretch", canvas_w=1920, canvas_h=800)
+    assert (out.width, out.height) == (400, 167)
+    out = to_canvas(_img(), ratio="custom", mode="blur", canvas_w=1920, canvas_h=800)
+    assert (out.width, out.height) == (400, 167)
+    # Sin W/H el custom cae a 1:1 (seguro, nunca revienta).
+    assert to_canvas(_img(), ratio="custom").size == (300, 300)
 
 
 def test_crop_box_for_mirrors_crop_cover():

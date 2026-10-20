@@ -198,17 +198,20 @@ class ExportDialog(QDialog):
     def _current_size(self) -> int:
         return int(getattr(self, "_doc_size", 3000))
 
+    def _doc_wh(self) -> tuple[int, int]:
+        from app.exporter import _main_dims
+
+        try:
+            return _main_dims(self._meta, self._current_size())
+        except Exception:  # noqa: BLE001
+            s = self._current_size()
+            return (s, s)
+
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
             return
         try:
-            from app.canvas import canvas_size_for
-
-            ratio = (self._meta or {}).get("ratio", "1:1")
-            try:
-                w, h = canvas_size_for(ratio, self._current_size())
-            except KeyError:
-                w, h = (self._current_size(), self._current_size())
+            w, h = self._doc_wh()
             self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
             opts = ExportOptions(
                 base=self.edit_base.text().strip() or "cover",
@@ -244,11 +247,12 @@ class ExportDialog(QDialog):
     # -- animación: la spec viene de VIDEO (aquí no se edita, solo se muestra) --
     def _sync_gifspec_label(self) -> None:
         g = getattr(self, "_gif_spec", {})
+        w, h = self._doc_wh()
         self.lbl_gifspec.setText(
             f"Animation: {g.get('frames', 6)}f · {g.get('mode', 'both')} · "
             f"{g.get('fps', 8)}fps"
             f"{' · ping-pong' if g.get('pingpong') else ''} "
-            f"· {self._current_size()}px (canvas). Edit it in VIDEO."
+            f"· {w}×{h}px (canvas). Edit it in VIDEO."
         )
 
     def _gif_opts(self) -> dict:

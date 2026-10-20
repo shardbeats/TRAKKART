@@ -135,11 +135,15 @@ def palette_preview_small(win):
     try:
         from PIL import Image
 
-        from app.canvas import to_canvas
+        from app.canvas import ratio_value, to_canvas
+        from app.ui import params_controller as _par
 
+        w, h = _par.doc_dims(win)
         canvas = to_canvas(
-            win.src, ratio=win.cmb_ratio.currentText(), mode=win.cmb_crop.currentText(),
+            win.src, ratio=ratio_value(win.cmb_ratio.currentText()),
+            mode=win.cmb_crop.currentText(),
             fx=float(win.crop_fx), fy=float(win.crop_fy), zoom=float(win.crop_zoom),
+            canvas_w=w, canvas_h=h,
         )
         m = max(canvas.size)
         if m > 160:

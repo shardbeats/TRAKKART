@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from app.adjust import Adjust
-from app.canvas import CROP_MODES, ratio_names
+from app.canvas import CROP_MODES, CUSTOM_RATIO, ratio_names
 from app.dither import METHODS
 from app.fx import normalize_custom_palette, parse_hex
 from app.gif import GIF_MODES
@@ -34,10 +34,17 @@ BUNDLED: dict[str, dict] = {
 #        | ("hex",) | ("hexreq",) | ("palette",) | () = sin check.
 # Claves dinámicas de oneof: METHODS, PALETTES, RATIOS, CROPS, GIFMODES.
 # ---------------------------------------------------------------------------
+def _canvas_ratios():
+    from app.canvas import CUSTOM_RATIO, ratio_names
+
+    return [*ratio_names(), CUSTOM_RATIO]
+
+
 _DYNAMIC_CHOICES = {
     "METHODS": lambda: METHODS,
     "PALETTES": palette_names,
     "RATIOS": ratio_names,
+    "CANVAS_RATIOS": _canvas_ratios,
     "CROPS": lambda: CROP_MODES,
     "GIFMODES": lambda: GIF_MODES,
 }
@@ -63,6 +70,12 @@ class _Field:
             v = float(value)
             if not lo <= v <= hi:
                 raise ValueError(f"{self.name} out of range {lo:g}-{hi:g}: {value}")
+        elif kind == "range0":
+            # 0 = auto (sigue a ratio+export_size); si no, rango normal.
+            _, lo, hi = self.rule
+            v = float(value)
+            if v != 0 and not lo <= v <= hi:
+                raise ValueError(f"{self.name} out of range 0 or {lo:g}-{hi:g}: {value}")
         elif kind == "oneof":
             vals = self._oneof_values()
             ok = str(value) in [str(x) for x in vals] if self.kind == "str" else value in vals
@@ -95,7 +108,9 @@ FIELDS: tuple[_Field, ...] = (
     _Field("brightness", "float", ("range", 0.0, 3.0)),
     _Field("contrast", "float", ("range", 0.0, 3.0)),
     _Field("saturation", "float", ("range", 0.0, 3.0)),
-    _Field("ratio", "str", ("oneof", "RATIOS")),
+    _Field("ratio", "str", ("oneof", "CANVAS_RATIOS")),
+    _Field("canvas_w", "int", ("range0", 64, 8000)),
+    _Field("canvas_h", "int", ("range0", 64, 8000)),
     _Field("crop_mode", "str", ("oneof", "CROPS")),
     _Field("focus_x", "float", ("range", 0.0, 100.0)),
     _Field("focus_y", "float", ("range", 0.0, 100.0)),
@@ -173,6 +188,8 @@ class Preset:
     contrast: float = 1.0
     saturation: float = 1.0
     ratio: str = "1:1"
+    canvas_w: int = 0  # 0 = auto desde ratio+export_size; UI y from_dict dejan valores concretos
+    canvas_h: int = 0
     crop_mode: str = "cover"
     focus_x: float = 50.0
     focus_y: float = 50.0
@@ -227,6 +244,12 @@ class Preset:
     def validate(self) -> None:
         for spec in FIELDS:
             spec.check_value(getattr(self, spec.name))
+        if self.ratio == CUSTOM_RATIO and not (
+                64 <= int(self.canvas_w or 0) <= 8000
+                and 64 <= int(self.canvas_h or 0) <= 8000):
+            raise ValueError(
+                f"custom canvas needs concrete W/H 64-8000: "
+                f"{self.canvas_w}x{self.canvas_h}")
 
     def to_dict(self) -> dict:
         import copy
@@ -241,9 +264,23 @@ class Preset:
 
     @staticmethod
     def from_dict(d: dict) -> "Preset":
+        data = dict(d)
+        if "canvas_w" not in data or "canvas_h" not in data:
+            # Migración: presets viejos (ratio + export_size) -> W/H concretos.
+            from app.canvas import doc_dimensions
+
+            try:
+                w, h = doc_dimensions(
+                    str(data.get("ratio", "1:1")), int(data.get("export_size", 3000)),
+                    int(data.get("canvas_w", 0) or 0), int(data.get("canvas_h", 0) or 0),
+                )
+            except (ValueError, KeyError):
+                w, h = (3000, 3000)
+            data.setdefault("canvas_w", w)
+            data.setdefault("canvas_h", h)
         kwargs = {
-            spec.name: _coerce(spec.kind, d.get(spec.name, _field_default(spec.name)))
-            if spec.kind != "colors" else d.get(spec.name, _field_default(spec.name))
+            spec.name: _coerce(spec.kind, data.get(spec.name, _field_default(spec.name)))
+            if spec.kind != "colors" else data.get(spec.name, _field_default(spec.name))
             for spec in FIELDS
         }
         p = Preset(**kwargs)
@@ -274,6 +311,8 @@ class Preset:
             glitch_chroma=int(self.glitch_chroma),
             glitch_slice_bands=int(self.glitch_slice_bands),
             glitch_slice_max=int(self.glitch_slice_max),
+            canvas_w=int(getattr(self, "canvas_w", 0) or 0),
+            canvas_h=int(getattr(self, "canvas_h", 0) or 0),
             vector_export=bool(self.vector_export),
             vector_cell=int(self.vector_cell),
             gif_export=bool(self.gif_export),

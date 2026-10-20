@@ -254,14 +254,18 @@ def open_crop_editor(win) -> None:
     if win.src is None:
         QMessageBox.information(win, "TRAKKART", "Open an image first.")
         return
+    from app.canvas import ratio_value
     from app.ui.crop_editor import CropEditorDialog
+    from app.ui import params_controller as _par
 
+    w, h = _par.doc_dims(win)
     dlg = CropEditorDialog(
         win.src.copy(),
-        ratio=win.cmb_ratio.currentText(),
+        ratio=ratio_value(win.cmb_ratio.currentText()),
         mode=win.cmb_crop.currentText(),
         fx=float(win.crop_fx), fy=float(win.crop_fy),
         zoom=float(win.crop_zoom),
+        canvas_w=w, canvas_h=h,
         parent=win,
     )
     if dlg.exec() != dlg.DialogCode.Accepted:
@@ -270,12 +274,21 @@ def open_crop_editor(win) -> None:
     if dlg.turns:
         win.history.push(win.src)
         win.src = dlg.image
-    if win.cmb_ratio.findText(dlg.ratio) >= 0:
-        win.cmb_ratio.setCurrentText(dlg.ratio)
+    from app.canvas import ratio_label
+
+    if win.cmb_ratio.findText(ratio_label(dlg.ratio)) >= 0:
+        win.cmb_ratio.setCurrentText(ratio_label(dlg.ratio))
     if win.cmb_crop.findText(dlg.mode) >= 0:
         win.cmb_crop.setCurrentText(dlg.mode)
+    for spn, v in ((win.spn_canvas_w, dlg.doc_w), (win.spn_canvas_h, dlg.doc_h)):
+        try:
+            spn.blockSignals(True)
+            spn.setValue(int(v))
+        finally:
+            spn.blockSignals(False)
     win.crop_fx, win.crop_fy, win.crop_zoom = dlg.fx, dlg.fy, dlg.zoom
     sync_crop_label(win)
+    _par.sync_docdims(win)
     win.refresh()
-    win._status(f"Crop set: {dlg.ratio} {dlg.mode} "
+    win._status(f"Crop set: {ratio_label(dlg.ratio)} {dlg.doc_w}x{dlg.doc_h} {dlg.mode} "
                 f"({dlg.fx:.0f}, {dlg.fy:.0f} · {dlg.zoom:.1f}x)")

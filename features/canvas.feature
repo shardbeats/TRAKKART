@@ -14,3 +14,8 @@ Feature: Canvas per ratio
     Given a 64x64 test gradient
     When I crop to 9:16 with out-of-range focus
     Then the resulting canvas honors the 9:16 ratio
+
+  Scenario: Custom canvas uses free WxH
+    Given a 128x128 solid test image
+    When I export the image with custom 1920x800 canvas
+    Then the main image is exactly 1920x800

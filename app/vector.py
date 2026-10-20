@@ -40,10 +40,12 @@ def render_cells(
     duotone_light: str = "",
     duotone_mid: float = 50.0,
     posterize: int = 0,
+    canvas_w: int = 0,
+    canvas_h: int = 0,
 ) -> Image.Image:
     """Small raster (cols x rows) ready to vectorize."""
     canvas = to_canvas(img, ratio=ratio, mode=crop_mode, fx=focus_x, fy=focus_y,
-                       zoom=crop_zoom)
+                       zoom=crop_zoom, canvas_w=canvas_w, canvas_h=canvas_h)
     if pre_blur or pre_sharpen or pre_hue or pre_denoise or pre_smooth:
         canvas = apply_pre(canvas, blur=pre_blur, sharpen=pre_sharpen,
                            hue=pre_hue, denoise=pre_denoise, smooth=pre_smooth)
@@ -82,9 +84,10 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
     from app.safety import check_vector_cells
 
     cell = max(4, min(16, int(preset.vector_cell)))
+    cw, ch = int(getattr(preset, "canvas_w", 0) or 0), int(getattr(preset, "canvas_h", 0) or 0)
     canvas = to_canvas(img.convert("RGB"), ratio=preset.ratio, mode=preset.crop_mode,
                        fx=float(preset.focus_x), fy=float(preset.focus_y),
-                       zoom=float(preset.crop_zoom))
+                       zoom=float(preset.crop_zoom), canvas_w=cw, canvas_h=ch)
     cols, rows = estimate_cells(canvas.width, canvas.height, cell)
     check_vector_cells(cols, rows)  # block monstrous SVGs before rendering
     raster = render_cells(
@@ -93,7 +96,7 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
         threshold=float(preset.threshold), adjust=preset.adjust(),
         ratio=preset.ratio, crop_mode=preset.crop_mode,
         focus_x=float(preset.focus_x), focus_y=float(preset.focus_y),
-        crop_zoom=float(preset.crop_zoom),
+        crop_zoom=float(preset.crop_zoom), canvas_w=cw, canvas_h=ch,
         pre_blur=float(preset.pre_blur), pre_sharpen=int(preset.pre_sharpen),
         pre_hue=float(preset.pre_hue), pre_denoise=int(preset.pre_denoise),
         pre_smooth=float(preset.pre_smooth),

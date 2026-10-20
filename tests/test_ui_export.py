@@ -260,12 +260,15 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
     dlg = BatchDialog(in_dir=str(src), out_dir=str(tmp_path / "o"), jobs=2,
                       vector_export=True, vector_cell=12,
                       gif_export=True, gif_frames=4, gif_mode="hue",
-                      canvas_size=(64, 64), size=1920, format="webp", quality=75)
+                      canvas_size=(64, 64), doc_w=1920, doc_h=1080,
+                      format="webp", quality=75)
     assert dlg.btn_run.isEnabled()
+    assert "1920×1080" in dlg.lbl_doc.text()
     assert dlg.output_options() == {"vector_export": True, "vector_cell": 12,
                                     "gif_export": True, "gif_frames": 4,
                                     "gif_mode": "hue", "gif_fps": 8,
                                     "gif_size": 1920, "gif_pingpong": False,
+                                    "canvas_w": 1920, "canvas_h": 1080,
                                     "export_size": 1920, "export_format": "webp",
                                     "export_quality": 75}
     for gone in ("spn_gframes", "cmb_gifmode", "spn_gfps", "spn_gsize",

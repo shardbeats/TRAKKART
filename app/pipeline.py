@@ -68,6 +68,8 @@ class RenderSpec:
     pixel_size: int = 1
     adjust: Adjust | dict | None = None
     ratio: str = "1:1"
+    canvas_w: int = 0
+    canvas_h: int = 0
     crop_mode: str = "cover"
     focus_x: float = 50.0
     focus_y: float = 50.0
@@ -124,6 +126,8 @@ class RenderSpec:
             pixel_size=int(preset.pixel_size),
             adjust=preset.adjust(),
             ratio=preset.ratio,
+            canvas_w=int(getattr(preset, "canvas_w", 0) or 0),
+            canvas_h=int(getattr(preset, "canvas_h", 0) or 0),
             crop_mode=preset.crop_mode,
             focus_x=float(preset.focus_x),
             focus_y=float(preset.focus_y),
@@ -178,6 +182,7 @@ class RenderSpec:
             "pixel_size": int(self.pixel_size),
             "adjust": a.to_dict(),
             "ratio": self.ratio,
+            "canvas": {"w": int(self.canvas_w or 0), "h": int(self.canvas_h or 0)},
             "crop_mode": self.crop_mode,
             "focus": [float(self.focus_x), float(self.focus_y)],
             "zoom": float(self.crop_zoom),
@@ -209,7 +214,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
     """
     s = spec
     canvas = to_canvas(img, ratio=s.ratio, mode=s.crop_mode, fx=s.focus_x, fy=s.focus_y,
-                       zoom=s.crop_zoom)
+                       zoom=s.crop_zoom, canvas_w=s.canvas_w, canvas_h=s.canvas_h)
     if s.pre_blur or s.pre_sharpen or s.pre_hue or s.pre_denoise or s.pre_smooth:
         canvas = apply_pre(canvas, blur=s.pre_blur, sharpen=s.pre_sharpen, hue=s.pre_hue,
                            denoise=s.pre_denoise, smooth=s.pre_smooth)
@@ -304,6 +309,8 @@ def meta_dict(
     glitch_chroma: int = 0,
     glitch_slice_bands: int = 0,
     glitch_slice_max: int = 24,
+    canvas_w: int = 0,
+    canvas_h: int = 0,
     vector_export: bool = False,
     vector_cell: int = 8,
     gif_export: bool = False,
@@ -316,7 +323,8 @@ def meta_dict(
     """Compat (firma posicional intacta para tests): spec + extras gif/vector."""
     spec = RenderSpec(
         method=method, palette_name=palette_name, threshold=threshold,
-        pixel_size=pixel_size, adjust=adjust, ratio=ratio, crop_mode=crop_mode,
+        pixel_size=pixel_size, adjust=adjust, ratio=ratio,
+        canvas_w=canvas_w, canvas_h=canvas_h, crop_mode=crop_mode,
         focus_x=focus_x, focus_y=focus_y, crop_zoom=crop_zoom,
         pre_blur=pre_blur, pre_sharpen=pre_sharpen, pre_hue=pre_hue,
         pre_denoise=pre_denoise, pre_smooth=pre_smooth,

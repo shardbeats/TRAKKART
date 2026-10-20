@@ -149,14 +149,16 @@ def build_color_section(win, g: QVBoxLayout) -> None:
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
-    """Documento único estilo GIMP: Ratio + Modo + Tamaño (la imagen sale a esto)."""
-    from app.canvas import MODE_TIPS
-    from app.exporter import MAX_SIDE, MIN_SIDE, SIZE_PRESETS
+    """Canvas Photoshop-style: el ratio rellena W/H; editar W/H salta a Custom."""
+    from app.canvas import MAX_DIM, MIN_DIM, MODE_TIPS, canvas_ratios
 
     g.addWidget(QLabel("Ratio / Mode:"))
     row = QHBoxLayout()
     win.cmb_ratio = QComboBox()
-    win.cmb_ratio.addItems(ratios)
+    win.cmb_ratio.addItems(canvas_ratios())
+    win.cmb_ratio.setToolTip("Preset aspect, or Custom for free W×H")
+    # activated = solo gesto del usuario: aplica el preset sin pelear con sync.
+    win.cmb_ratio.activated.connect(lambda _: win._on_ratio_preset())
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_ratio, 1)
@@ -167,22 +169,25 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.cmb_crop.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_crop, 1)
     g.addLayout(row)
-    g.addWidget(QLabel("Canvas Size:"))
+    g.addWidget(QLabel("Canvas Size (W × H):"))
     doc_row = QHBoxLayout()
-    win.cmb_docsize = QComboBox()
-    win.cmb_docsize.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
-    win.cmb_docsize.setToolTip("Presets or Custom (like GIMP Canvas Size)")
-    win.cmb_docsize.currentTextChanged.connect(win._on_docsize_preset)
-    doc_row.addWidget(win.cmb_docsize)
-    win.spn_docsize = QSpinBox()
-    win.spn_docsize.setRange(MIN_SIDE, MAX_SIDE)
-    win.spn_docsize.setValue(3000)
-    win.spn_docsize.setSuffix(" px")
-    win.spn_docsize.setToolTip("Long side of the canvas: main export renders at this exactly")
-    win.spn_docsize.valueChanged.connect(win._on_docsize_custom)
-    doc_row.addWidget(win.spn_docsize, 1)
+    win.spn_canvas_w = QSpinBox()
+    win.spn_canvas_w.setRange(MIN_DIM, MAX_DIM)
+    win.spn_canvas_w.setValue(3000)
+    win.spn_canvas_w.setSuffix(" px")
+    win.spn_canvas_w.setToolTip("Canvas width: typing it flips Ratio to Custom (free)")
+    win.spn_canvas_w.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
+    doc_row.addWidget(win.spn_canvas_w, 1)
+    doc_row.addWidget(QLabel("×"))
+    win.spn_canvas_h = QSpinBox()
+    win.spn_canvas_h.setRange(MIN_DIM, MAX_DIM)
+    win.spn_canvas_h.setValue(3000)
+    win.spn_canvas_h.setSuffix(" px")
+    win.spn_canvas_h.setToolTip("Canvas height: typing it flips Ratio to Custom (free)")
+    win.spn_canvas_h.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
+    doc_row.addWidget(win.spn_canvas_h, 1)
     win.lbl_docdims = QLabel()
-    win.lbl_docdims.setMinimumWidth(110)
+    win.lbl_docdims.setMinimumWidth(130)
     from PySide6.QtCore import Qt as _Qt2
 
     win.lbl_docdims.setAlignment(_Qt2.AlignRight | _Qt2.AlignVCenter)

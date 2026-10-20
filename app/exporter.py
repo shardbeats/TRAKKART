@@ -16,13 +16,13 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 from app import __version__
-from app.canvas import canvas_size_for
+from app.canvas import CUSTOM_RATIO, MIN_DIM, MAX_DIM, canvas_size_for
 
 OVERWRITE_MODES = ("overwrite", "skip", "rename")
 EXPORT_FORMATS = ("png", "jpg", "webp")
 SIZE_PRESETS = (960, 1080, 1920, 3000, 4096)
-MIN_SIDE = 64
-MAX_SIDE = 8000
+MIN_SIDE = MIN_DIM
+MAX_SIDE = MAX_DIM
 THUMB_LONG_SIDE = 1920
 THUMB_SHORT_SIDE = 1080
 
@@ -146,7 +146,18 @@ def _estimate_bytes(key: str, w: int, h: int, fmt: str, quality: int, extra: dic
 
 
 def _main_dims(meta: dict | None, size: int) -> tuple[int, int]:
-    ratio = (meta or {}).get("ratio", "1:1")
+    meta = meta or {}
+    if meta.get("ratio") == CUSTOM_RATIO:
+        c = meta.get("canvas") or {}
+        try:
+            w, h = int(c.get("w", 0)), int(c.get("h", 0))
+        except (TypeError, ValueError):
+            w, h = 0, 0
+        if MIN_DIM <= w <= MAX_DIM and MIN_DIM <= h <= MAX_DIM:
+            return (w, h)
+        s = max(MIN_DIM, min(MAX_DIM, int(size)))  # degenerado: cuadrado long side
+        return (s, s)
+    ratio = meta.get("ratio", "1:1")
     try:
         return canvas_size_for(ratio, int(size))
     except KeyError:
@@ -344,12 +355,21 @@ def _write_legacy_bundle(
     gif_frames: list[Image.Image] | None,
 ) -> dict[str, Path]:
     ratio = (meta or {}).get("ratio", "1:1")
-    try:
-        big_w, big_h = canvas_size_for(ratio, 3000)
-        small_w, small_h = canvas_size_for(ratio, 960)
-    except KeyError:
-        big_w, big_h = (3000, 3000)
-        small_w, small_h = (960, 960)
+    if ratio == CUSTOM_RATIO:
+        from app.canvas import doc_dimensions
+
+        c = (meta or {}).get("canvas") or {}
+        big_w, big_h = doc_dimensions(ratio, 3000, int(c.get("w", 0) or 0),
+                                      int(c.get("h", 0) or 0))
+        r = min(960 / big_w, 960 / big_h)
+        small_w, small_h = max(1, round(big_w * r)), max(1, round(big_h * r))
+    else:
+        try:
+            big_w, big_h = canvas_size_for(ratio, 3000)
+            small_w, small_h = canvas_size_for(ratio, 960)
+        except KeyError:
+            big_w, big_h = (3000, 3000)
+            small_w, small_h = (960, 960)
 
     rgb = img.convert("RGB")
     result: dict[str, Path] = {}

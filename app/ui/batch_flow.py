@@ -22,6 +22,8 @@ def run_batch_dialog(win) -> None:
     """Un solo diálogo validado, no dos seguidos a ciegas."""
     from dataclasses import replace
 
+    from app.canvas import doc_dimensions
+
     BatchDialog = _dialog_cls()
 
     preset = win.current_params()
@@ -33,10 +35,15 @@ def run_batch_dialog(win) -> None:
             canvas = to_canvas(
                 win.src, ratio=win.cmb_ratio.currentText(), mode=win.cmb_crop.currentText(),
                 fx=float(win.crop_fx), fy=float(win.crop_fy), zoom=float(win.crop_zoom),
+                canvas_w=int(getattr(preset, "canvas_w", 0) or 0),
+                canvas_h=int(getattr(preset, "canvas_h", 0) or 0),
             )
             canvas_size = (canvas.width, canvas.height)
         except Exception:  # noqa: BLE001
             canvas_size = None
+    doc_w, doc_h = doc_dimensions(preset.ratio, preset.export_size,
+                                  int(getattr(preset, "canvas_w", 0) or 0),
+                                  int(getattr(preset, "canvas_h", 0) or 0))
     dlg = BatchDialog(
         in_dir="", out_dir=str(win.out_dir), jobs=int(win.spn_jobs.value()),
         vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
@@ -44,7 +51,8 @@ def run_batch_dialog(win) -> None:
         gif_mode=preset.gif_mode, gif_fps=int(getattr(preset, "gif_fps", 8)),
         gif_pingpong=bool(getattr(preset, "gif_pingpong", False)),
         canvas_size=canvas_size,
-        size=int(preset.export_size), format=str(preset.export_format),
+        doc_w=doc_w, doc_h=doc_h,
+        format=str(preset.export_format),
         quality=int(preset.export_quality), parent=win)
     if dlg.exec() != dlg.DialogCode.Accepted:
         return
@@ -56,6 +64,7 @@ def run_batch_dialog(win) -> None:
         gif_mode=outs["gif_mode"], gif_fps=outs.get("gif_fps", 8),
         gif_size=outs.get("gif_size", 1200),
         gif_pingpong=outs.get("gif_pingpong", False),
+        canvas_w=outs.get("canvas_w", doc_w), canvas_h=outs.get("canvas_h", doc_h),
         export_size=outs["export_size"],
         export_format=outs["export_format"], export_quality=outs["export_quality"])
     win.run_batch(src, dst, jobs=jobs, preset=preset)

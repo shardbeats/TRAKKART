@@ -110,6 +110,8 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
             win.src, ratio=preset.ratio, mode=preset.crop_mode,
             fx=float(preset.focus_x), fy=float(preset.focus_y),
             zoom=float(preset.crop_zoom),
+            canvas_w=int(getattr(preset, "canvas_w", 0) or 0),
+            canvas_h=int(getattr(preset, "canvas_h", 0) or 0),
         )
         return estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
     except Exception:  # noqa: BLE001

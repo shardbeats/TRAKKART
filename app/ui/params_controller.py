@@ -17,12 +17,25 @@ from __future__ import annotations
 # ------------------------------------------------------------------
 
 
+def _block(w):
+    w.blockSignals(True)
+
+
+def _unblock(w):
+    w.blockSignals(False)
+
+
 def _slider(attr: str, div: float = 1.0):
     def get(win):
         return getattr(win, attr).value() / div
 
     def set(win, v):
-        getattr(win, attr).setValue(int(round(float(v) * div)))
+        w = getattr(win, attr)
+        try:
+            _block(w)
+            w.setValue(int(round(float(v) * div)))
+        finally:
+            _unblock(w)
 
     return get, set
 
@@ -32,7 +45,12 @@ def _spin(attr: str):
         return int(getattr(win, attr).value())
 
     def set(win, v):
-        getattr(win, attr).setValue(int(v))
+        w = getattr(win, attr)
+        try:
+            _block(w)
+            w.setValue(int(v))
+        finally:
+            _unblock(w)
 
     return get, set
 
@@ -43,8 +61,13 @@ def _combo(attr: str):
 
     def set(win, v):
         w = getattr(win, attr)
-        if w.findText(str(v)) >= 0:
+        if w.findText(str(v)) < 0:
+            return
+        try:
+            _block(w)
             w.setCurrentText(str(v))
+        finally:
+            _unblock(w)
 
     return get, set
 
@@ -149,57 +172,22 @@ def _pingpong_set(win, v):
         w.blockSignals(False)
 
 
-BINDINGS: tuple = (
-    ("method",) + _combo("cmb_method"),
-    ("pixel_size",) + _spin("spn_pixel"),
-    ("threshold",) + _slider("sld_thr"),
-    ("brightness",) + _slider("sld_bri", 100.0),
-    ("contrast",) + _slider("sld_con", 100.0),
-    ("saturation",) + _slider("sld_sat", 100.0),
-    ("ratio",) + _combo("cmb_ratio"),
-    ("crop_mode",) + _combo("cmb_crop"),
-    ("pre_blur",) + _slider("sld_blur", 10.0),
-    ("pre_sharpen",) + _spin("spn_sharp"),
-    ("pre_hue",) + _slider("sld_hue"),
-    ("pre_denoise",) + _spin("spn_denoise"),
-    ("pre_smooth",) + _slider("sld_smooth", 10.0),
-    ("glow_radius", _glow_radius_get, _glow_radius_set),
-    ("glow_intensity",) + _slider("sld_glow"),
-    ("glow_threshold",) + _spin("spn_glowthr"),
-    ("grain",) + _slider("sld_grain"),
-    ("vignette",) + _slider("sld_vig"),
-    ("scanlines", _scan_get, _scan_set),
-    ("replace_color", _brand_get, _brand_set),
-    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 24, 6),
-    ("gif_mode", _video_mode_get, _video_mode_set),
-    ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
-    ("gif_pingpong", _pingpong_get, _pingpong_set),
-    ("duotone_mid", _duo_mid_get, _duo_mid_set),
-    ("posterize",) + _spin("spn_poster"),
-    ("split_tone",) + _slider("sld_split"),
-    ("fade",) + _slider("sld_fade"),
-    ("halftone",) + _spin("spn_halftone"),
-    ("halftone_shape",) + _combo("cmb_halftone"),
-    ("dust",) + _slider("sld_dust"),
-    ("border",) + _spin("spn_border"),
-    ("border_color", _border_color_get, _border_color_set),
-    ("letterbox",) + _spin("spn_letterbox"),
-    ("glitch_chroma",) + _slider("sld_chroma"),
-    ("glitch_slice_bands",) + _spin("spn_slice"),
-    ("pixelsort",) + _spin("spn_pixelsort"),
-    ("wave",) + _spin("spn_wave"),
-    ("mosh",) + _slider("sld_mosh"),
-    ("grille",) + _spin("spn_grille"),
-)
+def doc_dims(win) -> tuple[int, int]:
+    """W/H del documento (Photoshop-style: los spins mandan)."""
+    from app.canvas import MAX_DIM, MIN_DIM
+
+    try:
+        w = max(MIN_DIM, min(MAX_DIM, int(win.spn_canvas_w.value())))
+        h = max(MIN_DIM, min(MAX_DIM, int(win.spn_canvas_h.value())))
+        return w, h
+    except Exception:  # noqa: BLE001
+        return (3000, 3000)
 
 
 def doc_size(win) -> int:
-    from app.exporter import MAX_SIDE, MIN_SIDE
-
-    try:
-        return max(MIN_SIDE, min(MAX_SIDE, int(win.spn_docsize.value())))
-    except Exception:  # noqa: BLE001
-        return 3000
+    """Lado largo (compat: prefs, batch legacy, GIF)."""
+    w, h = doc_dims(win)
+    return max(w, h)
 
 
 def anim_combo_int(cmb, default: int, lo: int, hi: int) -> int:
@@ -264,46 +252,118 @@ def valid_slice_bands(win) -> int:
     return normalize_slice_bands(int(win.spn_slice.value()))
 
 
-def on_docsize_preset(win, text: str) -> None:
-    if text == "Custom":
-        return
+def on_ratio_preset(win) -> None:
+    """El usuario eligió un ratio: rellena W/H a la escala actual (Photoshop)."""
+    from app.canvas import canvas_size_for, ratio_value
+
     try:
-        win.spn_docsize.blockSignals(True)
-        win.spn_docsize.setValue(int(text))
-    finally:
-        win.spn_docsize.blockSignals(False)
-    sync_docsize_combo(win, int(text))
+        ratio = ratio_value(win.cmb_ratio.currentText())
+    except Exception:  # noqa: BLE001
+        return
+    if ratio == "custom":
+        sync_docdims(win)
+        win._schedule_refresh()
+        return
+    long_side = max(doc_dims(win))
+    try:
+        w, h = canvas_size_for(ratio, long_side)
+    except KeyError:
+        return
+    for spn, v in ((win.spn_canvas_w, w), (win.spn_canvas_h, h)):
+        try:
+            spn.blockSignals(True)
+            spn.setValue(int(v))
+        finally:
+            spn.blockSignals(False)
+    sync_docdims(win)
     win._schedule_refresh()
 
 
-def on_docsize_custom(win) -> None:
+def on_canvas_wh_changed(win) -> None:
+    """Editar W/H salta solo a Custom (Photoshop). Sin bucles: activated no re-flippea."""
+    from app.canvas import CUSTOM_LABEL
+
     try:
-        sync_docsize_combo(win, int(win.spn_docsize.value()))
+        if win.cmb_ratio.currentText() != CUSTOM_LABEL:
+            win.cmb_ratio.blockSignals(True)
+            win.cmb_ratio.setCurrentText(CUSTOM_LABEL)
+            win.cmb_ratio.blockSignals(False)
     except Exception:  # noqa: BLE001
         pass
     sync_docdims(win)
     win._schedule_refresh()
 
 
-def sync_docsize_combo(win, size: int) -> None:
-    from app.exporter import SIZE_PRESETS
+def ratio_value_of(win) -> str:
+    from app.canvas import ratio_value
 
-    txt = str(size) if size in SIZE_PRESETS else "Custom"
     try:
-        if win.cmb_docsize.currentText() != txt:
-            win.cmb_docsize.blockSignals(True)
-            win.cmb_docsize.setCurrentText(txt)
-            win.cmb_docsize.blockSignals(False)
+        return ratio_value(win.cmb_ratio.currentText())
     except Exception:  # noqa: BLE001
-        pass
+        return "1:1"
+
+
+def set_ratio_label(win, value: str) -> None:
+    from app.canvas import ratio_label
+
+    try:
+        win.cmb_ratio.blockSignals(True)
+        win.cmb_ratio.setCurrentText(ratio_label(value))
+    finally:
+        win.cmb_ratio.blockSignals(False)
+
+
+BINDINGS: tuple = (
+    ("method",) + _combo("cmb_method"),
+    ("pixel_size",) + _spin("spn_pixel"),
+    ("threshold",) + _slider("sld_thr"),
+    ("brightness",) + _slider("sld_bri", 100.0),
+    ("contrast",) + _slider("sld_con", 100.0),
+    ("saturation",) + _slider("sld_sat", 100.0),
+    ("ratio", ratio_value_of, set_ratio_label),
+    ("canvas_w",) + _spin("spn_canvas_w"),
+    ("canvas_h",) + _spin("spn_canvas_h"),
+    ("crop_mode",) + _combo("cmb_crop"),
+    ("pre_blur",) + _slider("sld_blur", 10.0),
+    ("pre_sharpen",) + _spin("spn_sharp"),
+    ("pre_hue",) + _slider("sld_hue"),
+    ("pre_denoise",) + _spin("spn_denoise"),
+    ("pre_smooth",) + _slider("sld_smooth", 10.0),
+    ("glow_radius", _glow_radius_get, _glow_radius_set),
+    ("glow_intensity",) + _slider("sld_glow"),
+    ("glow_threshold",) + _spin("spn_glowthr"),
+    ("grain",) + _slider("sld_grain"),
+    ("vignette",) + _slider("sld_vig"),
+    ("scanlines", _scan_get, _scan_set),
+    ("replace_color", _brand_get, _brand_set),
+    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 24, 6),
+    ("gif_mode", _video_mode_get, _video_mode_set),
+    ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
+    ("gif_pingpong", _pingpong_get, _pingpong_set),
+    ("duotone_mid", _duo_mid_get, _duo_mid_set),
+    ("posterize",) + _spin("spn_poster"),
+    ("split_tone",) + _slider("sld_split"),
+    ("fade",) + _slider("sld_fade"),
+    ("halftone",) + _spin("spn_halftone"),
+    ("halftone_shape",) + _combo("cmb_halftone"),
+    ("dust",) + _slider("sld_dust"),
+    ("border",) + _spin("spn_border"),
+    ("border_color", _border_color_get, _border_color_set),
+    ("letterbox",) + _spin("spn_letterbox"),
+    ("glitch_chroma",) + _slider("sld_chroma"),
+    ("glitch_slice_bands",) + _spin("spn_slice"),
+    ("pixelsort",) + _spin("spn_pixelsort"),
+    ("wave",) + _spin("spn_wave"),
+    ("mosh",) + _slider("sld_mosh"),
+    ("grille",) + _spin("spn_grille"),
+)
 
 
 def sync_docdims(win) -> None:
     try:
-        from app.canvas import canvas_size_for
-
-        w, h = canvas_size_for(win.cmb_ratio.currentText(), doc_size(win))
-        win.lbl_docdims.setText(f"{w}×{h} px")
+        w, h = doc_dims(win)
+        label = win.cmb_ratio.currentText()
+        win.lbl_docdims.setText(f"{w}×{h} px · {label}")
         try:
             win.lbl_video_size.setText(f"{w}×{h} px (canvas)")
         except Exception:  # noqa: BLE001
@@ -386,6 +446,13 @@ def apply_preset(win, name: str) -> None:
         p = load_preset(name)
     except Exception:
         return
+    # Auto -> concreto: presets viejos/a mano sin W/H heredan ratio+export_size.
+    from app.canvas import doc_dimensions
+
+    cw, ch = doc_dimensions(p.ratio, p.export_size,
+                            int(getattr(p, "canvas_w", 0) or 0),
+                            int(getattr(p, "canvas_h", 0) or 0))
+    p.canvas_w, p.canvas_h = int(cw), int(ch)
     for field, _get, set in BINDINGS:
         set(win, getattr(p, field))
     # Crop vars (sin widget directo).
@@ -414,13 +481,7 @@ def apply_preset(win, name: str) -> None:
     win._export_size = int(p.export_size)
     win._export_format = str(p.export_format)
     win._export_quality = int(p.export_quality)
-    # Doc único: tamaño documento en CANVAS.
-    try:
-        win.spn_docsize.blockSignals(True)
-        win.spn_docsize.setValue(int(p.export_size))
-    finally:
-        win.spn_docsize.blockSignals(False)
-    sync_docsize_combo(win, int(p.export_size))
+    # Doc único: W/H del CANVAS (los setters bloquean señales: sin flips).
     sync_docdims(win)
     # Grado + resto de etiquetas.
     win.duotone_dark = str(p.duotone_dark or "")

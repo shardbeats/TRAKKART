@@ -87,6 +87,26 @@ def clamp_crop(ctx):
     ctx["out"] = to_canvas(ctx["img"], ratio="9:16", fx=999, fy=-99)
 
 
+@when("I export the image with custom 1920x800 canvas")
+def export_custom(ctx):
+    from app.exporter import ExportOptions, export_with_options
+
+    opts = ExportOptions(base="vfree")
+    paths, _ = export_with_options(
+        ctx["img"], ctx["tmp"], opts,
+        meta={"ratio": "custom", "canvas": {"w": 1920, "h": 800}},
+    )
+    ctx["paths"] = paths
+
+
+@then("the main image is exactly 1920x800")
+def cover_custom(ctx):
+    from PIL import Image as Img
+
+    with Img.open(ctx["paths"]["image"]) as im:
+        assert im.size == (1920, 800)
+
+
 @then("the resulting canvas honors the 9:16 ratio")
 def canvas_ratio(ctx):
     w, h = ctx["out"].size

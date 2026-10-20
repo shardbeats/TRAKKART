@@ -147,6 +147,7 @@ def test_crop_editor_accept_applies(window, monkeypatch):
             seen["created"] = True
             self.ratio, self.mode = "4:5", "cover"
             self.fx, self.fy, self.zoom = 20.0, 30.0, 2.0
+            self.doc_w, self.doc_h = 1536, 1920
             self.turns, self.image = 0, window.src
 
         def exec(self):
@@ -206,6 +207,32 @@ def test_crop_editor_real_dialog(qt_app):
     view.resize(600, 600)
     lay = view._layout()
     assert lay["frame"].width() > 0 and lay["frame"].height() > 0
+    close_dialog(dlg)
+
+
+def test_crop_editor_custom_free_frame(qt_app):
+    from PIL import Image as Img
+
+    from app.ui.crop_editor import CropEditorDialog, CropView
+    from tests.conftest import close_dialog
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    dlg = CropEditorDialog(src, ratio="custom", mode="cover",
+                           canvas_w=1920, canvas_h=800)
+    assert dlg.ratio == "custom"
+    assert (dlg.doc_w, dlg.doc_h) == (1920, 800)
+    assert dlg.spn_w.isEnabled()  # custom: W/H editables
+    assert "1920×800" in dlg.lbl_summary.text()
+    dlg.spn_w.setValue(1600)  # editar W/H mantiene custom
+    assert dlg.ratio == "custom"
+    assert (dlg.doc_w, dlg.doc_h) == (1600, 800)
+    # Marco libre con el aspecto pedido.
+    view = CropView(src, "custom", "cover", 50, 50, 1.0, canvas_w=1600, canvas_h=800)
+    view.resize(600, 600)
+    lay = view._layout()
+    assert abs(lay["frame"].width() / lay["frame"].height() - 2.0) < 0.05
+    dlg.cmb_ratio.setCurrentText("1:1")  # volver a preset bloquea W/H
+    assert not dlg.spn_w.isEnabled()
     close_dialog(dlg)
 
 

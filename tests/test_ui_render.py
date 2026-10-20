@@ -49,6 +49,23 @@ def test_ratio_controls_apply(window, isolated_presets):
     assert "1.5x" in window.lbl_crop.text()
 
 
+def test_custom_canvas_free_wh(window, isolated_presets):
+    # Photoshop-style: preset rellena W/H; editar W/H salta a Custom.
+    window.cmb_ratio.setCurrentText("1:1")
+    window._on_ratio_preset()  # gesto de usuario: rellena a escala actual
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (3000, 3000)
+    assert window.current_params().ratio == "1:1"
+    window.spn_canvas_w.setValue(1920)  # teclear W...
+    window.spn_canvas_h.setValue(800)   # ...y H salta a Custom
+    assert window.cmb_ratio.currentText() == "Custom"
+    p = window.current_params()
+    assert (p.ratio, p.canvas_w, p.canvas_h) == ("custom", 1920, 800)
+    assert "1920×800" in window.lbl_docdims.text()
+    window.refresh()
+    assert window.result is not None
+    assert abs(window.result.width / window.result.height - 1920 / 800) < 0.1
+
+
 def test_fx_controls_apply(window, isolated_presets, monkeypatch):
     from PySide6.QtGui import QColor
     from PySide6.QtWidgets import QColorDialog

@@ -240,20 +240,15 @@ class MainWindow(QMainWindow):
 
         return _par.gif_anim_pingpong(self)
 
-    def _on_docsize_preset(self, text: str) -> None:
+    def _on_ratio_preset(self) -> None:
         from app.ui import params_controller as _par
 
-        _par.on_docsize_preset(self, text)
+        _par.on_ratio_preset(self)
 
-    def _on_docsize_custom(self) -> None:
+    def _on_canvas_wh_changed(self) -> None:
         from app.ui import params_controller as _par
 
-        _par.on_docsize_custom(self)
-
-    def _sync_docsize_combo(self, size: int) -> None:
-        from app.ui import params_controller as _par
-
-        _par.sync_docsize_combo(self, size)
+        _par.on_canvas_wh_changed(self)
 
     def _sync_docdims(self) -> None:
         from app.ui import params_controller as _par

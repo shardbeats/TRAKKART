@@ -20,7 +20,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.canvas import CROP_MODES, crop_box_for, ratio_names
+from app.canvas import (
+    CROP_MODES,
+    CUSTOM_RATIO,
+    MAX_DIM,
+    MIN_DIM,
+    canvas_ratios,
+    crop_box_for,
+    ratio_label,
+    ratio_names,
+    ratio_value,
+)
 from app.ops import rotate_right
 
 MIN_ZOOM = 1.0
@@ -41,6 +51,7 @@ class CropView(QWidget):
 
     def __init__(self, img: Image.Image, ratio: str = "1:1", mode: str = "cover",
                  fx: float = 50.0, fy: float = 50.0, zoom: float = 1.0,
+                 canvas_w: int = 0, canvas_h: int = 0,
                  parent=None) -> None:
         super().__init__(parent)
         self._img = img.convert("RGB")
@@ -49,6 +60,8 @@ class CropView(QWidget):
         self.fx = float(fx)
         self.fy = float(fy)
         self.zoom = min(MAX_ZOOM, max(MIN_ZOOM, float(zoom)))
+        self.canvas_w = int(canvas_w or 0)
+        self.canvas_h = int(canvas_h or 0)
         self._drag_from: QPointF | None = None
         self.setMinimumSize(420, 420)
         self.setMouseTracking(False)
@@ -61,7 +74,8 @@ class CropView(QWidget):
         if self.mode != "cover":
             from app.canvas import to_canvas
 
-            canvas = to_canvas(self._img, self.ratio, self.mode)
+            canvas = to_canvas(self._img, self.ratio, self.mode,
+                               canvas_w=self.canvas_w, canvas_h=self.canvas_h)
             cw, ch = canvas.width, canvas.height
             s = min(w / cw, h / ch)
             dw, dh = cw * s, ch * s
@@ -71,7 +85,8 @@ class CropView(QWidget):
         s = min(w / iw, h / ih)
         dw, dh = iw * s, ih * s
         ox, oy = (w - dw) / 2.0, (h - dh) / 2.0
-        bx, by, bw, bh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom)
+        bx, by, bw, bh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom,
+                                      canvas_w=self.canvas_w, canvas_h=self.canvas_h)
         frame = QRectF(ox + bx * s, oy + by * s, bw * s, bh * s)
         return {"mode": "cover", "s": s, "ox": ox, "oy": oy,
                 "frame": frame, "img_rect": QRectF(ox, oy, dw, dh),
@@ -196,16 +211,19 @@ class CropEditorDialog(QDialog):
 
     def __init__(self, img: Image.Image, ratio: str = "1:1", mode: str = "cover",
                  fx: float = 50.0, fy: float = 50.0, zoom: float = 1.0,
+                 canvas_w: int = 0, canvas_h: int = 0,
                  parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Adjust crop")
         self.setMinimumSize(560, 640)
         self.image = img.convert("RGB")
         self.turns = 0
-        if ratio not in ratio_names():
+        if ratio not in ratio_names() and ratio != CUSTOM_RATIO:
             ratio = "1:1"
         if mode not in CROP_MODES:
             mode = "cover"
+        self._doc_w = max(MIN_DIM, min(MAX_DIM, int(canvas_w or 0) or 3000))
+        self._doc_h = max(MIN_DIM, min(MAX_DIM, int(canvas_h or 0) or 3000))
 
         col = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -220,7 +238,8 @@ class CropEditorDialog(QDialog):
         top.addWidget(self.btn_done)
         col.addLayout(top)
 
-        self.view = CropView(self.image, ratio, mode, fx, fy, zoom)
+        self.view = CropView(self.image, ratio, mode, fx, fy, zoom,
+                             canvas_w=self._doc_w, canvas_h=self._doc_h)
         col.addWidget(self.view, 1)
 
         self.lbl_hint = QLabel("Drag to move · Mouse wheel to zoom")
@@ -229,6 +248,25 @@ class CropEditorDialog(QDialog):
         self.lbl_summary = QLabel()
         self.lbl_summary.setAlignment(Qt.AlignCenter)
         col.addWidget(self.lbl_summary)
+
+        from PySide6.QtWidgets import QSpinBox
+
+        wh_row = QHBoxLayout()
+        wh_row.addWidget(QLabel("W:"))
+        self.spn_w = QSpinBox()
+        self.spn_w.setRange(MIN_DIM, MAX_DIM)
+        self.spn_w.setValue(self._doc_w)
+        self.spn_w.setSuffix(" px")
+        self.spn_w.valueChanged.connect(self._on_wh)
+        wh_row.addWidget(self.spn_w, 1)
+        wh_row.addWidget(QLabel("H:"))
+        self.spn_h = QSpinBox()
+        self.spn_h.setRange(MIN_DIM, MAX_DIM)
+        self.spn_h.setValue(self._doc_h)
+        self.spn_h.setSuffix(" px")
+        self.spn_h.valueChanged.connect(self._on_wh)
+        wh_row.addWidget(self.spn_h, 1)
+        col.addLayout(wh_row)
 
         bottom = QHBoxLayout()
         self.btn_rotate = QPushButton("Rotate")
@@ -240,8 +278,8 @@ class CropEditorDialog(QDialog):
         bottom.addWidget(self.btn_reset)
         bottom.addWidget(QLabel("Ratio:"))
         self.cmb_ratio = QComboBox()
-        self.cmb_ratio.addItems(ratio_names())
-        self.cmb_ratio.setCurrentText(self.view.ratio)
+        self.cmb_ratio.addItems(canvas_ratios())
+        self.cmb_ratio.setCurrentText(ratio_label(self.view.ratio))
         self.cmb_ratio.currentTextChanged.connect(self._on_ratio)
         bottom.addWidget(self.cmb_ratio, 1)
         bottom.addWidget(QLabel("Mode:"))
@@ -253,12 +291,36 @@ class CropEditorDialog(QDialog):
         col.addLayout(bottom)
 
         self.view.cropChanged.connect(self._sync_summary)
+        self._sync_wh_enabled()
         self._sync_summary()
+
+    def _sync_wh_enabled(self) -> None:
+        custom = self.view.ratio == CUSTOM_RATIO
+        self.spn_w.setEnabled(custom)
+        self.spn_h.setEnabled(custom)
+        self.lbl_hint.setText(
+            "Set free W×H (custom canvas)" if custom
+            else "Drag to move · Mouse wheel to zoom")
 
     # -- slots --
     def _on_ratio(self, name: str) -> None:
-        self.view.ratio = name
+        self.view.ratio = ratio_value(name)
+        self._sync_wh_enabled()
         self.view.update()
+
+    def _on_wh(self) -> None:
+        self.doc_w = int(self.spn_w.value())
+        self.doc_h = int(self.spn_h.value())
+        self.view.canvas_w = self.doc_w
+        self.view.canvas_h = self.doc_h
+        if self.view.ratio != CUSTOM_RATIO:
+            self.cmb_ratio.blockSignals(True)
+            self.cmb_ratio.setCurrentText(ratio_label(CUSTOM_RATIO))
+            self.cmb_ratio.blockSignals(False)
+            self.view.ratio = CUSTOM_RATIO
+            self._sync_wh_enabled()
+        self.view.update()
+        self._sync_summary()
 
     def _on_mode(self, name: str) -> None:
         self.view.mode = name
@@ -277,8 +339,12 @@ class CropEditorDialog(QDialog):
         self.view.reset_crop()
 
     def _sync_summary(self) -> None:
+        if self.view.ratio == CUSTOM_RATIO:
+            dims = f"{self.doc_w}×{self.doc_h}"
+        else:
+            dims = f"{ratio_label(self.view.ratio)}"
         self.lbl_summary.setText(
-            f"{self.view.ratio} · {self.view.mode} · "
+            f"{dims} · {self.view.mode} · "
             f"focus {self.view.fx:.0f}, {self.view.fy:.0f} · {self.view.zoom:.1f}x"
         )
 
@@ -302,3 +368,11 @@ class CropEditorDialog(QDialog):
     @property
     def zoom(self) -> float:
         return float(self.view.zoom)
+
+    @property
+    def doc_w(self) -> int:
+        return int(self.spn_w.value())
+
+    @property
+    def doc_h(self) -> int:
+        return int(self.spn_h.value())

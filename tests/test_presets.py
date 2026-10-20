@@ -76,6 +76,30 @@ def test_roundtrip_extended_fields(pdir: Path):
     assert back.meta()["ratio"] == "9:16"
 
 
+def test_custom_canvas_validates_and_roundtrips(pdir: Path):
+    p = Preset(name="Wide", ratio="custom", canvas_w=1920, canvas_h=800)
+    p.validate()
+    back = load_preset(save_preset(p, pdir).stem, pdir)
+    assert (back.canvas_w, back.canvas_h) == (1920, 800)
+    assert back.meta()["canvas"] == {"w": 1920, "h": 800}
+    assert back.meta()["ratio"] == "custom"
+    with pytest.raises(ValueError):
+        Preset(name="x", ratio="custom").validate()  # custom exige W/H concretos
+    with pytest.raises(ValueError):
+        Preset(name="x", ratio="custom", canvas_w=1920, canvas_h=10).validate()
+
+
+def test_old_json_without_canvas_migrates(pdir: Path):
+    import json
+
+    (pdir / "Legacy.json").write_text(
+        json.dumps({"name": "Legacy", "method": "floyd", "ratio": "9:16",
+                    "export_size": 3000}), encoding="utf-8")
+    back = load_preset("Legacy", pdir)
+    assert (back.canvas_w, back.canvas_h) == (1688, 3000)
+    assert back.meta()["ratio"] == "9:16"
+
+
 def test_old_format_loads_with_defaults(pdir: Path):
     import json
 
