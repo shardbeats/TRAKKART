@@ -24,6 +24,7 @@ app/adjust.py            :: brightness/contrast/saturation
 app/fx.py                :: pre (hue/denoise/smooth) + post + replace + custom
 app/pipeline.py          :: render() + meta_dict() (canvas/pre/adjust/dither/brand/post/glitch, no text since v0.14)
 app/palettes.py          :: original palettes
+app/palette_library.py   :: named palette JSONs (bundled + user) + BW equivalence
 app/presets.py           :: JSON presets (bundled + user, no title since v0.14)
 app/batch.py             :: sequential/multiprocess batch (fallback + cancel) + history
 app/ui/main_window.py    :: PySide6 (sections + menus + safe drop with toggle)

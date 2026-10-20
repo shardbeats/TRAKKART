@@ -26,7 +26,7 @@ def test_e2e_tweak_export(window, qt_app):
     from tests.conftest import accept_next_dialog
 
     window.cmb_method.setCurrentText("bayer8")
-    window.cmb_palette.setCurrentText("VAPOR")
+    window._on_palette_preset_changed("VAPOR")
     window.sld_thr.setValue(160)
     window.spn_pixel.setValue(3)
     window.sld_bri.setValue(120)

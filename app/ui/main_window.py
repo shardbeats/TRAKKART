@@ -90,7 +90,14 @@ class MainWindow(QMainWindow):
         self._export_size: int = 3000
         self._export_format: str = "png"
         self._export_quality: int = 90
+        # La paleta en uso es la tira custom (los presets con nombre son
+        # puntos de partida). _palette_base recuerda de cuál se derivó.
+        self._palette_base: str = "SLIME"
+        self._palette_dirty: bool = False
         ensure_bundled()
+        from app.palette_library import ensure_bundled_palettes
+
+        ensure_bundled_palettes()
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
         self._preview_worker = None
@@ -105,6 +112,7 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._build_menus()
         self.refresh_presets()
+        self.refresh_palette_list()
         self._apply_preset("SLIME_FS")
         self._status("Open an image to start.")
 
@@ -225,7 +233,7 @@ class MainWindow(QMainWindow):
 
         P.build_image_section(self, P.make_group(panel, "IMAGE"))
         P.build_preset_section(self, P.make_group(panel, "PRESET"))
-        P.build_method_section(self, P.make_group(panel, "METHOD"), METHODS, palette_names())
+        P.build_method_section(self, P.make_group(panel, "METHOD"), METHODS)
         P.build_pixel_section(self, P.make_group(panel, "PIXEL"))
         P.build_color_section(self, P.make_group(panel, "COLOR"))
         P.build_canvas_section(self, P.make_group(panel, "CANVAS"), ratio_names(), CROP_MODES)
@@ -385,10 +393,11 @@ class MainWindow(QMainWindow):
 
     # -- presets --
     def current_params(self) -> Preset:
+        base = self._palette_base if self._palette_base in palette_names() else "SLIME"
         return Preset(
             name=self.cmb_preset.currentText(),
             method=self.cmb_method.currentText(),
-            palette=self.cmb_palette.currentText(),
+            palette=base,
             pixel_size=int(self.spn_pixel.value()),
             threshold=int(self.sld_thr.value()),
             brightness=self.sld_bri.value() / 100.0,
@@ -446,8 +455,7 @@ class MainWindow(QMainWindow):
             return
         rgb = (color.red(), color.green(), color.blue())
         if rgb not in self.custom_colors and len(self.custom_colors) < 16:
-            self.custom_colors.append(rgb)
-        self._sync_custom_label()
+            self._set_custom_colors([*self.custom_colors, rgb])
         self.refresh()
 
     def edit_custom_palette(self) -> None:
@@ -459,15 +467,13 @@ class MainWindow(QMainWindow):
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
             return
-        self.custom_colors = [tuple(c) for c in dlg.colors]
-        self._sync_custom_label()
+        self._set_custom_colors([tuple(c) for c in dlg.colors])
         self.refresh()
         self._status(f"Custom palette: {len(self.custom_colors)} colors")
 
     def _remove_custom_color(self, i: int) -> None:
         if 0 <= i < len(self.custom_colors):
-            del self.custom_colors[i]
-            self._sync_custom_label()
+            self._set_custom_colors([c for j, c in enumerate(self.custom_colors) if j != i])
             self.refresh()
 
     def _palette_preview_small(self):
@@ -493,9 +499,22 @@ class MainWindow(QMainWindow):
             return None
 
     def clear_custom_colors(self) -> None:
-        self.custom_colors = []
-        self._sync_custom_label()
+        self._set_custom_colors([])
         self.refresh()
+
+    def _set_custom_colors(self, colors: list, dirty: bool = True) -> None:
+        """Único punto de escritura: actualiza tira + estado dirty."""
+        from app.palette_library import CUSTOM_SENTINEL
+
+        self.custom_colors = [tuple(c) for c in colors]
+        if dirty:
+            self._palette_dirty = True
+            if self.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
+                self.cmb_pal_preset.addItem(CUSTOM_SENTINEL)
+            self.cmb_pal_preset.blockSignals(True)
+            self.cmb_pal_preset.setCurrentText(CUSTOM_SENTINEL)
+            self.cmb_pal_preset.blockSignals(False)
+        self._sync_custom_label()
 
     def _sync_custom_label(self) -> None:
         from app.ui.palette_dialog import ColorSwatch, luminance_roles, rgb_to_hex
@@ -515,7 +534,7 @@ class MainWindow(QMainWindow):
             lay.addWidget(sw)
         lay.addStretch()
         if n == 1:
-            self.lbl_palette_hint.setText("1 color is ignored: custom needs 2–16, the combo is used.")
+            self.lbl_palette_hint.setText("1 color is ignored: custom needs 2–16 colors.")
         else:
             self.lbl_palette_hint.setText("")
 
@@ -524,6 +543,51 @@ class MainWindow(QMainWindow):
         self.cmb_preset.clear()
         self.cmb_preset.addItems(list_presets())
         self.cmb_preset.blockSignals(False)
+
+    def refresh_palette_list(self) -> None:
+        """Combo de la biblioteca (built-ins + usuario)."""
+        from app.palette_library import CUSTOM_SENTINEL, list_palettes
+
+        self.cmb_pal_preset.blockSignals(True)
+        self.cmb_pal_preset.clear()
+        self.cmb_pal_preset.addItems(list_palettes())
+        if self._palette_dirty and self.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
+            self.cmb_pal_preset.addItem(CUSTOM_SENTINEL)
+        cur = CUSTOM_SENTINEL if self._palette_dirty else self._palette_base
+        if self.cmb_pal_preset.findText(cur) >= 0:
+            self.cmb_pal_preset.setCurrentText(cur)
+        self.cmb_pal_preset.blockSignals(False)
+
+    def _on_palette_preset_changed(self, name: str) -> None:
+        """Elegir paleta = cargarla como copia editable (dither-guy style)."""
+        from app.palette_library import CUSTOM_SENTINEL, palette_colors
+
+        if not name or name == CUSTOM_SENTINEL:
+            return
+        try:
+            colors = palette_colors(name)
+        except ValueError:
+            return
+        self._palette_base = name
+        self._set_custom_colors(colors, dirty=False)
+        self.refresh()
+        self._status(f"Palette loaded: {name} (editable)")
+
+    def save_palette_preset(self) -> None:
+        from app.palette_library import save_palette
+
+        name, ok = QInputDialog.getText(self, "Save palette", "Name:")
+        if not ok or not name.strip():
+            return
+        try:
+            save_palette(name.strip(), [list(c) for c in self.custom_colors])
+            self._palette_base = name.strip()
+            self._palette_dirty = False
+            self.refresh_palette_list()
+            self.cmb_pal_preset.setCurrentText(name.strip())
+            self._status(f"Palette saved: {name.strip()}")
+        except ValueError as e:
+            QMessageBox.warning(self, "TRAKKART", f"Could not save:\n{e}")
 
     def _on_preset_changed(self, name: str) -> None:
         if name:
@@ -535,7 +599,6 @@ class MainWindow(QMainWindow):
         except Exception:
             return
         self.cmb_method.setCurrentText(p.method)
-        self.cmb_palette.setCurrentText(p.palette)
         self.spn_pixel.setValue(int(p.pixel_size))
         self.sld_thr.setValue(int(p.threshold))
         self.sld_bri.setValue(int(float(p.brightness) * 100))
@@ -559,8 +622,17 @@ class MainWindow(QMainWindow):
         self.sld_vig.setValue(int(float(p.vignette)))
         self.spn_scan.setValue(int(p.scanlines))
         self.set_brand_color(p.replace_color)
-        self.custom_colors = [tuple(c) for c in (p.custom_palette or [])]
-        self._sync_custom_label()
+        # La paleta en uso es la tira custom: del preset, o la built-in base.
+        from app.palette_library import palette_colors
+
+        self._palette_base = p.palette
+        base_colors = palette_colors(p.palette)
+        self._set_custom_colors(
+            [tuple(c) for c in (p.custom_palette or [])] or base_colors,
+            dirty=False,
+        )
+        self._palette_dirty = False
+        self.refresh_palette_list()
         # Salidas: el preset es la receta; los diálogos las aplican por operación.
         self._vector_export = bool(p.vector_export)
         self._vector_cell = int(p.vector_cell)
@@ -799,8 +871,11 @@ class MainWindow(QMainWindow):
         self._status("Undone")
 
     def randomize(self) -> None:
+        from app.palette_library import list_palettes
+
         self.cmb_method.setCurrentText(random.choice(list(METHODS)))
-        self.cmb_palette.setCurrentText(random.choice(palette_names()))
+        names = list_palettes() or palette_names()
+        self._on_palette_preset_changed(random.choice(names))
         self.sld_thr.setValue(random.randint(80, 180))
         self.spn_pixel.setValue(random.randint(1, 4))
         self.refresh()

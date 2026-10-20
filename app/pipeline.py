@@ -21,8 +21,12 @@ from app.palettes import get_palette
 
 
 def resolve_palette(palette_name: str, custom: list | None):
+    from app.palette_library import is_bw
+
     custom_pal = normalize_custom_palette(custom)
     if custom_pal is not None:
+        if is_bw(custom_pal):
+            return None, "BW"  # equivale al B&W puro: ruta rápida, sin ramas en la UI
         return custom_pal, "custom"
     return get_palette(palette_name), palette_name
 

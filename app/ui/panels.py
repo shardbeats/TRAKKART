@@ -122,17 +122,12 @@ def build_preset_section(win, g: QVBoxLayout) -> None:
     g.addLayout(row)
 
 
-def build_method_section(win, g: QVBoxLayout, methods, palettes) -> None:
+def build_method_section(win, g: QVBoxLayout, methods) -> None:
     g.addWidget(QLabel("Method:"))
     win.cmb_method = QComboBox()
     win.cmb_method.addItems(list(methods))
     win.cmb_method.currentTextChanged.connect(lambda _: win._schedule_refresh())
     g.addWidget(win.cmb_method)
-    g.addWidget(QLabel("Palette:"))
-    win.cmb_palette = QComboBox()
-    win.cmb_palette.addItems(palettes)
-    win.cmb_palette.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    g.addWidget(win.cmb_palette)
 
 
 def build_pixel_section(win, g: QVBoxLayout) -> None:
@@ -227,7 +222,18 @@ def build_effects_section(win, g: QVBoxLayout) -> None:
 
 
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
-    g.addWidget(QLabel("Empty = use combo:"))
+    # Biblioteca: una paleta con nombre cargada = punto de partida editable.
+    lib_row = QHBoxLayout()
+    lib_row.addWidget(QLabel("Palette:"))
+    win.cmb_pal_preset = QComboBox()
+    win.cmb_pal_preset.setToolTip("Load a named palette as editable swatches")
+    win.cmb_pal_preset.currentTextChanged.connect(win._on_palette_preset_changed)
+    lib_row.addWidget(win.cmb_pal_preset, 1)
+    win.btn_palette_save = QPushButton("Save...")
+    win.btn_palette_save.setToolTip("Save current swatches as a named palette")
+    win.btn_palette_save.clicked.connect(win.save_palette_preset)
+    lib_row.addWidget(win.btn_palette_save)
+    g.addLayout(lib_row)
     row = QHBoxLayout()
     win.btn_custom_add = QPushButton("+ color")
     win.btn_custom_add.setToolTip("Quick-add one color")

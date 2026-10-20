@@ -33,15 +33,13 @@ def test_palette_usage_half_half():
 
 
 def test_strip_shows_colors_and_hint(window):
-    assert window.lbl_custom.text() == "0/16"
+    assert window.lbl_custom.text() == "4/16"  # preset SLIME precargado
     assert window.lbl_palette_hint.text() == ""
-    window.custom_colors = [(255, 0, 0)]
-    window._sync_custom_label()
+    window._set_custom_colors([(255, 0, 0)])
     assert window.lbl_custom.text() == "1/16"
     assert "ignored" in window.lbl_palette_hint.text()
     assert window.palette_strip.count() == 2  # 1 swatch + stretch
-    window.custom_colors = [(0, 0, 0), (255, 255, 255)]
-    window._sync_custom_label()
+    window._set_custom_colors([(0, 0, 0), (255, 255, 255)])
     assert window.lbl_palette_hint.text() == ""
     assert window.lbl_custom.text() == "2/16"
     # click en el primer swatch lo quita

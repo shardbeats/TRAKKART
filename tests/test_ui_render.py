@@ -9,11 +9,12 @@ pytestmark = pytest.mark.slow
 
 def test_refresh_all_combos(window):
     from app.dither import METHODS
+    from app.palette_library import list_palettes
 
     for method in METHODS:
         window.cmb_method.setCurrentText(method)
-        for pal in ("BW", "SLIME", "VAPOR", "EMBER"):
-            window.cmb_palette.setCurrentText(pal)
+        for pal in list_palettes():
+            window._on_palette_preset_changed(pal)
             window.spn_pixel.setValue(2)
             window.sld_thr.setValue(100)
             window.refresh()
@@ -69,8 +70,9 @@ def test_fx_controls_apply(window, isolated_presets, monkeypatch):
     window.pick_brand_color()
     assert window.brand_color == "#112233"
     window.add_custom_color()
+    n0 = len(window.custom_colors)
     window.add_custom_color()  # duplicates are not repeated
-    assert len(window.custom_colors) == 1
+    assert len(window.custom_colors) == n0
     assert window.result is not None
     window.clear_custom_colors()
     assert window.custom_colors == []

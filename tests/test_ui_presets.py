@@ -10,7 +10,8 @@ def test_preset_apply_updates_controls(window, isolated_presets):
     window.cmb_preset.setCurrentText("CRT_HARD")
     assert window.spn_pixel.value() == 4
     assert window.sld_thr.value() == 160
-    assert window.cmb_palette.currentText() == "BW"
+    assert window._palette_base == "BW"
+    assert window.custom_colors == [(0, 0, 0), (255, 255, 255)]
 
 
 def test_preset_invalid_name_ignored(window, isolated_presets):
