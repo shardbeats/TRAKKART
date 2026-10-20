@@ -29,8 +29,8 @@ def test_export_bundle_from_ui(window, qt_app):
     assert window.result is not None
     accept_next_dialog(ExportDialog)
     window.export()
-    files = list(window.out_dir.glob("*.png"))
-    assert len(files) == 3
+    names = sorted(p.name for p in window.out_dir.glob("*.png"))
+    assert names == ["trakkart_cover.png", "trakkart_cover_thumb1080p.png"]
 
 
 def test_ratio_controls_apply(window, isolated_presets):
@@ -145,6 +145,25 @@ def test_vector_export_via_dialog(window, qt_app):
     accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_vector.setChecked(True))
     window.export()
     assert (window.out_dir / "trakkart_cover_vector.svg").exists()
+
+
+def test_export_settings_follow_preset(window, isolated_presets, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    from app.presets import Preset, load_preset
+
+    assert window.current_params().export_size == 3000
+    p = Preset(name="Big", export_size=1080, export_format="jpg", export_quality=80)
+    from app.presets import save_preset
+
+    save_preset(p, isolated_presets)
+    window._apply_preset("Big")
+    cur = window.current_params()
+    assert (cur.export_size, cur.export_format, cur.export_quality) == (1080, "jpg", 80)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("Big2", True))
+    window.save_current_preset()
+    back = load_preset("Big2", isolated_presets)
+    assert (back.export_size, back.export_format) == (1080, "jpg")
 
 
 def test_debounce_schedules(window):

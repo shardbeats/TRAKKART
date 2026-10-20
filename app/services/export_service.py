@@ -30,11 +30,15 @@ def export_full(
     gif_frames: int | None = None,
     gif_mode: str | None = None,
     vector_cells: tuple[int, int] | None = None,
+    size: int | None = None,
+    format: str | None = None,
+    quality: int | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Renderiza, genera SVG/GIF si se piden, guarda bundle y loguea.
 
     Retorna (paths escritos, keys omitidas por skip). Sin `selection`
-    equivale al bundle completo clásico.
+    equivale al bundle completo clásico. size/format/quality pisan al preset
+    (los elige el diálogo); None = valor del preset.
     """
     from app.vector import estimate_cells
 
@@ -74,7 +78,12 @@ def export_full(
             mode=gif_mode if gif_mode is not None else preset.gif_mode,
         )
 
-    options = ExportOptions(base=base, selection=sel, overwrite=overwrite)
+    options = ExportOptions(
+        base=base, selection=sel, overwrite=overwrite,
+        size=int(size if size is not None else preset.export_size),
+        format=str(format if format is not None else preset.export_format),
+        quality=int(quality if quality is not None else preset.export_quality),
+    )
     paths, skipped = export_with_options(
         res, out_dir, options, meta=preset.meta(),
         vector_svg=svg, gif_frames=frames,

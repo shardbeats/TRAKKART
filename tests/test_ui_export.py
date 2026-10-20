@@ -20,8 +20,10 @@ def test_plan_lists_everything(tmp_path: Path):
     plan = plan_export(_img(), opts, meta={"ratio": "1:1"}, has_vector=True, has_gif=True,
                        extra={"vector_cells": (10, 10), "gif_frames": 4})
     keys = [k for k, _, _ in plan]
-    assert keys == ["cover", "small", "thumb_1080p", "vector", "anim", "metadata"]
-    assert all(f.startswith("mix") for _, f, _ in plan)
+    assert keys == ["image", "thumb_1080p", "vector", "anim", "metadata"]
+    names = [f for _, f, _ in plan]
+    assert names[0] == "mix.png"  # la imagen manda: nombre + extensión
+    assert all(f.startswith("mix") for f in names)
     assert all(est > 0 for _, _, est in plan)
 
 
@@ -33,32 +35,76 @@ def test_plan_skips_unavailable():
     assert "vector" not in keys and "anim" not in keys
 
 
+def test_plan_jpg_uses_extension_and_size():
+    from PIL import Image
+
+    from app.exporter import ExportOptions, plan_export
+
+    img = Image.new("RGB", (400, 200), (9, 9, 9))
+    opts = ExportOptions(base="j", size=400, format="jpg", quality=80)
+    plan = dict((k, (f, e)) for k, f, e in plan_export(img, opts, meta={"ratio": "2:1"}))
+    assert plan["image"][0] == "j.jpg"
+    assert plan["thumb_1080p"][0] == "j_thumb1080p.jpg"  # mismo formato
+    # el thumb siempre es 1920x1080
+
+
 def test_with_options_subset_and_rename(tmp_path: Path):
     from app.exporter import ExportOptions, ExportSelection, export_with_options
 
     opts = ExportOptions(base="sel", selection=ExportSelection(
-        cover=False, small=True, thumb_1080p=False, metadata=True))
+        image=True, thumb_1080p=False, metadata=True))
     paths, skipped = export_with_options(_img(), tmp_path, opts, meta={"ratio": "1:1"})
-    assert set(paths) == {"small", "metadata"}
+    assert set(paths) == {"image", "metadata"}
+    assert paths["image"].suffix == ".png"
     assert skipped == []
     # rename: segunda vez con el mismo base no pisa
     paths2, _ = export_with_options(
         _img(), tmp_path, ExportOptions(base="sel", selection=opts.selection,
                                         overwrite="rename"))
-    assert paths2["small"].name == "sel_2_small.png"
-    assert (tmp_path / "sel_small.png").exists()  # el original intacto
+    assert paths2["image"].name == "sel_2.png"
+    assert (tmp_path / "sel.png").exists()  # el original intacto
 
 
 def test_skip_policy_returns_existing(tmp_path: Path):
     from app.exporter import ExportOptions, ExportSelection, export_with_options
 
     opts = ExportOptions(base="sk", selection=ExportSelection(
-        cover=False, small=True, thumb_1080p=False, metadata=True),
+        image=True, thumb_1080p=False, metadata=True),
         overwrite="skip")
     paths, skipped = export_with_options(_img(), tmp_path, opts)
     assert paths and skipped == []
     paths2, skipped2 = export_with_options(_img(), tmp_path, opts)
-    assert paths2 == {} and set(skipped2) == {"small", "metadata"}
+    assert paths2 == {} and set(skipped2) == {"image", "metadata"}
+
+
+def test_format_mapping_writes_real_files(tmp_path: Path):
+    from PIL import Image
+
+    from app.exporter import ExportOptions, export_with_options
+
+    img = Image.new("RGB", (64, 64), (90, 60, 140))
+    for fmt, ext in (("png", "png"), ("jpg", "jpg"), ("webp", "webp")):
+        opts = ExportOptions(base=f"f_{fmt}", format=fmt, quality=80)
+        paths, _ = export_with_options(img, tmp_path, opts)
+        assert paths["image"].suffix == f".{ext}"
+        assert paths["image"].stat().st_size > 0
+        with Image.open(paths["image"]) as im:
+            im.load()  # fichero válido
+
+
+def test_invalid_options_rejected():
+    import pytest
+
+    from app.exporter import ExportOptions
+
+    with pytest.raises(ValueError):
+        ExportOptions(format="bmp")
+    with pytest.raises(ValueError):
+        ExportOptions(size=10)
+    with pytest.raises(ValueError):
+        ExportOptions(quality=0)
+    with pytest.raises(ValueError):
+        ExportOptions(overwrite="maybe")
 
 
 def test_base_sanitized(tmp_path: Path):
@@ -94,12 +140,33 @@ def test_export_dialog_plan_and_options(qt_app):
     assert dlg.btn_export.isEnabled()
     n0 = dlg.list_files.count()
     assert n0 > 0
-    dlg.chk_small.setChecked(False)
+    dlg.chk_thumb.setChecked(False)
     assert dlg.list_files.count() == n0 - 1
     opts, out, gframes, gmode = dlg.options()
     assert opts.base == "d" and out == Path("/tmp")
-    assert opts.selection.small is False
+    assert opts.selection.thumb_1080p is False
     assert (gframes, gmode) == (6, "both")
+    close_dialog(dlg)
+
+
+def test_export_dialog_size_and_format(qt_app):
+    from app.exporter import plan_export
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
+    assert dlg.cmb_size.currentText() == "1920"
+    assert dlg.spn_size.value() == 1920
+    assert dlg.cmb_format.currentText() == "jpg"
+    assert "1920×1920" in dlg.lbl_dims.text()  # ratio 1:1
+    dlg.spn_size.setValue(1234)
+    assert dlg.cmb_size.currentText() == "Custom"
+    dlg.cmb_size.setCurrentText("1080")
+    assert dlg.spn_size.value() == 1080
+    opts, _, _, _ = dlg.options()
+    assert (opts.size, opts.format, opts.quality) == (1080, "jpg", 80)
+    names = [f for _, f, _ in plan_export(_img(), opts, meta={"ratio": "1:1"})]
+    assert names[0].endswith(".jpg")
     close_dialog(dlg)
 
 
@@ -107,13 +174,13 @@ def test_quick_export_headless(window, qt_app):
     from app.export_prefs import ExportPrefs, save_prefs
 
     save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="quick",
-                           cover=True, small=False, thumb_1080p=False,
+                           image=True, thumb_1080p=False,
                            metadata=True), window._prefs_path)
     window.refresh()
     window.export(quick=True)  # no pregunta: repite prefs
-    assert (window.out_dir / "quick_cover.png").exists()
+    assert (window.out_dir / "quick.png").exists()
     assert (window.out_dir / "quick_metadata.json").exists()
-    assert not (window.out_dir / "quick_small.png").exists()
+    assert not (window.out_dir / "quick_thumb1080p.png").exists()
 
 
 def test_export_dialog_e2e_defaults(window, qt_app):
@@ -123,7 +190,7 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     window.refresh()
     accept_next_dialog(ExportDialog)
     window.export()
-    assert (window.out_dir / "trakkart_cover_cover.png").exists()
+    assert (window.out_dir / "trakkart_cover.png").exists()
     assert (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
@@ -200,11 +267,13 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
     dlg = BatchDialog(in_dir=str(src), out_dir=str(tmp_path / "o"), jobs=2,
                       vector_export=True, vector_cell=12,
                       gif_export=True, gif_frames=4, gif_mode="hue",
-                      canvas_size=(64, 64))
+                      canvas_size=(64, 64), size=1920, format="webp", quality=75)
     assert dlg.btn_run.isEnabled()
     assert dlg.output_options() == {"vector_export": True, "vector_cell": 12,
                                     "gif_export": True, "gif_frames": 4,
-                                    "gif_mode": "hue"}
+                                    "gif_mode": "hue",
+                                    "export_size": 1920, "export_format": "webp",
+                                    "export_quality": 75}
     assert "cells" in dlg.lbl_vec_est.text()  # estimación con el canvas actual
     dlg2 = BatchDialog(in_dir=str(src), out_dir=str(tmp_path / "o"))
     assert dlg2.lbl_vec_est.text() == ""  # sin canvas: sin estimación

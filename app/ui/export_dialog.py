@@ -25,7 +25,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.exporter import ExportOptions, ExportSelection, plan_export
+from app.exporter import (
+    EXPORT_FORMATS,
+    MAX_SIDE,
+    MIN_SIDE,
+    SIZE_PRESETS,
+    ExportOptions,
+    ExportSelection,
+    plan_export,
+)
 from app.ui.qt_image import pil_to_pixmap
 
 GIF_PREVIEW_FPS = 8
@@ -55,6 +63,9 @@ class ExportDialog(QDialog):
         overwrite: str = "overwrite",
         vector_cells: tuple[int, int] | None = None,
         preset=None,
+        size: int = 3000,
+        format: str = "png",
+        quality: int = 90,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -94,24 +105,60 @@ class ExportDialog(QDialog):
         self.btn_browse.clicked.connect(self._browse)
         dest_row.addWidget(self.btn_browse)
         col.addLayout(dest_row)
+        # -- tamaño (GIMP/photoshop: el lienzo se dimensiona aquí) --
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel("Size:"))
+        self.cmb_size = QComboBox()
+        self.cmb_size.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
+        self.cmb_size.setToolTip("Long side in px (presets or Custom)")
+        self.cmb_size.currentTextChanged.connect(self._on_size_preset)
+        size_row.addWidget(self.cmb_size)
+        self.spn_size = QSpinBox()
+        self.spn_size.setRange(MIN_SIDE, MAX_SIDE)
+        self.spn_size.setValue(max(MIN_SIDE, min(MAX_SIDE, int(size))))
+        self.spn_size.setSuffix(" px")
+        self.spn_size.setToolTip("Long side of the exported image")
+        self.spn_size.valueChanged.connect(self._on_size_custom)
+        size_row.addWidget(self.spn_size, 1)
+        self.lbl_dims = QLabel()
+        self.lbl_dims.setMinimumWidth(130)
+        self.lbl_dims.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        size_row.addWidget(self.lbl_dims)
+        col.addLayout(size_row)
+        self._sync_size_combo(int(size))
+        # -- formato (GIMP: la extensión manda; aquí el combo) --
+        fmt_row = QHBoxLayout()
+        fmt_row.addWidget(QLabel("Format:"))
+        self.cmb_format = QComboBox()
+        self.cmb_format.addItems(list(EXPORT_FORMATS))
+        self.cmb_format.setCurrentText(format if format in EXPORT_FORMATS else "png")
+        self.cmb_format.setToolTip("PNG: lossless, ideal dither · JPG: small, artifacts · WebP: small, modern")
+        self.cmb_format.currentTextChanged.connect(self._refresh_plan)
+        fmt_row.addWidget(self.cmb_format)
+        self.spn_quality = QSpinBox()
+        self.spn_quality.setRange(1, 100)
+        self.spn_quality.setValue(max(1, min(100, int(quality))))
+        self.spn_quality.setSuffix("%")
+        self.spn_quality.setToolTip("Quality for JPG/WebP (PNG ignores it)")
+        self.spn_quality.valueChanged.connect(self._refresh_plan)
+        fmt_row.addWidget(self.spn_quality)
+        col.addLayout(fmt_row)
         # -- salidas --
         col.addWidget(QLabel("Include:"))
-        self.chk_cover = QCheckBox("Cover PNG (3000px long side)")
-        self.chk_small = QCheckBox("Small PNG (960px)")
-        self.chk_thumb = QCheckBox("Thumb 1080p")
+        self.chk_image = QCheckBox("Main image")
+        self.chk_thumb = QCheckBox("Social thumb 1080p")
         self.chk_vector = QCheckBox("Vector SVG")
         self.chk_anim = QCheckBox("Animation GIF")
         self.chk_meta = QCheckBox("Metadata JSON")
         sel = selection or ExportSelection()
-        self.chk_cover.setChecked(sel.cover)
-        self.chk_small.setChecked(sel.small)
+        self.chk_image.setChecked(sel.image)
         self.chk_thumb.setChecked(sel.thumb_1080p)
         self.chk_vector.setChecked(sel.vector)
         self.chk_vector.setToolTip("Vector for logos/merch (no post-fx)")
         self.chk_anim.setChecked(sel.anim)
         self.chk_anim.setToolTip("Animation for socials (Pillow only)")
         self.chk_meta.setChecked(sel.metadata)
-        for chk in (self.chk_cover, self.chk_small, self.chk_thumb,
+        for chk in (self.chk_image, self.chk_thumb,
                     self.chk_vector, self.chk_anim, self.chk_meta):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
@@ -176,22 +223,56 @@ class ExportDialog(QDialog):
     # -- plan en vivo --
     def _current_selection(self) -> ExportSelection:
         return ExportSelection(
-            cover=self.chk_cover.isChecked(),
-            small=self.chk_small.isChecked(),
+            image=self.chk_image.isChecked(),
             thumb_1080p=self.chk_thumb.isChecked(),
             vector=self.chk_vector.isChecked(),
             anim=self.chk_anim.isChecked(),
             metadata=self.chk_meta.isChecked(),
         )
 
+    def _current_size(self) -> int:
+        return max(MIN_SIDE, min(MAX_SIDE, int(self.spn_size.value())))
+
+    def _on_size_preset(self, text: str) -> None:
+        if text == "Custom":
+            return
+        try:
+            self.spn_size.blockSignals(True)
+            self.spn_size.setValue(int(text))
+        finally:
+            self.spn_size.blockSignals(False)
+        self._refresh_plan()
+
+    def _on_size_custom(self) -> None:
+        self._sync_size_combo(int(self.spn_size.value()))
+        self._refresh_plan()
+
+    def _sync_size_combo(self, size: int) -> None:
+        txt = str(size) if size in SIZE_PRESETS else "Custom"
+        if self.cmb_size.currentText() != txt:
+            self.cmb_size.blockSignals(True)
+            self.cmb_size.setCurrentText(txt)
+            self.cmb_size.blockSignals(False)
+
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
             return
         try:
+            from app.canvas import canvas_size_for
+
+            ratio = (self._meta or {}).get("ratio", "1:1")
+            try:
+                w, h = canvas_size_for(ratio, self._current_size())
+            except KeyError:
+                w, h = (self._current_size(), self._current_size())
+            self.lbl_dims.setText(f"{w}×{h}")
             opts = ExportOptions(
                 base=self.edit_base.text().strip() or "cover",
                 selection=self._current_selection(),
                 overwrite=self.cmb_overwrite.currentText(),
+                size=self._current_size(),
+                format=self.cmb_format.currentText(),
+                quality=int(self.spn_quality.value()),
             )
             plan = plan_export(
                 self._img, opts, meta=self._meta,
@@ -296,6 +377,9 @@ class ExportDialog(QDialog):
             base=self.edit_base.text().strip() or "cover",
             selection=self._current_selection(),
             overwrite=self.cmb_overwrite.currentText(),
+            size=self._current_size(),
+            format=self.cmb_format.currentText(),
+            quality=int(self.spn_quality.value()),
         )
         return opts, Path(self.edit_dir.text()), int(self.spn_gframes.value()), self.cmb_gifmode.currentText()
 

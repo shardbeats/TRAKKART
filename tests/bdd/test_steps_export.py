@@ -3,10 +3,16 @@
 from PIL import Image
 from pytest_bdd import given, scenarios, then, when
 
-from app.exporter import export_bundle
+from app.exporter import ExportOptions, export_with_options
 from app.palettes import PALETTES, get_palette, palette_names
 
 scenarios("../../features/export.feature", "../../features/canvas.feature")
+
+
+def _bundle(img, tmp, base, ratio="1:1"):
+    opts = ExportOptions(base=base)
+    paths, _ = export_with_options(img, tmp, opts, meta={"ratio": ratio})
+    return paths
 
 
 @given("the TRAKKART palette catalog")
@@ -26,51 +32,51 @@ def slime_4(ctx):
     assert len(PALETTES["SLIME"]) == 4
 
 
-@when('I export the bundle with base "t"')
+@when('I export the image with base "t"')
 def export_t(ctx):
-    ctx["paths"] = export_bundle(ctx["img"], ctx["tmp"], base="t")
+    ctx["paths"] = _bundle(ctx["img"], ctx["tmp"], base="t")
 
 
-@when('I export the bundle with base "smoke"')
+@when('I export the image with base "smoke"')
 def export_smoke(ctx):
-    ctx["paths"] = export_bundle(ctx["img"], ctx["tmp"], base="smoke")
+    ctx["paths"] = _bundle(ctx["img"], ctx["tmp"], base="smoke")
 
 
-@then("cover, small and thumb_1080p exist")
+@then("image, thumb and metadata exist")
 def three_exist(ctx):
-    for k in ("cover", "small", "thumb_1080p"):
+    for k in ("image", "thumb_1080p", "metadata"):
         assert ctx["paths"][k].exists(), k
 
 
-@then("cover is 3000x3000")
+@then("the main image honors the 3000 long side")
 def cover_size(ctx):
-    with Image.open(ctx["paths"]["cover"]) as im:
-        assert im.size == (3000, 3000)
+    with Image.open(ctx["paths"]["image"]) as im:
+        assert max(im.size) == 3000
 
 
 @then("every PNG weighs more than 500 bytes")
 def smoke_500(ctx):
     pngs = [p for p in ctx["paths"].values() if str(p).endswith(".png")]
-    assert len(pngs) == 3
+    assert len(pngs) == 2
     for p in pngs:
         assert p.stat().st_size > 500, p
 
 
-@when("I export the bundle with 9:16 ratio")
+@when('I export the image with 9:16 ratio')
 def export_916(ctx):
     from app.canvas import canvas_size_for
-    from app.presets import Preset
 
     ctx["expected"] = canvas_size_for("9:16", 3000)
-    p = Preset(name="v", method="bayer4", palette="SLIME", ratio="9:16")
-    ctx["paths"] = export_bundle(ctx["img"], ctx["tmp"], base="v916", meta=p.meta())
+    opts = ExportOptions(base="v916")
+    paths, _ = export_with_options(ctx["img"], ctx["tmp"], opts, meta={"ratio": "9:16"})
+    ctx["paths"] = paths
 
 
-@then("cover matches the expected size for 9:16 at 3000")
+@then("the main image matches the expected size for 9:16 at 3000")
 def cover_916(ctx):
     from PIL import Image as Img
 
-    with Img.open(ctx["paths"]["cover"]) as im:
+    with Img.open(ctx["paths"]["image"]) as im:
         assert im.size == ctx["expected"]
 
 

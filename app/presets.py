@@ -61,6 +61,9 @@ class Preset:
     gif_export: bool = False
     gif_frames: int = 6
     gif_mode: str = "both"
+    export_size: int = 3000  # lado largo px de la imagen principal
+    export_format: str = "png"  # png | jpg | webp
+    export_quality: int = 90  # solo jpg/webp, 1-100
 
     def validate(self) -> None:
         if self.method not in METHODS:
@@ -119,6 +122,12 @@ class Preset:
             raise ValueError(f"gif_frames out of range 2-8: {self.gif_frames}")
         if self.gif_mode not in ("phase", "hue", "both"):
             raise ValueError(f"invalid gif_mode: {self.gif_mode}")
+        if not 64 <= int(self.export_size) <= 8000:
+            raise ValueError(f"export_size out of range 64-8000: {self.export_size}")
+        if str(self.export_format) not in ("png", "jpg", "webp"):
+            raise ValueError(f"invalid export_format: {self.export_format!r}")
+        if not 1 <= int(self.export_quality) <= 100:
+            raise ValueError(f"export_quality out of range 1-100: {self.export_quality}")
 
     def to_dict(self) -> dict:
         import copy
@@ -136,6 +145,9 @@ class Preset:
         d["glitch_slice_max"] = int(d["glitch_slice_max"])
         d["gif_frames"] = int(d["gif_frames"])
         d["gif_export"] = bool(d["gif_export"])
+        d["export_size"] = int(d["export_size"])
+        d["export_format"] = str(d["export_format"])
+        d["export_quality"] = int(d["export_quality"])
         for k in ("brightness", "contrast", "saturation", "focus_x", "focus_y",
                   "crop_zoom",
                   "pre_blur", "pre_hue", "pre_smooth",
@@ -180,6 +192,9 @@ class Preset:
             gif_export=bool(d.get("gif_export", False)),
             gif_frames=int(d.get("gif_frames", 6)),
             gif_mode=str(d.get("gif_mode", "both")),
+            export_size=int(d.get("export_size", 3000)),
+            export_format=str(d.get("export_format", "png")),
+            export_quality=int(d.get("export_quality", 90)),
         )
         p.validate()
         return p
@@ -196,7 +211,7 @@ class Preset:
     def meta(self) -> dict:
         from app.pipeline import meta_dict
 
-        return meta_dict(
+        m = meta_dict(
             self.method, self.palette, float(self.threshold), int(self.pixel_size),
             self.adjust(), self.ratio, self.crop_mode, float(self.focus_x), float(self.focus_y),
             float(self.crop_zoom),
@@ -214,6 +229,12 @@ class Preset:
             gif_frames=int(self.gif_frames),
             gif_mode=self.gif_mode,
         )
+        m["export"] = {
+            "size": int(self.export_size),
+            "format": str(self.export_format),
+            "quality": int(self.export_quality),
+        }
+        return m
 
 
 def _safe_name(name: str) -> str:

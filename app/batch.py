@@ -10,24 +10,36 @@ from typing import Callable
 
 from PIL import Image
 
-from app.exporter import export_bundle
+from app.exporter import ExportOptions, ExportSelection, bundle_filenames, export_with_options
 from app.presets import Preset
 from app.vector import vector_bundle
 
-__all__ = ["EXTS", "SUFFIXES", "batch_process", "render_single_image", "build_extras"]
+__all__ = ["EXTS", "batch_process", "render_single_image", "build_extras"]
 
 EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
-SUFFIXES = ("_cover.png", "_small.png", "_1080p.png", "_vector.svg", "_anim.gif", "_metadata.json")
+
+
+def options_from_preset(preset: Preset) -> ExportOptions:
+    """Bundle batch: imagen+thumb+meta siempre, SVG/GIF según preset."""
+    return ExportOptions(
+        base="batch",
+        selection=ExportSelection(
+            image=True, thumb_1080p=True,
+            vector=bool(preset.vector_export), anim=bool(preset.gif_export),
+            metadata=True,
+        ),
+        overwrite="overwrite",
+        size=int(preset.export_size), format=str(preset.export_format),
+        quality=int(preset.export_quality),
+    )
 
 
 def _outputs_for(out_dir: Path, base: str, preset) -> list[Path]:
-    names = [f"{base}{SUFFIXES[0]}", f"{base}{SUFFIXES[1]}", f"{base}{SUFFIXES[2]}"]
-    if preset.vector_export:
-        names.append(f"{base}{SUFFIXES[3]}")
-    if preset.gif_export:
-        names.append(f"{base}{SUFFIXES[4]}")
-    names.append(f"{base}{SUFFIXES[5]}")
-    return [out_dir / n for n in names]
+    opts = options_from_preset(preset)
+    opts.base = base
+    return [out_dir / f for f in
+            bundle_filenames(opts, has_vector=bool(preset.vector_export),
+                             has_gif=bool(preset.gif_export)).values()]
 
 
 def render_single_image(img: Image.Image, preset: Preset) -> Image.Image:
@@ -56,7 +68,7 @@ def _render_one(args: tuple) -> dict:
 
     from PIL import Image as _Image
 
-    from app.exporter import export_bundle as _export_bundle
+    from app.exporter import export_with_options as _export_with_options
     from app.presets import Preset as _Preset
     from app.safety import check_image as _check_image
 
@@ -67,7 +79,10 @@ def _render_one(args: tuple) -> dict:
         _check_image(img)  # never OOM on a huge file: becomes an error
         res = render_single_image(img, p)
         svg, frames = build_extras(img, p)
-        paths = _export_bundle(res, out_str, base=base, meta=p.meta(), vector_svg=svg, gif_frames=frames)
+        opts = options_from_preset(p)
+        opts.base = base
+        paths, _ = _export_with_options(res, out_str, opts, meta=p.meta(),
+                                        vector_svg=svg, gif_frames=frames)
         return {"file": Path(path_str).name, "status": "ok",
                 "outputs": [str(x) for x in paths.values()]}
     except Exception as e:  # noqa: BLE001
@@ -157,7 +172,10 @@ def batch_process(
             img = Image.open(f).convert("RGB")
             res = render_single_image(img, preset)
             svg, frames = build_extras(img, preset)
-            paths = export_bundle(res, dst, base=base, meta=preset.meta(), vector_svg=svg, gif_frames=frames)
+            opts = options_from_preset(preset)
+            opts.base = base
+            paths, _ = export_with_options(res, dst, opts, meta=preset.meta(),
+                                           vector_svg=svg, gif_frames=frames)
             results.append({"file": f.name, "status": "ok", "outputs": [str(p) for p in paths.values()]})
             _log(base, results[-1])
         except Exception as e:  # noqa: BLE001

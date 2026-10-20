@@ -82,3 +82,17 @@ def test_batch_skips_bad_file(tmp_path: Path):
     by_name = {r["file"]: r["status"] for r in results}
     assert by_name["fake.png"] == "error"
     assert by_name["ok.png"] == "ok"
+
+
+def test_batch_jpg_small(tmp_path: Path):
+    src = tmp_path / "in"
+    dst = tmp_path / "dst"
+    src.mkdir()
+    _make_inputs(src, 1)
+    preset = Preset(name="t", method="bayer4", palette="BW",
+                    export_format="jpg", export_quality=80, export_size=64)
+    results = batch_process(src, dst, preset)
+    assert results[0]["status"] == "ok"
+    assert any(o.endswith(".jpg") and Path(o).exists() for o in results[0]["outputs"])
+    again = batch_process(src, dst, preset)
+    assert again[0]["status"] == "skipped"

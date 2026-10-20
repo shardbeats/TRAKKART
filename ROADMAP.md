@@ -15,7 +15,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 - `app/palettes.py`: `BW / SLIME / VAPOR / EMBER` originals. `get_palette()`, `palette_names()`.
 - `app/presets.py`: `Preset` + `save/load/list/delete` + `ensure_bundled()` (never overwrites). 4 bundled: `SLIME_FS`, `VAPOR_BAYER8`, `EMBER_BW`, `CRT_HARD`.
 - `app/batch.py`: `batch_process()` with `skip_existing` + `progress_cb`. Exts: png/jpg/jpeg/webp/bmp.
-- `app/exporter.py`: `export_bundle()` → `*_3000.png` (stores) + `*_960.png` + `*_1080p.png` (1920x1080 with blur, ready for TRAKKOUT).
+- `app/exporter.py`: export with user size (long side, presets 960–4096) + format (PNG/JPG/WebP) → `<base>.<ext>` + optional 1080p thumb over blur (ready for TRAKKOUT).
 - `app/ui/main_window.py`: PySide6, original vs dither preview, combo presets + save, batch with `BatchWorker` + progress bar.
 - `app/ui/workers.py`: `BatchWorker(QThread)` with `progress/finished/error` signals.
 - `app/pipeline.py`: `render()` + `meta_dict()` — single entry point for UI and batch (adjust → dither → text).
@@ -35,7 +35,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 ### v0.2 — Presets + batch (done)
 - [x] JSON presets in `presets/` (`save/load/list/delete`): stores method + palette + pixel + threshold + name.
 - [x] Bundled presets: `SLIME_FS`, `VAPOR_BAYER8`, `EMBER_BW`, `CRT_HARD` (pixel 3-4 + high threshold).
-- [x] Folder batch: `input/*.png|jpg → out/<base>_3000|960|1080p.png` with the active preset. Progress bar, skip if exists.
+- [x] Folder batch: `input/*.png|jpg → out/<base>.<ext>` (+ thumb/vector/gif/meta) with the active preset. Progress bar with fps/ETA, skip if exists.
 - [x] `QThread` worker for batch (no UI freeze). Custom implementation.
 - [x] Tests: JSON preset roundtrip, batch over 3 temp images. Gherkin 10/10, gates 5/5.
 
@@ -56,7 +56,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 ### v0.5 — Canvas and crops (done)
 - [x] Preset ratios: 1:1, 4:3, 3:2, 4:5, 16:9 and 9:16, stored in preset (`ratio` + `crop_mode` + focus).
 - [x] Crop UI: ratio/mode combo + X/Y focus sliders (cover) / contain with bars.
-- [x] Pipeline honors ratio; export per ratio (9:16 → 1688x3000 + 540x960).
+- [x] Pipeline honors ratio; export per ratio and size (9:16 @3000 → 1688x3000).
 - [x] YT thumb 1920x1080 contain over blur for any ratio.
 - [x] Exact-dimension tests + clamp + 2 Gherkin scenarios (15/15).
 

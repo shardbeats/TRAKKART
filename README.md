@@ -3,8 +3,8 @@
 Part of the ShardBeats **TRAKK** family. Offline dither cover generator (own MIT code, no GPL copied).
 
 ```
-Image → method (16 engines) + palette + pixel + threshold → preview → bundle
-→ cover (long side 3000) + small (960) + 1080p thumb + metadata.json
+Image → method (16 engines) + palette + pixel + threshold → preview → export
+→ main image (size + format you choose) + optional 1080p thumb + metadata.json
 + optional vector SVG (logos/merch) + animated GIF (socials)
 ```
 

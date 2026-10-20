@@ -160,6 +160,21 @@ def test_validation_rejects_extended():
         Preset(name="x", replace_color="red").validate()
     with pytest.raises(ValueError):
         Preset(name="x", custom_palette=[[0, 0, 0]]).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", export_size=10).validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", export_format="bmp").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", export_quality=0).validate()
+
+
+def test_export_fields_roundtrip(pdir: Path):
+    p = Preset(name="x", export_size=1080, export_format="jpg", export_quality=80)
+    p.validate()
+    save_preset(p, pdir)
+    back = load_preset("x", pdir)
+    assert (back.export_size, back.export_format, back.export_quality) == (1080, "jpg", 80)
+    assert back.meta()["export"] == {"size": 1080, "format": "jpg", "quality": 80}
 
 
 def test_safe_name_fallback(pdir: Path):

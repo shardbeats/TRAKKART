@@ -35,9 +35,8 @@ def test_e2e_tweak_export(window, qt_app):
     accept_next_dialog(ExportDialog)
     window.export()
     out = window.out_dir
-    assert (out / "trakkart_cover_cover.png").exists()
-    assert (out / "trakkart_cover_small.png").exists()
-    assert (out / "trakkart_cover_1080p.png").exists()
+    assert (out / "trakkart_cover.png").exists()
+    assert (out / "trakkart_cover_thumb1080p.png").exists()
     meta = (out / "trakkart_cover_metadata.json")
     assert meta.exists()
     import json
@@ -74,7 +73,7 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
     assert window.lbl_status.text() == "Undone"
     assert list(window.src.get_flattened_data()) == list(before.get_flattened_data())
     assert _trigger(window, "Ctrl+S")
-    assert (window.out_dir / "shot_cover.png").exists()
+    assert (window.out_dir / "shot.png").exists()
 
 
 def test_e2e_batch_threaded(window, tmp_path: Path):
@@ -183,4 +182,4 @@ def test_e2e_drop_to_export(window, tmp_path: Path, qt_app):
     window.refresh()
     accept_next_dialog(ExportDialog)
     window.export()
-    assert (window.out_dir / "journey_cover.png").exists()
+    assert (window.out_dir / "journey.png").exists()

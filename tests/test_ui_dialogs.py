@@ -26,7 +26,7 @@ def test_run_batch_sync(window, tmp_path: Path):
     results = window.run_batch_sync(src, dst)
     assert len(results) == 2
     assert all(r["status"] == "ok" for r in results)
-    assert len(list(dst.glob("*.png"))) == 6
+    assert len(list(dst.glob("*.png"))) == 4  # imagen + thumb por fichero
 
 
 def test_batch_dialog_cancel(window, monkeypatch):
@@ -58,7 +58,8 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
 
     def _fake(src_p, dst_p, jobs=None, preset=None):
         seen.update(src=src_p, dst=dst_p, jobs=jobs,
-                    vector=preset.vector_export if preset else None)
+                    vector=preset.vector_export if preset else None,
+                    preset=preset)
 
     class FakeDialog:
         DialogCode = QDialog.DialogCode
@@ -74,7 +75,9 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
 
         def output_options(self):
             return {"vector_export": False, "vector_cell": 8,
-                    "gif_export": False, "gif_frames": 6, "gif_mode": "both"}
+                    "gif_export": False, "gif_frames": 6, "gif_mode": "both",
+                    "export_size": 3000, "export_format": "png",
+                    "export_quality": 90}
 
     monkeypatch.setattr(MW, "BatchDialog", FakeDialog)
     monkeypatch.setattr(window, "run_batch", _fake)
@@ -82,6 +85,8 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
     assert seen["src"] == src and seen["dst"] == tmp_path / "dst"
     assert seen["jobs"] == 2
     assert seen["vector"] is False  # preset por defecto, sin SVG
+    assert seen["preset"].export_size == 3000
+    assert seen["preset"].export_format == "png"
 
 
 def test_batch_handlers(window):

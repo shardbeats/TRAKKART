@@ -80,13 +80,16 @@ class MainWindow(QMainWindow):
         self._prefs_path = Path(prefs_path) if prefs_path else None
         self._batch_start: float = 0.0
         self._batch_out: Path | None = None
-        # Salidas vector/GIF: viven en el preset (receta), se eligen por
-        # operación (diálogo Export / diálogo Batch), no en un panel duplicado.
+        # Salidas vector/GIF + tamaño/formato: viven en el preset (receta);
+        # cada diálogo elige por operación (sin panel duplicado).
         self._vector_export: bool = False
         self._vector_cell: int = 8
         self._gif_export: bool = False
         self._gif_frames: int = 6
         self._gif_mode: str = "both"
+        self._export_size: int = 3000
+        self._export_format: str = "png"
+        self._export_quality: int = 90
         ensure_bundled()
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
@@ -413,6 +416,9 @@ class MainWindow(QMainWindow):
             gif_export=bool(self._gif_export),
             gif_frames=int(self._gif_frames),
             gif_mode=str(self._gif_mode),
+            export_size=int(self._export_size),
+            export_format=str(self._export_format),
+            export_quality=int(self._export_quality),
             glitch_chroma=int(self.sld_chroma.value()),
             glitch_slice_bands=self._valid_slice_bands(),
             glitch_slice_max=24,
@@ -561,6 +567,9 @@ class MainWindow(QMainWindow):
         self._gif_export = bool(p.gif_export)
         self._gif_frames = int(p.gif_frames)
         self._gif_mode = str(p.gif_mode)
+        self._export_size = int(p.export_size)
+        self._export_format = str(p.export_format)
+        self._export_quality = int(p.export_quality)
         self.sld_chroma.setValue(int(p.glitch_chroma))
         self.spn_slice.setValue(int(p.glitch_slice_bands))
         if self.cmb_preset.findText(name) < 0:
@@ -638,7 +647,9 @@ class MainWindow(QMainWindow):
             in_dir="", out_dir=str(self.out_dir), jobs=int(self.spn_jobs.value()),
             vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
             gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
-            gif_mode=preset.gif_mode, canvas_size=canvas_size, parent=self)
+            gif_mode=preset.gif_mode, canvas_size=canvas_size,
+            size=int(preset.export_size), format=str(preset.export_format),
+            quality=int(preset.export_quality), parent=self)
         if dlg.exec() != dlg.DialogCode.Accepted:
             return
         src, dst, jobs = dlg.paths()
@@ -646,7 +657,8 @@ class MainWindow(QMainWindow):
         preset = replace(
             preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
             gif_export=outs["gif_export"], gif_frames=outs["gif_frames"],
-            gif_mode=outs["gif_mode"])
+            gif_mode=outs["gif_mode"], export_size=outs["export_size"],
+            export_format=outs["export_format"], export_quality=outs["export_quality"])
         self.run_batch(src, dst, jobs=jobs, preset=preset)
 
     def run_batch(self, src: Path, dst: Path, jobs: int | None = None,
@@ -1031,6 +1043,7 @@ class MainWindow(QMainWindow):
                     base=prefs.base or self.src_name, out_dir=Path(prefs.out_dir),
                     selection=selection, gif_frames=prefs.gif_frames,
                     gif_mode=prefs.gif_mode, overwrite=prefs.overwrite,
+                    size=prefs.size, format=prefs.format, quality=prefs.quality,
                 )
                 return
             if prefs.out_dir:
@@ -1038,17 +1051,21 @@ class MainWindow(QMainWindow):
                 init_base, init_out = prefs.base, prefs.out_dir
                 init_gframes, init_gmode = prefs.gif_frames, prefs.gif_mode
                 init_overwrite = prefs.overwrite
+                init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
             else:
                 init_sel = ExportSelection(vector=bool(preset.vector_export),
                                            anim=bool(preset.gif_export))
                 init_base, init_out = self.src_name, str(self.out_dir)
                 init_gframes, init_gmode = int(preset.gif_frames), preset.gif_mode
                 init_overwrite = "overwrite"
+                init_size, init_fmt, init_q = (int(preset.export_size),
+                                               str(preset.export_format), int(preset.export_quality))
             dlg = ExportDialog(
                 self.src, preset.meta(), base=init_base, out_dir=init_out,
                 selection=init_sel, gif_frames=init_gframes, gif_mode=init_gmode,
                 overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
-                preset=preset, parent=self,
+                preset=preset, size=init_size, format=init_fmt, quality=init_q,
+                parent=self,
             )
             if dlg.exec() != dlg.DialogCode.Accepted:
                 self._status("Export cancelled")
@@ -1057,14 +1074,16 @@ class MainWindow(QMainWindow):
             self._run_export(
                 base=options.base, out_dir=out_dir, selection=options.selection,
                 gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+                size=options.size, format=options.format, quality=options.quality,
             )
             save_prefs(ExportPrefs(
                 out_dir=str(out_dir), base=options.base,
-                cover=options.selection.cover, small=options.selection.small,
+                image=options.selection.image,
                 thumb_1080p=options.selection.thumb_1080p,
                 vector=options.selection.vector, anim=options.selection.anim,
                 metadata=options.selection.metadata,
                 gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+                size=options.size, format=options.format, quality=options.quality,
             ), self._prefs_path)
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "TRAKKART", f"Export error: {e}")
@@ -1087,7 +1106,8 @@ class MainWindow(QMainWindow):
             return None
 
     def _run_export(self, base: str, out_dir: Path, selection, gif_frames: int,
-                    gif_mode: str, overwrite: str) -> None:
+                    gif_mode: str, overwrite: str, size: int, format: str,
+                    quality: int) -> None:
         """Render full-res + bundle según opciones. Full-res siempre."""
         from app.services.export_service import export_full
 
@@ -1096,6 +1116,7 @@ class MainWindow(QMainWindow):
             self.src, preset, out_dir, base=base, store=self.store,
             preset_name=self.cmb_preset.currentText(), selection=selection,
             overwrite=overwrite, gif_frames=int(gif_frames), gif_mode=gif_mode,
+            size=int(size), format=str(format), quality=int(quality),
         )
         if skipped and not paths:
             QMessageBox.information(

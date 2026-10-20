@@ -51,6 +51,9 @@ class BatchDialog(QDialog):
         gif_frames: int = 6,
         gif_mode: str = "both",
         canvas_size: tuple[int, int] | None = None,
+        size: int = 3000,
+        format: str = "png",
+        quality: int = 90,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -81,6 +84,36 @@ class BatchDialog(QDialog):
         jobs_row.addWidget(self.spn_jobs)
         jobs_row.addStretch()
         col.addLayout(jobs_row)
+
+        # -- tamaño + formato (como el diálogo Export, defaults del preset) --
+        from app.exporter import EXPORT_FORMATS, MAX_SIDE, MIN_SIDE, SIZE_PRESETS
+
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel("Size:"))
+        self.cmb_size = QComboBox()
+        self.cmb_size.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
+        self.cmb_size.currentTextChanged.connect(self._on_size_preset)
+        size_row.addWidget(self.cmb_size)
+        self.spn_size = QSpinBox()
+        self.spn_size.setRange(MIN_SIDE, MAX_SIDE)
+        self.spn_size.setValue(max(MIN_SIDE, min(MAX_SIDE, int(size))))
+        self.spn_size.setSuffix(" px")
+        self.spn_size.valueChanged.connect(self._on_size_custom)
+        size_row.addWidget(self.spn_size, 1)
+        fmt_row = QHBoxLayout()
+        fmt_row.addWidget(QLabel("Format:"))
+        self.cmb_format = QComboBox()
+        self.cmb_format.addItems(list(EXPORT_FORMATS))
+        self.cmb_format.setCurrentText(format if format in EXPORT_FORMATS else "png")
+        fmt_row.addWidget(self.cmb_format)
+        self.spn_quality = QSpinBox()
+        self.spn_quality.setRange(1, 100)
+        self.spn_quality.setValue(max(1, min(100, int(quality))))
+        self.spn_quality.setSuffix("%")
+        fmt_row.addWidget(self.spn_quality)
+        col.addLayout(size_row)
+        col.addLayout(fmt_row)
+        self._sync_size_combo(int(size))
 
         # -- salidas por operación (el preset aporta los defaults) --
         col.addWidget(QLabel("Outputs:"))
@@ -147,6 +180,27 @@ class BatchDialog(QDialog):
         except Exception:  # noqa: BLE001
             self.lbl_vec_est.setText("")
 
+    def _on_size_preset(self, text: str) -> None:
+        if text == "Custom":
+            return
+        try:
+            self.spn_size.blockSignals(True)
+            self.spn_size.setValue(int(text))
+        finally:
+            self.spn_size.blockSignals(False)
+
+    def _on_size_custom(self) -> None:
+        self._sync_size_combo(int(self.spn_size.value()))
+
+    def _sync_size_combo(self, size: int) -> None:
+        from app.exporter import SIZE_PRESETS
+
+        txt = str(size) if size in SIZE_PRESETS else "Custom"
+        if self.cmb_size.currentText() != txt:
+            self.cmb_size.blockSignals(True)
+            self.cmb_size.setCurrentText(txt)
+            self.cmb_size.blockSignals(False)
+
     def _browse(self, edit: QLineEdit) -> None:
         d = QFileDialog.getExistingDirectory(self, "Choose folder", edit.text() or str(Path.home()))
         if d:
@@ -179,13 +233,18 @@ class BatchDialog(QDialog):
         return Path(self.edit_in.text().strip()), Path(self.edit_out.text().strip()), int(self.spn_jobs.value())
 
     def output_options(self) -> dict:
-        """Flags vector/gif elegidos para este batch. Solo tras Accept."""
+        """Flags vector/gif + tamaño/formato elegidos para este batch. Solo tras Accept."""
+        from app.exporter import MAX_SIDE, MIN_SIDE
+
         return {
             "vector_export": self.chk_vector.isChecked(),
             "vector_cell": int(self.spn_vcell.value()),
             "gif_export": self.chk_gif.isChecked(),
             "gif_frames": int(self.spn_gframes.value()),
             "gif_mode": self.cmb_gifmode.currentText(),
+            "export_size": max(MIN_SIDE, min(MAX_SIDE, int(self.spn_size.value()))),
+            "export_format": self.cmb_format.currentText(),
+            "export_quality": int(self.spn_quality.value()),
         }
 
 

@@ -19,8 +19,7 @@ PREFS_FILENAME = "export_prefs.json"
 class ExportPrefs:
     out_dir: str = ""
     base: str = "trakkart_cover"
-    cover: bool = True
-    small: bool = True
+    image: bool = True
     thumb_1080p: bool = True
     vector: bool = False
     anim: bool = False
@@ -28,12 +27,15 @@ class ExportPrefs:
     gif_frames: int = 6
     gif_mode: str = "both"
     overwrite: str = "overwrite"
+    size: int = 3000
+    format: str = "png"
+    quality: int = 90
 
     def to_selection(self) -> dict:
         from app.exporter import ExportSelection
 
         return ExportSelection(
-            cover=self.cover, small=self.small, thumb_1080p=self.thumb_1080p,
+            image=self.image, thumb_1080p=self.thumb_1080p,
             vector=self.vector, anim=self.anim, metadata=self.metadata,
         )
 

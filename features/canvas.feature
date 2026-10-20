@@ -6,8 +6,8 @@ Feature: Canvas per ratio
 
   Scenario: 9:16 export honors dimensions
     Given a 128x128 solid test image
-    When I export the bundle with 9:16 ratio
-    Then cover matches the expected size for 9:16 at 3000
+    When I export the image with 9:16 ratio
+    Then the main image matches the expected size for 9:16 at 3000
     And thumb_1080p is 1920x1080
 
   Scenario: Out-of-range crop gets clamped

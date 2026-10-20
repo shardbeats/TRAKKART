@@ -57,8 +57,8 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 2. Open PNG/JPG → original vs dither preview updates when moving threshold/pixel/method/palette/brightness/ratio.
 3. Preset saves, reloads and applies sliders.
 3b. CANVAS → "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode); Done applies, Cancel keeps values.
-4. Export bundle generates `*_cover.png` (long side 3000), `*_small.png` (long side 960), `*_1080p.png` (1920x1080) + `*_metadata.json` in `out/`.
-4. `*_1080p.png` opens directly in TRAKKOUT with no odd cropping.
+4. Export dialog generates `<base>.png|jpg|webp` at the chosen long side (default 3000) + optional `*_thumb1080p`, `*_vector.svg`, `*_anim.gif`, `*_metadata.json` in the chosen folder.
+4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
 
 ## Perf (manual, before release)

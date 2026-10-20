@@ -85,7 +85,7 @@ def run_batch_bdd(ctx):
     )
 
 
-@then("the 3 files end up ok with 3 PNGs each")
+@then("the 3 files end up ok with 2 PNGs each")
 def batch_ok(ctx):
     from pathlib import Path as P
 
@@ -93,7 +93,7 @@ def batch_ok(ctx):
     for r in ctx["results"]:
         assert r["status"] == "ok", r
         pngs = [o for o in r["outputs"] if o.endswith(".png")]
-        assert len(pngs) == 3
+        assert len(pngs) == 2
         for o in r["outputs"]:
             assert P(o).exists()
 
