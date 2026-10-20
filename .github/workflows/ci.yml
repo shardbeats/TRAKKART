@@ -1,0 +1,20 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Suite (offscreen)
+        run: python -m pytest tests -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Lint
+        run: python -m flake8 app tests --max-line-length=120 --count

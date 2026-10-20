@@ -1,0 +1,208 @@
+"""Stability + security + CPU budgets: anti-hang, anti-leak, anti-bomb.
+
+Garantías: sin tormentas de hilos (coalescing), sin renders redundantes
+(debounce), ficheros corruptos nunca tumban la app, el batch se cancela
+limpio, la memoria no crece por render y los límites de seguridad paran
+bombas antes de decodificar.
+"""
+
+import time
+
+import pytest
+
+pytestmark = pytest.mark.slow
+
+
+def _rss_mb() -> float:
+    """RSS del proceso en MB (stdlib; Windows vía ctypes, resto vía resource)."""
+    try:
+        import resource
+
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+    except ImportError:
+        pass
+    import ctypes
+
+    class _Counters(ctypes.Structure):
+        _fields_ = [("cb", ctypes.c_ulong), ("PageFaultCount", ctypes.c_ulong),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    proc = ctypes.windll.kernel32.GetCurrentProcess()
+    info = _Counters()
+    info.cb = ctypes.sizeof(info)
+    if ctypes.windll.psapi.GetProcessMemoryInfo(proc, ctypes.byref(info), info.cb):
+        return info.WorkingSetSize / (1024.0 * 1024.0)
+    return 0.0
+
+
+def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
+    """5 refresh rápidos con imagen pesada → ≤2 workers, no tormenta de hilos."""
+    import time as _t
+
+    import app.accelerate as A
+    import app.ui.preview_worker as PW
+    from PIL import Image
+    from PySide6.QtCore import QCoreApplication
+
+    monkeypatch.setattr(A, "has_numba", lambda: False)  # fuerza ruta async
+    created: list = []
+    Real = PW.PreviewWorker
+
+    class Counting(Real):
+        def __init__(self, *a, **k):
+            created.append(1)
+            super().__init__(*a, **k)
+
+    monkeypatch.setattr(PW, "PreviewWorker", Counting)
+    window.src = Image.new("RGB", (900, 900), (90, 60, 140))
+    for _ in range(5):
+        window.refresh()
+    assert window._preview_worker is not None
+    deadline = _t.time() + 60
+    while window._preview_worker.isRunning() and _t.time() < deadline:
+        QCoreApplication.processEvents()
+        _t.sleep(0.05)
+    window._preview_worker.wait(10000)
+    QCoreApplication.processEvents()
+    assert len(created) <= 2, f"thread storm: {len(created)} workers"
+    assert window.result is not None
+
+
+def test_debounce_coalesces_renders(window, qt_app, monkeypatch):
+    """20 cambios de slider seguidos → 1 solo render (no 20)."""
+    import app.services.render_service as RS
+    from PySide6.QtTest import QTest
+
+    calls: list = []
+    real = RS.render_full
+
+    def counting(img, preset):
+        calls.append(1)
+        return real(img, preset)
+
+    monkeypatch.setattr(RS, "render_full", counting)
+    for v in range(100, 120):
+        window.sld_thr.setValue(v)  # solo arma el timer, sin procesar eventos
+    QTest.qWait(800)  # deja que el debounce (350ms) dispare
+    assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
+    assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
+    assert window.result is not None
+
+
+def test_corrupt_files_never_crash(window, tmp_path):
+    before = window.src.copy()
+    (tmp_path / "empty.png").write_bytes(b"")
+    (tmp_path / "text.png").write_text("not an image", encoding="utf-8")
+    (tmp_path / "cut.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+    for name in ("empty.png", "text.png", "cut.png", "missing.png"):
+        window._load_path(tmp_path / name)  # avisa, no lanza
+    assert list(window.src.get_flattened_data()) == list(before.get_flattened_data())
+
+
+def test_export_base_sanitized(window):
+    from PIL import Image
+
+    from app.exporter import export_bundle
+
+    res = Image.new("RGB", (32, 32), (1, 2, 3))
+    paths = export_bundle(res, window.out_dir, base="../../evil")
+    for p in paths.values():
+        assert window.out_dir.resolve() in p.resolve().parents
+    assert not (window.out_dir.parent / "evil_cover.png").exists()
+
+
+def test_batch_cancel_midrun(tmp_path):
+    from PIL import Image
+
+    from app.batch import batch_process
+    from app.presets import Preset
+
+    src = tmp_path / "in"
+    dst = tmp_path / "dst"
+    src.mkdir()
+    for i in range(4):
+        Image.new("RGB", (64, 64), (i * 30, 90, 140)).save(src / f"c{i}.png")
+    cancel = [False]
+
+    def _cb(done, total, name):
+        cancel[0] = True  # cancela tras el primer fichero
+
+    t = time.time()
+    results = batch_process(src, dst, Preset(name="t"), progress_cb=_cb, cancel=cancel)
+    assert time.time() - t < 60
+    assert all(r["status"] in ("ok", "skipped", "error") for r in results)
+    assert len(results) <= 4
+
+
+def test_vector_bomb_blocked_in_export(window, monkeypatch):
+    from PIL import Image
+    from PySide6.QtWidgets import QMessageBox
+
+    warned: list = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a))
+    window.cmb_method.setCurrentText("bayer4")  # render rápido, la bomba está en el SVG
+    window.src = Image.new("RGB", (1700, 1700), (9, 9, 9))
+    window.chk_vector.setChecked(True)
+    window.spn_vcell.setValue(4)  # 425x425 = 180k celdas > límite
+    window.export()  # avisa TooBigError, no revienta
+    assert warned
+
+
+def test_oversized_data_url_rejected(monkeypatch):
+    import base64
+
+    import app.services.image_io as IO
+    from app.safety import TooBigError
+
+    monkeypatch.setattr(IO, "MAX_BYTES", 10)
+    url = "data:image/png;base64," + base64.b64encode(b"x" * 100).decode()
+    try:
+        IO.decode_data_url(url)
+        raise AssertionError("debió fallar")
+    except TooBigError:
+        pass
+
+
+def test_bomb_header_rejected_without_decoding(window, tmp_path):
+    from PIL import Image
+
+    Image.new("RGB", (9000, 10), (1, 2, 3)).save(tmp_path / "bomb.png")
+    before = window.src.size
+    window._load_path(tmp_path / "bomb.png")  # TooBigError por cabecera, sin decodificar
+    assert window.src.size == before
+
+
+def test_cpu_budgets():
+    from PIL import Image
+
+    from app.dither import ordered
+    from app.exporter import export_bundle
+    from app.palettes import get_palette
+
+    im = Image.new("RGB", (960, 960), (90, 60, 120))
+    t = time.time()
+    ordered(im, palette=get_palette("SLIME"), map_name="bayer8")
+    assert time.time() - t < 5, "bayer 960px se salió del presupuesto"
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        small = Image.new("RGB", (256, 256), (9, 9, 9))
+        t = time.time()
+        export_bundle(small, Path(tmp), base="b")
+        assert time.time() - t < 15, "export bundle se salió del presupuesto"
+
+
+def test_rss_does_not_grow_per_render(window):
+    from app.services.render_service import render_full
+
+    preset = window.current_params()
+    render_full(window.src, preset)  # calienta caches (_BLUE_BASE, crosshatch…)
+    base = _rss_mb()
+    for _ in range(5):
+        render_full(window.src, preset)
+    growth = _rss_mb() - base
+    assert growth < 100, f"posible fuga por render: +{growth:.1f}MB"

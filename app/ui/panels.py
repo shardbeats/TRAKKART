@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 
@@ -230,8 +231,13 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     g.addWidget(QLabel("Empty = use combo:"))
     row = QHBoxLayout()
     win.btn_custom_add = QPushButton("+ color")
+    win.btn_custom_add.setToolTip("Quick-add one color")
     win.btn_custom_add.clicked.connect(win.add_custom_color)
     row.addWidget(win.btn_custom_add)
+    win.btn_palette_edit = QPushButton("Edit...")
+    win.btn_palette_edit.setToolTip("Editor: see, edit, reorder and sort colors")
+    win.btn_palette_edit.clicked.connect(win.edit_custom_palette)
+    row.addWidget(win.btn_palette_edit)
     win.btn_custom_clear = QPushButton("Clear")
     win.btn_custom_clear.clicked.connect(win.clear_custom_colors)
     row.addWidget(win.btn_custom_clear)
@@ -239,6 +245,16 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     row.addWidget(win.lbl_custom, 1)
     win.custom_colors: list[tuple[int, int, int]] = []
     g.addLayout(row)
+    # Tira de swatches: cada color visible, clic lo quita.
+    strip_host = QWidget()
+    win.palette_strip = QHBoxLayout(strip_host)
+    win.palette_strip.setContentsMargins(0, 2, 0, 2)
+    win.palette_strip.setSpacing(4)
+    g.addWidget(strip_host)
+    win.lbl_palette_hint = QLabel("")
+    win.lbl_palette_hint.setWordWrap(True)
+    win.lbl_palette_hint.setObjectName("subtitleLabel")
+    g.addWidget(win.lbl_palette_hint)
 
 
 def build_output_section(win, g: QVBoxLayout, gif_modes) -> None:

@@ -90,6 +90,25 @@ class MainWindow(QMainWindow):
         self._apply_preset("SLIME_FS")
         self._status("Open an image to start.")
 
+    def closeEvent(self, event) -> None:  # noqa: N802
+        """Limpieza determinista: sin timers ni slots huerfanos tras cerrar.
+
+        Sin esto, una ventana cerrada puede sobrevivir al GC con el timer
+        de debounce armado y renderizar sobre UI muerta (caza de los E2E).
+        """
+        try:
+            self._preview_timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        self._batch_cancel[0] = True
+        for worker in (self._preview_worker, self._batch_worker):
+            try:
+                if worker is not None:
+                    worker.blockSignals(True)  # sus slots nunca tocan UI muerta
+            except Exception:  # noqa: BLE001
+                pass
+        super().closeEvent(event)
+
     def _schedule_refresh(self) -> None:
         """Deferred 350ms re-render: sliders never freeze the UI."""
         if not self._preview_timer.isActive():
@@ -432,13 +451,74 @@ class MainWindow(QMainWindow):
         self._sync_custom_label()
         self.refresh()
 
+    def edit_custom_palette(self) -> None:
+        """Full editor: swatches, hex, roles, usage, reorder, sort."""
+        from app.ui.palette_dialog import CustomPaletteDialog
+
+        dlg = CustomPaletteDialog(
+            self.custom_colors, preview=self._palette_preview_small(), parent=self
+        )
+        if dlg.exec() != dlg.DialogCode.Accepted:
+            return
+        self.custom_colors = [tuple(c) for c in dlg.colors]
+        self._sync_custom_label()
+        self.refresh()
+        self._status(f"Custom palette: {len(self.custom_colors)} colors")
+
+    def _remove_custom_color(self, i: int) -> None:
+        if 0 <= i < len(self.custom_colors):
+            del self.custom_colors[i]
+            self._sync_custom_label()
+            self.refresh()
+
+    def _palette_preview_small(self):
+        """Canvas actual reducido (160px) para el % de uso. None sin imagen."""
+        if self.src is None:
+            return None
+        try:
+            from app.canvas import to_canvas
+
+            canvas = to_canvas(
+                self.src, ratio=self.cmb_ratio.currentText(), mode=self.cmb_crop.currentText(),
+                fx=float(self.crop_fx), fy=float(self.crop_fy), zoom=float(self.crop_zoom),
+            )
+            m = max(canvas.size)
+            if m > 160:
+                f = 160.0 / m
+                canvas = canvas.resize(
+                    (max(1, round(canvas.width * f)), max(1, round(canvas.height * f))),
+                    Image.BICUBIC,
+                )
+            return canvas
+        except Exception:  # noqa: BLE001
+            return None
+
     def clear_custom_colors(self) -> None:
         self.custom_colors = []
         self._sync_custom_label()
         self.refresh()
 
     def _sync_custom_label(self) -> None:
-        self.lbl_custom.setText(f"{len(self.custom_colors)} colors")
+        from app.ui.palette_dialog import ColorSwatch, luminance_roles, rgb_to_hex
+
+        n = len(self.custom_colors)
+        self.lbl_custom.setText(f"{n}/16")
+        lay = self.palette_strip
+        while lay.count():
+            item = lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        roles = luminance_roles(self.custom_colors)
+        for i, rgb in enumerate(self.custom_colors):
+            sw = ColorSwatch(rgb, i, size=26)
+            sw.setToolTip(f"{rgb_to_hex(rgb)} · {roles[i]} — click to remove")
+            sw.picked.connect(self._remove_custom_color)
+            lay.addWidget(sw)
+        lay.addStretch()
+        if n == 1:
+            self.lbl_palette_hint.setText("1 color is ignored: custom needs 2–16, the combo is used.")
+        else:
+            self.lbl_palette_hint.setText("")
 
     def refresh_presets(self) -> None:
         self.cmb_preset.blockSignals(True)
