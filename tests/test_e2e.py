@@ -21,7 +21,10 @@ def _trigger(window, shortcut: str) -> bool:
     return False
 
 
-def test_e2e_tweak_export(window):
+def test_e2e_tweak_export(window, qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
     window.cmb_method.setCurrentText("bayer8")
     window.cmb_palette.setCurrentText("VAPOR")
     window.sld_thr.setValue(160)
@@ -29,6 +32,7 @@ def test_e2e_tweak_export(window):
     window.sld_bri.setValue(120)
     window.refresh()
     assert window.result is not None
+    accept_next_dialog(ExportDialog)
     window.export()
     out = window.out_dir
     assert (out / "trakkart_cover_cover.png").exists()
@@ -54,6 +58,11 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(p), ""))
     assert _trigger(window, "Ctrl+O")
     assert window.src is not None and window.src.size == (48, 48)
+    assert window.src_name == "shot"  # base por defecto = nombre del source
+    # Ctrl+S es Quick export: con prefs sembradas no pregunta
+    from app.export_prefs import ExportPrefs, save_prefs
+
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="shot"), window._prefs_path)
     # Ctrl+R randomizes, Ctrl+Z undoes an op, Ctrl+S exports
     assert _trigger(window, "Ctrl+R")
     assert window.result is not None
@@ -65,7 +74,7 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
     assert window.lbl_status.text() == "Undone"
     assert list(window.src.get_flattened_data()) == list(before.get_flattened_data())
     assert _trigger(window, "Ctrl+S")
-    assert (window.out_dir / "trakkart_cover_cover.png").exists()
+    assert (window.out_dir / "shot_cover.png").exists()
 
 
 def test_e2e_batch_threaded(window, tmp_path: Path):
@@ -93,13 +102,19 @@ def test_e2e_batch_threaded(window, tmp_path: Path):
     assert all(r["status"] == "ok" for r in got["results"])
 
 
-def test_e2e_gif_svg_export(window):
-    window.chk_vector.setChecked(True)
-    window.spn_vcell.setValue(8)
-    window.chk_gif.setChecked(True)
-    window.spn_gframes.setValue(2)
-    window.cmb_gifmode.setCurrentText("phase")
+def test_e2e_gif_svg_export(window, qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    def _on(dlg):
+        dlg.chk_vector.setChecked(True)
+        dlg.chk_anim.setChecked(True)
+        dlg.spn_gframes.setValue(2)
+        dlg.cmb_gifmode.setCurrentText("phase")
+
+    window._vector_cell = 8
     window.refresh()
+    accept_next_dialog(ExportDialog, _on)
     window.export()
     out = window.out_dir
     assert (out / "trakkart_cover_vector.svg").exists()
@@ -150,10 +165,13 @@ def test_e2e_ui_kwargs_match_preset(window):
     assert list(a.get_flattened_data()) == list(b.get_flattened_data())
 
 
-def test_e2e_drop_to_export(window, tmp_path: Path):
+def test_e2e_drop_to_export(window, tmp_path: Path, qt_app):
     from PIL import Image
     from PySide6.QtCore import QMimeData, QPoint, Qt, QUrl
     from PySide6.QtGui import QDropEvent
+
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
 
     p = tmp_path / "journey.png"
     Image.new("RGB", (40, 40), (9, 9, 9)).save(p)
@@ -161,6 +179,8 @@ def test_e2e_drop_to_export(window, tmp_path: Path):
     mime.setUrls([QUrl.fromLocalFile(str(p))])
     window.dropEvent(QDropEvent(QPoint(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier))
     assert window.src is not None and window.src.size == (40, 40)
+    assert window.src_name == "journey"  # base por defecto = nombre del source
     window.refresh()
+    accept_next_dialog(ExportDialog)
     window.export()
-    assert (window.out_dir / "trakkart_cover_cover.png").exists()
+    assert (window.out_dir / "journey_cover.png").exists()

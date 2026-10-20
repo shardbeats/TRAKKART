@@ -30,10 +30,58 @@ def test_run_batch_sync(window, tmp_path: Path):
 
 
 def test_batch_dialog_cancel(window, monkeypatch):
-    from PySide6.QtWidgets import QFileDialog
+    from PySide6.QtWidgets import QDialog
 
-    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **k: "")
-    window.run_batch_dialog()  # cancelled input: does nothing
+    import app.ui.main_window as MW
+
+    class FakeDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, *a, **k):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected  # cancel: does nothing
+
+    monkeypatch.setattr(MW, "BatchDialog", FakeDialog)
+    window.run_batch_dialog()  # cancelled: does nothing
+
+
+def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    import app.ui.main_window as MW
+
+    src = tmp_path / "in"
+    src.mkdir()
+    seen: dict = {}
+
+    def _fake(src_p, dst_p, jobs=None, preset=None):
+        seen.update(src=src_p, dst=dst_p, jobs=jobs,
+                    vector=preset.vector_export if preset else None)
+
+    class FakeDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, *a, **k):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+        def paths(self):
+            return src, tmp_path / "dst", 2
+
+        def output_options(self):
+            return {"vector_export": False, "vector_cell": 8,
+                    "gif_export": False, "gif_frames": 6, "gif_mode": "both"}
+
+    monkeypatch.setattr(MW, "BatchDialog", FakeDialog)
+    monkeypatch.setattr(window, "run_batch", _fake)
+    window.run_batch_dialog()
+    assert seen["src"] == src and seen["dst"] == tmp_path / "dst"
+    assert seen["jobs"] == 2
+    assert seen["vector"] is False  # preset por defecto, sin SVG
 
 
 def test_batch_handlers(window):
@@ -133,6 +181,7 @@ def test_crop_editor_real_dialog(qt_app):
     from PySide6.QtCore import QPointF
 
     from app.ui.crop_editor import CropEditorDialog, CropView
+    from tests.conftest import close_dialog
 
     src = Img.new("RGB", (400, 300), (10, 20, 30))
     dlg = CropEditorDialog(src, ratio="1:1", mode="cover")
@@ -152,7 +201,7 @@ def test_crop_editor_real_dialog(qt_app):
     view.resize(600, 600)
     lay = view._layout()
     assert lay["frame"].width() > 0 and lay["frame"].height() > 0
-    dlg.close()
+    close_dialog(dlg)
 
 
 def test_share_export_import(window, tmp_path, isolated_presets, monkeypatch):

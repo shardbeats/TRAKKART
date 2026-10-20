@@ -29,7 +29,8 @@ def window(qt_app, tmp_path, monkeypatch):
 
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
-    w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db")
+    w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db",
+                   prefs_path=_P(str(tmp_path)) / "prefs.json")
     w.src = Image.new("RGB", (64, 64), (200, 50, 90))
     yield w
     w.store.close()
@@ -46,3 +47,35 @@ def isolated_presets(window, tmp_path, monkeypatch):
     P.ensure_bundled(d)
     window.refresh_presets()
     return d
+
+
+def accept_next_dialog(cls, setup=None):
+    """Acepta el próximo diálogo modal de tipo cls (E2E: el diálogo sí se abre).
+
+    `setup(dlg)` opcional para marcar checkboxes antes de aceptar.
+    """
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+
+    def _close():
+        for w in QApplication.topLevelWidgets():
+            if isinstance(w, cls):
+                try:
+                    if setup is not None:
+                        setup(w)
+                finally:
+                    w.accept()  # aceptar siempre: un setup roto no cuelga la suite
+                return
+
+    QTimer.singleShot(400, _close)
+
+
+def close_dialog(dlg):
+    """Cierre determinista: evita C++ huérfano que revienta el teardown."""
+    from PySide6.QtWidgets import QApplication
+
+    try:
+        dlg.close()
+    finally:
+        dlg.deleteLater()
+        QApplication.processEvents()

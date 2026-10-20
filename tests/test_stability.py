@@ -137,16 +137,20 @@ def test_batch_cancel_midrun(tmp_path):
     assert len(results) <= 4
 
 
-def test_vector_bomb_blocked_in_export(window, monkeypatch):
+def test_vector_bomb_blocked_in_export(window, qt_app, monkeypatch):
     from PIL import Image
     from PySide6.QtWidgets import QMessageBox
+
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
 
     warned: list = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a))
     window.cmb_method.setCurrentText("bayer4")  # render rápido, la bomba está en el SVG
     window.src = Image.new("RGB", (1700, 1700), (9, 9, 9))
-    window.chk_vector.setChecked(True)
-    window.spn_vcell.setValue(4)  # 425x425 = 180k celdas > límite
+    window._vector_export = True  # el preset pide SVG…
+    window._vector_cell = 4  # 425x425 = 180k celdas > límite
+    accept_next_dialog(ExportDialog)
     window.export()  # avisa TooBigError, no revienta
     assert warned
 

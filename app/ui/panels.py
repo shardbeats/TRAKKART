@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -257,44 +256,6 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     g.addWidget(win.lbl_palette_hint)
 
 
-def build_output_section(win, g: QVBoxLayout, gif_modes) -> None:
-    g.addWidget(QLabel("Bundle + Vector + GIF:"))
-    vec_row = QHBoxLayout()
-    win.chk_vector = QCheckBox("Include SVG")
-    win.chk_vector.setToolTip("Vector for logos/merch (no post-fx)")
-    win.chk_vector.stateChanged.connect(lambda _: win._schedule_refresh())
-    vec_row.addWidget(win.chk_vector)
-    win.spn_vcell = QSpinBox()
-    win.spn_vcell.setRange(4, 16)
-    win.spn_vcell.setValue(8)
-    win.spn_vcell.setFixedWidth(56)
-    win.spn_vcell.setToolTip("SVG cell 4-16 (higher = smaller file)")
-    win.spn_vcell.valueChanged.connect(lambda _: win._schedule_refresh())
-    vec_row.addWidget(win.spn_vcell)
-    win.lbl_vec = QLabel("")
-    vec_row.addWidget(win.lbl_vec, 1)
-    g.addLayout(vec_row)
-    gif_row = QHBoxLayout()
-    win.chk_gif = QCheckBox("Include GIF")
-    win.chk_gif.setToolTip("Animation for socials (Pillow only)")
-    win.chk_gif.stateChanged.connect(lambda _: win._schedule_refresh())
-    gif_row.addWidget(win.chk_gif)
-    win.spn_gframes = QSpinBox()
-    win.spn_gframes.setRange(2, 8)
-    win.spn_gframes.setValue(6)
-    win.spn_gframes.setFixedWidth(56)
-    win.spn_gframes.setToolTip("Frames 2-8")
-    win.spn_gframes.valueChanged.connect(lambda _: win._schedule_refresh())
-    gif_row.addWidget(win.spn_gframes)
-    win.cmb_gifmode = QComboBox()
-    win.cmb_gifmode.addItems(list(gif_modes))
-    win.cmb_gifmode.setCurrentText("both")
-    win.cmb_gifmode.setToolTip("Animation: phase / hue / both")
-    win.cmb_gifmode.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    gif_row.addWidget(win.cmb_gifmode, 1)
-    g.addLayout(gif_row)
-
-
 __all__ = [
     "make_group",
     "labeled_slider",
@@ -309,5 +270,4 @@ __all__ = [
     "build_pre_section",
     "build_effects_section",
     "build_custom_palette_section",
-    "build_output_section",
 ]

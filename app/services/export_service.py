@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image
 
-from app.exporter import export_bundle
+from app.exporter import ExportOptions, ExportSelection, export_with_options
 from app.services.render_service import render_full
 
 if TYPE_CHECKING:
@@ -25,32 +25,67 @@ def export_full(
     base: str = "trakkart_cover",
     store=None,
     preset_name: str = "",
-) -> dict[str, Path]:
-    """Renderiza, genera SVG/GIF si el preset lo pide, guarda bundle y loguea."""
+    selection: ExportSelection | None = None,
+    overwrite: str = "overwrite",
+    gif_frames: int | None = None,
+    gif_mode: str | None = None,
+    vector_cells: tuple[int, int] | None = None,
+) -> tuple[dict[str, Path], list[str]]:
+    """Renderiza, genera SVG/GIF si se piden, guarda bundle y loguea.
+
+    Retorna (paths escritos, keys omitidas por skip). Sin `selection`
+    equivale al bundle completo clásico.
+    """
+    from app.vector import estimate_cells
+
+    sel = selection or ExportSelection(
+        vector=bool(preset.vector_export), anim=bool(preset.gif_export),
+    )
+    # La selección (diálogo o prefs) manda; el preset aporta parámetros
+    # (celda, ratio, frames/mode por defecto). El batch usa el preset directo.
+    want_vector = bool(sel.vector)
+    want_gif = bool(sel.anim)
     res = render_full(src, preset)
 
     svg = None
-    if preset.vector_export:
+    cols_rows = vector_cells
+    if want_vector:
         from app.vector import vector_bundle
 
-        svg, _, _ = vector_bundle(src, preset)
+        svg, cols, rows = vector_bundle(src, preset)
+        cols_rows = (cols, rows)
+    if cols_rows is None and want_vector:
+        from app.canvas import to_canvas
+
+        canvas = to_canvas(
+            src, ratio=preset.ratio, mode=preset.crop_mode,
+            fx=float(preset.focus_x), fy=float(preset.focus_y),
+            zoom=float(preset.crop_zoom),
+        )
+        cols_rows = estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
 
     frames: list[Image.Image] | None = None
-    if preset.gif_export:
-        from app.gif import gif_frames
+    if want_gif:
+        from app.gif import gif_frames as _gif_frames  # alias: no shadow al parámetro
 
-        frames = gif_frames(src, preset, frames=int(preset.gif_frames), mode=preset.gif_mode)
+        frames = _gif_frames(
+            src, preset,
+            frames=int(gif_frames if gif_frames is not None else preset.gif_frames),
+            mode=gif_mode if gif_mode is not None else preset.gif_mode,
+        )
 
-    paths = export_bundle(
-        res, out_dir, base=base, meta=preset.meta(),
+    options = ExportOptions(base=base, selection=sel, overwrite=overwrite)
+    paths, skipped = export_with_options(
+        res, out_dir, options, meta=preset.meta(),
         vector_svg=svg, gif_frames=frames,
     )
-    if store is not None:
+    if store is not None and paths:
         try:
-            store.log_export(base, preset_name, preset.meta(), [str(p) for p in paths.values()])
+            store.log_export(options.base, preset_name, preset.meta(),
+                             [str(p) for p in paths.values()])
         except Exception:
             pass
-    return paths
+    return paths, skipped
 
 
 __all__ = ["export_full"]

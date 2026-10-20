@@ -53,6 +53,7 @@ def test_strip_shows_colors_and_hint(window):
 
 def test_dialog_sort_remove_move(qt_app):
     from app.ui.palette_dialog import CustomPaletteDialog
+    from tests.conftest import close_dialog
 
     dlg = CustomPaletteDialog([(255, 255, 255), (0, 0, 0), (128, 0, 0)])
     dlg._sort()
@@ -64,6 +65,7 @@ def test_dialog_sort_remove_move(qt_app):
     assert len(dlg.colors) == 2
     dlg.accept()
     assert dlg.result() == dlg.DialogCode.Accepted
+    close_dialog(dlg)
 
 
 def test_dialog_add_and_edit(qt_app, monkeypatch):
@@ -71,6 +73,7 @@ def test_dialog_add_and_edit(qt_app, monkeypatch):
     from PySide6.QtWidgets import QColorDialog
 
     from app.ui.palette_dialog import CustomPaletteDialog
+    from tests.conftest import close_dialog
 
     dlg = CustomPaletteDialog([(10, 20, 30)])
     monkeypatch.setattr(QColorDialog, "getColor", lambda *a, **k: QColor("#112233"))
@@ -81,6 +84,7 @@ def test_dialog_add_and_edit(qt_app, monkeypatch):
     assert len(dlg.colors) == 2
     dlg._edit(0)
     assert (17, 34, 51) in dlg.colors  # inválido: no cambia (sigue el dupe check)
+    close_dialog(dlg)
 
 
 def test_edit_custom_palette_accepts(window, qt_app, monkeypatch):

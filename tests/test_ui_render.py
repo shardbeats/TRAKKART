@@ -21,9 +21,13 @@ def test_refresh_all_combos(window):
     assert window.result.size == (64, 64)
 
 
-def test_export_bundle_from_ui(window):
+def test_export_bundle_from_ui(window, qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
     window.refresh()
     assert window.result is not None
+    accept_next_dialog(ExportDialog)
     window.export()
     files = list(window.out_dir.glob("*.png"))
     assert len(files) == 3
@@ -88,44 +92,59 @@ def test_fx_controls_apply(window, isolated_presets, monkeypatch):
     assert window.sld_grain.value() == 12
 
 
-def test_vector_ui_roundtrip(window, isolated_presets, monkeypatch):
+def test_vector_preset_roundtrip(window, isolated_presets, monkeypatch):
+    """Los flags vector/GIF viven en el preset (receta), no en un panel."""
     from PySide6.QtWidgets import QInputDialog
 
     from app.presets import load_preset
 
-    window.chk_vector.setChecked(True)
-    window.spn_vcell.setValue(12)
+    window._vector_export = True
+    window._vector_cell = 12
     assert window.current_params().vector_export is True
     assert window.current_params().vector_cell == 12
-    window.refresh()  # the estimate updates on refresh (signals only schedule)
-    assert "cells" in window.lbl_vec.text()
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("WithVec", True))
     window.save_current_preset()
     back = load_preset("WithVec", isolated_presets)
     assert back.vector_export is True and back.vector_cell == 12
-    window.chk_vector.setChecked(False)
+    window._vector_export = False
     window._apply_preset("WithVec")
-    assert window.chk_vector.isChecked() is True
+    assert window._vector_export is True
+    assert window._vector_cell == 12
+    assert window.current_params().vector_export is True
 
 
-def test_gif_ui_roundtrip(window, isolated_presets, monkeypatch):
+def test_gif_preset_roundtrip(window, isolated_presets, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
 
     from app.presets import load_preset
 
-    window.chk_gif.setChecked(True)
-    window.spn_gframes.setValue(4)
-    window.cmb_gifmode.setCurrentText("hue")
+    window._gif_export = True
+    window._gif_frames = 4
+    window._gif_mode = "hue"
     assert window.current_params().gif_export is True
     assert window.current_params().gif_frames == 4
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("WithGif", True))
     window.save_current_preset()
     back = load_preset("WithGif", isolated_presets)
     assert back.gif_export is True and back.gif_mode == "hue"
-    window.chk_gif.setChecked(False)
+    window._gif_export = False
     window._apply_preset("WithGif")
-    assert window.chk_gif.isChecked() is True
-    assert window.spn_gframes.value() == 4
+    assert window._gif_export is True
+    assert window._gif_mode == "hue"
+    assert window.current_params().gif_frames == 4
+
+
+def test_vector_export_via_dialog(window, qt_app):
+    """El diálogo Export es la autoridad por operación."""
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    window._vector_export = True  # default del preset en el diálogo
+    window.refresh()
+    assert window.result is not None
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_vector.setChecked(True))
+    window.export()
+    assert (window.out_dir / "trakkart_cover_vector.svg").exists()
 
 
 def test_debounce_schedules(window):

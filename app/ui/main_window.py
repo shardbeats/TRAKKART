@@ -41,13 +41,16 @@ from app.adjust import Adjust
 from app.batch import batch_process
 from app.canvas import CROP_MODES, ratio_names
 from app.dither import METHODS
-from app.gif import GIF_MODES
 from app.history import HistoryStore
 from app.ops import ImageHistory, flip_h, flip_v, invert, rotate_left, rotate_right
 from app.palettes import palette_names
 from app.paths import get_db_path, get_out_dir
 from app.presets import Preset, ensure_bundled, list_presets, load_preset, save_preset
 from app.render_params import normalize_scanlines, normalize_slice_bands
+from app.export_prefs import ExportPrefs, load_prefs, save_prefs
+from app.exporter import ExportSelection
+from app.ui.batch_dialog import BatchDialog
+from app.ui.export_dialog import ExportDialog
 from app.ui.qt_image import pil_to_pixmap as _pil_to_pixmap_impl
 from app.ui.qt_image import qimage_to_pil
 from app.ui.workers import BatchWorker
@@ -59,9 +62,11 @@ def pil_to_pixmap(img: Image.Image, max_side: int = 520) -> QPixmap:
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, out_dir: Path | None = None, db_path: Path | None = None) -> None:
+    def __init__(self, out_dir: Path | None = None, db_path: Path | None = None,
+                 prefs_path: Path | None = None) -> None:
         super().__init__()
         self.src: Image.Image | None = None
+        self.src_name: str = "trakkart_cover"
         self.result: Image.Image | None = None
         self.zoom: float = 1.0
         self.history = ImageHistory()
@@ -72,6 +77,16 @@ class MainWindow(QMainWindow):
         self.out_dir = Path(out_dir) if out_dir else get_out_dir()
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.store = HistoryStore(db_path if db_path else get_db_path())
+        self._prefs_path = Path(prefs_path) if prefs_path else None
+        self._batch_start: float = 0.0
+        self._batch_out: Path | None = None
+        # Salidas vector/GIF: viven en el preset (receta), se eligen por
+        # operación (diálogo Export / diálogo Batch), no en un panel duplicado.
+        self._vector_export: bool = False
+        self._vector_cell: int = 8
+        self._gif_export: bool = False
+        self._gif_frames: int = 6
+        self._gif_mode: str = "both"
         ensure_bundled()
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
@@ -214,13 +229,13 @@ class MainWindow(QMainWindow):
         P.build_pre_section(self, P.make_group(panel, "PRE-PROCESS"))
         P.build_effects_section(self, P.make_group(panel, "EFFECTS"))
         P.build_custom_palette_section(self, P.make_group(panel, "CUSTOM PALETTE"))
-        P.build_output_section(self, P.make_group(panel, "OUTPUT"), GIF_MODES)
         panel.addStretch()
 
     def _setup_action_bar(self) -> None:
-        self.btn_export = QPushButton("Export bundle")
+        self.btn_export = QPushButton("Export…")
+        self.btn_export.setToolTip("Export with options (Ctrl+Shift+S) · Quick export (Ctrl+S)")
         self.btn_export.setObjectName("exportBtn")
-        self.btn_export.clicked.connect(self.export)
+        self.btn_export.clicked.connect(lambda: self.export(False))
         self._action_bar.addWidget(self.btn_export)
 
         batch_row = QHBoxLayout()
@@ -307,7 +322,6 @@ class MainWindow(QMainWindow):
                 return
             self.result = render_full(self.src, self.current_params())
             self._show_preview(self.src, self.result)
-            self._sync_vector_estimate()
         except Exception as e:  # noqa: BLE001
             self._status(f"Error: {e}")
 
@@ -342,7 +356,6 @@ class MainWindow(QMainWindow):
         self.result = pil_img
         self.lbl_res.setPixmap(QPixmap.fromImage(qimg))
         self.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
-        self._sync_vector_estimate()
         self._status("Preview ready")
         if self._preview_pending:
             self._preview_pending = False
@@ -356,26 +369,6 @@ class MainWindow(QMainWindow):
             self._start_preview_async()
             return
         self._status(f"Preview error: {msg}")
-
-    def _sync_vector_estimate(self) -> None:
-        from app.canvas import to_canvas
-        from app.vector import estimate_bytes, estimate_cells
-
-        if self.src is None:
-            self.lbl_vec.setText("")
-            return
-        try:
-            canvas = to_canvas(
-                self.src, ratio=self.cmb_ratio.currentText(), mode=self.cmb_crop.currentText(),
-                fx=float(self.crop_fx), fy=float(self.crop_fy),
-                zoom=float(self.crop_zoom),
-            )
-            cols, rows = estimate_cells(canvas.width, canvas.height, int(self.spn_vcell.value()))
-            kb = estimate_bytes(cols, rows) // 1024
-            warn = " (!)" if kb * 1024 > 2 * 1024 * 1024 else ""
-            self.lbl_vec.setText(f"~{cols}x{rows} cells, ~{kb}KB{warn}")
-        except Exception:  # noqa: BLE001
-            self.lbl_vec.setText("")
 
     def _valid_slice_bands(self) -> int:
         return normalize_slice_bands(int(self.spn_slice.value()))
@@ -415,11 +408,11 @@ class MainWindow(QMainWindow):
             scanlines=normalize_scanlines(int(self.spn_scan.value())),
             replace_color=self.brand_color,
             custom_palette=[list(c) for c in self.custom_colors] or None,
-            vector_export=self.chk_vector.isChecked(),
-            vector_cell=int(self.spn_vcell.value()),
-            gif_export=self.chk_gif.isChecked(),
-            gif_frames=int(self.spn_gframes.value()),
-            gif_mode=self.cmb_gifmode.currentText(),
+            vector_export=bool(self._vector_export),
+            vector_cell=int(self._vector_cell),
+            gif_export=bool(self._gif_export),
+            gif_frames=int(self._gif_frames),
+            gif_mode=str(self._gif_mode),
             glitch_chroma=int(self.sld_chroma.value()),
             glitch_slice_bands=self._valid_slice_bands(),
             glitch_slice_max=24,
@@ -562,12 +555,12 @@ class MainWindow(QMainWindow):
         self.set_brand_color(p.replace_color)
         self.custom_colors = [tuple(c) for c in (p.custom_palette or [])]
         self._sync_custom_label()
-        self.chk_vector.setChecked(bool(p.vector_export))
-        self.spn_vcell.setValue(int(p.vector_cell))
-        self.chk_gif.setChecked(bool(p.gif_export))
-        self.spn_gframes.setValue(int(p.gif_frames))
-        if self.cmb_gifmode.findText(p.gif_mode) >= 0:
-            self.cmb_gifmode.setCurrentText(p.gif_mode)
+        # Salidas: el preset es la receta; los diálogos las aplican por operación.
+        self._vector_export = bool(p.vector_export)
+        self._vector_cell = int(p.vector_cell)
+        self._gif_export = bool(p.gif_export)
+        self._gif_frames = int(p.gif_frames)
+        self._gif_mode = str(p.gif_mode)
         self.sld_chroma.setValue(int(p.glitch_chroma))
         self.spn_slice.setValue(int(p.glitch_slice_bands))
         if self.cmb_preset.findText(name) < 0:
@@ -625,27 +618,55 @@ class MainWindow(QMainWindow):
 
     # -- batch --
     def run_batch_dialog(self) -> None:
-        src = QFileDialog.getExistingDirectory(self, "Input folder")
-        if not src:
-            return
-        dst = QFileDialog.getExistingDirectory(self, "Output folder")
-        if not dst:
-            return
-        self.run_batch(Path(src), Path(dst))
+        """Un solo diálogo validado (dither-guy style), no dos seguidos a ciegas."""
+        from dataclasses import replace
 
-    def run_batch(self, src: Path, dst: Path) -> None:
+        preset = self.current_params()
+        canvas_size = None
+        if self.src is not None:
+            try:
+                from app.canvas import to_canvas
+
+                canvas = to_canvas(
+                    self.src, ratio=self.cmb_ratio.currentText(), mode=self.cmb_crop.currentText(),
+                    fx=float(self.crop_fx), fy=float(self.crop_fy), zoom=float(self.crop_zoom),
+                )
+                canvas_size = (canvas.width, canvas.height)
+            except Exception:  # noqa: BLE001
+                canvas_size = None
+        dlg = BatchDialog(
+            in_dir="", out_dir=str(self.out_dir), jobs=int(self.spn_jobs.value()),
+            vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
+            gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
+            gif_mode=preset.gif_mode, canvas_size=canvas_size, parent=self)
+        if dlg.exec() != dlg.DialogCode.Accepted:
+            return
+        src, dst, jobs = dlg.paths()
+        outs = dlg.output_options()
+        preset = replace(
+            preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
+            gif_export=outs["gif_export"], gif_frames=outs["gif_frames"],
+            gif_mode=outs["gif_mode"])
+        self.run_batch(src, dst, jobs=jobs, preset=preset)
+
+    def run_batch(self, src: Path, dst: Path, jobs: int | None = None,
+                  preset: Preset | None = None) -> None:
+        import time
+
         if self._batch_worker is not None and self._batch_worker.isRunning():
             return
         try:
-            preset = self.current_params()
+            preset = preset or self.current_params()
             preset.validate()
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "TRAKKART", f"Invalid preset:\n{e}")
             return
         self._batch_cancel[0] = False
+        self._batch_start = time.time()
+        self._batch_out = Path(dst)
         self._batch_worker = BatchWorker(
             src, dst, preset, store=self.store,
-            jobs=int(self.spn_jobs.value()), cancel=self._batch_cancel)
+            jobs=int(jobs) if jobs else int(self.spn_jobs.value()), cancel=self._batch_cancel)
         self._batch_worker.progress.connect(self._on_batch_progress)
         self._batch_worker.finished.connect(self._on_batch_finished)
         self._batch_worker.error.connect(self._on_batch_error)
@@ -664,8 +685,20 @@ class MainWindow(QMainWindow):
         return batch_process(src, dst, self.current_params(), store=self.store)
 
     def _on_batch_progress(self, done: int, total: int, name: str) -> None:
+        import time
+
         self.progress.setValue(int(done / total * 100) if total else 100)
-        self._status(f"Batch {done}/{total}: {name}")
+        elapsed = time.time() - (self._batch_start or time.time())
+        fps = done / elapsed if elapsed > 0 else 0.0
+        if fps > 0:
+            eta = (total - done) / fps
+            m, s = divmod(int(eta), 60)
+            h, m = divmod(m, 60)
+            eta_str = f"{h}h {m}m {s}s" if h > 0 else f"{m}m {s}s"
+        else:
+            eta_str = "…"
+        short = name if len(name) <= 24 else name[:21] + "…"
+        self._status(f"Batch {done}/{total} · {fps:.1f} img/s · ETA {eta_str} · {short}")
 
     def _on_batch_finished(self, results: list[dict]) -> None:
         self.btn_batch.setEnabled(True)
@@ -675,8 +708,9 @@ class MainWindow(QMainWindow):
         sk = sum(1 for r in results if r["status"] == "skipped")
         er = sum(1 for r in results if r["status"] == "error")
         cancelled = " (cancelled)" if self._batch_cancel[0] else ""
-        self._status(f"Batch done: {ok} ok, {sk} skipped, {er} errors{cancelled}")
-        QMessageBox.information(self, "TRAKKART", f"Batch done:\n{ok} ok, {sk} skipped, {er} errors{cancelled}.")
+        where = f" → {self._batch_out}" if self._batch_out else ""
+        self._status(f"Batch done: {ok} ok, {sk} skipped, {er} errors{cancelled}{where}")
+        QMessageBox.information(self, "TRAKKART", f"Batch done:\n{ok} ok, {sk} skipped, {er} errors{cancelled}.\n{where}")
 
     def _on_batch_error(self, msg: str) -> None:
         self.btn_batch.setEnabled(True)
@@ -691,7 +725,8 @@ class MainWindow(QMainWindow):
         m_file = bar.addMenu("File")
         for label, shortcut, slot in [
             ("Open image...", "Ctrl+O", self.open_image_dialog),
-            ("Export bundle", "Ctrl+S", self.export),
+            ("Export…", "Ctrl+Shift+S", lambda: self.export(False)),
+            ("Quick export", "Ctrl+S", lambda: self.export(True)),
             ("Batch folder...", "Ctrl+B", self.run_batch_dialog),
             ("Export preset...", "", self.share_preset_export),
             ("Import preset...", "", self.share_preset_import),
@@ -931,6 +966,7 @@ class MainWindow(QMainWindow):
 
         try:
             self._load_pil(load_path(path))
+            self.src_name = Path(path).stem  # default export base (GIMP style)
             self._status(f"Loaded: {path.name}")
         except TooBigError as e:
             QMessageBox.warning(self, "TRAKKART", f"Image too large:\n{e}")
@@ -977,20 +1013,95 @@ class MainWindow(QMainWindow):
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "TRAKKART", f"Invalid preset:\n{e}")
 
-    def export(self) -> None:
+    def export(self, quick: bool = False) -> None:
+        """Export bundle. Dialogo profesional por defecto; `quick` repite el último.
+
+        GIMP-style: Quick export reusa la última config sin preguntar.
+        La primera vez (sin prefs) siempre abre el diálogo.
+        """
         if self.src is None:
             QMessageBox.information(self, "TRAKKART", "Open an image first.")
             return
         try:
-            from app.services.export_service import export_full
-
-            # Full-res siempre: el preview puede venir downscaleado (worker).
-            paths = export_full(
-                self.src, self.current_params(), self.out_dir,
-                base="trakkart_cover", store=self.store,
-                preset_name=self.cmb_preset.currentText(),
+            preset = self.current_params()
+            prefs = load_prefs(self._prefs_path)
+            if quick and prefs.out_dir:
+                selection = prefs.to_selection()
+                self._run_export(
+                    base=prefs.base or self.src_name, out_dir=Path(prefs.out_dir),
+                    selection=selection, gif_frames=prefs.gif_frames,
+                    gif_mode=prefs.gif_mode, overwrite=prefs.overwrite,
+                )
+                return
+            if prefs.out_dir:
+                init_sel = prefs.to_selection()
+                init_base, init_out = prefs.base, prefs.out_dir
+                init_gframes, init_gmode = prefs.gif_frames, prefs.gif_mode
+                init_overwrite = prefs.overwrite
+            else:
+                init_sel = ExportSelection(vector=bool(preset.vector_export),
+                                           anim=bool(preset.gif_export))
+                init_base, init_out = self.src_name, str(self.out_dir)
+                init_gframes, init_gmode = int(preset.gif_frames), preset.gif_mode
+                init_overwrite = "overwrite"
+            dlg = ExportDialog(
+                self.src, preset.meta(), base=init_base, out_dir=init_out,
+                selection=init_sel, gif_frames=init_gframes, gif_mode=init_gmode,
+                overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
+                parent=self,
             )
-            QMessageBox.information(self, "TRAKKART", "Exported:\n" + "\n".join(p.name for p in paths.values()))
-            self._status(f"Exported to {self.out_dir.resolve()}")
+            if dlg.exec() != dlg.DialogCode.Accepted:
+                self._status("Export cancelled")
+                return
+            options, out_dir, gframes, gmode = dlg.options()
+            self._run_export(
+                base=options.base, out_dir=out_dir, selection=options.selection,
+                gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+            )
+            save_prefs(ExportPrefs(
+                out_dir=str(out_dir), base=options.base,
+                cover=options.selection.cover, small=options.selection.small,
+                thumb_1080p=options.selection.thumb_1080p,
+                vector=options.selection.vector, anim=options.selection.anim,
+                metadata=options.selection.metadata,
+                gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+            ), self._prefs_path)
         except Exception as e:  # noqa: BLE001
             QMessageBox.warning(self, "TRAKKART", f"Export error: {e}")
+
+    def _estimate_vector_cells(self, preset) -> tuple[int, int] | None:
+        """Celdas SVG estimadas para el plan del diálogo (barato, sin dither)."""
+        if self.src is None:
+            return None
+        try:
+            from app.canvas import to_canvas
+            from app.vector import estimate_cells
+
+            canvas = to_canvas(
+                self.src, ratio=preset.ratio, mode=preset.crop_mode,
+                fx=float(preset.focus_x), fy=float(preset.focus_y),
+                zoom=float(preset.crop_zoom),
+            )
+            return estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _run_export(self, base: str, out_dir: Path, selection, gif_frames: int,
+                    gif_mode: str, overwrite: str) -> None:
+        """Render full-res + bundle según opciones. Full-res siempre."""
+        from app.services.export_service import export_full
+
+        preset = self.current_params()
+        paths, skipped = export_full(
+            self.src, preset, out_dir, base=base, store=self.store,
+            preset_name=self.cmb_preset.currentText(), selection=selection,
+            overwrite=overwrite, gif_frames=int(gif_frames), gif_mode=gif_mode,
+        )
+        if skipped and not paths:
+            QMessageBox.information(
+                self, "TRAKKART",
+                f"Skipped: {base} already exists (policy: skip).")
+            self._status(f"Export skipped (exists): {base}")
+            return
+        QMessageBox.information(self, "TRAKKART", "Exported:\n" + "\n".join(p.name for p in paths.values()))
+        self._status(f"Exported to {Path(out_dir).resolve()}")
