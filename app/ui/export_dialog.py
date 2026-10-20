@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -19,11 +20,16 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
 )
 
 from app.exporter import ExportOptions, ExportSelection, plan_export
+from app.ui.qt_image import pil_to_pixmap
+
+GIF_PREVIEW_FPS = 8
+GIF_PREVIEW_MAX_SIDE = 240
 
 
 def _fmt_size(n: int) -> str:
@@ -48,6 +54,7 @@ class ExportDialog(QDialog):
         gif_mode: str = "both",
         overwrite: str = "overwrite",
         vector_cells: tuple[int, int] | None = None,
+        preset=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -56,8 +63,17 @@ class ExportDialog(QDialog):
         self._img = img
         self._meta = meta or {}
         self._vector_cells = vector_cells
+        self._preset = preset  # para el live preview del GIF (None = sin preview)
         self._gif_count = max(1, int(gif_frames))
         self._ready = False  # las señales del __init__ no pintan nada aún
+        self._gif_cache: dict[tuple[int, str], list] = {}
+        self._gif_idx = 0
+        self._gif_timer = None
+        from PySide6.QtCore import QTimer
+
+        self._gif_timer = QTimer(self)
+        self._gif_timer.setInterval(1000 // GIF_PREVIEW_FPS)
+        self._gif_timer.timeout.connect(self._next_gif_frame)
 
         col = QVBoxLayout(self)
         # -- nombre --
@@ -113,6 +129,18 @@ class ExportDialog(QDialog):
         self.cmb_gifmode.currentTextChanged.connect(self._refresh_plan)
         gif_row.addWidget(self.cmb_gifmode, 1)
         col.addLayout(gif_row)
+        self.chk_anim.stateChanged.connect(self._refresh_gif_preview)
+        self.spn_gframes.valueChanged.connect(self._refresh_gif_preview)
+        self.cmb_gifmode.currentTextChanged.connect(self._refresh_gif_preview)
+        # -- live preview del GIF (se genera al activar, cacheado por config) --
+        prev_row = QHBoxLayout()
+        self.lbl_gifprev = QLabel("GIF preview off")
+        self.lbl_gifprev.setAlignment(Qt.AlignCenter)
+        self.lbl_gifprev.setMinimumSize(160, 120)
+        self.lbl_gifprev.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.lbl_gifprev.setObjectName("previewFrame")
+        prev_row.addWidget(self.lbl_gifprev, 1)
+        col.addLayout(prev_row)
         # -- colisión (GIMP pregunta; aquí se elige política) --
         ow_row = QHBoxLayout()
         ow_row.addWidget(QLabel("If files exist:"))
@@ -187,9 +215,78 @@ class ExportDialog(QDialog):
         if d:
             self.edit_dir.setText(d)
 
+    # -- live preview del GIF (cacheado por config, ~8fps como el export) --
+    def _refresh_gif_preview(self) -> None:
+        if not getattr(self, "_ready", False):
+            return
+        if not self.chk_anim.isChecked() or self._preset is None:
+            self._gif_timer.stop()
+            from PySide6.QtGui import QPixmap
+
+            self.lbl_gifprev.setPixmap(QPixmap())
+            self.lbl_gifprev.setText("GIF preview off")
+            return
+        key = (int(self.spn_gframes.value()), self.cmb_gifmode.currentText())
+        if key not in self._gif_cache:
+            self._gif_cache[key] = self._build_gif_preview(*key)
+        self._gif_key = key
+        self._gif_idx = 0
+        self._show_gif_frame()
+        if len(self._gif_cache.get(key, [])) > 1 and not self._gif_timer.isActive():
+            self._gif_timer.start()
+
+    def _build_gif_preview(self, frames: int, mode: str) -> list:
+        """Frames reducidos (240px) con la config actual. Lento sin numba: 1 vez por config."""
+        from PySide6.QtWidgets import QApplication
+
+        from app.gif import gif_frames
+
+        small = self._img.convert("RGB")
+        m = max(small.width, small.height)
+        if m > GIF_PREVIEW_MAX_SIDE:
+            f = GIF_PREVIEW_MAX_SIDE / m
+            small = small.resize(
+                (max(1, round(small.width * f)), max(1, round(small.height * f))),
+                Image.BICUBIC,
+            )
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
+        try:
+            out = gif_frames(small, self._preset, frames=int(frames), mode=mode)
+            return [pil_to_pixmap(f, max_side=200) for f in out]
+        except Exception:  # noqa: BLE001
+            return []
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    def _show_gif_frame(self) -> None:
+        frames = self._gif_cache.get(getattr(self, "_gif_key", None), [])
+        if frames:
+            self.lbl_gifprev.setPixmap(frames[self._gif_idx % len(frames)])
+            self.lbl_gifprev.setText("")
+
+    def _next_gif_frame(self) -> None:
+        frames = self._gif_cache.get(getattr(self, "_gif_key", None), [])
+        if not frames:
+            self._gif_timer.stop()
+            return
+        self._gif_idx = (self._gif_idx + 1) % len(frames)
+        self._show_gif_frame()
+
+    def _stop_preview(self) -> None:
+        try:
+            self._gif_timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def reject(self) -> None:  # noqa: N802
+        self._stop_preview()
+        super().reject()
+
     def _on_export(self) -> None:
         if not self.edit_base.text().strip():
             self.edit_base.setText("cover")
+        self._stop_preview()
         self.accept()
 
     # -- resultado --

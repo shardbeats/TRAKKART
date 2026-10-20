@@ -127,6 +127,43 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     assert (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
+def test_gif_live_preview_plays(window, qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    preset = window.current_params()
+    dlg = ExportDialog(window.src, preset.meta(), preset=preset)
+    assert not dlg._gif_timer.isActive()
+    assert dlg.lbl_gifprev.text() == "GIF preview off"
+    dlg.spn_gframes.setValue(2)
+    dlg.cmb_gifmode.setCurrentText("phase")
+    dlg.chk_anim.setChecked(True)
+    assert dlg._gif_timer.isActive()
+    assert (2, "phase") in dlg._gif_cache
+    assert len(dlg._gif_cache[(2, "phase")]) == 2
+    assert dlg.lbl_gifprev.pixmap() is not None
+    assert not dlg.lbl_gifprev.pixmap().isNull()
+    first = dlg._gif_idx
+    dlg._next_gif_frame()
+    assert dlg._gif_idx == (first + 1) % 2
+    dlg.spn_gframes.setValue(3)  # cambio invalida cache y regenera
+    assert (3, "phase") in dlg._gif_cache
+    dlg.chk_anim.setChecked(False)
+    assert not dlg._gif_timer.isActive()
+    close_dialog(dlg)
+
+
+def test_gif_preview_without_preset(qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"})  # sin preset: sin preview
+    dlg.chk_anim.setChecked(True)  # no revienta
+    assert not dlg._gif_timer.isActive()
+    assert dlg.lbl_gifprev.text() == "GIF preview off"
+    close_dialog(dlg)
+
+
 def test_batch_dialog_validation(tmp_path: Path, qt_app):
     from app.ui.batch_dialog import BatchDialog, count_images
     from tests.conftest import close_dialog

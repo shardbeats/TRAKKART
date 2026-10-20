@@ -1048,7 +1048,7 @@ class MainWindow(QMainWindow):
                 self.src, preset.meta(), base=init_base, out_dir=init_out,
                 selection=init_sel, gif_frames=init_gframes, gif_mode=init_gmode,
                 overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
-                parent=self,
+                preset=preset, parent=self,
             )
             if dlg.exec() != dlg.DialogCode.Accepted:
                 self._status("Export cancelled")
