@@ -59,7 +59,7 @@ class VideoWorker(WorkerBase):
 
     def __init__(self, src: Image.Image, preset, video_size: int,
                  frames: int, mode: str, pingpong: bool, token: int,
-                 parent=None) -> None:
+                 clip: list | None = None, parent=None) -> None:
         super().__init__(parent)
         self.src = src
         self.preset = preset
@@ -68,13 +68,14 @@ class VideoWorker(WorkerBase):
         self.mode = str(mode)
         self.pingpong = bool(pingpong)
         self.token = int(token)
+        self.clip = list(clip) if clip else None
 
     def work(self) -> None:
         from app.gif import gif_frames as _gif_frames
 
         out = _gif_frames(
             self.src, self.preset, frames=self.frames, mode=self.mode,
-            max_side=self.video_size, pingpong=self.pingpong,
+            max_side=self.video_size, pingpong=self.pingpong, clip=self.clip,
         )
         self.finished_ok.emit(out, self.token)
 

@@ -131,6 +131,7 @@ def _norms():
     from app.render_params import (
         normalize_grille,
         normalize_halftone,
+        normalize_palette_depth,
         normalize_posterize,
         normalize_scanlines,
         normalize_slice_bands,
@@ -141,6 +142,7 @@ def _norms():
         "posterize": normalize_posterize,
         "halftone": normalize_halftone,
         "grille": normalize_grille,
+        "palette_depth": normalize_palette_depth,
         "glitch_slice_bands": lambda v: normalize_slice_bands(int(v)),
     }
 
@@ -182,6 +184,45 @@ def doc_dims(win) -> tuple[int, int]:
         return w, h
     except Exception:  # noqa: BLE001
         return (3000, 3000)
+
+
+def read_motif(win) -> dict | None:
+    """Reads the MOTIF panel config. None if widgets are missing (tests)."""
+    try:
+        from app.motif import normalize_config
+
+        bands = []
+        for i in range(4):
+            shape = getattr(win, f"cmb_motif_{i}").currentText()
+            size = int(getattr(win, f"spn_motif_{i}").value())
+            bands.append({"shape": str(shape), "size": size})
+        return normalize_config({"bands": bands})
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def write_motif(win, cfg: dict | None) -> None:
+    """Applies config to the panel (None = default). No signal loops."""
+    try:
+        from app.motif import default_config, normalize_config
+
+        norm = normalize_config(cfg) if cfg else default_config()
+        for i, band in enumerate(norm["bands"]):
+            cmb = getattr(win, f"cmb_motif_{i}")
+            spn = getattr(win, f"spn_motif_{i}")
+            try:
+                cmb.blockSignals(True)
+                if cmb.findText(band["shape"]) >= 0:
+                    cmb.setCurrentText(band["shape"])
+            finally:
+                cmb.blockSignals(False)
+            try:
+                spn.blockSignals(True)
+                spn.setValue(int(band["size"]))
+            finally:
+                spn.blockSignals(False)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def doc_size(win) -> int:
@@ -320,6 +361,9 @@ BINDINGS: tuple = (
     ("brightness",) + _slider("sld_bri", 100.0),
     ("contrast",) + _slider("sld_con", 100.0),
     ("saturation",) + _slider("sld_sat", 100.0),
+    ("midtones",) + _slider("sld_mid", 100.0),
+    ("highlights",) + _slider("sld_high"),
+    ("palette_depth",) + _spin("spn_pal_depth"),
     ("ratio", ratio_value_of, set_ratio_label),
     ("canvas_w",) + _spin("spn_canvas_w"),
     ("canvas_h",) + _spin("spn_canvas_h"),
@@ -356,6 +400,14 @@ BINDINGS: tuple = (
     ("wave",) + _spin("spn_wave"),
     ("mosh",) + _slider("sld_mosh"),
     ("grille",) + _spin("spn_grille"),
+    ("jpeg",) + _slider("sld_jpeg"),
+    ("post_blur",) + _slider("sld_postblur", 10.0),
+    ("post_sharpen",) + _spin("spn_postsharp"),
+    ("drift_pattern",) + _combo("cmb_drift"),
+    ("drift_amount",) + _slider("sld_drift"),
+    ("paste_mode",) + _combo("cmb_paste"),
+    ("paste_opacity",) + _slider("sld_paste_op"),
+    ("paste_blend",) + _combo("cmb_paste_blend"),
 )
 
 
@@ -382,6 +434,10 @@ def current_adjust(win):
         brightness=win.sld_bri.value() / 100.0,
         contrast=win.sld_con.value() / 100.0,
         saturation=win.sld_sat.value() / 100.0,
+        midtones=getattr(win, "sld_mid", win.sld_bri).value() / 100.0
+        if hasattr(win, "sld_mid") else 1.0,
+        highlights=float(getattr(win, "sld_high", None).value())
+        if hasattr(win, "sld_high") else 0.0,
     )
 
 
@@ -417,6 +473,9 @@ def build_params(win):
             v = norms[field](v)
         kwargs[field] = _coerce_kind(kinds[field], v)
     base = win._palette_base if win._palette_base in palette_names() else "SLIME"
+    from app.fx_stack import normalize_stack
+    from app.timeline import normalize_layers as normalize_timeline
+
     return Preset(
         name=win.cmb_preset.currentText(),
         palette=base,
@@ -426,6 +485,7 @@ def build_params(win):
         custom_palette=[list(c) for c in win.custom_colors] or None,
         vector_export=bool(win._vector_export),
         vector_cell=int(win._vector_cell),
+        vector_black=bool(getattr(win, "_vector_black", False)),
         gif_export=bool(win._gif_export),
         gif_size=int(gif_anim_size(win)),
         export_size=int(doc_size(win)),
@@ -434,6 +494,9 @@ def build_params(win):
         duotone_dark=win.duotone_dark,
         duotone_light=win.duotone_light,
         glitch_slice_max=24,
+        fx_stack=normalize_stack(getattr(win, "fx_stack_data", None)),
+        motif=read_motif(win),
+        anim_layers=normalize_timeline(list(getattr(win, "anim_layers_data", None) or [])),
         **kwargs,
     )
 
@@ -461,17 +524,32 @@ def apply_preset(win, name: str) -> None:
     win.crop_zoom = float(p.crop_zoom)
     win._sync_crop_label()
     # La paleta en uso es la tira custom: del preset, o la built-in base.
+    # SOURCE no tiene swatches: conserva la tira actual como editable.
     win._palette_base = p.palette
-    base_colors = palette_colors(p.palette)
-    win._set_custom_colors(
-        [tuple(c) for c in (p.custom_palette or [])] or base_colors,
-        dirty=False,
-    )
-    win._palette_dirty = False
+    if p.palette == "SOURCE":
+        win._palette_dirty = False
+    else:
+        base_colors = palette_colors(p.palette)
+        win._set_custom_colors(
+            [tuple(c) for c in (p.custom_palette or [])] or base_colors,
+            dirty=False,
+        )
+        win._palette_dirty = False
     win.refresh_palette_list()
+    # FX stack (v1.2): None = legacy -> default; sync lista + ADD.
+    from app.ui import fx_stack_controller as _fx
+
+    _fx.set_stack(win, getattr(p, "fx_stack", None))
+    # Motif (v1.3): panel config; None = default.
+    write_motif(win, getattr(p, "motif", None))
+    # Timeline (v1.4): layers + locks sync.
+    from app.ui import timeline_controller as _tl
+
+    _tl.set_layers(win, getattr(p, "anim_layers", None))
     # Salidas: el preset es la receta; los diálogos las aplican por operación.
     win._vector_export = bool(p.vector_export)
     win._vector_cell = int(p.vector_cell)
+    win._vector_black = bool(getattr(p, "vector_black", False))
     win._gif_export = bool(p.gif_export)
     win._gif_frames = int(p.gif_frames)
     win._gif_mode = str(p.gif_mode)

@@ -81,6 +81,8 @@ def export(win, quick: bool = False) -> None:
             base=options.base, out_dir=out_dir, selection=options.selection,
             gif_opts=gopts, overwrite=options.overwrite,
             size=options.size, format=options.format, quality=options.quality,
+            clip=list(getattr(win, "clip_frames", None) or []) or None,
+            mp4=bool(gopts.get("mp4", False)),
         )
         save_prefs(ExportPrefs(
             out_dir=str(out_dir), base=options.base,
@@ -120,25 +122,36 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
 
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
-               quality: int) -> None:
-    """Render full-res + bundle según opciones. Full-res siempre."""
+               quality: int, clip=None, mp4: bool = False) -> None:
+    """Render full-res + bundle (+MP4) según opciones. Full-res siempre."""
+    from dataclasses import replace
     from pathlib import Path
 
     from PySide6.QtWidgets import QMessageBox
 
     from app.services.export_service import export_full
+    from app.video_io import VideoBackendMissing
 
     preset = win.current_params()
+    if bool(getattr(selection, "black_vector", False)):
+        preset = replace(preset, vector_black=True)
     go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
-    paths, skipped = export_full(
-        win.src, preset, out_dir, base=base, store=win.store,
-        preset_name=win.cmb_preset.currentText(), selection=selection,
-        overwrite=overwrite,
-        gif_frames=int(go.get("frames", 6)), gif_mode=str(go.get("mode", "both")),
-        gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
-        gif_pingpong=bool(go.get("pingpong", False)),
-        size=int(size), format=str(format), quality=int(quality),
-    )
+    try:
+        paths, skipped = export_full(
+            win.src, preset, out_dir, base=base, store=win.store,
+            preset_name=win.cmb_preset.currentText(), selection=selection,
+            overwrite=overwrite,
+            gif_frames=int(go.get("frames", 6)), gif_mode=str(go.get("mode", "both")),
+            gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
+            gif_pingpong=bool(go.get("pingpong", False)),
+            size=int(size), format=str(format), quality=int(quality),
+            clip=list(clip) if clip else None, mp4=bool(mp4),
+            mp4_fps=int(go.get("fps", 8)),
+        )
+    except VideoBackendMissing as e:
+        QMessageBox.warning(win, "TRAKKART", str(e))
+        win._status("MP4 needs the video extra (still exports skipped)")
+        return
     if skipped and not paths:
         QMessageBox.information(
             win, "TRAKKART",

@@ -37,7 +37,7 @@ def test_floyd_bw_only_two_colors():
 def test_apply_method_dispatch():
     from app.dither import METHODS
 
-    assert len(METHODS) == 23  # 11 ordered + 11 ED + hilbert
+    assert len(METHODS) == 36  # 21 ordered/motif + 11 ED + hilbert + 3 special
     for m in METHODS:
         out = apply_method(_img(), method=m, palette=None)
         assert out.size == (64, 64)

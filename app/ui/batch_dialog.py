@@ -49,6 +49,7 @@ class BatchDialog(QDialog):
         jobs: int = 1,
         vector_export: bool = False,
         vector_cell: int = 8,
+        vector_black: bool = False,
         gif_export: bool = False,
         gif_frames: int = 6,
         gif_mode: str = "both",
@@ -113,6 +114,9 @@ class BatchDialog(QDialog):
         self.spn_quality.setValue(max(1, min(100, int(quality))))
         self.spn_quality.setSuffix("%")
         fmt_row.addWidget(self.spn_quality)
+        self.chk_lossless = QCheckBox("Lossless PNG")
+        self.chk_lossless.setToolTip("Force PNG (ignores format combo)")
+        fmt_row.addWidget(self.chk_lossless)
         col.addLayout(fmt_row)
 
         # -- salidas por operación (el preset aporta los defaults) --
@@ -128,6 +132,10 @@ class BatchDialog(QDialog):
         self.spn_vcell.setToolTip("SVG cell 4-16 (higher = smaller file)")
         self.spn_vcell.valueChanged.connect(self._sync_vec_estimate)
         vec_row.addWidget(self.spn_vcell)
+        self.chk_black = QCheckBox("Black")
+        self.chk_black.setToolTip("Black ink vector for print")
+        self.chk_black.setChecked(bool(vector_black))
+        vec_row.addWidget(self.chk_black)
         self.lbl_vec_est = QLabel("")
         vec_row.addWidget(self.lbl_vec_est, 1)
         col.addLayout(vec_row)
@@ -220,9 +228,11 @@ class BatchDialog(QDialog):
     def output_options(self) -> dict:
         """Flags vector/gif + formato elegidos para este batch. Solo tras Accept."""
         g = dict(getattr(self, "_gif_spec", {}))
+        fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
         return {
             "vector_export": self.chk_vector.isChecked(),
             "vector_cell": int(self.spn_vcell.value()),
+            "vector_black": self.chk_black.isChecked(),
             "gif_export": self.chk_gif.isChecked(),
             "gif_frames": int(g.get("frames", 6)),
             "gif_mode": str(g.get("mode", "both")),
@@ -232,7 +242,7 @@ class BatchDialog(QDialog):
             "canvas_w": int(getattr(self, "_doc_w", 3000)),
             "canvas_h": int(getattr(self, "_doc_h", 3000)),
             "export_size": int(getattr(self, "_doc_size", 3000)),
-            "export_format": self.cmb_format.currentText(),
+            "export_format": fmt,
             "export_quality": int(self.spn_quality.value()),
         }
 

@@ -66,6 +66,38 @@ def normalize_posterize(value: int) -> int:
     return min(8, max(2, v))
 
 
+def normalize_palette_depth(value: int) -> int:
+    """Depth: 0 = off (full palette), si no 2-16 (1 -> 2)."""
+    v = int(value)
+    if v <= 0:
+        return 0
+    return min(16, max(2, v))
+
+
+def apply_palette_depth(palette: list | None | str, depth: int) -> list | None | str:
+    """Truncate a palette to `depth` colors (luminance-even sampling).
+
+    depth 0 / None sentinel / shorter-than-depth -> unchanged.
+    Keeps dark->light order so ramps stay ramps.
+    """
+    d = normalize_palette_depth(int(depth or 0))
+    if d <= 0 or palette is None or isinstance(palette, str):
+        return palette
+    pal = list(palette)
+    if d >= len(pal):
+        return pal
+    import numpy as np
+
+    arr = np.asarray(pal, dtype=np.float64)
+    lum = 0.299 * arr[:, 0] + 0.587 * arr[:, 1] + 0.114 * arr[:, 2]
+    order = np.argsort(lum, kind="stable")
+    sorted_pal = [pal[i] for i in order]
+    if d == 1:
+        return [sorted_pal[len(sorted_pal) // 2]]
+    idx = [round(i * (len(sorted_pal) - 1) / (d - 1)) for i in range(d)]
+    return [sorted_pal[i] for i in idx]
+
+
 def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
     """Convierte un Preset a kwargs de `pipeline.render()`.
 
@@ -81,6 +113,8 @@ def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
 __all__ = [
     "VALID_SCANLINES",
     "VALID_SLICE_BANDS",
+    "apply_palette_depth",
+    "normalize_palette_depth",
     "normalize_scanlines",
     "normalize_slice_bands",
     "normalize_grille",

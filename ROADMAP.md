@@ -144,16 +144,57 @@ Root cause of the WhatsApp bug: `Path("")` == `Path(".")` -> `is_dir()` True + u
 TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each app lives on its own.
 - [ ] EN docs + screenshots (before/after, sample GIF) + GitHub release `shardbeats/TRAKKART`.
 
+### v1.1 — Color Pro (done)
+Gap: auto-extracted palettes, depth control, lock/shuffle per swatch, Source category.
+- [x] Auto-extract palette from image (`app/palette_extract.py`: median-cut numpy-only, N=2..16, deterministic seed) + "From image" button.
+- [x] `Source` palette mode: retiene color original como punto de partida editable (no re-mapea a BW/SLIME).
+- [x] Depth slider: nº de niveles/steps usados de la paleta (mapeo previo al dither, vive en `RenderSpec` + `FIELDS`).
+- [x] Per-swatch lock + shuffle + per-adjust lock/randomize (UI en palette dialog + Adjust row).
+- [x] Midtones/highlights adjust (además de brightness/contrast/saturation) en `app/adjust.py` + UI.
+- [x] Palette import/export/share `.json`/`.gpl` offline (misma UX que preset share). Gherkin 40/40.
+
+### v1.2 — Stackable FX (done)
+Gap: fixed pipeline `canvas→pre→grade→dither→brand→post`; goal is add-with-`+` and reorder.
+- [x] FX stack model: lista ordenada `[{id, enabled}]` en `Preset` + `RenderSpec.fx_stack` (migración: presets viejos → stack equivalente, render idéntico).
+- [x] UI: ADD effect (`+` combo), reorder up/down, enable/disable, granular sliders per effect (halo glow, jpeg-glitch, chroma, blur/sharpen as post).
+- [x] JPEG Glitch effect (`app/fx_jpeg.py`: recompresión Pillow quality/blocks/chroma-subsampling, numpy-only, determinista con seed).
+- [x] Halo glow designed for dither (threshold + screen blend already existed → promoted to a stack effect).
+- [x] `render_spec` ejecuta stack en orden (tests de conmutatividad: reorder cambia output). Gherkin 42/42.
+
+### v1.3 — Engines III + print (done: 23→36 + CMYK/vector-pro)
+Gap: grow the roster (glitch + special + pattern/ordered extras + CMYK + ASCII + custom Motif builder).
+- [x] 13 new engines: granular `bayer32/lines/columns/diag/grid` + glitch-dither `white_noise/blocks/scan_bayer/wave_map` + special `cmyk/ascii/edges` + `motif`. 36 methods.
+- [x] ASCII mode (`app/ascii.py`: charset ramp, Pillow-only, animable por `phase`, vector-compatible vía rects).
+- [x] Motif: custom pattern builder (`app/motif.py`: 4 bands -> shape/size, 6 shapes, stored in preset as dict). Simple MOTIF panel.
+- [x] Vector Pro: black-vector print (`vector_black` + `ink_only`, sin rects de papel) + lossless toggle (force PNG en export/batch) + estimate calibrado (~58B/celda). Embroidery OUT.
+- [x] Arrow-stepping (botones + Alt+Left/Right, `step_method` ciclico) + Gherkin 45/45.
+
+### v1.4 — Video timeline + signal drift (done)
+Gap: still GIF + animated preview only. Goal: MP4 import, timeline layers (from/to + easing), Signal Drift, MP4 export.
+- [x] Video import (MP4/GIF/WebP animado): `imageio-ffmpeg` SOLO como extra opcional (`requirements-video.txt`, nunca en base exe; fallback con mensaje claro si falta). Frame browser + live preview con proxies existentes.
+- [x] Timeline mínimo: animation layers (propiedad + from/to + ease linear/in/out, múltiples capas secuenciadas, lock del control animado, loop). Reusa VIDEO mode + QThread workers.
+- [x] Signal Drift: 9 animated retro-screen noise patterns (`app/drift.py`, seeded, deterministic, works with any method).
+- [x] Export MP4 (same frame→dither→stack pipeline, optional shared anti-flicker palette) + Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust). MP4 single-export (batch stays GIF).
+- [x] Gherkin 48/48 (timeline sin ffmpeg skipea limpio).
+
+### v1.5 — Iteration UX + content
+- [ ] Viewport mode selector Full/Live/Still (hoy debounce fijo 350ms + proxies Draft/HD/Full → exponerlo como setting + statusbar).
+- [ ] Fast path: ajustes core (brightness/contrast/sat/mid/high) con refresh prioritario; blur/denoise marcados como "heavy" (ya documentado en DIG_PROD, hacerlo explícito en UI).
+- [ ] In-app tutorial (`Help → Tutorial`, primer-run dialog corto) + sample pack + batch menu visible (hoy batch vive en export flow; añadir entrada `Batch` en menubar).
+- [ ] App themes (claro/oscuro/retro-green/pink) vía `theme.qss` variants — saca `app themes` de rechazados, es barato y lo piden.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - 100% original MIT code: public-domain math only, third-party files are never copied.
+- Market references never ship: no competitor names, copy, or assets in code, UI, features, or docs (oct-2026 originality pass: Motif/Halo/Signal Drift/Paste-Up).
 - No OpenCV / GPU in the core. Numba only as an OPTIONAL accelerator with numpy fallback (the base exe does not include it).
-- Pillow + numpy is enough and keeps the `.exe` light.
+- Pillow + numpy is enough and keeps the `.exe` light. `imageio-ffmpeg` (v1.4 video) is OPT-IN extra only, never in base exe/requirements.
 - PySide6 UI (not PyQt6). Preview with `QLabel + QPixmap`, no `QGraphicsScene` in v0.
-- Original palettes, not 1:1 GameBoy/C64/NES clones.
+- Original palettes, not 1:1 GameBoy/C64/NES clones. Auto-extract (v1.1) generates FROM the image, not clones.
 - Custom canvas is Photoshop-style: presets fill W/H, typing W/H flips to Custom. No GIMP-style chain toggle (one interaction model only).
 - Single canvas + hold-to-compare instead of side-by-side ORIGINAL/DITHER (pro look, less layout).
-- Preview proxies (Draft/HD/Full) decouple playback resolution from export: editing stays light on low-end PCs, export is always full-doc.
+- Preview proxies (Draft/HD/Full) decouple playback resolution from export: editing stays light on low-end PCs, export is always full-doc. v1.5 exposes Full/Live/Still selector (same workers, user choice).
+- Fixed signal chain becomes ordered FX STACK in v1.2, but migration keeps legacy render byte-identical (old presets render same).
 - Refactor rule: logic lives in `app/ui/*_controller|flow|assembly` modules; `MainWindow` only orchestrates and keeps the test-facing API.
 
 ## 5. Known tech debt
@@ -165,6 +206,7 @@ TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each
 
 ## 6. Out of scope (for now)
 
-- Video (`imageio-ffmpeg`), webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
+- Webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
-- Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), video tab, app themes, preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG).
+- Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (v1.4 = opt-in `requirements-video.txt` only; batch MP4 out of scope, single-export only).
+- Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED in v1.5 (cheap qss variants, user-requested).

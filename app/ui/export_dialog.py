@@ -129,6 +129,13 @@ class ExportDialog(QDialog):
         self.chk_vector = QCheckBox("Vector SVG")
         self.chk_anim = QCheckBox("Animation GIF")
         self.chk_meta = QCheckBox("Metadata JSON")
+        self.chk_black = QCheckBox("Black vector (print ink only)")
+        self.chk_black.setToolTip("SVG with black ink on transparent (no paper rects)")
+        self.chk_black.setChecked(bool(getattr(selection, "black_vector", False)))
+        self.chk_lossless = QCheckBox("Lossless (force PNG)")
+        self.chk_lossless.setToolTip("Ignores format combo: exports main + thumb as PNG")
+        self.chk_lossless.setChecked(False)
+        self.chk_lossless.stateChanged.connect(self._on_lossless)
         sel = selection or ExportSelection()
         self.chk_image.setChecked(sel.image)
         self.chk_thumb.setChecked(sel.thumb_1080p)
@@ -137,10 +144,23 @@ class ExportDialog(QDialog):
         self.chk_anim.setChecked(sel.anim)
         self.chk_anim.setToolTip("Animation for socials (Pillow only)")
         self.chk_meta.setChecked(sel.metadata)
+        self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
+        from app.video_io import has_video as _has_video
+
+        self._video_ok = bool(_has_video())
+        self.chk_mp4 = QCheckBox("Animation MP4")
+        self.chk_mp4.setChecked(False)
+        if self._video_ok:
+            self.chk_mp4.setToolTip("H.264 clip at canvas size (opt-in video extra present)")
+        else:
+            self.chk_mp4.setEnabled(False)
+            self.chk_mp4.setToolTip("Needs the opt-in video extra: pip install -r requirements-video.txt")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_meta):
+                    self.chk_vector, self.chk_anim, self.chk_meta,
+                    self.chk_black, self.chk_mp4):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
+        col.addWidget(self.chk_lossless)
         # -- animación: sin duplicados (se edita solo en VIDEO); aquí solo on/off --
         self._gif_spec = {
             "frames": max(2, min(24, int(gif_frames))),
@@ -185,6 +205,12 @@ class ExportDialog(QDialog):
         self._ready = True
         self._refresh_plan()
 
+    def _on_lossless(self) -> None:
+        on = self.chk_lossless.isChecked()
+        self.cmb_format.setEnabled(not on)
+        self.spn_quality.setEnabled(not on)
+        self._refresh_plan()
+
     # -- plan en vivo --
     def _current_selection(self) -> ExportSelection:
         return ExportSelection(
@@ -193,6 +219,7 @@ class ExportDialog(QDialog):
             vector=self.chk_vector.isChecked(),
             anim=self.chk_anim.isChecked(),
             metadata=self.chk_meta.isChecked(),
+            black_vector=self.chk_black.isChecked(),
         )
 
     def _current_size(self) -> int:
@@ -236,6 +263,17 @@ class ExportDialog(QDialog):
             self.list_files.addItem(f"{fname}  ({_fmt_size(est)})")
             total += est
         n = len(plan)
+        if self.chk_mp4.isChecked() and self._video_ok:
+            try:
+                w, h = self._doc_wh()
+                nf = int(self._gif_opts()["frames"])
+                est = int(w * h * nf * 0.12)
+                self.list_files.addItem(
+                    f"{self.edit_base.text().strip() or 'cover'}_clip.mp4  ({_fmt_size(est)})")
+                total += est
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
 
@@ -259,6 +297,7 @@ class ExportDialog(QDialog):
         g = dict(getattr(self, "_gif_spec", {}))
         g["size"] = self._current_size()  # el canvas manda también en el anim
         g["pingpong"] = bool(g.get("pingpong", False))
+        g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         return g
 
     def _on_export(self) -> None:
@@ -274,12 +313,13 @@ class ExportDialog(QDialog):
         que desempaquetaban (opts, out, frames, mode) siguen funcionando
         via GifOpts (tupla + dict a la vez).
         """
+        fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
         opts = ExportOptions(
             base=self.edit_base.text().strip() or "cover",
             selection=self._current_selection(),
             overwrite=self.cmb_overwrite.currentText(),
             size=self._current_size(),
-            format=self.cmb_format.currentText(),
+            format=fmt,
             quality=int(self.spn_quality.value()),
         )
         return opts, Path(self.edit_dir.text()), self._gif_opts()

@@ -265,6 +265,7 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
     assert dlg.btn_run.isEnabled()
     assert "1920×1080" in dlg.lbl_doc.text()
     assert dlg.output_options() == {"vector_export": True, "vector_cell": 12,
+                                    "vector_black": False,
                                     "gif_export": True, "gif_frames": 4,
                                     "gif_mode": "hue", "gif_fps": 8,
                                     "gif_size": 1920, "gif_pingpong": False,

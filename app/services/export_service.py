@@ -36,12 +36,17 @@ def export_full(
     size: int | None = None,
     format: str | None = None,
     quality: int | None = None,
+    clip: list[Image.Image] | None = None,
+    mp4: bool = False,
+    mp4_fps: int | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
-    """Renderiza, genera SVG/GIF si se piden, guarda bundle y loguea.
+    """Renderiza, genera SVG/GIF/MP4 si se piden, guarda bundle y loguea.
 
     Retorna (paths escritos, keys omitidas por skip). Sin `selection`
     equivale al bundle completo clásico. size/format/quality pisan al preset
     (los elige el diálogo); None = valor del preset.
+    MP4 se escribe como fichero extra `{base}_clip.mp4` fuera del bundle
+    (single-export; el batch sigue ruta GIF).
     """
     from app.vector import estimate_cells
 
@@ -52,6 +57,7 @@ def export_full(
     # (celda, ratio, frames/mode por defecto). El batch usa el preset directo.
     want_vector = bool(sel.vector)
     want_gif = bool(sel.anim)
+    want_mp4 = bool(mp4)
     res = render_full(src, preset)
 
     svg = None
@@ -73,7 +79,7 @@ def export_full(
 
     frames: list[Image.Image] | None = None
     fps = int(gif_fps if gif_fps is not None else getattr(preset, "gif_fps", 8))
-    if want_gif:
+    if want_gif or want_mp4:
         from app.gif import gif_frames as _gif_frames  # alias: no shadow al parámetro
 
         frames = _gif_frames(
@@ -83,6 +89,7 @@ def export_full(
             max_side=int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480)),
             pingpong=bool(gif_pingpong if gif_pingpong is not None
                           else getattr(preset, "gif_pingpong", False)),
+            clip=list(clip) if clip else None,
         )
 
     options = ExportOptions(
@@ -93,8 +100,24 @@ def export_full(
     )
     paths, skipped = export_with_options(
         res, out_dir, options, meta=preset.meta(),
-        vector_svg=svg, gif_frames=frames, gif_fps=fps,
+        vector_svg=svg, gif_frames=frames if want_gif else None, gif_fps=fps,
     )
+    if want_mp4 and frames:
+        from app.video_io import write_mp4
+
+        mp4_name = f"{options.base}_clip.mp4"
+        mp4_path = Path(out_dir) / mp4_name
+        if overwrite == "skip" and mp4_path.exists():
+            skipped = [*skipped, "video"]
+        else:
+            if overwrite == "rename":
+                i = 2
+                while mp4_path.exists():
+                    mp4_path = Path(out_dir) / f"{options.base}_{i}_clip.mp4"
+                    i += 1
+            write_mp4(frames, mp4_path,
+                      fps=int(mp4_fps if mp4_fps is not None else fps))
+            paths["video"] = mp4_path
     if store is not None and paths:
         try:
             store.log_export(options.base, preset_name, preset.meta(),

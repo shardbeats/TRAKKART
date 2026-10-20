@@ -51,6 +51,15 @@ def _bayer_2n(n: int) -> np.ndarray:
 
 
 BAYER_16X16 = _bayer_2n(16)
+BAYER_32X32 = _bayer_2n(32)
+
+# Pantallas de líneas/rejas (matemática estándar, originales en escala).
+_LINES_8X8 = np.fromfunction(lambda i, j: (i % 8) * 32.0, (8, 8)).astype(np.float32)
+_COLUMNS_8X8 = np.fromfunction(lambda i, j: (j % 8) * 32.0, (8, 8)).astype(np.float32)
+_DIAG_8X8 = np.fromfunction(lambda i, j: ((i + j) % 8) * 32.0, (8, 8)).astype(np.float32)
+_GRID_4X4 = np.array(
+    [[0, 0, 0, 16], [0, 16, 16, 16], [0, 16, 8, 16], [16, 16, 16, 16]],
+    dtype=np.float32)
 
 # Classic ordered matrices (public domain): halftone diamond and
 # 4x4 cluster from the literature, plus an original diagonal pattern.
@@ -81,15 +90,25 @@ _ORDERED_DEFS: dict[str, tuple[np.ndarray, float]] = {
     "bayer4": (BAYER_4X4, 16.0),
     "bayer8": (BAYER_8X8, 64.0),
     "bayer16": (BAYER_16X16, 256.0),
+    "bayer32": (BAYER_32X32, 1024.0),
     "bayer2": (_bayer_2n(2), 4.0),
     "halftone": (HALFTONE_4X4, 16.0),
     "cluster": (CLUSTER_4X4, 16.0),
     "pattern": (_PATTERN_8X8, 256.0),
     "checker": (np.array([[0, 1], [1, 0]], dtype=np.float32), 2.0),
+    "lines": (_LINES_8X8, 256.0),
+    "columns": (_COLUMNS_8X8, 256.0),
+    "diag": (_DIAG_8X8, 256.0),
+    "grid": (_GRID_4X4, 16.0),
 }
 
-ORDERED_MAPS = ("bayer4", "bayer8", "bayer16", "bayer2", "halftone", "cluster",
-                "pattern", "cross", "bluenoise", "checker", "ign")
+ORDERED_MAPS = ("bayer4", "bayer8", "bayer16", "bayer32", "bayer2", "halftone", "cluster",
+                "pattern", "cross", "bluenoise", "checker", "ign",
+                "lines", "columns", "diag", "grid",
+                "white_noise", "blocks", "scan_bayer", "wave_map", "motif")
+
+GLITCH_DITHER = ("white_noise", "blocks", "scan_bayer", "wave_map")
+SPECIAL_RENDER = ("cmyk", "ascii", "edges")
 
 _BLUE_BASE: np.ndarray | None = None
 _CROSS_CACHE: dict[tuple[int, int], np.ndarray] = {}
@@ -151,7 +170,59 @@ def _ign(h: int, w: int) -> np.ndarray:
     return (52.9829189 * f - np.floor(52.9829189 * f)).astype(np.float32) * 255.0
 
 
-def _threshold_bias(map_name: str, h: int, w: int, threshold: float, phase: int = 0) -> np.ndarray:
+def _white_noise(h: int, w: int) -> np.ndarray:
+    """Ruido blanco uniforme 0-255 con seed fija. Determinista."""
+    rng = np.random.default_rng(0xC0FFEE)
+    return rng.integers(0, 256, (h, w)).astype(np.float32)
+
+
+def _blocks(h: int, w: int) -> np.ndarray:
+    """Bloques 4x4 aleatorios (glitch): cada bloque un umbral. Determinista."""
+    rng = np.random.default_rng(0xB10C)
+    bh, bw = (h + 3) // 4, (w + 3) // 4
+    small = rng.integers(0, 256, (bh, bw)).astype(np.float32)
+    return np.repeat(np.repeat(small, 4, axis=0), 4, axis=1)[:h, :w]
+
+
+def _scan_bayer(h: int, w: int) -> np.ndarray:
+    """Bayer8 modulado por scanlines (cada 3 filas oscurece): look CRT."""
+    tiled = _tile_matrix(BAYER_8X8, h, w)
+    rows = (np.arange(h, dtype=np.float32)[:, None] % 3 == 2) * 48.0
+    return np.clip(tiled * 4.0 - rows, 0, 255)
+
+
+def _wave_map(h: int, w: int) -> np.ndarray:
+    """Bayer8 deformado por seno (marching waves con phase)."""
+    ys = np.arange(h, dtype=np.float32)[:, None]
+    xs = np.arange(w, dtype=np.float32)[None, :]
+    warp = (np.sin(xs * 0.12) * 3.0 + np.sin(ys * 0.09) * 3.0)
+    tiled = _tile_matrix(BAYER_8X8, h + 8, w + 8)
+    yi = np.clip((ys + warp).astype(int) % (h + 8), 0, h + 7)
+    xi = np.clip((xs - warp).astype(int) % (w + 8), 0, w + 7)
+    return tiled[yi, xi] * 4.0
+
+
+_MOTIF_CACHE: dict[str, np.ndarray] = {}
+
+
+def _motif_map(h: int, w: int, config: dict | None = None) -> np.ndarray:
+    """Custom motif map (cached by config)."""
+    import json
+
+    from app.motif import build_matrix, normalize_config
+
+    key = json.dumps(normalize_config(config), sort_keys=True)
+    base = _MOTIF_CACHE.get(key)
+    if base is None:
+        base = build_matrix(normalize_config(config))
+        if len(_MOTIF_CACHE) >= 8:
+            _MOTIF_CACHE.pop(next(iter(_MOTIF_CACHE)))
+        _MOTIF_CACHE[key] = base
+    return _tile_matrix(base, h, w)
+
+
+def _threshold_bias(map_name: str, h: int, w: int, threshold: float, phase: int = 0,
+                    motif: dict | None = None) -> np.ndarray:
     """Additive bias on a 0-255 scale per map and threshold. phase rotates the matrix."""
     spread = 255.0 - abs(float(threshold) - 127.5) * 2.0
     spread = float(np.clip(spread, 32.0, 255.0))
@@ -161,6 +232,16 @@ def _threshold_bias(map_name: str, h: int, w: int, threshold: float, phase: int 
         return (np.roll(_blue_noise(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
     if map_name == "ign":
         return (np.roll(_ign(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "white_noise":
+        return (np.roll(_white_noise(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "blocks":
+        return (np.roll(_blocks(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "scan_bayer":
+        return (np.roll(_scan_bayer(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "wave_map":
+        return (np.roll(_wave_map(h, w), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
+    if map_name == "motif":
+        return (np.roll(_motif_map(h, w, motif), int(phase), axis=(0, 1)) / 255.0 - 0.5) * spread
     mat, div = _ORDERED_DEFS.get(map_name, _ORDERED_DEFS["bayer4"])
     tiled = _tile_matrix(mat, h, w)
     if phase:
@@ -203,6 +284,7 @@ def ordered(
     pixel_size: int = 1,
     adjust: Adjust | dict | None = None,
     phase: int = 0,
+    motif: dict | None = None,
 ) -> Image.Image:
     """Generic ordered dither. phase rotates the matrix (for animation)."""
     base = apply_adjust(img.convert("RGB"), adjust)
@@ -213,7 +295,8 @@ def ordered(
 
     arr = np.array(base, dtype=np.float32)
     h, w = arr.shape[:2]
-    bias = _threshold_bias(map_name if map_name in ORDERED_MAPS else "bayer4", h, w, threshold, phase)
+    bias = _threshold_bias(map_name if map_name in ORDERED_MAPS else "bayer4", h, w, threshold, phase,
+                           motif=motif)
 
     if palette is None:
         lum = arr.mean(axis=2)
@@ -303,13 +386,50 @@ def floyd_steinberg(
     return error_diffusion(img, kernel="floyd", palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
 
 
+def edges_dither(
+    img: Image.Image,
+    palette: list[tuple] | None = None,
+    threshold: float = 128.0,
+    pixel_size: int = 1,
+    adjust: Adjust | dict | None = None,
+    phase: int = 0,
+) -> Image.Image:
+    """Edge-detect + bayer overlay (special): contornos ditherizados sobre base."""
+    from PIL import ImageFilter
+
+    base = apply_adjust(img.convert("RGB"), adjust)
+    if pixel_size > 1:
+        sw = max(1, base.width // pixel_size)
+        sh = max(1, base.height // pixel_size)
+        base = base.resize((sw, sh), Image.NEAREST)
+    edge = base.convert("L").filter(ImageFilter.FIND_EDGES)
+    edge_arr = np.asarray(edge, dtype=np.float32)
+    lum = np.array(base.convert("L"), dtype=np.float32)
+    h, w = lum.shape
+    bias = _threshold_bias("bayer8", h, w, threshold, phase)
+    dith = np.where(lum + bias > float(threshold), 255.0, 0.0)
+    ink = np.clip(edge_arr * 1.5, 0, 255)
+    out_lum = np.clip(dith * 0.55 + (255.0 - ink) * 0.45, 0, 255)
+    if palette is None:
+        res = Image.fromarray(np.where(out_lum > float(threshold), 255, 0).astype(np.uint8),
+                              mode="L").convert("RGB")
+    else:
+        gray3 = np.stack([out_lum, out_lum, out_lum], axis=-1)
+        res = Image.fromarray(_nearest_palette(gray3, palette), mode="RGB")
+    if pixel_size > 1:
+        res = res.resize((res.width * pixel_size, res.height * pixel_size), Image.NEAREST)
+    return res
+
+
 METHODS = (
-    "bayer2", "bayer4", "bayer8", "bayer16",
+    "bayer2", "bayer4", "bayer8", "bayer16", "bayer32",
     "halftone", "cluster", "pattern", "cross", "bluenoise",
-    "checker", "ign",
+    "checker", "ign", "lines", "columns", "diag", "grid",
+    "white_noise", "blocks", "scan_bayer", "wave_map", "motif",
     "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson",
     "shiaufan", "filterlite", "sierralite", "sierra3",
     "hilbert",
+    "cmyk", "ascii", "edges",
 )
 
 
@@ -321,11 +441,28 @@ def apply_method(
     pixel_size: int = 1,
     adjust: Adjust | dict | None = None,
     phase: int = 0,
+    motif: dict | None = None,
 ) -> Image.Image:
     if method in ED_METHODS:
         return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
+    if method == "cmyk":
+        from app.cmyk import cmyk_halftone
+
+        # CMYK ignora la paleta por diseño (tinta de imprenta); threshold = dot gain.
+        base = apply_adjust(img.convert("RGB"), adjust)
+        return cmyk_halftone(base, threshold=float(threshold), phase=int(phase),
+                             pixel_size=int(pixel_size))
+    if method == "ascii":
+        from app.ascii import ascii_render
+
+        base = apply_adjust(img.convert("RGB"), adjust)
+        return ascii_render(base, palette=palette, threshold=float(threshold),
+                            pixel_size=int(pixel_size), phase=int(phase))
+    if method == "edges":
+        return edges_dither(img, palette=palette, threshold=threshold,
+                            pixel_size=pixel_size, adjust=adjust, phase=phase)
     if method in ORDERED_MAPS:
-        return ordered(img, palette=palette, map_name=method, threshold=threshold, pixel_size=pixel_size, adjust=adjust, phase=phase)
+        return ordered(img, palette=palette, map_name=method, threshold=threshold, pixel_size=pixel_size, adjust=adjust, phase=phase, motif=motif)
     if method == "hilbert":
         return hilbert_diffusion(img, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
     return ordered_bayer(img, palette=palette, matrix="4x4", threshold=threshold, pixel_size=pixel_size, adjust=adjust)

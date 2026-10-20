@@ -109,15 +109,19 @@ def gen_palette(win) -> None:
 
 
 def edit_custom_palette(win) -> None:
-    """Full editor: swatches, hex, roles, usage, reorder, sort."""
+    """Full editor: swatches, hex, roles, usage, reorder, sort, locks, shuffle."""
     from app.ui.palette_dialog import CustomPaletteDialog
 
     dlg = CustomPaletteDialog(
-        win.custom_colors, preview=palette_preview_small(win), parent=win
+        win.custom_colors, preview=palette_preview_small(win),
+        locks=list(getattr(win, "_palette_locks", []) or []), parent=win,
     )
     if dlg.exec() != dlg.DialogCode.Accepted:
         return
+    win._palette_locks = list(getattr(dlg, "locks", [False] * len(dlg.colors)))
     set_custom_colors(win, [tuple(c) for c in dlg.colors])
+    # set_custom_colors resetea locks si cambia longitud: restaura los del diálogo.
+    win._palette_locks = list(getattr(dlg, "locks", [False] * len(dlg.colors)))
     win.refresh()
     win._status(f"Custom palette: {len(win.custom_colors)} colors")
 
@@ -167,6 +171,11 @@ def set_custom_colors(win, colors: list, dirty: bool = True) -> None:
     from app.palette_library import CUSTOM_SENTINEL
 
     win.custom_colors = [tuple(c) for c in colors]
+    # Locks en paralelo: conserva si misma longitud, si no resetea.
+    locks = list(getattr(win, "_palette_locks", []) or [])
+    if len(locks) != len(win.custom_colors):
+        locks = [False] * len(win.custom_colors)
+    win._palette_locks = locks
     if dirty:
         win._palette_dirty = True
         if win.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
@@ -201,12 +210,15 @@ def sync_custom_label(win) -> None:
 
 
 def refresh_palette_list(win) -> None:
-    """Combo de la biblioteca (built-ins + usuario)."""
+    """Combo de la biblioteca (built-ins + usuario + SOURCE + Custom)."""
     from app.palette_library import CUSTOM_SENTINEL, list_palettes
 
     win.cmb_pal_preset.blockSignals(True)
     win.cmb_pal_preset.clear()
-    win.cmb_pal_preset.addItems(list_palettes())
+    items = list_palettes()
+    if "SOURCE" not in items:
+        items = ["SOURCE", *items]
+    win.cmb_pal_preset.addItems(items)
     if win._palette_dirty and win.cmb_pal_preset.findText(CUSTOM_SENTINEL) < 0:
         win.cmb_pal_preset.addItem(CUSTOM_SENTINEL)
     cur = CUSTOM_SENTINEL if win._palette_dirty else win._palette_base
@@ -216,10 +228,21 @@ def refresh_palette_list(win) -> None:
 
 
 def on_palette_preset_changed(win, name: str) -> None:
-    """Elegir paleta = cargarla como copia editable en la tira."""
+    """Elegir paleta = cargarla como copia editable en la tira.
+
+    SOURCE es modo auto (extrae de la imagen en render): no carga swatches,
+    solo fija la base y limpia el dirty.
+    """
     from app.palette_library import CUSTOM_SENTINEL, palette_colors
 
     if not name or name == CUSTOM_SENTINEL:
+        return
+    if name == "SOURCE":
+        win._palette_base = "SOURCE"
+        win._palette_dirty = False
+        win.refresh_palette_list()
+        win.refresh()
+        win._status("Palette: SOURCE (auto from image, Depth controls N)")
         return
     try:
         colors = palette_colors(name)
@@ -229,6 +252,94 @@ def on_palette_preset_changed(win, name: str) -> None:
     set_custom_colors(win, colors, dirty=False)
     win.refresh()
     win._status(f"Palette loaded: {name} (editable)")
+
+
+def extract_from_image(win, n: int | None = None) -> None:
+    """Auto-extract (median-cut offline) -> tira custom editable."""
+    from app.palette_extract import extract_palette
+
+    if win.src is None:
+        win._status("Open an image first")
+        return
+    try:
+        depth = int(win.spn_pal_depth.value()) if hasattr(win, "spn_pal_depth") else 0
+    except Exception:  # noqa: BLE001
+        depth = 0
+    count = int(n or depth or 6)
+    count = max(2, min(16, count))
+    colors = extract_palette(win.src, n=count)
+    set_custom_colors(win, [tuple(c) for c in colors], dirty=True)
+    win.refresh()
+    win._status(f"Extracted {len(colors)} colors from image (editable)")
+
+
+def import_palette_file(win) -> None:
+    """Import .json (TRAKKART/share) o .gpl (GIMP palette) offline."""
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.palette_library import parse_gpl, save_palette
+
+    path, _ = QFileDialog.getOpenFileName(
+        win, "Import palette", "", "Palettes (*.json *.gpl);;JSON (*.json);;GIMP (*.gpl)")
+    if not path:
+        return
+    try:
+        p = Path(path)
+        if p.suffix.lower() == ".gpl":
+            name, colors = parse_gpl(p.read_text(encoding="utf-8", errors="replace"))
+            base = name or p.stem
+        else:
+            import json
+
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            colors = raw.get("colors", raw) if isinstance(raw, dict) else raw
+            base = (raw.get("name", p.stem) if isinstance(raw, dict) else p.stem)
+        save_palette(base.strip(), [list(c) for c in colors])
+        win._palette_base = base.strip()
+        win._palette_dirty = False
+        refresh_palette_list(win)
+        win.cmb_pal_preset.setCurrentText(base.strip())
+        on_palette_preset_changed(win, base.strip())
+        win._status(f"Palette imported: {base.strip()}")
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Could not import:\n{e}")
+
+
+def export_palette_file(win) -> None:
+    """Exporta la tira actual a .json o .gpl (share offline)."""
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.palette_library import to_gpl
+
+    if len(win.custom_colors) < 2:
+        QMessageBox.warning(win, "TRAKKART", "Need 2-16 colors to export")
+        return
+    path, selected = QFileDialog.getSaveFileName(
+        win, "Export palette", "my_palette.json",
+        "JSON (*.json);;GIMP palette (*.gpl)")
+    if not path:
+        return
+    try:
+        p = Path(path)
+        if p.suffix.lower() == ".gpl" or "GIMP" in (selected or ""):
+            if p.suffix.lower() != ".gpl":
+                p = p.with_suffix(".gpl")
+            p.write_text(to_gpl(p.stem, win.custom_colors), encoding="utf-8")
+        else:
+            import json
+
+            if p.suffix.lower() != ".json":
+                p = p.with_suffix(".json")
+            p.write_text(
+                json.dumps({"name": p.stem, "colors": [list(c) for c in win.custom_colors]},
+                           indent=2), encoding="utf-8")
+        win._status(f"Palette exported: {p.name}")
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Could not export:\n{e}")
 
 
 def save_palette_preset(win) -> None:
@@ -248,3 +359,61 @@ def save_palette_preset(win) -> None:
         win._status(f"Palette saved: {name.strip()}")
     except ValueError as e:
         QMessageBox.warning(win, "TRAKKART", f"Could not save:\n{e}")
+
+
+def shuffle_custom_colors(win) -> None:
+    """🔀 Shuffle solo los swatches desbloqueados (locks se quedan en su sitio)."""
+    import random
+
+    colors = list(win.custom_colors)
+    locks = list(getattr(win, "_palette_locks", []) or [False] * len(colors))
+    if len(locks) != len(colors):
+        locks = [False] * len(colors)
+    free_idx = [i for i, locked in enumerate(locks) if not locked]
+    if len(free_idx) < 2:
+        win._status("Nothing to shuffle (lock fewer swatches)")
+        return
+    pool = [colors[i] for i in free_idx]
+    random.shuffle(pool)
+    for i, c in zip(free_idx, pool):
+        colors[i] = c
+    set_custom_colors(win, colors, dirty=True)
+    win._palette_locks = locks
+    win.refresh()
+    win._status(f"Shuffled {len(pool)} unlocked colors")
+
+
+def toggle_palette_lock(win, i: int) -> None:
+    locks = list(getattr(win, "_palette_locks", []) or [False] * len(win.custom_colors))
+    if 0 <= i < len(locks):
+        locks[i] = not locks[i]
+        win._palette_locks = locks
+        sync_custom_label(win)
+
+
+def randomize_adjusts(win) -> None:
+    """🎲 Randomiza solo los adjusts desbloqueados (B/C/S/M/H)."""
+    import random
+
+    locks = dict(getattr(win, "_adjust_locks", {}) or {})
+
+    def _set(slider, value: int):
+        try:
+            slider.blockSignals(True)
+            slider.setValue(int(value))
+        finally:
+            slider.blockSignals(False)
+
+    if not locks.get("brightness", False) and hasattr(win, "sld_bri"):
+        _set(win.sld_bri, random.randint(80, 130))
+    if not locks.get("contrast", False) and hasattr(win, "sld_con"):
+        _set(win.sld_con, random.randint(80, 130))
+    if not locks.get("saturation", False) and hasattr(win, "sld_sat"):
+        _set(win.sld_sat, random.randint(60, 160))
+    if not locks.get("midtones", False) and hasattr(win, "sld_mid"):
+        _set(win.sld_mid, random.randint(80, 130))
+    if not locks.get("highlights", False) and hasattr(win, "sld_high"):
+        _set(win.sld_high, random.randint(-30, 30))
+    win.refresh()
+    locked = sorted(k for k, v in locks.items() if v)
+    win._status(f"Adjusts randomized (locked: {', '.join(locked) or 'none'})")

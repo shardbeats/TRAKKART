@@ -87,10 +87,10 @@ def apply_smooth(img: Image.Image, strength: float = 0.0) -> Image.Image:
 
 def apply_glow(img: Image.Image, radius: float = 0.0, intensity: float = 0.0,
                threshold: int = 0) -> Image.Image:
-    """Screen blend con copia borrosa. Umbral: solo brilla lo que pasa de threshold.
+    """Screen blend with a blurred copy. Threshold: only values above it bloom.
 
-    threshold 0 = todo brilla (comportamiento clásico). Estilo Epsilon Glow:
-    umbral alto = solo los brillos queman.
+    threshold 0 = everything glows (classic behavior).
+    High threshold = only brights bloom (halo look for dither).
     """
     if float(radius) <= 0 or float(intensity) <= 0:
         return img

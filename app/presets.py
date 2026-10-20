@@ -6,6 +6,7 @@ Bundled ones are created if missing (never overwrite user edits).
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -108,6 +109,9 @@ FIELDS: tuple[_Field, ...] = (
     _Field("brightness", "float", ("range", 0.0, 3.0)),
     _Field("contrast", "float", ("range", 0.0, 3.0)),
     _Field("saturation", "float", ("range", 0.0, 3.0)),
+    _Field("midtones", "float", ("range", 0.0, 2.0)),
+    _Field("highlights", "float", ("range", -100.0, 100.0)),
+    _Field("palette_depth", "int", ("range", 0, 16)),
     _Field("ratio", "str", ("oneof", "CANVAS_RATIOS")),
     _Field("canvas_w", "int", ("range0", 64, 8000)),
     _Field("canvas_h", "int", ("range0", 64, 8000)),
@@ -129,6 +133,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("custom_palette", "colors", ("palette",)),
     _Field("vector_export", "bool"),
     _Field("vector_cell", "int", ("range", 4, 16)),
+    _Field("vector_black", "bool"),
     _Field("glitch_chroma", "int", ("range", 0, 20)),
     _Field("glitch_slice_bands", "int", ("oneof", (0, 2, 3, 4, 6, 8, 12, 16))),
     _Field("glitch_slice_max", "int", ("range", 0, 64)),
@@ -158,6 +163,19 @@ FIELDS: tuple[_Field, ...] = (
     _Field("wave", "int", ("range", 0, 30)),
     _Field("mosh", "float", ("range", 0.0, 100.0)),
     _Field("grille", "int", ("oneof", (0, 2, 3))),
+    _Field("jpeg", "float", ("range", 0.0, 100.0)),
+    _Field("post_blur", "float", ("range", 0.0, 5.0)),
+    _Field("post_sharpen", "int", ("oneof", (0, 1, 2, 3))),
+    _Field("fx_stack", "stack"),
+    _Field("motif", "stack"),
+    _Field("anim_layers", "stack"),
+    _Field("drift_pattern", "str", ("oneof", (
+        "off", "hum_bar", "roll", "crawl", "snow",
+        "weave", "flicker", "moire", "sweep", "jitter"))),
+    _Field("drift_amount", "float", ("range", 0.0, 100.0)),
+    _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
+    _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
+    _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
 )
 
 
@@ -170,7 +188,7 @@ def _coerce(kind: str, value):
         return str(value)
     if kind == "bool":
         return bool(value)
-    return value  # colors: passthrough (valida, no transforma)
+    return value  # colors/stack: passthrough (valida, no transforma)
 
 
 def _field_default(name: str):
@@ -187,6 +205,9 @@ class Preset:
     brightness: float = 1.0
     contrast: float = 1.0
     saturation: float = 1.0
+    midtones: float = 1.0
+    highlights: float = 0.0
+    palette_depth: int = 0
     ratio: str = "1:1"
     canvas_w: int = 0  # 0 = auto desde ratio+export_size; UI y from_dict dejan valores concretos
     canvas_h: int = 0
@@ -208,6 +229,7 @@ class Preset:
     custom_palette: list | None = None
     vector_export: bool = False
     vector_cell: int = 8
+    vector_black: bool = False  # v1.3: solo tinta negra sobre transparente (print)
     glitch_chroma: int = 0
     glitch_slice_bands: int = 0
     glitch_slice_max: int = 24
@@ -240,6 +262,20 @@ class Preset:
     wave: int = 0  # amplitud px 0-30, 0 = off
     mosh: float = 0.0  # 0-100
     grille: int = 0  # 0 = off, 2 | 3
+    # -- v1.2 stackable FX --
+    jpeg: float = 0.0  # JPEG glitch 0-100, 0 = off
+    post_blur: float = 0.0  # post blur 0.0-5.0 (post-dither, en stack)
+    post_sharpen: int = 0  # post sharpen 0-3 (post-dither, en stack)
+    fx_stack: list | None = None  # None = orden legacy; si no [{id, enabled}]
+    # -- v1.3 motif --
+    motif: dict | None = None  # None = default_config(); {"bands": [{shape, size}x4]}
+    # -- v1.4 timeline + drift + paste-up --
+    anim_layers: list | None = None  # None = static; si no [{prop, frm, to, ease, start, end}]
+    drift_pattern: str = "off"  # Signal Drift pattern pre-dither
+    drift_amount: float = 0.0  # 0-100, 0 = off
+    paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
+    paste_opacity: float = 0.0  # 0-100, 0 = off
+    paste_blend: str = "overlay"  # overlay | multiply | screen
 
     def validate(self) -> None:
         for spec in FIELDS:
@@ -252,11 +288,9 @@ class Preset:
                 f"{self.canvas_w}x{self.canvas_h}")
 
     def to_dict(self) -> dict:
-        import copy
-
         d = asdict(self)
         for spec in FIELDS:
-            if spec.kind == "colors":
+            if spec.kind in ("colors", "stack"):
                 d[spec.name] = copy.deepcopy(d[spec.name])
             else:
                 d[spec.name] = _coerce(spec.kind, d[spec.name])
@@ -280,7 +314,8 @@ class Preset:
             data.setdefault("canvas_h", h)
         kwargs = {
             spec.name: _coerce(spec.kind, data.get(spec.name, _field_default(spec.name)))
-            if spec.kind != "colors" else data.get(spec.name, _field_default(spec.name))
+            if spec.kind not in ("colors", "stack")
+            else copy.deepcopy(data.get(spec.name, _field_default(spec.name)))
             for spec in FIELDS
         }
         p = Preset(**kwargs)
@@ -288,7 +323,13 @@ class Preset:
         return p
 
     def adjust(self) -> Adjust:
-        return Adjust(brightness=float(self.brightness), contrast=float(self.contrast), saturation=float(self.saturation))
+        return Adjust(
+            brightness=float(self.brightness),
+            contrast=float(self.contrast),
+            saturation=float(self.saturation),
+            midtones=float(getattr(self, "midtones", 1.0)),
+            highlights=float(getattr(self, "highlights", 0.0)),
+        )
 
     def to_render_kwargs(self, phase: int = 0) -> dict:
         """Kwargs de pipeline.render(). Única conversión (ver render_params)."""
@@ -346,6 +387,13 @@ class Preset:
         m["glitch"]["wave"] = int(self.wave)
         m["glitch"]["mosh"] = float(self.mosh)
         m["glitch"]["grille"] = int(self.grille)
+        m["glitch"]["jpeg"] = float(getattr(self, "jpeg", 0.0) or 0.0)
+        m["post"] = {
+            "blur": float(getattr(self, "post_blur", 0.0) or 0.0),
+            "sharpen": int(getattr(self, "post_sharpen", 0) or 0),
+        }
+        m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
+        m["motif"] = copy.deepcopy(getattr(self, "motif", None))
         return m
 
 

@@ -11,7 +11,8 @@ def _img():
 
 
 def test_palettes_present():
-    assert set(palette_names()) == set(PALETTES.keys())
+    assert set(PALETTES.keys()) <= set(palette_names())
+    assert "SOURCE" in palette_names()  # v1.1 auto-extract mode
     assert get_palette("BW") is None
     assert len(get_palette("SLIME")) == 4
 

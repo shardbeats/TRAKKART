@@ -47,6 +47,7 @@ def run_batch_dialog(win) -> None:
     dlg = BatchDialog(
         in_dir="", out_dir=str(win.out_dir), jobs=int(win.spn_jobs.value()),
         vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
+        vector_black=bool(getattr(preset, "vector_black", False)),
         gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
         gif_mode=preset.gif_mode, gif_fps=int(getattr(preset, "gif_fps", 8)),
         gif_pingpong=bool(getattr(preset, "gif_pingpong", False)),
@@ -60,6 +61,7 @@ def run_batch_dialog(win) -> None:
     outs = dlg.output_options()
     preset = replace(
         preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
+        vector_black=bool(outs.get("vector_black", False)),
         gif_export=outs["gif_export"], gif_frames=outs["gif_frames"],
         gif_mode=outs["gif_mode"], gif_fps=outs.get("gif_fps", 8),
         gif_size=outs.get("gif_size", 1200),

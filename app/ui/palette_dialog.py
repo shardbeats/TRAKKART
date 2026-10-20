@@ -108,12 +108,16 @@ class CustomPaletteDialog(QDialog):
         self,
         colors: list[tuple[int, int, int]],
         preview: Image.Image | None = None,
+        locks: list[bool] | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Custom palette")
-        self.setMinimumWidth(460)
+        self.setMinimumWidth(500)
         self.colors: list[tuple[int, int, int]] = [tuple(c) for c in colors]
+        self.locks: list[bool] = list(locks) if locks else [False] * len(self.colors)
+        if len(self.locks) != len(self.colors):
+            self.locks = [False] * len(self.colors)
         self.preview = preview
 
         col = QVBoxLayout(self)
@@ -142,6 +146,10 @@ class CustomPaletteDialog(QDialog):
         self.btn_sort.setToolTip("Dark → light by luminance")
         self.btn_sort.clicked.connect(self._sort)
         bar.addWidget(self.btn_sort)
+        self.btn_shuffle = QPushButton("🔀 Shuffle")
+        self.btn_shuffle.setToolTip("Shuffle unlocked only (🔒 stay)")
+        self.btn_shuffle.clicked.connect(self._shuffle)
+        bar.addWidget(self.btn_shuffle)
         bar.addStretch()
         self.btn_ok = QPushButton("Done")
         self.btn_ok.setObjectName("exportBtn")
@@ -190,6 +198,13 @@ class CustomPaletteDialog(QDialog):
             btn_del.setToolTip("Remove this color")
             btn_del.clicked.connect(lambda _=False, _i=i: self._remove(_i))
             self.grid.addWidget(btn_del, i, 6)
+            btn_lock = QPushButton("🔒" if self.locks[i] else "🔓")
+            btn_lock.setFixedWidth(36)
+            btn_lock.setCheckable(True)
+            btn_lock.setChecked(bool(self.locks[i]))
+            btn_lock.setToolTip("Lock against shuffle")
+            btn_lock.toggled.connect(lambda on, _i=i, _b=btn_lock: self._lock(_i, on, _b))
+            self.grid.addWidget(btn_lock, i, 7)
         n = len(self.colors)
         if n < MIN_COLORS:
             state = f"need {MIN_COLORS}–{MAX_COLORS} (custom ignored, combo is used)"
@@ -216,6 +231,23 @@ class CustomPaletteDialog(QDialog):
 
     def _remove(self, i: int) -> None:
         del self.colors[i]
+        del self.locks[i]
+        self._rebuild()
+
+    def _lock(self, i: int, on: bool, btn) -> None:
+        self.locks[i] = bool(on)
+        btn.setText("🔒" if on else "🔓")
+
+    def _shuffle(self) -> None:
+        import random
+
+        free = [i for i, locked in enumerate(self.locks) if not locked]
+        if len(free) < 2:
+            return
+        pool = [self.colors[i] for i in free]
+        random.shuffle(pool)
+        for i, c in zip(free, pool):
+            self.colors[i] = c
         self._rebuild()
 
     def _move(self, i: int, delta: int) -> None:
@@ -225,7 +257,11 @@ class CustomPaletteDialog(QDialog):
             self._rebuild()
 
     def _sort(self) -> None:
-        self.colors.sort(key=luminance)
+        # Ordena los desbloqueados por luz; los 🔒 se quedan en su fila.
+        free = [i for i, locked in enumerate(self.locks) if not locked]
+        ordered = sorted((self.colors[i] for i in free), key=luminance)
+        for i, c in zip(free, ordered):
+            self.colors[i] = c
         self._rebuild()
 
     def _add(self) -> None:
@@ -239,6 +275,7 @@ class CustomPaletteDialog(QDialog):
         rgb = (color.red(), color.green(), color.blue())
         if rgb not in self.colors:
             self.colors.append(rgb)
+            self.locks.append(False)
         self._rebuild()
 
 

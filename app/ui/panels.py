@@ -125,10 +125,31 @@ def build_preset_section(win, g: QVBoxLayout) -> None:
 
 def build_method_section(win, g: QVBoxLayout, methods) -> None:
     g.addWidget(QLabel("Method:"))
+    row = QHBoxLayout()
+    win.btn_method_prev = QPushButton("◀")
+    win.btn_method_prev.setFixedWidth(36)
+    win.btn_method_prev.setToolTip("Previous method (Alt+Left)")
+    win.btn_method_prev.clicked.connect(lambda: win.step_method(-1))
+    row.addWidget(win.btn_method_prev)
     win.cmb_method = QComboBox()
     win.cmb_method.addItems(list(methods))
     win.cmb_method.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    g.addWidget(win.cmb_method)
+    row.addWidget(win.cmb_method, 1)
+    win.btn_method_next = QPushButton("▶")
+    win.btn_method_next.setFixedWidth(36)
+    win.btn_method_next.setToolTip("Next method (Alt+Right)")
+    win.btn_method_next.clicked.connect(lambda: win.step_method(1))
+    row.addWidget(win.btn_method_next)
+    g.addLayout(row)
+    try:
+        from PySide6.QtGui import QShortcut, QKeySequence
+
+        win._sc_method_prev = QShortcut(QKeySequence("Alt+Left"), win)
+        win._sc_method_prev.activated.connect(lambda: win.step_method(-1))
+        win._sc_method_next = QShortcut(QKeySequence("Alt+Right"), win)
+        win._sc_method_next.activated.connect(lambda: win.step_method(1))
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def build_pixel_section(win, g: QVBoxLayout) -> None:
@@ -146,6 +167,41 @@ def build_color_section(win, g: QVBoxLayout) -> None:
     win.sld_bri, _ = labeled_slider(win, g, "Brightness:", 50, 200, 100, div=100.0)
     win.sld_con, _ = labeled_slider(win, g, "Contrast:", 50, 200, 100, div=100.0)
     win.sld_sat, _ = labeled_slider(win, g, "Saturation:", 0, 200, 100, div=100.0)
+    win.sld_mid, _ = labeled_slider(win, g, "Midtones:", 0, 200, 100, "Mids gamma 0.0-2.0", div=100.0)
+    win.sld_high, _ = labeled_slider(win, g, "Highlights:", -100, 100, 0, "Lift/cut brights")
+    lock_row = QHBoxLayout()
+    lock_row.addWidget(QLabel("Lock:"))
+    win._adjust_locks = getattr(win, "_adjust_locks", {})
+    for key, label in (("brightness", "B"), ("contrast", "C"), ("saturation", "S"),
+                       ("midtones", "M"), ("highlights", "H")):
+        btn = QPushButton("🔓")
+        btn.setFixedWidth(36)
+        btn.setCheckable(True)
+        locked = bool(win._adjust_locks.get(key, False))
+        btn.setChecked(locked)
+        if locked:
+            btn.setText("🔒")
+        btn.setToolTip(f"Lock {label} ({key}) against randomize")
+        btn.toggled.connect(lambda on, _k=key, _b=btn: _on_adjust_lock(win, _k, on, _b))
+        setattr(win, f"btn_lock_{key}", btn)
+        lock_row.addWidget(btn)
+    win.btn_adjust_dice = QPushButton("🎲 Adjust")
+    win.btn_adjust_dice.setToolTip("Randomize unlocked brightness/contrast/saturation/mids/highlights")
+    win.btn_adjust_dice.clicked.connect(lambda: _on_adjust_dice(win))
+    lock_row.addWidget(win.btn_adjust_dice, 1)
+    g.addLayout(lock_row)
+
+
+def _on_adjust_lock(win, key: str, on: bool, btn) -> None:
+    win._adjust_locks[key] = bool(on)
+    btn.setText("🔒" if on else "🔓")
+    win._status(f"{key} {'locked' if on else 'unlocked'}")
+
+
+def _on_adjust_dice(win) -> None:
+    from app.ui import color_actions as _ca
+
+    _ca.randomize_adjusts(win)
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
@@ -220,11 +276,181 @@ def build_pre_section(win, g: QVBoxLayout) -> None:
         sp.valueChanged.connect(lambda _: win._schedule_refresh())
 
 
+def build_motif_section(win, g: QVBoxLayout) -> None:
+    """Motif: 4 luminance bands -> shape + size.
+
+    Kept simple on purpose. The `motif` method reads this config;
+    every other method ignores it.
+    """
+    from app.motif import BAND_NAMES, SHAPES
+
+    g.addWidget(QLabel("Bands → shape/size (method `motif`):"))
+    for i, band in enumerate(BAND_NAMES):
+        row = QHBoxLayout()
+        row.addWidget(QLabel(f"{band}:"))
+        cmb = QComboBox()
+        cmb.addItems(list(SHAPES))
+        cmb.setCurrentText(["dot", "line", "cross", "square"][i])
+        cmb.setToolTip(f"Shape for {band} band")
+        cmb.currentTextChanged.connect(lambda _: win._schedule_refresh())
+        row.addWidget(cmb, 1)
+        setattr(win, f"cmb_motif_{i}", cmb)
+        spn = QSpinBox()
+        spn.setRange(1, 4)
+        spn.setValue(2)
+        spn.setFixedWidth(56)
+        spn.setToolTip(f"Size 1-4 for {band}")
+        spn.valueChanged.connect(lambda _: win._schedule_refresh())
+        row.addWidget(spn)
+        setattr(win, f"spn_motif_{i}", spn)
+        g.addLayout(row)
+
+
+def build_fx_stack_section(win, g: QVBoxLayout) -> None:
+    """FX STACK reordenable (v1.2): orden + on/off. Los params viven en los
+    sliders existentes (una sola fuente); aquí solo se ordena y conmuta."""
+    from PySide6.QtWidgets import QListWidget
+
+    g.addWidget(QLabel("FX stack (order matters):"))
+    win.fx_list = QListWidget()
+    win.fx_list.setMinimumHeight(150)
+    win.fx_list.setMaximumHeight(220)
+    win.fx_list.setToolTip("Uncheck to bypass · select + ▲/▼ to reorder · params in sliders below")
+    win.fx_list.itemChanged.connect(lambda _item: win._on_fx_toggled())
+    win.fx_list.itemSelectionChanged.connect(lambda: None)
+    g.addWidget(win.fx_list)
+    row = QHBoxLayout()
+    win.btn_fx_up = QPushButton("▲")
+    win.btn_fx_up.setFixedWidth(40)
+    win.btn_fx_up.setToolTip("Move selected FX up")
+    win.btn_fx_up.clicked.connect(win._on_fx_move_up)
+    row.addWidget(win.btn_fx_up)
+    win.btn_fx_down = QPushButton("▼")
+    win.btn_fx_down.setFixedWidth(40)
+    win.btn_fx_down.setToolTip("Move selected FX down")
+    win.btn_fx_down.clicked.connect(win._on_fx_move_down)
+    row.addWidget(win.btn_fx_down)
+    row.addWidget(QLabel("Add:"))
+    win.cmb_fx_add = QComboBox()
+    win.cmb_fx_add.setToolTip("Re-enable a bypassed FX")
+    win.cmb_fx_add.currentTextChanged.connect(win._on_fx_add)
+    row.addWidget(win.cmb_fx_add, 1)
+    g.addLayout(row)
+    win.sld_jpeg, _ = labeled_slider(win, g, "JPEG:", 0, 100, 0, "JPEG glitch 0=off")
+    win.sld_postblur, _ = labeled_slider(win, g, "Post blur:", 0, 50, 0, "Post-dither blur 0.0-5.0", div=10.0)
+    win.spn_postsharp = spin_row(g, "Post sharp:", 0, 3, 0, "Post-dither sharpen 0-3")
+    win.spn_postsharp.valueChanged.connect(lambda _: win._schedule_refresh())
+    g.addWidget(QLabel("Paste-Up:"))
+    paste_row = QHBoxLayout()
+    win.cmb_paste = QComboBox()
+    win.cmb_paste.addItems(["off", "paper", "riso", "fiber"])
+    win.cmb_paste.setToolTip("Procedural paper overlay (post-dither stack FX)")
+    win.cmb_paste.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    paste_row.addWidget(win.cmb_paste, 1)
+    win.cmb_paste_blend = QComboBox()
+    win.cmb_paste_blend.addItems(["overlay", "multiply", "screen"])
+    win.cmb_paste_blend.setToolTip("Paste-Up blend mode")
+    win.cmb_paste_blend.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    paste_row.addWidget(win.cmb_paste_blend, 1)
+    g.addLayout(paste_row)
+    win.sld_paste_op, _ = labeled_slider(win, g, "Paste:", 0, 100, 0, "Paste-Up opacity 0=off")
+    win.fx_stack_data: list = []
+
+
+def build_timeline_section(win, g: QVBoxLayout) -> None:
+    """TIMELINE (v1.4): clip import + animation layers + Signal Drift."""
+    from PySide6.QtWidgets import QListWidget
+
+    g.addWidget(QLabel("Clip (optional video source):"))
+    clip_row = QHBoxLayout()
+    win.btn_clip_open = QPushButton("Open clip...")
+    win.btn_clip_open.setToolTip("Import MP4/GIF/WebP clip (opt-in video extra)")
+    win.btn_clip_open.clicked.connect(win.open_clip)
+    clip_row.addWidget(win.btn_clip_open)
+    win.btn_clip_browse = QPushButton("Browse...")
+    win.btn_clip_browse.setToolTip("Pick the poster frame / clear the clip")
+    win.btn_clip_browse.clicked.connect(win.browse_clip)
+    clip_row.addWidget(win.btn_clip_browse)
+    win.lbl_clip = QLabel("still image")
+    clip_row.addWidget(win.lbl_clip, 1)
+    g.addLayout(clip_row)
+    g.addWidget(QLabel("Layers (prop frm→to ease [start-end]):"))
+    win.anim_list = QListWidget()
+    win.anim_list.setMinimumHeight(90)
+    win.anim_list.setMaximumHeight(150)
+    win.anim_list.setToolTip("Later layers win. Animated controls lock in their panels.")
+    win.anim_list.itemSelectionChanged.connect(win._on_anim_selected)
+    g.addWidget(win.anim_list)
+    lr = QHBoxLayout()
+    win.btn_anim_add = QPushButton("+ layer")
+    win.btn_anim_add.clicked.connect(win._on_anim_add)
+    lr.addWidget(win.btn_anim_add)
+    win.btn_anim_remove = QPushButton("− layer")
+    win.btn_anim_remove.clicked.connect(win._on_anim_remove)
+    lr.addWidget(win.btn_anim_remove)
+    g.addLayout(lr)
+    erow = QHBoxLayout()
+    win.cmb_anim_prop = QComboBox()
+    win.cmb_anim_prop.addItems(["threshold", "pixel_size", "pre_hue", "grain",
+                                "glow_intensity", "glitch_chroma", "wave", "jpeg",
+                                "fade", "split_tone"])
+    win.cmb_anim_prop.setToolTip("Animated property")
+    win.cmb_anim_prop.currentTextChanged.connect(lambda _: win._on_anim_edited())
+    erow.addWidget(win.cmb_anim_prop, 1)
+    win.cmb_anim_ease = QComboBox()
+    win.cmb_anim_ease.addItems(["linear", "in", "out"])
+    win.cmb_anim_ease.setToolTip("Easing from→to")
+    win.cmb_anim_ease.currentTextChanged.connect(lambda _: win._on_anim_edited())
+    erow.addWidget(win.cmb_anim_ease, 1)
+    g.addLayout(erow)
+    frow = QHBoxLayout()
+    from PySide6.QtWidgets import QDoubleSpinBox
+    frow.addWidget(QLabel("From:"))
+    win.spn_anim_from = QDoubleSpinBox()
+    win.spn_anim_from.setRange(-300.0, 300.0)
+    win.spn_anim_from.setValue(128.0)
+    win.spn_anim_from.valueChanged.connect(lambda _: win._on_anim_edited())
+    frow.addWidget(win.spn_anim_from, 1)
+    frow.addWidget(QLabel("To:"))
+    win.spn_anim_to = QDoubleSpinBox()
+    win.spn_anim_to.setRange(-300.0, 300.0)
+    win.spn_anim_to.setValue(200.0)
+    win.spn_anim_to.valueChanged.connect(lambda _: win._on_anim_edited())
+    frow.addWidget(win.spn_anim_to, 1)
+    g.addLayout(frow)
+    srow = QHBoxLayout()
+    srow.addWidget(QLabel("Start:"))
+    win.spn_anim_start = QSpinBox()
+    win.spn_anim_start.setRange(0, 23)
+    win.spn_anim_start.setValue(0)
+    win.spn_anim_start.valueChanged.connect(lambda _: win._on_anim_edited())
+    srow.addWidget(win.spn_anim_start, 1)
+    srow.addWidget(QLabel("End:"))
+    win.spn_anim_end = QSpinBox()
+    win.spn_anim_end.setRange(0, 23)
+    win.spn_anim_end.setValue(23)
+    win.spn_anim_end.valueChanged.connect(lambda _: win._on_anim_edited())
+    srow.addWidget(win.spn_anim_end, 1)
+    g.addLayout(srow)
+    g.addWidget(QLabel("Signal Drift (animated pre-dither noise):"))
+    drow = QHBoxLayout()
+    win.cmb_drift = QComboBox()
+    win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
+                            "weave", "flicker", "moire", "sweep", "jitter"])
+    win.cmb_drift.setToolTip("Retro-screen noise, marches with phase")
+    win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    drow.addWidget(win.cmb_drift, 1)
+    g.addLayout(drow)
+    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
+    win.anim_layers_data: list = []
+
+
 def build_effects_section(win, g: QVBoxLayout) -> None:
     """Compat: redirige a los tres grupos (GRADE/TEXTURE/GLITCH)."""
     build_grade_section(win, g)
     build_texture_section(win, g)
     build_glitch_section(win, g)
+    build_fx_stack_section(win, g)
 
 
 def build_grade_section(win, g: QVBoxLayout) -> None:
@@ -470,6 +696,10 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_custom_add.setToolTip("Quick-add one color")
     win.btn_custom_add.clicked.connect(win.add_custom_color)
     row.addWidget(win.btn_custom_add)
+    win.btn_pal_extract = QPushButton("From image")
+    win.btn_pal_extract.setToolTip("Auto-extract palette from current image (median-cut, offline)")
+    win.btn_pal_extract.clicked.connect(win.extract_palette_from_image)
+    row.addWidget(win.btn_pal_extract)
     win.btn_pal_gen = QPushButton("🎲")
     win.btn_pal_gen.setToolTip("Surprise palette: generate harmonious colors")
     win.btn_pal_gen.clicked.connect(win.gen_palette)
@@ -489,6 +719,29 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     row.addWidget(win.lbl_custom, 1)
     win.custom_colors: list[tuple[int, int, int]] = []
     g.addLayout(row)
+    depth_row = QHBoxLayout()
+    depth_row.addWidget(QLabel("Depth:"))
+    win.spn_pal_depth = QSpinBox()
+    win.spn_pal_depth.setRange(0, 16)
+    win.spn_pal_depth.setValue(0)
+    win.spn_pal_depth.setFixedWidth(56)
+    win.spn_pal_depth.setToolTip("0 = full palette · 2-16 = limit shades")
+    win.spn_pal_depth.valueChanged.connect(lambda _: win._schedule_refresh())
+    depth_row.addWidget(win.spn_pal_depth)
+    win.btn_pal_shuffle = QPushButton("🔀")
+    win.btn_pal_shuffle.setFixedWidth(36)
+    win.btn_pal_shuffle.setToolTip("Shuffle unlocked swatches (locked stay)")
+    win.btn_pal_shuffle.clicked.connect(win.shuffle_palette)
+    depth_row.addWidget(win.btn_pal_shuffle)
+    win.btn_pal_import = QPushButton("Import...")
+    win.btn_pal_import.setToolTip("Import palette .json / .gpl (offline)")
+    win.btn_pal_import.clicked.connect(win.import_palette_file)
+    depth_row.addWidget(win.btn_pal_import)
+    win.btn_pal_export = QPushButton("Export...")
+    win.btn_pal_export.setToolTip("Export current swatches .json / .gpl (offline share)")
+    win.btn_pal_export.clicked.connect(win.export_palette_file)
+    depth_row.addWidget(win.btn_pal_export, 1)
+    g.addLayout(depth_row)
     # Tira de swatches: cada color visible, clic lo quita.
     strip_host = QWidget()
     win.palette_strip = QHBoxLayout(strip_host)
@@ -514,6 +767,9 @@ __all__ = [
     "build_canvas_section",
     "build_pre_section",
     "build_effects_section",
+    "build_motif_section",
+    "build_fx_stack_section",
+    "build_timeline_section",
     "build_grade_section",
     "build_texture_section",
     "build_glitch_section",

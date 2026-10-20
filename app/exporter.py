@@ -63,6 +63,7 @@ class ExportSelection:
     vector: bool = False
     anim: bool = False
     metadata: bool = True
+    black_vector: bool = False  # v1.3: modificador (no es fichero)
 
     def keys(self) -> list[str]:
         return [k for k in ("image", "thumb_1080p", "vector", "anim", "metadata")

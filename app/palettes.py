@@ -27,12 +27,15 @@ PALETTES: dict[str, list[tuple[int, int, int]]] = {
 }
 
 
-def get_palette(name: str) -> list[tuple[int, int, int]] | None:
-    """Return None for pure B&W (fast path), or an RGB list."""
+def get_palette(name: str) -> list[tuple[int, int, int]] | None | str:
+    """Return None for pure B&W (fast path), "SOURCE" sentinel for auto-extract,
+    or an RGB list for named palettes."""
     if name == "BW":
         return None
+    if name == "SOURCE":
+        return "SOURCE"
     return PALETTES.get(name, PALETTES["SLIME"])
 
 
 def palette_names() -> list[str]:
-    return list(PALETTES.keys())
+    return [*PALETTES.keys(), "SOURCE"]

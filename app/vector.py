@@ -90,9 +90,10 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
                        zoom=float(preset.crop_zoom), canvas_w=cw, canvas_h=ch)
     cols, rows = estimate_cells(canvas.width, canvas.height, cell)
     check_vector_cells(cols, rows)  # block monstrous SVGs before rendering
+    black = bool(getattr(preset, "vector_black", False))
     raster = render_cells(
         img, cols, rows,
-        method=preset.method, palette_name=preset.palette,
+        method=preset.method, palette_name=(preset.palette if not black else "BW"),
         threshold=float(preset.threshold), adjust=preset.adjust(),
         ratio=preset.ratio, crop_mode=preset.crop_mode,
         focus_x=float(preset.focus_x), focus_y=float(preset.focus_y),
@@ -100,21 +101,27 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
         pre_blur=float(preset.pre_blur), pre_sharpen=int(preset.pre_sharpen),
         pre_hue=float(preset.pre_hue), pre_denoise=int(preset.pre_denoise),
         pre_smooth=float(preset.pre_smooth),
-        replace_color=preset.replace_color, custom_palette=preset.custom_palette,
+        replace_color=(preset.replace_color if not black else ""),
+        custom_palette=(preset.custom_palette if not black else None),
         duotone_dark=str(getattr(preset, "duotone_dark", "")),
         duotone_light=str(getattr(preset, "duotone_light", "")),
         duotone_mid=float(getattr(preset, "duotone_mid", 50.0)),
         posterize=int(getattr(preset, "posterize", 0)),
     )
-    return raster_to_svg(raster, cell), cols, rows
+    return raster_to_svg(raster, cell, ink_only=black), cols, rows
 
 
 def raster_to_svg(
     raster: Image.Image,
     cell: int,
     background: tuple[int, int, int] | None = None,
+    ink_only: bool = False,
 ) -> str:
-    """Convert a grid-sized raster to SVG with per-row RLE."""
+    """Convert a grid-sized raster to SVG with per-row RLE.
+
+    ink_only (v1.3 black-vector): skips near-white cells (paper) so the
+    SVG is black ink on transparent, ready for print.
+    """
     rgb = raster.convert("RGB")
     w, h = rgb.size
     px = rgb.load()
@@ -122,7 +129,7 @@ def raster_to_svg(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w * cell} {h * cell}" '
         f'width="{w * cell}" height="{h * cell}" shape-rendering="crispEdges">',
     ]
-    if background is not None:
+    if background is not None and not ink_only:
         r, g, b = background
         parts.append(f'<rect width="100%" height="100%" fill="#{r:02x}{g:02x}{b:02x}"/>')
     for y in range(h):
@@ -132,7 +139,12 @@ def raster_to_svg(
             run = 1
             while x + run < w and px[x + run, y] == color:
                 run += 1
+            if ink_only and min(color) >= 250:
+                x += run  # papel: transparente, sin rect
+                continue
             r, g, b = color
+            if ink_only:
+                r, g, b = (0, 0, 0)
             parts.append(
                 f'<rect x="{x * cell}" y="{y * cell}" width="{run * cell}" '
                 f'height="{cell}" fill="#{r:02x}{g:02x}{b:02x}"/>'
