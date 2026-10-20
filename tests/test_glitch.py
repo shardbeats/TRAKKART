@@ -74,8 +74,6 @@ def test_mosh_and_grille():
 def test_grille_every2_no_crash_and_tints():
     # Regresión: mask[:, bool, [0, 2]] reventaba en numpy
     # "shape mismatch ... shapes (160,) (2,)".
-    import numpy as np
-
     for w in (2, 3, 31, 320):
         im = Image.new("RGB", (w, 16), (200, 100, 50))
         out = rgb_grille(im, every=2)
