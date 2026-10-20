@@ -12,10 +12,35 @@ schedule one.
 from __future__ import annotations
 
 
+# Preview-only resolution (video-proxy style): long side per tier.
+# Export SIEMPRE sale al documento completo, elija lo que elija el preview.
+PROXY_SIDES = {"Draft 720p": 720, "HD 1080p": 1080}
+
+
+def proxy_size(win) -> int:
+    """Long side para el preview (0 = doc completo). Nunca afecta al export."""
+    try:
+        return int(PROXY_SIDES.get(str(win.cmb_video_proxy.currentText()), 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def preview_size(win) -> int:
+    side = proxy_size(win)
+    if side > 0:
+        return side
+    return int(win._gif_anim_size())
+
+
 def spec(win) -> dict:
-    return {"size": win._gif_anim_size(), "mode": win._gif_anim_mode(),
+    return {"size": preview_size(win), "mode": win._gif_anim_mode(),
             "frames": win._gif_anim_frames(), "fps": win._gif_anim_fps(),
             "pingpong": win._gif_anim_pingpong()}
+
+
+def proxy_changed(win) -> None:
+    """Cambiar de proxy re-renderiza (barato en Draft/HD)."""
+    win._schedule_refresh()
 
 
 def toggle(win) -> None:

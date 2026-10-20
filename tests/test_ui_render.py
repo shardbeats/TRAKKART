@@ -49,6 +49,27 @@ def test_ratio_controls_apply(window, isolated_presets):
     assert "1.5x" in window.lbl_crop.text()
 
 
+def test_video_proxy_tiers(window):
+    # El proxy solo afecta al preview: el export sigue al documento.
+    from app.ui import video_controller as vc
+
+    assert window.cmb_video_proxy.currentText() == "Draft 720p"
+    assert vc.proxy_size(window) == 720
+    assert vc.preview_size(window) == 720
+    window.cmb_video_proxy.setCurrentText("HD 1080p")
+    assert vc.proxy_size(window) == 1080
+    window.cmb_video_proxy.setCurrentText("Full (doc)")
+    assert vc.proxy_size(window) == 0
+    # Full = documento completo (3000x3000 por defecto).
+    assert vc.preview_size(window) == 3000
+    # El export no se entera del proxy.
+    assert window.current_params().gif_size == 3000
+    # Cambiar de proxy no revienta y re-renderiza sin bloquear (debounce).
+    window.cmb_video_proxy.setCurrentText("Draft 720p")
+    window._on_video_proxy_changed()
+    assert vc.preview_size(window) == 720
+
+
 def test_custom_canvas_free_wh(window, isolated_presets):
     # Photoshop-style: preset rellena W/H; editar W/H salta a Custom.
     window.cmb_ratio.setCurrentText("1:1")

@@ -375,7 +375,10 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
-    """Único sitio para animar: Mode/Frames/FPS/Ping-pong. El tamaño lo manda el canvas."""
+    """Único sitio para animar: Mode/Frames/FPS/Ping-pong + resolución de preview.
+
+    Preview = proxy ligero (Draft/HD/Full); el export SIEMPRE sale al
+    documento completo, elija lo que elija el preview."""
     from app.gif import GIF_MODES
 
     win.chk_video = QCheckBox("Video mode (animated preview)")
@@ -423,6 +426,16 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.lbl_video_size = QLabel("canvas")
     win.lbl_video_size.setToolTip("Animation renders at the CANVAS document size")
     row3.addWidget(win.lbl_video_size, 1)
+    row3.addWidget(QLabel("Preview:"))
+    win.cmb_video_proxy = QComboBox()
+    win.cmb_video_proxy.addItems(["Draft 720p", "HD 1080p", "Full (doc)"])
+    win.cmb_video_proxy.setCurrentText("Draft 720p")
+    win.cmb_video_proxy.setToolTip(
+        "Preview resolution only, like video proxies: lighter = instant. "
+        "Export always renders at full document size.")
+    win.cmb_video_proxy.setMinimumWidth(110)
+    win.cmb_video_proxy.currentTextChanged.connect(win._on_video_proxy_changed)
+    row3.addWidget(win.cmb_video_proxy)
     from PySide6.QtWidgets import QCheckBox as _Chk
 
     win.chk_video_pingpong = _Chk("Ping-pong")
