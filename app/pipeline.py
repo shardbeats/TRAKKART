@@ -12,31 +12,14 @@ from app.adjust import Adjust
 from app.canvas import to_canvas
 from app.dither import apply_method
 from app.fx import (
-    apply_glow,
-    apply_grain,
     apply_pre,
-    apply_scanlines,
-    apply_vignette,
     normalize_custom_palette,
     replace_white,
 )
-from app.glitch import (
-    chromatic_aberration,
-    datamosh,
-    pixel_sort,
-    rgb_grille,
-    slice_shift,
-)
-from app.glitch import wave as _glitch_wave
-from app.grade import fade as _grade_fade
+from app.fx_dispatch import apply_fx as _apply_fx
 from app.grade import gradient_map
 from app.grade import posterize as _grade_posterize
-from app.grade import split_tone as _grade_split_tone
 from app.palettes import get_palette
-from app.texture import border as _frame_border
-from app.texture import dust as _grain_dust
-from app.texture import halftone as _halftone_dots
-from app.texture import letterbox as _cine_bars
 
 
 def resolve_palette(palette_name: str, custom: list | None):
@@ -240,80 +223,6 @@ class RenderSpec:
                    "stack": (__import__("copy").deepcopy(self.fx_stack)
                              if self.fx_stack is not None else None)},
         }
-
-
-def _apply_fx(s: "RenderSpec", img: Image.Image, fid: str) -> Image.Image:
-    """Un efecto del stack con los params del spec. Early-return si neutro."""
-    if fid == "split_tone":
-        return _grade_split_tone(img, strength=float(s.split_tone)) if s.split_tone else img
-    if fid == "fade":
-        return _grade_fade(img, amount=float(s.fade)) if s.fade else img
-    if fid == "glow":
-        if s.glow_radius and s.glow_intensity:
-            return apply_glow(img, radius=s.glow_radius, intensity=s.glow_intensity,
-                              threshold=int(s.glow_threshold))
-        return img
-    if fid == "grain":
-        return apply_grain(img, amount=s.grain) if s.grain else img
-    if fid == "halftone":
-        return _halftone_dots(img, cell=int(s.halftone), shape=s.halftone_shape) if s.halftone else img
-    if fid == "dust":
-        return _grain_dust(img, amount=float(s.dust)) if s.dust else img
-    if fid == "vignette":
-        return apply_vignette(img, strength=s.vignette) if s.vignette else img
-    if fid == "scanlines":
-        return apply_scanlines(img, every=s.scanlines) if s.scanlines else img
-    if fid == "grille":
-        return rgb_grille(img, every=int(s.grille)) if s.grille else img
-    if fid == "border":
-        return _frame_border(img, px=int(s.border), color=s.border_color) if s.border else img
-    if fid == "letterbox":
-        return _cine_bars(img, pct=int(s.letterbox)) if s.letterbox else img
-    if fid == "chroma":
-        return chromatic_aberration(img, dx=int(s.glitch_chroma)) if s.glitch_chroma else img
-    if fid == "slice":
-        if s.glitch_slice_bands:
-            return slice_shift(img, bands=int(s.glitch_slice_bands),
-                               max_offset=int(s.glitch_slice_max))
-        return img
-    if fid == "pixelsort":
-        return pixel_sort(img, threshold=int(s.pixelsort)) if s.pixelsort else img
-    if fid == "wave":
-        return _glitch_wave(img, amplitude=int(s.wave)) if s.wave else img
-    if fid == "mosh":
-        return datamosh(img, amount=float(s.mosh)) if s.mosh else img
-    if fid == "jpeg":
-        if float(getattr(s, "jpeg", 0.0) or 0.0) > 0:
-            from app.fx_jpeg import apply_jpeg
-
-            return apply_jpeg(img, amount=float(s.jpeg))
-        return img
-    if fid == "post_blur":
-        if float(getattr(s, "post_blur", 0.0) or 0.0) > 0:
-            from PIL import ImageFilter
-
-            return img.convert("RGB").filter(
-                ImageFilter.GaussianBlur(radius=float(s.post_blur)))
-        return img
-    if fid == "post_sharpen":
-        if int(getattr(s, "post_sharpen", 0) or 0) > 0:
-            from PIL import ImageFilter
-
-            out = img.convert("RGB")
-            for _ in range(max(0, int(s.post_sharpen))):
-                out = out.filter(ImageFilter.SHARPEN)
-            return out
-        return img
-    if fid == "pasteup":
-        if str(getattr(s, "paste_mode", "off")) not in ("off", "") \
-                and float(getattr(s, "paste_opacity", 0.0) or 0.0) > 0:
-            from app.pasteup import apply_paste
-
-            return apply_paste(img, mode=str(s.paste_mode),
-                               opacity=float(s.paste_opacity),
-                               blend=str(getattr(s, "paste_blend", "overlay")))
-        return img
-    return img  # id desconocido: no-op (forward-compat)
 
 
 def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:

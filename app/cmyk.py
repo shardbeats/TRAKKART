@@ -13,7 +13,7 @@ from PIL import Image
 
 
 def _bayer8() -> np.ndarray:
-    from app.dither import BAYER_8X8
+    from app.ordered_maps import BAYER_8X8
 
     return BAYER_8X8
 

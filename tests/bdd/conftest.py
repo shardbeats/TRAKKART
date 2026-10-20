@@ -36,3 +36,27 @@ def identical_outputs(ctx):
 def thumb_size(ctx):
     with Image.open(ctx["paths"]["thumb_1080p"]) as im:
         assert im.size == (1920, 1080)
+
+
+@given("a 128x128 test image")
+def img_128_global(ctx):
+    im = Image.new("RGB", (128, 128))
+    px = im.load()
+    for y in range(128):
+        for x in range(128):
+            px[x, y] = ((x * 3) % 256, (y * 3) % 256, 128)
+    ctx["img"] = im
+    return im
+
+
+@given("a test image with 2 flat colors")
+def two_colors(ctx):
+    from PIL import Image as Img
+
+    im = Img.new("RGB", (16, 16))
+    px = im.load()
+    for y in range(16):
+        for x in range(16):
+            px[x, y] = (255, 0, 0) if x < 8 else (0, 0, 255)
+    ctx["img"] = im
+    return im

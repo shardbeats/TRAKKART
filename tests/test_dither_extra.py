@@ -2,7 +2,8 @@
 
 from PIL import Image
 
-from app.dither import _tile_matrix, apply_method, floyd_steinberg, ordered_bayer
+from app.dither import apply_method, floyd_steinberg, ordered_bayer
+from app.ordered_maps import BAYER_4X4, _tile_matrix
 from app.palettes import get_palette
 
 
@@ -47,7 +48,5 @@ def test_apply_method_unknown_falls_back_to_bayer4():
 
 
 def test_tile_matrix_non_multiple():
-    from app.dither import BAYER_4X4
-
     t = _tile_matrix(BAYER_4X4, 6, 10)
     assert t.shape == (6, 10)
