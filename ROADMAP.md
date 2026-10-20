@@ -169,13 +169,15 @@ Gap: grow the roster (glitch + special + pattern/ordered extras + CMYK + ASCII +
 - [x] Vector Pro: black-vector print (`vector_black` + `ink_only`, sin rects de papel) + lossless toggle (force PNG en export/batch) + estimate calibrado (~58B/celda). Embroidery OUT.
 - [x] Arrow-stepping (botones + Alt+Left/Right, `step_method` ciclico) + Gherkin 45/45.
 
-### v1.4 — Video timeline + signal drift (done)
-Gap: still GIF + animated preview only. Goal: MP4 import, timeline layers (from/to + easing), Signal Drift, MP4 export.
-- [x] Video import (MP4/GIF/WebP animado): `imageio-ffmpeg` SOLO como extra opcional (`requirements-video.txt`, nunca en base exe; fallback con mensaje claro si falta). Frame browser + live preview con proxies existentes.
-- [x] Timeline mínimo: animation layers (propiedad + from/to + ease linear/in/out, múltiples capas secuenciadas, lock del control animado, loop). Reusa VIDEO mode + QThread workers.
-- [x] Signal Drift: 9 animated retro-screen noise patterns (`app/drift.py`, seeded, deterministic, works with any method).
-- [x] Export MP4 (same frame→dither→stack pipeline, optional shared anti-flicker palette) + Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust). MP4 single-export (batch stays GIF).
-- [x] Gherkin 48/48 (timeline sin ffmpeg skipea limpio).
+### v1.4 — Motion from stills + signal drift (done, trimmed)
+Animation always runs over the still image (GIF modes + drift + phase).
+Timeline layers and clip import were cut on purpose (Oct 2026 trim):
+they added a model + locks + file pipeline far from the core job
+(dither stills, make videos OF those stills).
+- [x] Video export MP4 (`imageio-ffmpeg` SOLO como extra opcional, `requirements-video.txt`, nunca en base exe; fallback con mensaje claro si falta). Same frame→dither→stack pipeline, shared anti-flicker palette.
+- [x] Signal Drift: 9 animated retro-screen noise patterns (`app/drift.py`, seeded, deterministic, works with any method). UI lives in VIDEO (pattern + amount).
+- [x] Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust) as `pasteup` FX stack item (neutral when off).
+- [x] Gherkin 50/50 (drift determinism + paste-up neutral + backend-missing skips clean).
 
 ### v1.5 — Iteration UX + content (done)
 - [x] Viewport mode selector Full/Live/Still (`app/viewport.py`: 0ms / 120ms-fast-350ms-slow / F5-only + statusbar label + View menu).
@@ -208,5 +210,5 @@ Gap: still GIF + animated preview only. Goal: MP4 import, timeline layers (from/
 
 - Webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
-- Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (v1.4 = opt-in `requirements-video.txt` only; batch MP4 out of scope, single-export only).
+- Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (opt-in `requirements-video.txt` only; MP4 single-export only, batch stays GIF, no clip import by design).
 - Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).

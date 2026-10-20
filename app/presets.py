@@ -168,7 +168,6 @@ FIELDS: tuple[_Field, ...] = (
     _Field("post_sharpen", "int", ("oneof", (0, 1, 2, 3))),
     _Field("fx_stack", "stack"),
     _Field("motif", "stack"),
-    _Field("anim_layers", "stack"),
     _Field("drift_pattern", "str", ("oneof", (
         "off", "hum_bar", "roll", "crawl", "snow",
         "weave", "flicker", "moire", "sweep", "jitter"))),
@@ -269,8 +268,7 @@ class Preset:
     fx_stack: list | None = None  # None = orden legacy; si no [{id, enabled}]
     # -- v1.3 motif --
     motif: dict | None = None  # None = default_config(); {"bands": [{shape, size}x4]}
-    # -- v1.4 timeline + drift + paste-up --
-    anim_layers: list | None = None  # None = static; si no [{prop, frm, to, ease, start, end}]
+    # -- v1.4 signal drift + paste-up --
     drift_pattern: str = "off"  # Signal Drift pattern pre-dither
     drift_amount: float = 0.0  # 0-100, 0 = off
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither

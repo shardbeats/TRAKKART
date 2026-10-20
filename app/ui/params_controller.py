@@ -368,7 +368,6 @@ def build_params(win):
         kwargs[field] = _coerce_kind(kinds[field], v)
     base = win._palette_base if win._palette_base in palette_names() else "SLIME"
     from app.fx_stack import normalize_stack
-    from app.timeline import normalize_layers as normalize_timeline
 
     return Preset(
         name=win.cmb_preset.currentText(),
@@ -390,7 +389,6 @@ def build_params(win):
         glitch_slice_max=24,
         fx_stack=normalize_stack(getattr(win, "fx_stack_data", None)),
         motif=read_motif(win),
-        anim_layers=normalize_timeline(list(getattr(win, "anim_layers_data", None) or [])),
         **kwargs,
     )
 
@@ -436,10 +434,6 @@ def apply_preset(win, name: str) -> None:
     _fx.set_stack(win, getattr(p, "fx_stack", None))
     # Motif (v1.3): panel config; None = default.
     write_motif(win, getattr(p, "motif", None))
-    # Timeline (v1.4): layers + locks sync.
-    from app.ui import timeline_controller as _tl
-
-    _tl.set_layers(win, getattr(p, "anim_layers", None))
     # Salidas: el preset es la receta; los diálogos las aplican por operación.
     win._vector_export = bool(p.vector_export)
     win._vector_cell = int(p.vector_cell)

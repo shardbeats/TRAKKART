@@ -25,7 +25,7 @@ from app.ui.panels.studio import (
     build_fx_stack_section,
     build_motif_section,
 )
-from app.ui.panels.animate import build_timeline_section, build_video_section
+from app.ui.panels.animate import build_video_section
 from app.ui.panels.widgets import (
     labeled_slider,
     make_group,
@@ -48,7 +48,6 @@ __all__ = [
     "build_effects_section",
     "build_motif_section",
     "build_fx_stack_section",
-    "build_timeline_section",
     "build_grade_section",
     "build_texture_section",
     "build_glitch_section",

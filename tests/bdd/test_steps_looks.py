@@ -1,4 +1,4 @@
-"""BDD steps: dither looks (fx, flow, palettes, stacks, engines, timeline).
+"""BDD steps: dither looks (fx, flow, palettes, stacks, engines, motion).
 
 Split out of test_steps_media.py (mechanical move, no logic change).
 """
@@ -11,7 +11,7 @@ scenarios(
     "../../features/color_pro.feature",
     "../../features/fx_stack.feature",
     "../../features/engines3.feature",
-    "../../features/video_timeline.feature",
+    "../../features/motion.feature",
 )
 
 
@@ -258,7 +258,7 @@ def motif_differs(ctx):
     assert list(ctx["out_a"].get_flattened_data()) != list(ctx["out_b"].get_flattened_data())
 
 
-# -- video_timeline.feature (v1.4) --
+# -- motion.feature: still-image animation (no layers, no clip import) --
 @when("I apply snow drift twice with phase 0 and once with phase 3")
 def drift_phases(ctx):
     from app.drift import apply_drift
@@ -274,21 +274,19 @@ def drift_phase_ok(ctx):
     assert list(ctx["out_a"].get_flattened_data()) != list(ctx["out_c"].get_flattened_data())
 
 
-@when("I evaluate a threshold layer from 60 to 200 over 4 frames")
-def eval_threshold_layer(ctx):
-    from app.timeline import eval_layers
+@when("I render with paste-up off and paste-up paper at 0")
+def pasteup_neutral(ctx):
+    from app.pasteup import apply_paste
 
-    base = {"threshold": 128.0}
-    layer = [{"prop": "threshold", "frm": 60.0, "to": 200.0,
-              "ease": "linear", "start": 0, "end": 3}]
-    ctx["out_a"] = eval_layers(layer, base, 0, 4)
-    ctx["out_b"] = eval_layers(layer, base, 3, 4)
+    ctx["out_a"] = apply_paste(ctx["img"], "off", 80)
+    ctx["out_b"] = apply_paste(ctx["img"], "paper", 0)
 
 
-@then("frame 0 uses 60 and frame 3 uses 200")
-def threshold_swept(ctx):
-    assert ctx["out_a"]["threshold"] == 60.0
-    assert ctx["out_b"]["threshold"] == 200.0
+@then("both outputs match the plain render")
+def pasteup_neutral_ok(ctx):
+    flat = list(ctx["img"].get_flattened_data())
+    assert list(ctx["out_a"].get_flattened_data()) == flat
+    assert list(ctx["out_b"].get_flattened_data()) == flat
 
 
 @given("no video backend installed")
@@ -302,12 +300,14 @@ def no_backend(ctx):
     return True
 
 
-@when("I try to read a clip")
-def read_clip_attempt(ctx):
-    from app.video_io import VideoBackendMissing, read_clip
+@when("I try to write an MP4")
+def write_mp4_attempt(ctx):
+    from PIL import Image
+
+    from app.video_io import VideoBackendMissing, write_mp4
 
     try:
-        read_clip("whatever.mp4")
+        write_mp4([Image.new("RGB", (16, 16))], "whatever.mp4")
         ctx["err"] = None
     except VideoBackendMissing as e:
         ctx["err"] = e

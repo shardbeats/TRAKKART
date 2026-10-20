@@ -79,9 +79,6 @@ class MainWindow(QMainWindow):
         self._palette_locks: list[bool] = []
         self._adjust_locks: dict[str, bool] = {}
         self.fx_stack_data: list = []
-        self.anim_layers_data: list = []
-        self.clip_frames: list = []
-        self.clip_path: str = ""
         ensure_bundled()
         from app.palette_library import ensure_bundled_palettes
 
@@ -643,85 +640,6 @@ class MainWindow(QMainWindow):
 
         _fx.on_add(self, label)
 
-    # -- Timeline (cuerpo en timeline_controller + clip_dialog) --
-    def _on_anim_add(self) -> None:
-        from app.ui import timeline_controller as _tl
-
-        _tl.add_layer(self)
-
-    def _on_anim_remove(self) -> None:
-        from app.ui import timeline_controller as _tl
-
-        _tl.remove_layer(self)
-
-    def _on_anim_selected(self) -> None:
-        from app.ui import timeline_controller as _tl
-
-        _tl.sync_editors(self)
-
-    def _on_anim_edited(self) -> None:
-        from app.ui import timeline_controller as _tl
-
-        _tl.read_editors(self)
-
-    def open_clip(self) -> None:
-        from pathlib import Path
-
-        from PySide6.QtWidgets import QFileDialog
-
-        from app.video_io import VideoBackendMissing, has_video, read_clip
-
-        if not has_video():
-            QMessageBox.warning(
-                self, "TRAKKART",
-                "Clip import needs the opt-in video extra:\n"
-                "pip install -r requirements-video.txt")
-            return
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Open clip", "", "Video (*.mp4 *.gif *.webp)")
-        if not path:
-            return
-        try:
-            frames = read_clip(Path(path))
-        except VideoBackendMissing as e:
-            QMessageBox.warning(self, "TRAKKART", str(e))
-            return
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TRAKKART", f"Could not open clip:\n{e}")
-            return
-        self.clip_frames = frames
-        self.clip_path = str(path)
-        self._sync_clip_label()
-        self.browse_clip()
-
-    def browse_clip(self) -> None:
-        if not self.clip_frames:
-            self._status("No clip loaded (still image mode)")
-            return
-        from app.ui.clip_dialog import ClipBrowserDialog
-
-        dlg = ClipBrowserDialog(self.clip_frames, parent=self)
-        if dlg.exec() != dlg.DialogCode.Accepted:
-            return
-        if dlg.action == "clear":
-            self.clip_frames = []
-            self.clip_path = ""
-            self._sync_clip_label()
-            self.refresh()
-            self._status("Clip cleared (still image mode)")
-        elif dlg.action == "use" and self.clip_frames:
-            from app.services.image_io import load_pil
-
-            load_pil(self, self.clip_frames[dlg.index].copy())
-            self._status(f"Poster: clip f{dlg.index + 1}/{len(self.clip_frames)}")
-
-    def _sync_clip_label(self) -> None:
-        try:
-            n = len(self.clip_frames)
-            self.lbl_clip.setText(f"{n}f clip" if n else "still image")
-        except Exception:  # noqa: BLE001
-            pass
-
     def step_method(self, delta: int) -> str:
         """Arrow-stepping por algoritmos (sin tocar el combo a mano)."""
         from app.dither import METHODS
@@ -952,9 +870,9 @@ class MainWindow(QMainWindow):
 
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
-                    quality: int, clip=None, mp4: bool = False) -> None:
+                    quality: int, mp4: bool = False) -> None:
         """Render full-res + bundle según opciones. Full-res siempre."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
-                       overwrite, size, format, quality, clip, mp4)
+                       overwrite, size, format, quality, mp4)

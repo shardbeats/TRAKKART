@@ -62,30 +62,23 @@ def gif_frames(
     mode: str = "both",
     max_side: int | None = None,
     pingpong: bool | None = None,
-    clip: list[Image.Image] | None = None,
 ) -> list[Image.Image]:
-    """Build frames using the pipeline render() + deterministic post anim.
+    """Build frames from the still image using pipeline render() + post anim.
 
     `max_side`/`pingpong` default to the preset values (gif_size/gif_pingpong)
     so batch + UI + service share the same look without extra plumbing.
     Unknown modes fall back to "both" (legacy compat).
-    `clip`: optional pre-loaded source frames (video import). Each output
-    frame dithers clip[i % len(clip)] instead of the still; layers, drift
-    and phase still animate on top.
+    Animation comes from phase march + hue cycle + glitch wobble + drift;
+    every frame is deterministic (seed + frame index, no random).
     """
     from app.render_params import normalize_slice_bands
-    from app.timeline import eval_layers
 
     if mode not in GIF_MODES:
         mode = "both"
     n = _clamp_frames(frames)
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
     pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
-    layers = list(getattr(preset, "anim_layers", None) or [])
-    if clip:
-        smalls = [_fit_small(f.convert("RGB"), side) for f in clip]
-    else:
-        smalls = [_fit_small(img.convert("RGB"), side)]
+    small = _fit_small(img.convert("RGB"), side)
 
     from app.pipeline import render
     from app.render_params import preset_to_render_kwargs
@@ -118,12 +111,10 @@ def gif_frames(
 
     out: list[Image.Image] = []
     for i in range(n):
-        small = smalls[i % len(smalls)]
-        kwargs = eval_layers(layers, base_kwargs, i, n)
+        kwargs = dict(base_kwargs)
         kwargs["phase"] = int(i * 2) if want_phase else 0
         if want_hue:
-            # Timeline layers can also drive pre_hue; the cyclic mode adds on top.
-            kwargs["pre_hue"] = float(kwargs.get("pre_hue", base_hue)) + round(14.0 * math.sin(2.0 * math.pi * i / n), 2)
+            kwargs["pre_hue"] = base_hue + round(14.0 * math.sin(2.0 * math.pi * i / n), 2)
         frame = render(small, **kwargs)
 
         if want_glitch:

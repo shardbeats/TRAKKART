@@ -1,4 +1,8 @@
-"""v1.4 Video timeline: drift, layers, paste-up, opt-in video backend."""
+"""Motion from stills: Signal Drift, Paste-Up, opt-in MP4 backend.
+
+(No timeline layers, no clip import: animation always runs over the
+still image via GIF modes + drift + phase.)
+"""
 
 from PIL import Image
 
@@ -51,80 +55,47 @@ def test_pasteup_off_noop_and_deterministic():
     assert apply_paste(im, "fiber", 50, blend="screen").size == im.size
 
 
-def test_timeline_ease_and_normalize():
-    from app.timeline import ANIM_PROPS, ease_value, normalize_layers
-
-    assert ease_value("linear", 0.5) == 0.5
-    assert ease_value("in", 0.5) == 0.25
-    assert ease_value("out", 0.5) == 0.75
-    assert ease_value("nope", 0.5) == 0.5
-    assert len(ANIM_PROPS) == 10
-    layers = normalize_layers([
-        {"prop": "threshold", "frm": 0, "to": 500, "ease": "in", "start": 9, "end": 2},
-        {"prop": "nope", "frm": 0, "to": 1},
-        {"prop": "jpeg", "frm": 10, "to": 20, "ease": "weird", "start": 0, "end": 23},
-        "junk",
-    ])
-    assert len(layers) == 2
-    assert layers[0]["start"] == 2 and layers[0]["end"] == 9  # swapped
-    assert layers[0]["to"] == 254.0  # clamped to prop max
-    assert layers[1]["ease"] == "linear"  # unknown ease falls back
-
-
-def test_timeline_eval_span_and_rounding():
-    from app.timeline import animated_props, eval_layers
-
-    base = {"threshold": 128.0, "pixel_size": 2, "pre_hue": 0.0}
-    layers = [{"prop": "threshold", "frm": 100.0, "to": 200.0,
-               "ease": "linear", "start": 0, "end": 4}]
-    assert eval_layers(layers, base, 0, 5)["threshold"] == 100.0
-    assert eval_layers(layers, base, 4, 5)["threshold"] == 200.0
-    assert eval_layers(layers, base, 2, 5)["threshold"] == 150.0
-    # Outside the span the base value rules.
-    assert eval_layers([], base, 3, 5) == base
-    # Int props round.
-    px = eval_layers([{"prop": "pixel_size", "frm": 1, "to": 2,
-                       "ease": "linear", "start": 0, "end": 1}], base, 1, 2)
-    assert px["pixel_size"] == 2 and isinstance(px["pixel_size"], int)
-    assert animated_props(layers) == ["threshold"]
-
-
 def test_video_backend_missing_skips_cleanly():
     import pytest
 
-    from app.video_io import VideoBackendMissing, has_video, read_clip, write_mp4
+    from app.video_io import VideoBackendMissing, has_video, write_mp4
 
-    assert has_video() is False
-    with pytest.raises(VideoBackendMissing):
-        read_clip("whatever.mp4")
+    if has_video():
+        pytest.skip("video extra installed: missing-backend path not testable here")
     with pytest.raises(VideoBackendMissing):
         write_mp4([_img(16)], "out.mp4")
 
 
-def test_gif_layers_and_drift_animate_frames():
+def test_write_mp4_roundtrip(tmp_path):
+    import pytest
+
+    from app.video_io import has_video, write_mp4
+
+    if not has_video():
+        pytest.skip("video extra missing: mp4 write not testable here")
+    out = write_mp4([_img(64), _img(64)], tmp_path / "anim.mp4", fps=12)
+    assert out.exists() and out.stat().st_size > 1000
+
+
+def test_gif_drift_animates_frames():
     from app.gif import gif_frames
     from app.presets import Preset
 
     im = _img()
     p = Preset(name="t", method="bayer8", palette="SLIME",
-               anim_layers=[{"prop": "threshold", "frm": 60.0, "to": 200.0,
-                             "ease": "linear", "start": 0, "end": 3}],
                drift_pattern="snow", drift_amount=40.0)
     frames = gif_frames(im, p, frames=4, mode="phase")
     assert len(frames) == 4
-    flats = [tuple(f.get_flattened_data()) for f in frames]
-    assert len(set(flats)) > 1  # layers + drift + phase all march
+    assert len({tuple(f.get_flattened_data()) for f in frames}) > 1
 
 
-def test_preset_v14_roundtrip():
+def test_preset_motion_roundtrip():
     from app.presets import Preset
 
     p = Preset.from_dict({"name": "old", "method": "bayer4", "palette": "SLIME"})
-    assert p.anim_layers is None and p.drift_pattern == "off"
-    assert p.paste_mode == "off" and p.paste_blend == "overlay"
-    d = p.to_dict()
-    p2 = Preset.from_dict(d)
-    assert p2.anim_layers is None and p2.drift_amount == 0.0
+    assert p.drift_pattern == "off" and p.paste_mode == "off"
+    p2 = Preset.from_dict(p.to_dict())
+    assert p2.drift_amount == 0.0 and p2.paste_blend == "overlay"
 
 
 def test_default_stack_includes_pasteup_neutral():

@@ -86,3 +86,17 @@ def test_still_mode_skips_auto_refresh(window, qt_app):
     window.set_theme("green")
     assert window.app_theme == "green"
     assert "8BC34A" in (QApplication.instance().styleSheet() or "")
+
+
+def test_no_timeline_leftovers(window):
+    """Trim guard: no layer/clip widgets, drift lives in VIDEO."""
+    for attr in ("anim_list", "btn_anim_add", "btn_anim_remove", "cmb_anim_prop",
+                 "spn_anim_from", "spn_anim_to", "spn_anim_start", "spn_anim_end",
+                 "btn_clip_open", "btn_clip_browse", "lbl_clip",
+                 "anim_layers_data", "clip_frames"):
+        assert not hasattr(window, attr), attr
+    assert window.cmb_drift.count() == 10  # off + 9 Signal Drift patterns
+    assert window.sld_drift.value() == 0
+    from app.presets import Preset
+
+    assert not hasattr(Preset(name="t"), "anim_layers")

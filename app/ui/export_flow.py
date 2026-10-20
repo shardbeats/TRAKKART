@@ -81,7 +81,6 @@ def export(win, quick: bool = False) -> None:
             base=options.base, out_dir=out_dir, selection=options.selection,
             gif_opts=gopts, overwrite=options.overwrite,
             size=options.size, format=options.format, quality=options.quality,
-            clip=list(getattr(win, "clip_frames", None) or []) or None,
             mp4=bool(gopts.get("mp4", False)),
         )
         save_prefs(ExportPrefs(
@@ -122,7 +121,7 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
 
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
-               quality: int, clip=None, mp4: bool = False) -> None:
+               quality: int, mp4: bool = False) -> None:
     """Render full-res + bundle (+MP4) según opciones. Full-res siempre."""
     from dataclasses import replace
     from pathlib import Path
@@ -145,7 +144,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
             gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
             gif_pingpong=bool(go.get("pingpong", False)),
             size=int(size), format=str(format), quality=int(quality),
-            clip=list(clip) if clip else None, mp4=bool(mp4),
+            mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
         )
     except VideoBackendMissing as e:

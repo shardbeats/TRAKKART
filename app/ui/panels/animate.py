@@ -1,113 +1,20 @@
-"""Animation sections: timeline layers, video preview.
+"""Animation section: video preview + Signal Drift.
 
 Split out of app/ui/panels.py (mechanical move, no logic change).
+Timeline layers and clip import were cut in the v1.4 trim: animation
+runs from the still image only (GIF modes + drift + phase).
 """
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
 )
 from app.ui.panels.widgets import hlab, tight, labeled_slider
-
-
-def build_timeline_section(win, g: QVBoxLayout) -> None:
-    """TIMELINE (v1.4): clip import + animation layers + Signal Drift."""
-    from PySide6.QtWidgets import QListWidget
-
-    hlab(g, "Clip (optional video source):")
-    clip_row = QHBoxLayout()
-    win.btn_clip_open = QPushButton("Open clip...")
-    win.btn_clip_open.setToolTip("Import MP4/GIF/WebP clip (opt-in video extra)")
-    win.btn_clip_open.clicked.connect(win.open_clip)
-    clip_row.addWidget(win.btn_clip_open)
-    win.btn_clip_browse = QPushButton("Browse...")
-    win.btn_clip_browse.setToolTip("Pick the poster frame / clear the clip")
-    win.btn_clip_browse.clicked.connect(win.browse_clip)
-    clip_row.addWidget(win.btn_clip_browse)
-    clip_row.addStretch()
-    g.addLayout(clip_row)
-    win.lbl_clip = QLabel("still image")
-    win.lbl_clip.setObjectName("subtitleLabel")
-    g.addWidget(win.lbl_clip)
-    hlab(g, "Layers (prop frm→to ease [start-end]):")
-    win.anim_list = QListWidget()
-    win.anim_list.setMinimumHeight(90)
-    win.anim_list.setMaximumHeight(150)
-    win.anim_list.setToolTip("Later layers win. Animated controls lock in their panels.")
-    win.anim_list.itemSelectionChanged.connect(win._on_anim_selected)
-    g.addWidget(win.anim_list)
-    lr = QHBoxLayout()
-    win.btn_anim_add = QPushButton("+ layer")
-    win.btn_anim_add.clicked.connect(win._on_anim_add)
-    lr.addWidget(win.btn_anim_add)
-    win.btn_anim_remove = QPushButton("− layer")
-    win.btn_anim_remove.clicked.connect(win._on_anim_remove)
-    lr.addWidget(win.btn_anim_remove)
-    g.addLayout(lr)
-    erow = QHBoxLayout()
-    win.cmb_anim_prop = QComboBox()
-    tight(win.cmb_anim_prop, 14)
-    win.cmb_anim_prop.addItems(["threshold", "pixel_size", "pre_hue", "grain",
-                                "glow_intensity", "glitch_chroma", "wave", "jpeg",
-                                "fade", "split_tone"])
-    win.cmb_anim_prop.setToolTip("Animated property")
-    win.cmb_anim_prop.currentTextChanged.connect(lambda _: win._on_anim_edited())
-    erow.addWidget(win.cmb_anim_prop, 1)
-    win.cmb_anim_ease = QComboBox()
-    win.cmb_anim_ease.addItems(["linear", "in", "out"])
-    tight(win.cmb_anim_ease, 8)
-    win.cmb_anim_ease.setToolTip("Easing from→to")
-    win.cmb_anim_ease.currentTextChanged.connect(lambda _: win._on_anim_edited())
-    erow.addWidget(win.cmb_anim_ease, 1)
-    g.addLayout(erow)
-    frow = QHBoxLayout()
-    from PySide6.QtWidgets import QDoubleSpinBox
-    frow.addWidget(QLabel("From:"))
-    win.spn_anim_from = QDoubleSpinBox()
-    win.spn_anim_from.setRange(-300.0, 300.0)
-    win.spn_anim_from.setValue(128.0)
-    win.spn_anim_from.valueChanged.connect(lambda _: win._on_anim_edited())
-    frow.addWidget(win.spn_anim_from, 1)
-    frow.addWidget(QLabel("To:"))
-    win.spn_anim_to = QDoubleSpinBox()
-    win.spn_anim_to.setRange(-300.0, 300.0)
-    win.spn_anim_to.setValue(200.0)
-    win.spn_anim_to.valueChanged.connect(lambda _: win._on_anim_edited())
-    frow.addWidget(win.spn_anim_to, 1)
-    g.addLayout(frow)
-    srow = QHBoxLayout()
-    srow.addWidget(QLabel("Start:"))
-    win.spn_anim_start = QSpinBox()
-    win.spn_anim_start.setRange(0, 23)
-    win.spn_anim_start.setValue(0)
-    win.spn_anim_start.valueChanged.connect(lambda _: win._on_anim_edited())
-    srow.addWidget(win.spn_anim_start, 1)
-    srow.addWidget(QLabel("End:"))
-    win.spn_anim_end = QSpinBox()
-    win.spn_anim_end.setRange(0, 23)
-    win.spn_anim_end.setValue(23)
-    win.spn_anim_end.valueChanged.connect(lambda _: win._on_anim_edited())
-    srow.addWidget(win.spn_anim_end, 1)
-    g.addLayout(srow)
-    hlab(g, "Signal Drift (animated pre-dither noise):")
-    drow = QHBoxLayout()
-    win.cmb_drift = QComboBox()
-    win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
-                            "weave", "flicker", "moire", "sweep", "jitter"])
-    tight(win.cmb_drift, 10)
-    win.cmb_drift.setToolTip("Retro-screen noise, marches with phase")
-    win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    drow.addWidget(win.cmb_drift, 1)
-    g.addLayout(drow)
-    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
-    win.anim_layers_data: list = []
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
@@ -190,3 +97,14 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.chk_video_pingpong.stateChanged.connect(lambda _: win._schedule_refresh())
     play_row.addWidget(win.chk_video_pingpong, 1)
     g.addLayout(play_row)
+    hlab(g, "Signal Drift (animated pre-dither noise):")
+    drow = QHBoxLayout()
+    win.cmb_drift = QComboBox()
+    win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
+                            "weave", "flicker", "moire", "sweep", "jitter"])
+    tight(win.cmb_drift, 10)
+    win.cmb_drift.setToolTip("Retro-screen noise, marches with phase")
+    win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    drow.addWidget(win.cmb_drift, 1)
+    g.addLayout(drow)
+    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")

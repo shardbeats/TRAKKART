@@ -36,7 +36,6 @@ def export_full(
     size: int | None = None,
     format: str | None = None,
     quality: int | None = None,
-    clip: list[Image.Image] | None = None,
     mp4: bool = False,
     mp4_fps: int | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
@@ -89,7 +88,6 @@ def export_full(
             max_side=int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480)),
             pingpong=bool(gif_pingpong if gif_pingpong is not None
                           else getattr(preset, "gif_pingpong", False)),
-            clip=list(clip) if clip else None,
         )
 
     options = ExportOptions(
