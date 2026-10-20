@@ -1,4 +1,4 @@
-"""Batch dialog: in/out en un solo sitio, validado antes.
+﻿"""Batch dialog: in/out en un solo sitio, validado antes.
 
 Valida carpetas y cuenta imágenes ANTES de lanzar (nada de dos diálogos
 seguidos a ciegas). Las salidas vector/GIF se eligen aquí por operación
@@ -40,6 +40,8 @@ def count_images(folder: str | Path) -> int:
 class BatchDialog(QDialog):
     """Recoge in/out/jobs validados. `paths()` solo válido tras Accept."""
 
+    GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
+
     def __init__(
         self,
         in_dir: str | Path = "",
@@ -50,6 +52,9 @@ class BatchDialog(QDialog):
         gif_export: bool = False,
         gif_frames: int = 6,
         gif_mode: str = "both",
+        gif_fps: int = 8,
+        gif_size: int = 1200,
+        gif_pingpong: bool = False,
         canvas_size: tuple[int, int] | None = None,
         size: int = 3000,
         format: str = "png",
@@ -85,21 +90,15 @@ class BatchDialog(QDialog):
         jobs_row.addStretch()
         col.addLayout(jobs_row)
 
-        # -- tamaño + formato (como el diálogo Export, defaults del preset) --
-        from app.exporter import EXPORT_FORMATS, MAX_SIDE, MIN_SIDE, SIZE_PRESETS
+        # -- documento único: el tamaño viene del preset CANVAS; aquí solo formato --
+        from app.exporter import EXPORT_FORMATS, MAX_SIDE, MIN_SIDE
 
-        size_row = QHBoxLayout()
-        size_row.addWidget(QLabel("Size:"))
-        self.cmb_size = QComboBox()
-        self.cmb_size.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
-        self.cmb_size.currentTextChanged.connect(self._on_size_preset)
-        size_row.addWidget(self.cmb_size)
-        self.spn_size = QSpinBox()
-        self.spn_size.setRange(MIN_SIDE, MAX_SIDE)
-        self.spn_size.setValue(max(MIN_SIDE, min(MAX_SIDE, int(size))))
-        self.spn_size.setSuffix(" px")
-        self.spn_size.valueChanged.connect(self._on_size_custom)
-        size_row.addWidget(self.spn_size, 1)
+        self._doc_size = max(MIN_SIDE, min(MAX_SIDE, int(size)))
+        doc_row = QHBoxLayout()
+        doc_row.addWidget(QLabel("Document:"))
+        self.lbl_doc = QLabel(f"{self._doc_size} px (from CANVAS preset)")
+        doc_row.addWidget(self.lbl_doc, 1)
+        col.addLayout(doc_row)
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
         self.cmb_format = QComboBox()
@@ -111,9 +110,7 @@ class BatchDialog(QDialog):
         self.spn_quality.setValue(max(1, min(100, int(quality))))
         self.spn_quality.setSuffix("%")
         fmt_row.addWidget(self.spn_quality)
-        col.addLayout(size_row)
         col.addLayout(fmt_row)
-        self._sync_size_combo(int(size))
 
         # -- salidas por operación (el preset aporta los defaults) --
         col.addWidget(QLabel("Outputs:"))
@@ -133,18 +130,36 @@ class BatchDialog(QDialog):
         col.addLayout(vec_row)
         gif_row = QHBoxLayout()
         self.chk_gif = QCheckBox("GIF")
-        self.chk_gif.setToolTip("Animation for socials")
+        self.chk_gif.setToolTip("Animation for socials (phase/hue/glitch/mix)")
         self.chk_gif.setChecked(bool(gif_export))
         gif_row.addWidget(self.chk_gif)
         self.spn_gframes = QSpinBox()
-        self.spn_gframes.setRange(2, 8)
-        self.spn_gframes.setValue(max(2, min(8, int(gif_frames))))
+        self.spn_gframes.setRange(2, 12)
+        self.spn_gframes.setValue(max(2, min(12, int(gif_frames))))
+        self.spn_gframes.setToolTip("Frames 2-12")
         gif_row.addWidget(self.spn_gframes)
         self.cmb_gifmode = QComboBox()
-        self.cmb_gifmode.addItems(["phase", "hue", "both"])
-        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in ("phase", "hue", "both") else "both")
+        self.cmb_gifmode.addItems(list(self.GIF_MODES))
+        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in self.GIF_MODES else "both")
         gif_row.addWidget(self.cmb_gifmode, 1)
         col.addLayout(gif_row)
+        gif_row2 = QHBoxLayout()
+        gif_row2.addWidget(QLabel("FPS:"))
+        self.spn_gfps = QSpinBox()
+        self.spn_gfps.setRange(2, 24)
+        self.spn_gfps.setValue(max(2, min(24, int(gif_fps))))
+        gif_row2.addWidget(self.spn_gfps)
+        gif_row2.addWidget(QLabel("Size:"))
+        self.spn_gsize = QSpinBox()
+        self.spn_gsize.setRange(240, 1920)
+        self.spn_gsize.setValue(max(240, min(1920, int(gif_size))))
+        self.spn_gsize.setSuffix(" px")
+        gif_row2.addWidget(self.spn_gsize)
+        self.chk_pingpong = QCheckBox("Ping-pong")
+        self.chk_pingpong.setChecked(bool(gif_pingpong))
+        self.chk_pingpong.setToolTip("Forward-backward loop")
+        gif_row2.addWidget(self.chk_pingpong)
+        col.addLayout(gif_row2)
 
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
@@ -180,27 +195,6 @@ class BatchDialog(QDialog):
         except Exception:  # noqa: BLE001
             self.lbl_vec_est.setText("")
 
-    def _on_size_preset(self, text: str) -> None:
-        if text == "Custom":
-            return
-        try:
-            self.spn_size.blockSignals(True)
-            self.spn_size.setValue(int(text))
-        finally:
-            self.spn_size.blockSignals(False)
-
-    def _on_size_custom(self) -> None:
-        self._sync_size_combo(int(self.spn_size.value()))
-
-    def _sync_size_combo(self, size: int) -> None:
-        from app.exporter import SIZE_PRESETS
-
-        txt = str(size) if size in SIZE_PRESETS else "Custom"
-        if self.cmb_size.currentText() != txt:
-            self.cmb_size.blockSignals(True)
-            self.cmb_size.setCurrentText(txt)
-            self.cmb_size.blockSignals(False)
-
     def _browse(self, edit: QLineEdit) -> None:
         d = QFileDialog.getExistingDirectory(self, "Choose folder", edit.text() or str(Path.home()))
         if d:
@@ -233,16 +227,17 @@ class BatchDialog(QDialog):
         return Path(self.edit_in.text().strip()), Path(self.edit_out.text().strip()), int(self.spn_jobs.value())
 
     def output_options(self) -> dict:
-        """Flags vector/gif + tamaño/formato elegidos para este batch. Solo tras Accept."""
-        from app.exporter import MAX_SIDE, MIN_SIDE
-
+        """Flags vector/gif + formato elegidos para este batch. Solo tras Accept."""
         return {
             "vector_export": self.chk_vector.isChecked(),
             "vector_cell": int(self.spn_vcell.value()),
             "gif_export": self.chk_gif.isChecked(),
             "gif_frames": int(self.spn_gframes.value()),
             "gif_mode": self.cmb_gifmode.currentText(),
-            "export_size": max(MIN_SIDE, min(MAX_SIDE, int(self.spn_size.value()))),
+            "gif_fps": int(self.spn_gfps.value()),
+            "gif_size": int(self.spn_gsize.value()),
+            "gif_pingpong": bool(self.chk_pingpong.isChecked()),
+            "export_size": int(getattr(self, "_doc_size", 3000)),
             "export_format": self.cmb_format.currentText(),
             "export_quality": int(self.spn_quality.value()),
         }

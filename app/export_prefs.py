@@ -1,4 +1,4 @@
-"""Export prefs: recuerda la última configuración (Quick Export style).
+﻿"""Export prefs: recuerda la última configuración (Quick Export style).
 
 JSON en el data dir (testeable sin Qt). MainWindow acepta prefs_path
 inyectado para tests.
@@ -26,6 +26,9 @@ class ExportPrefs:
     metadata: bool = True
     gif_frames: int = 6
     gif_mode: str = "both"
+    gif_fps: int = 8
+    gif_size: int = 1200
+    gif_pingpong: bool = False
     overwrite: str = "overwrite"
     size: int = 3000
     format: str = "png"

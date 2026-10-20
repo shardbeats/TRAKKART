@@ -164,8 +164,11 @@ def plan_export(
     """[(key, filename, ~bytes)] sin escribir nada. Lo que ves es lo que sale."""
     rgb = img.convert("RGB")
     main_w, main_h = _main_dims(meta, options.size)
+    gside = max(240, min(1920, int((extra or {}).get("gif_size", 1200))))
+    gr = gside / max(rgb.width, rgb.height)
+    gw, gh = (max(1, round(rgb.width * gr)), max(1, round(rgb.height * gr))) if gr < 1.0 else (rgb.width, rgb.height)
     dims = {"image": (main_w, main_h), "thumb_1080p": (THUMB_LONG_SIDE, THUMB_SHORT_SIDE),
-            "anim": (min(rgb.width, 480), min(rgb.height, 480)),
+            "anim": (gw, gh),
             "vector": (0, 0), "metadata": (0, 0)}
     plan: list[tuple[str, str, int]] = []
     for key, fname in bundle_filenames(options, has_vector, has_gif).items():
@@ -192,6 +195,7 @@ def export_with_options(
     meta: dict | None = None,
     vector_svg: str | None = None,
     gif_frames: list[Image.Image] | None = None,
+    gif_fps: int = 8,
 ) -> tuple[dict[str, Path], list[str]]:
     """Exporta según opciones. Retorna (paths escritos, keys omitidas por skip)."""
     out_dir = Path(out_dir)
@@ -206,7 +210,7 @@ def export_with_options(
         keys = list(names)
     if options.overwrite == "skip" and keys and all((out_dir / f).exists() for f in names.values()):
         return {}, keys  # nada que hacer: todo existe
-    return _write_bundle(img, out_dir, base, keys, options, meta, vector_svg, gif_frames), []
+    return _write_bundle(img, out_dir, base, keys, options, meta, vector_svg, gif_frames, gif_fps), []
 
 
 def _write_bundle(
@@ -218,6 +222,7 @@ def _write_bundle(
     meta: dict | None,
     vector_svg: str | None,
     gif_frames: list[Image.Image] | None,
+    gif_fps: int = 8,
 ) -> dict[str, Path]:
     """Escritura real del set (todas las variantes pasan por aquí)."""
     main_w, main_h = _main_dims(meta, options.size)
@@ -264,9 +269,10 @@ def _write_bundle(
         from app.gif import save_gif
 
         panim = out_dir / f"{base}{SUFFIXES['anim']}"
-        save_gif(gif_frames, panim)
+        save_gif(gif_frames, panim, fps=int(gif_fps))
         info["files"].append(panim.name)
-        info["gif"] = {"bytes": panim.stat().st_size, "frames": len(gif_frames)}
+        info["gif"] = {"bytes": panim.stat().st_size, "frames": len(gif_frames),
+                       "fps": int(gif_fps)}
         result["anim"] = panim
     if "metadata" in keys:
         pmeta = out_dir / f"{base}{SUFFIXES['metadata']}"

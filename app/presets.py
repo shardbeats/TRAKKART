@@ -61,6 +61,9 @@ class Preset:
     gif_export: bool = False
     gif_frames: int = 6
     gif_mode: str = "both"
+    gif_fps: int = 8
+    gif_size: int = 1200  # anim único: lo usan el preview VIDEO y el GIF exportado
+    gif_pingpong: bool = False
     export_size: int = 3000  # lado largo px de la imagen principal
     export_format: str = "png"  # png | jpg | webp
     export_quality: int = 90  # solo jpg/webp, 1-100
@@ -138,10 +141,14 @@ class Preset:
             raise ValueError(f"invalid glitch_slice_bands: {self.glitch_slice_bands}")
         if not 0 <= int(self.glitch_slice_max) <= 64:
             raise ValueError(f"glitch_slice_max out of range 0-64: {self.glitch_slice_max}")
-        if int(self.gif_frames) not in (2, 3, 4, 5, 6, 7, 8):
-            raise ValueError(f"gif_frames out of range 2-8: {self.gif_frames}")
-        if self.gif_mode not in ("phase", "hue", "both"):
+        if not 2 <= int(self.gif_frames) <= 12:
+            raise ValueError(f"gif_frames out of range 2-12: {self.gif_frames}")
+        if self.gif_mode not in ("phase", "hue", "both", "glitch", "mix"):
             raise ValueError(f"invalid gif_mode: {self.gif_mode}")
+        if not 2 <= int(self.gif_fps) <= 24:
+            raise ValueError(f"gif_fps out of range 2-24: {self.gif_fps}")
+        if not 240 <= int(self.gif_size) <= 1920:
+            raise ValueError(f"gif_size out of range 240-1920: {self.gif_size}")
         if not 64 <= int(self.export_size) <= 8000:
             raise ValueError(f"export_size out of range 64-8000: {self.export_size}")
         if str(self.export_format) not in ("png", "jpg", "webp"):
@@ -195,6 +202,9 @@ class Preset:
         d["glitch_slice_max"] = int(d["glitch_slice_max"])
         d["gif_frames"] = int(d["gif_frames"])
         d["gif_export"] = bool(d["gif_export"])
+        d["gif_fps"] = int(d.get("gif_fps", 8))
+        d["gif_size"] = int(d.get("gif_size", 1200))
+        d["gif_pingpong"] = bool(d.get("gif_pingpong", False))
         d["export_size"] = int(d["export_size"])
         d["export_format"] = str(d["export_format"])
         d["export_quality"] = int(d["export_quality"])
@@ -257,6 +267,9 @@ class Preset:
             gif_export=bool(d.get("gif_export", False)),
             gif_frames=int(d.get("gif_frames", 6)),
             gif_mode=str(d.get("gif_mode", "both")),
+            gif_fps=int(d.get("gif_fps", 8)),
+            gif_size=int(d.get("gif_size", 1200)),
+            gif_pingpong=bool(d.get("gif_pingpong", False)),
             export_size=int(d.get("export_size", 3000)),
             export_format=str(d.get("export_format", "png")),
             export_quality=int(d.get("export_quality", 90)),
@@ -310,6 +323,9 @@ class Preset:
             gif_export=bool(self.gif_export),
             gif_frames=int(self.gif_frames),
             gif_mode=self.gif_mode,
+            gif_fps=int(getattr(self, "gif_fps", 8)),
+            gif_size=int(getattr(self, "gif_size", 1200)),
+            gif_pingpong=bool(getattr(self, "gif_pingpong", False)),
         )
         m["export"] = {
             "size": int(self.export_size),

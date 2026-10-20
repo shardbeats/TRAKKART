@@ -46,6 +46,41 @@ class PreviewWorker(WorkerBase):
     def _report_error(self, exc: Exception) -> None:
         self.finished_err.emit(str(exc), self.token)
 
+
+class VideoWorker(WorkerBase):
+    """Video preview a canvas completo: N frames en hilo, sin congelar.
+
+    Usa gif_frames() con max_side=video_size (default 1200). Solo el
+    último token se aplica; renders viejos se descartan.
+    """
+
+    finished_ok = Signal(object, int)  # list[PIL], token
+    finished_err = Signal(str, int)
+
+    def __init__(self, src: Image.Image, preset, video_size: int,
+                 frames: int, mode: str, pingpong: bool, token: int,
+                 parent=None) -> None:
+        super().__init__(parent)
+        self.src = src
+        self.preset = preset
+        self.video_size = int(video_size)
+        self.frames = int(frames)
+        self.mode = str(mode)
+        self.pingpong = bool(pingpong)
+        self.token = int(token)
+
+    def work(self) -> None:
+        from app.gif import gif_frames as _gif_frames
+
+        out = _gif_frames(
+            self.src, self.preset, frames=self.frames, mode=self.mode,
+            max_side=self.video_size, pingpong=self.pingpong,
+        )
+        self.finished_ok.emit(out, self.token)
+
+    def _report_error(self, exc: Exception) -> None:
+        self.finished_err.emit(str(exc), self.token)
+
     @staticmethod
     def current_params_snapshot(preset) -> dict:
         """Convert a Preset to pipeline.render() kwargs (sin duplicar)."""

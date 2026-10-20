@@ -1,4 +1,4 @@
-"""TRAKKART main window — dither preview + export + cover flow.
+﻿"""TRAKKART main window — dither preview + export + cover flow.
 
 Refactorizado: la ventana orquesta, no implementa.
 - Construcción UI -> app.ui.panels
@@ -87,6 +87,9 @@ class MainWindow(QMainWindow):
         self._gif_export: bool = False
         self._gif_frames: int = 6
         self._gif_mode: str = "both"
+        self._gif_fps: int = 8
+        self._gif_size: int = 1200
+        self._gif_pingpong: bool = False
         self._export_size: int = 3000
         self._export_format: str = "png"
         self._export_quality: int = 90
@@ -106,12 +109,24 @@ class MainWindow(QMainWindow):
         self._preview_worker = None
         self._preview_token = 0
         self._preview_pending = False
+        # -- compare: hold-to-compare (single canvas, no ORIGINAL panel) --
+        self._comparing: bool = False
+        # -- video mode: full canvas preview, 1200px default --
+        self._video_on: bool = False
+        self._video_frames: list = []
+        self._video_idx: int = 0
+        self._video_playing: bool = True
+        self._video_worker = None
+        self._video_token: int = 0
         from PySide6.QtCore import QTimer
 
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(350)  # family-style debounce (never freeze UI)
         self._preview_timer.timeout.connect(self.refresh)
+        self._video_timer = QTimer(self)
+        self._video_timer.timeout.connect(self._next_video_frame)
+        self._video_timer.setInterval(125)  # 8fps default
         self._setup_ui()
         self._build_menus()
         self.refresh_presets()
@@ -129,8 +144,12 @@ class MainWindow(QMainWindow):
             self._preview_timer.stop()
         except Exception:  # noqa: BLE001
             pass
+        try:
+            self._video_timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
         self._batch_cancel[0] = True
-        for worker in (self._preview_worker, self._batch_worker):
+        for worker in (self._preview_worker, self._batch_worker, self._video_worker):
             try:
                 if worker is not None:
                     worker.blockSignals(True)  # sus slots nunca tocan UI muerta
@@ -244,6 +263,7 @@ class MainWindow(QMainWindow):
         P.build_grade_section(self, P.make_group(panel, "GRADE"))
         P.build_texture_section(self, P.make_group(panel, "TEXTURE"))
         P.build_glitch_section(self, P.make_group(panel, "GLITCH"))
+        P.build_video_section(self, P.make_group(panel, "VIDEO"))
         P.build_custom_palette_section(self, P.make_group(panel, "CUSTOM PALETTE"))
         panel.addStretch()
 
@@ -291,23 +311,37 @@ class MainWindow(QMainWindow):
     def _setup_previews(self, root: QHBoxLayout) -> None:
         previews = QHBoxLayout()
         previews.setSpacing(8)
-        orig_col = QVBoxLayout()
-        self.lbl_orig_title = QLabel("ORIGINAL")
-        self.lbl_orig_title.setObjectName("previewTitle")
-        self.lbl_orig_title.setAlignment(Qt.AlignCenter)
-        orig_col.addWidget(self.lbl_orig_title)
-        self.lbl_orig = QLabel("NO IMAGE")
-        self.lbl_orig.setObjectName("previewFrame")
-        self.lbl_orig.setAlignment(Qt.AlignCenter)
-        self.lbl_orig.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.lbl_orig.setMinimumSize(200, 200)
-        orig_col.addWidget(self.lbl_orig, 1)
-        previews.addLayout(orig_col, 1)
         res_col = QVBoxLayout()
-        self.lbl_res_title = QLabel("DITHER")
+        title_row = QHBoxLayout()
+        self.lbl_res_title = QLabel("COVER")
         self.lbl_res_title.setObjectName("previewTitle")
         self.lbl_res_title.setAlignment(Qt.AlignCenter)
-        res_col.addWidget(self.lbl_res_title)
+        title_row.addWidget(self.lbl_res_title, 1)
+        # Hold-to-compare: mantener pulsado (o Espacio) = ORIGINAL.
+        self.btn_compare = QPushButton("Hold to compare")
+        self.btn_compare.setToolTip("Hold to see ORIGINAL (or hold Space). Release to go back.")
+        self.btn_compare.setMinimumWidth(140)
+        self.btn_compare.pressed.connect(self._compare_pressed)
+        self.btn_compare.released.connect(self._compare_released)
+        title_row.addWidget(self.btn_compare)
+        res_col.addLayout(title_row)
+        # Video toolbar: scrub + counter (solo visible en modo Video).
+        from PySide6.QtWidgets import QSlider
+
+        self._video_bar = QHBoxLayout()
+        self.sld_video = QSlider(Qt.Horizontal)
+        self.sld_video.setRange(0, 0)
+        self.sld_video.setValue(0)
+        self.sld_video.valueChanged.connect(self._on_video_scrub)
+        self._video_bar.addWidget(self.sld_video, 1)
+        self.lbl_video_pos = QLabel("0/0")
+        self.lbl_video_pos.setMinimumWidth(52)
+        self.lbl_video_pos.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self._video_bar.addWidget(self.lbl_video_pos)
+        self._video_bar_widget = QWidget()
+        self._video_bar_widget.setLayout(self._video_bar)
+        self._video_bar_widget.setVisible(False)
+        res_col.addWidget(self._video_bar_widget)
         self.lbl_res = QLabel("NO IMAGE")
         self.lbl_res.setObjectName("previewFrame")
         self.lbl_res.setAlignment(Qt.AlignCenter)
@@ -331,6 +365,13 @@ class MainWindow(QMainWindow):
         if self.src is None:
             return
         try:
+            self._sync_docdims()
+        except Exception:  # noqa: BLE001
+            pass
+        if self._video_on:
+            self._start_video_async()
+            return
+        try:
             from app.services.render_service import render_full, should_render_async
 
             if should_render_async(self.src):
@@ -341,10 +382,253 @@ class MainWindow(QMainWindow):
         except Exception as e:  # noqa: BLE001
             self._status(f"Error: {e}")
 
+    # ------------------------------------------------------------------
+    # Doc único (CANVAS) + anim único (VIDEO): una sola fuente por tamaño
+    # ------------------------------------------------------------------
+    def _doc_size(self) -> int:
+        from app.exporter import MAX_SIDE, MIN_SIDE
+
+        try:
+            return max(MIN_SIDE, min(MAX_SIDE, int(self.spn_docsize.value())))
+        except Exception:  # noqa: BLE001
+            return 3000
+
+    def _gif_anim_frames(self) -> int:
+        try:
+            return max(2, min(12, int(self.spn_video_frames.value())))
+        except Exception:  # noqa: BLE001
+            return int(getattr(self, "_gif_frames", 6))
+
+    def _gif_anim_mode(self) -> str:
+        from app.gif import GIF_MODES
+
+        try:
+            m = self.cmb_video_mode.currentText()
+            return m if m in GIF_MODES else "both"
+        except Exception:  # noqa: BLE001
+            return str(getattr(self, "_gif_mode", "both"))
+
+    def _gif_anim_fps(self) -> int:
+        try:
+            return max(2, min(24, int(self.spn_video_fps.value())))
+        except Exception:  # noqa: BLE001
+            return int(getattr(self, "_gif_fps", 8))
+
+    def _gif_anim_size(self) -> int:
+        try:
+            return max(240, min(1920, int(self.spn_video_size.value())))
+        except Exception:  # noqa: BLE001
+            return int(getattr(self, "_gif_size", 1200))
+
+    def _gif_anim_pingpong(self) -> bool:
+        try:
+            return bool(self.chk_video_pingpong.isChecked())
+        except Exception:  # noqa: BLE001
+            return bool(getattr(self, "_gif_pingpong", False))
+
+    def _on_docsize_preset(self, text: str) -> None:
+        if text == "Custom":
+            return
+        try:
+            self.spn_docsize.blockSignals(True)
+            self.spn_docsize.setValue(int(text))
+        finally:
+            self.spn_docsize.blockSignals(False)
+        self._sync_docsize_combo(int(text))
+        self._schedule_refresh()
+
+    def _on_docsize_custom(self) -> None:
+        try:
+            self._sync_docsize_combo(int(self.spn_docsize.value()))
+        except Exception:  # noqa: BLE001
+            pass
+        self._sync_docdims()
+        self._schedule_refresh()
+
+    def _sync_docsize_combo(self, size: int) -> None:
+        from app.exporter import SIZE_PRESETS
+
+        txt = str(size) if size in SIZE_PRESETS else "Custom"
+        try:
+            if self.cmb_docsize.currentText() != txt:
+                self.cmb_docsize.blockSignals(True)
+                self.cmb_docsize.setCurrentText(txt)
+                self.cmb_docsize.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _sync_docdims(self) -> None:
+        try:
+            from app.canvas import canvas_size_for
+
+            w, h = canvas_size_for(self.cmb_ratio.currentText(), self._doc_size())
+            self.lbl_docdims.setText(f"{w}×{h}")
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _video_spec(self) -> dict:
+        return {"size": self._gif_anim_size(), "mode": self._gif_anim_mode(),
+                "frames": self._gif_anim_frames(), "fps": self._gif_anim_fps(),
+                "pingpong": self._gif_anim_pingpong()}
+
+    def _on_video_toggle(self) -> None:
+        self._video_on = bool(self.chk_video.isChecked())
+        self._video_bar_widget.setVisible(self._video_on)
+        if self._video_on:
+            self._video_playing = True
+            try:
+                self.btn_video_play.setText("⏸ Pause")
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            self._video_timer.stop()
+        self.refresh()
+
+    def _on_video_fps_changed(self) -> None:
+        try:
+            fps = max(2, min(24, int(self.spn_video_fps.value())))
+            self._video_timer.setInterval(1000 // fps)
+        except Exception:  # noqa: BLE001
+            pass
+        self._schedule_refresh()
+
+    def _on_video_playpause(self) -> None:
+        self._video_playing = not self._video_playing
+        try:
+            self.btn_video_play.setText("⏸ Pause" if self._video_playing else "▶ Play")
+        except Exception:  # noqa: BLE001
+            pass
+        if self._video_playing and self._video_frames and not self._video_timer.isActive():
+            self._video_timer.start()
+
+    def _on_video_scrub(self, v: int) -> None:
+        if not self._video_on or not self._video_frames:
+            return
+        # El scrub pausa el auto-play un momento sin pelear con el timer.
+        self._video_idx = max(0, min(len(self._video_frames) - 1, int(v)))
+        self._show_video_frame()
+
+    def _start_video_async(self) -> None:
+        from app.ui.preview_worker import VideoWorker
+
+        if self.src is None:
+            return
+        if self._video_worker is not None and self._video_worker.isRunning():
+            return  # uno en vuelo basta; el debounce reintentará
+        spec = self._video_spec()
+        self._video_token += 1
+        self._video_timer.stop()
+        self._status(f"Rendering video {spec['frames']}f {spec['mode']} @{spec['size']}px…")
+        self._video_worker = VideoWorker(
+            self.src.copy(), self.current_params(), spec["size"],
+            spec["frames"], spec["mode"], spec["pingpong"], self._video_token,
+        )
+        self._video_worker.finished_ok.connect(self._on_video_done)
+        self._video_worker.finished_err.connect(self._on_video_error)
+        self._video_worker.start()
+
+    def _on_video_done(self, frames: list, token: int) -> None:
+        if token != self._video_token:
+            return
+        from app.gif import GIF_MAX_FPS, GIF_MIN_FPS
+
+        self._video_frames = list(frames or [])
+        self.result = self._video_frames[0] if self._video_frames else self.result
+        spec = self._video_spec()
+        fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(spec["fps"])))
+        self._video_timer.setInterval(1000 // fps)
+        self.sld_video.blockSignals(True)
+        self.sld_video.setRange(0, max(0, len(self._video_frames) - 1))
+        self.sld_video.setValue(0)
+        self.sld_video.blockSignals(False)
+        self._video_idx = 0
+        self._show_video_frame()
+        if self._video_playing and len(self._video_frames) > 1:
+            self._video_timer.start()
+        self._status(f"Video ready: {len(self._video_frames)}f "
+                     f"{spec['mode']} @{self.result.width}x{self.result.height}")
+
+    def _on_video_error(self, msg: str, token: int) -> None:
+        if token != self._video_token:
+            return
+        self._status(f"Video error: {msg}")
+
+    # -- hold-to-compare (single canvas) --
+    def _compare_pressed(self) -> None:
+        if self.src is None:
+            return
+        self._comparing = True
+        self._paint_compare_orig()
+
+    def _compare_released(self) -> None:
+        if not self._comparing:
+            return
+        self._comparing = False
+        self._paint_compare_result()
+
+    def _paint_compare_orig(self) -> None:
+        if self.src is None:
+            return
+        zoomed = int(520 * self.zoom)
+        self.lbl_res.setPixmap(pil_to_pixmap(self.src, max_side=zoomed))
+        self.lbl_res_title.setText(f"ORIGINAL (hold) · {self.src.width}x{self.src.height}")
+
+    def _paint_compare_result(self) -> None:
+        if self._video_on and self._video_frames:
+            self._comparing = False
+            self._show_video_frame(force=True)
+            return
+        if self.result is not None:
+            zoomed = int(520 * self.zoom)
+            self.lbl_res.setPixmap(pil_to_pixmap(self.result, max_side=zoomed))
+            kind = "VIDEO" if self._video_on else "DITHER"
+            self.lbl_res_title.setText(f"{kind} · {self.result.width}x{self.result.height}")
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self.src is not None:
+            self._comparing = True
+            self._paint_compare_orig()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self._comparing:
+            self._comparing = False
+            self._paint_compare_result()
+            event.accept()
+            return
+        super().keyReleaseEvent(event)
+
+    def _show_video_frame(self, force: bool = False) -> None:
+        if not self._video_frames:
+            return
+        if self._comparing and not force:
+            self._paint_compare_orig()
+            return
+        idx = max(0, min(len(self._video_frames) - 1, int(self._video_idx)))
+        frame = self._video_frames[idx]
+        zoomed = int(520 * self.zoom)
+        self.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=zoomed))
+        self.lbl_res_title.setText(f"VIDEO · {frame.width}x{frame.height} · f{idx + 1}/{len(self._video_frames)}")
+        self.lbl_video_pos.setText(f"{idx + 1}/{len(self._video_frames)}")
+        if self.sld_video.value() != idx:
+            self.sld_video.blockSignals(True)
+            self.sld_video.setValue(idx)
+            self.sld_video.blockSignals(False)
+
+    def _next_video_frame(self) -> None:
+        if not self._video_on or not self._video_playing or not self._video_frames:
+            return
+        self._video_idx = (self._video_idx + 1) % len(self._video_frames)
+        self._show_video_frame()
+
     def _show_preview(self, orig: Image.Image, res: Image.Image) -> None:
         zoomed = int(520 * self.zoom)
-        self.lbl_orig.setPixmap(pil_to_pixmap(orig, max_side=zoomed))
-        self.lbl_orig_title.setText(f"ORIGINAL · {orig.width}x{orig.height}")
+        if self._comparing:
+            self.lbl_res.setPixmap(pil_to_pixmap(orig, max_side=zoomed))
+            self.lbl_res_title.setText(f"ORIGINAL (hold) · {orig.width}x{orig.height}")
+            return
         self.lbl_res.setPixmap(pil_to_pixmap(res, max_side=zoomed))
         self.lbl_res_title.setText(f"DITHER · {res.width}x{res.height}")
 
@@ -370,8 +654,13 @@ class MainWindow(QMainWindow):
         if token != self._preview_token:
             return  # stale: another render is already on its way
         self.result = pil_img
-        self.lbl_res.setPixmap(QPixmap.fromImage(qimg))
-        self.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
+        if self._comparing and self.src is not None:
+            zoomed = int(520 * self.zoom)
+            self.lbl_res.setPixmap(pil_to_pixmap(self.src, max_side=zoomed))
+            self.lbl_res_title.setText(f"ORIGINAL (hold) · {self.src.width}x{self.src.height}")
+        else:
+            self.lbl_res.setPixmap(QPixmap.fromImage(qimg))
+            self.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
         self._status("Preview ready")
         if self._preview_pending:
             self._preview_pending = False
@@ -435,9 +724,12 @@ class MainWindow(QMainWindow):
             vector_export=bool(self._vector_export),
             vector_cell=int(self._vector_cell),
             gif_export=bool(self._gif_export),
-            gif_frames=int(self._gif_frames),
-            gif_mode=str(self._gif_mode),
-            export_size=int(self._export_size),
+            gif_frames=int(self._gif_anim_frames()),
+            gif_mode=str(self._gif_anim_mode()),
+            gif_fps=int(self._gif_anim_fps()),
+            gif_size=int(self._gif_anim_size()),
+            gif_pingpong=bool(self._gif_anim_pingpong()),
+            export_size=int(self._doc_size()),
             export_format=str(self._export_format),
             export_quality=int(self._export_quality),
             duotone_dark=self.duotone_dark,
@@ -727,9 +1019,42 @@ class MainWindow(QMainWindow):
         self._gif_export = bool(p.gif_export)
         self._gif_frames = int(p.gif_frames)
         self._gif_mode = str(p.gif_mode)
+        self._gif_fps = int(getattr(p, "gif_fps", 8))
+        self._gif_size = int(getattr(p, "gif_size", 1200))
+        self._gif_pingpong = bool(getattr(p, "gif_pingpong", False))
         self._export_size = int(p.export_size)
         self._export_format = str(p.export_format)
         self._export_quality = int(p.export_quality)
+        # Doc único: tamaño documento en CANVAS.
+        try:
+            self.spn_docsize.blockSignals(True)
+            self.spn_docsize.setValue(int(p.export_size))
+        finally:
+            self.spn_docsize.blockSignals(False)
+        self._sync_docsize_combo(int(p.export_size))
+        self._sync_docdims()
+        # Anim único: VIDEO es el editor (widgets), vars como respaldo.
+        try:
+            self.cmb_video_mode.blockSignals(True)
+            if self.cmb_video_mode.findText(str(p.gif_mode)) >= 0:
+                self.cmb_video_mode.setCurrentText(str(p.gif_mode))
+        finally:
+            self.cmb_video_mode.blockSignals(False)
+        for _spn, _val, _lo, _hi in (
+            (self.spn_video_frames, int(p.gif_frames), 2, 12),
+            (self.spn_video_fps, int(getattr(p, "gif_fps", 8)), 2, 24),
+            (self.spn_video_size, int(getattr(p, "gif_size", 1200)), 240, 1920),
+        ):
+            try:
+                _spn.blockSignals(True)
+                _spn.setValue(max(_lo, min(_hi, int(_val))))
+            finally:
+                _spn.blockSignals(False)
+        try:
+            self.chk_video_pingpong.blockSignals(True)
+            self.chk_video_pingpong.setChecked(bool(getattr(p, "gif_pingpong", False)))
+        finally:
+            self.chk_video_pingpong.blockSignals(False)
         # Grade pack.
         self.duotone_dark = str(p.duotone_dark or "")
         self.duotone_light = str(p.duotone_light or "")
@@ -830,7 +1155,10 @@ class MainWindow(QMainWindow):
             in_dir="", out_dir=str(self.out_dir), jobs=int(self.spn_jobs.value()),
             vector_export=bool(preset.vector_export), vector_cell=int(preset.vector_cell),
             gif_export=bool(preset.gif_export), gif_frames=int(preset.gif_frames),
-            gif_mode=preset.gif_mode, canvas_size=canvas_size,
+            gif_mode=preset.gif_mode, gif_fps=int(getattr(preset, "gif_fps", 8)),
+            gif_size=int(getattr(preset, "gif_size", 1200)),
+            gif_pingpong=bool(getattr(preset, "gif_pingpong", False)),
+            canvas_size=canvas_size,
             size=int(preset.export_size), format=str(preset.export_format),
             quality=int(preset.export_quality), parent=self)
         if dlg.exec() != dlg.DialogCode.Accepted:
@@ -840,7 +1168,10 @@ class MainWindow(QMainWindow):
         preset = replace(
             preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
             gif_export=outs["gif_export"], gif_frames=outs["gif_frames"],
-            gif_mode=outs["gif_mode"], export_size=outs["export_size"],
+            gif_mode=outs["gif_mode"], gif_fps=outs.get("gif_fps", 8),
+            gif_size=outs.get("gif_size", 1200),
+            gif_pingpong=outs.get("gif_pingpong", False),
+            export_size=outs["export_size"],
             export_format=outs["export_format"], export_quality=outs["export_quality"])
         self.run_batch(src, dst, jobs=jobs, preset=preset)
 
@@ -1026,13 +1357,21 @@ class MainWindow(QMainWindow):
         except ValueError:
             self._status("No image in the clipboard")
 
+    @property
+    def lbl_orig(self):  # compat: single canvas (dnd/tests viejos)
+        return self.lbl_res
+
+    @property
+    def lbl_orig_title(self):  # compat: single canvas
+        return self.lbl_res_title
+
     def _set_drag_hover(self, on: bool) -> None:
-        for lbl in (self.lbl_orig, self.lbl_res):
-            lbl.setProperty("dragHover", "true" if on else "false")
-            st = lbl.style()
-            st.unpolish(lbl)
-            st.polish(lbl)
-            lbl.update()
+        lbl = self.lbl_res
+        lbl.setProperty("dragHover", "true" if on else "false")
+        st = lbl.style()
+        st.unpolish(lbl)
+        st.polish(lbl)
+        lbl.update()
 
     def dragEnterEvent(self, event) -> None:  # noqa: N802
         if event.mimeData().hasUrls():
@@ -1227,28 +1566,41 @@ class MainWindow(QMainWindow):
                 selection = prefs.to_selection()
                 self._run_export(
                     base=prefs.base or self.src_name, out_dir=Path(prefs.out_dir),
-                    selection=selection, gif_frames=prefs.gif_frames,
-                    gif_mode=prefs.gif_mode, overwrite=prefs.overwrite,
+                    selection=selection,
+                    gif_opts={"frames": prefs.gif_frames, "mode": prefs.gif_mode,
+                              "fps": getattr(prefs, "gif_fps", 8),
+                              "size": getattr(prefs, "gif_size", 1200),
+                              "pingpong": getattr(prefs, "gif_pingpong", False)},
+                    overwrite=prefs.overwrite,
                     size=prefs.size, format=prefs.format, quality=prefs.quality,
                 )
                 return
             if prefs.out_dir:
                 init_sel = prefs.to_selection()
                 init_base, init_out = prefs.base, prefs.out_dir
-                init_gframes, init_gmode = prefs.gif_frames, prefs.gif_mode
+                init_gopts = {"frames": prefs.gif_frames, "mode": prefs.gif_mode,
+                              "fps": getattr(prefs, "gif_fps", 8),
+                              "size": getattr(prefs, "gif_size", 1200),
+                              "pingpong": getattr(prefs, "gif_pingpong", False)}
                 init_overwrite = prefs.overwrite
                 init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
             else:
                 init_sel = ExportSelection(vector=bool(preset.vector_export),
                                            anim=bool(preset.gif_export))
                 init_base, init_out = self.src_name, str(self.out_dir)
-                init_gframes, init_gmode = int(preset.gif_frames), preset.gif_mode
+                init_gopts = {"frames": int(preset.gif_frames), "mode": preset.gif_mode,
+                              "fps": int(getattr(preset, "gif_fps", 8)),
+                              "size": int(getattr(preset, "gif_size", 1200)),
+                              "pingpong": bool(getattr(preset, "gif_pingpong", False))}
                 init_overwrite = "overwrite"
                 init_size, init_fmt, init_q = (int(preset.export_size),
                                                str(preset.export_format), int(preset.export_quality))
             dlg = ExportDialog(
                 self.src, preset.meta(), base=init_base, out_dir=init_out,
-                selection=init_sel, gif_frames=init_gframes, gif_mode=init_gmode,
+                selection=init_sel,
+                gif_frames=int(init_gopts["frames"]), gif_mode=str(init_gopts["mode"]),
+                gif_fps=int(init_gopts["fps"]), gif_size=int(init_gopts["size"]),
+                gif_pingpong=bool(init_gopts["pingpong"]),
                 overwrite=init_overwrite, vector_cells=self._estimate_vector_cells(preset),
                 preset=preset, size=init_size, format=init_fmt, quality=init_q,
                 parent=self,
@@ -1256,10 +1608,10 @@ class MainWindow(QMainWindow):
             if dlg.exec() != dlg.DialogCode.Accepted:
                 self._status("Export cancelled")
                 return
-            options, out_dir, gframes, gmode = dlg.options()
+            options, out_dir, gopts = dlg.options()
             self._run_export(
                 base=options.base, out_dir=out_dir, selection=options.selection,
-                gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+                gif_opts=gopts, overwrite=options.overwrite,
                 size=options.size, format=options.format, quality=options.quality,
             )
             save_prefs(ExportPrefs(
@@ -1268,7 +1620,10 @@ class MainWindow(QMainWindow):
                 thumb_1080p=options.selection.thumb_1080p,
                 vector=options.selection.vector, anim=options.selection.anim,
                 metadata=options.selection.metadata,
-                gif_frames=gframes, gif_mode=gmode, overwrite=options.overwrite,
+                gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
+                gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
+                gif_pingpong=bool(gopts["pingpong"]),
+                overwrite=options.overwrite,
                 size=options.size, format=options.format, quality=options.quality,
             ), self._prefs_path)
         except Exception as e:  # noqa: BLE001
@@ -1291,17 +1646,21 @@ class MainWindow(QMainWindow):
         except Exception:  # noqa: BLE001
             return None
 
-    def _run_export(self, base: str, out_dir: Path, selection, gif_frames: int,
-                    gif_mode: str, overwrite: str, size: int, format: str,
+    def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
+                    overwrite: str, size: int, format: str,
                     quality: int) -> None:
         """Render full-res + bundle según opciones. Full-res siempre."""
         from app.services.export_service import export_full
 
         preset = self.current_params()
+        go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
         paths, skipped = export_full(
             self.src, preset, out_dir, base=base, store=self.store,
             preset_name=self.cmb_preset.currentText(), selection=selection,
-            overwrite=overwrite, gif_frames=int(gif_frames), gif_mode=gif_mode,
+            overwrite=overwrite,
+            gif_frames=int(go.get("frames", 6)), gif_mode=str(go.get("mode", "both")),
+            gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
+            gif_pingpong=bool(go.get("pingpong", False)),
             size=int(size), format=str(format), quality=int(quality),
         )
         if skipped and not paths:

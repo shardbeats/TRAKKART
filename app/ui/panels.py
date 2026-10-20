@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -148,6 +150,9 @@ def build_color_section(win, g: QVBoxLayout) -> None:
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
+    """Documento único estilo GIMP: Ratio + Modo + Tamaño (la imagen sale a esto)."""
+    from app.exporter import MAX_SIDE, MIN_SIDE, SIZE_PRESETS
+
     g.addWidget(QLabel("Ratio / Mode:"))
     row = QHBoxLayout()
     win.cmb_ratio = QComboBox()
@@ -159,6 +164,27 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.cmb_crop.currentTextChanged.connect(lambda _: win._schedule_refresh())
     row.addWidget(win.cmb_crop, 1)
     g.addLayout(row)
+    g.addWidget(QLabel("Document size (long side):"))
+    doc_row = QHBoxLayout()
+    win.cmb_docsize = QComboBox()
+    win.cmb_docsize.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
+    win.cmb_docsize.setToolTip("Presets or Custom (like GIMP Image Size)")
+    win.cmb_docsize.currentTextChanged.connect(win._on_docsize_preset)
+    doc_row.addWidget(win.cmb_docsize)
+    win.spn_docsize = QSpinBox()
+    win.spn_docsize.setRange(MIN_SIDE, MAX_SIDE)
+    win.spn_docsize.setValue(3000)
+    win.spn_docsize.setSuffix(" px")
+    win.spn_docsize.setToolTip("Long side of the document: main export renders at this")
+    win.spn_docsize.valueChanged.connect(win._on_docsize_custom)
+    doc_row.addWidget(win.spn_docsize, 1)
+    win.lbl_docdims = QLabel()
+    win.lbl_docdims.setMinimumWidth(110)
+    from PySide6.QtCore import Qt as _Qt2
+
+    win.lbl_docdims.setAlignment(_Qt2.AlignRight | _Qt2.AlignVCenter)
+    doc_row.addWidget(win.lbl_docdims)
+    g.addLayout(doc_row)
     g.addWidget(QLabel("Crop (visual editor):"))
     crop_row = QHBoxLayout()
     win.btn_crop = QPushButton("Adjust crop...")
@@ -340,6 +366,67 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
     g.addLayout(fx2_row)
 
 
+def build_video_section(win, g: QVBoxLayout) -> None:
+    """Modo Video: preview animado a canvas completo + controles propios."""
+    from app.gif import GIF_MODES, VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE
+
+    win.chk_video = QCheckBox("Video mode (animated preview)")
+    win.chk_video.setToolTip("OFF = still dither · ON = full video preview on canvas")
+    win.chk_video.setChecked(False)
+    win.chk_video.stateChanged.connect(win._on_video_toggle)
+    g.addWidget(win.chk_video)
+    row = QHBoxLayout()
+    row.addWidget(QLabel("Mode:"))
+    from PySide6.QtWidgets import QComboBox
+
+    win.cmb_video_mode = QComboBox()
+    win.cmb_video_mode.addItems(list(GIF_MODES))
+    win.cmb_video_mode.setCurrentText("mix")
+    win.cmb_video_mode.setToolTip("phase=march · hue=cycle · both · glitch=CRT · mix=all")
+    win.cmb_video_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    row.addWidget(win.cmb_video_mode, 1)
+    g.addLayout(row)
+    row2 = QHBoxLayout()
+    row2.addWidget(QLabel("Frames:"))
+    win.spn_video_frames = QSpinBox()
+    win.spn_video_frames.setRange(2, 12)
+    win.spn_video_frames.setValue(6)
+    win.spn_video_frames.setToolTip("2-12 frames (more = heavier)")
+    win.spn_video_frames.valueChanged.connect(lambda _: win._schedule_refresh())
+    row2.addWidget(win.spn_video_frames)
+    row2.addWidget(QLabel("FPS:"))
+    win.spn_video_fps = QSpinBox()
+    win.spn_video_fps.setRange(2, 24)
+    win.spn_video_fps.setValue(8)
+    win.spn_video_fps.setToolTip("Playback speed")
+    win.spn_video_fps.valueChanged.connect(win._on_video_fps_changed)
+    row2.addWidget(win.spn_video_fps)
+    g.addLayout(row2)
+    row3 = QHBoxLayout()
+    row3.addWidget(QLabel("Size:"))
+    win.spn_video_size = QSpinBox()
+    win.spn_video_size.setRange(VIDEO_MIN_SIZE, VIDEO_MAX_SIZE)
+    win.spn_video_size.setValue(VIDEO_DEFAULT_SIZE)
+    win.spn_video_size.setSuffix(" px")
+    win.spn_video_size.setToolTip("Canvas long side 480-1920 (1200 default)")
+    win.spn_video_size.valueChanged.connect(lambda _: win._schedule_refresh())
+    row3.addWidget(win.spn_video_size, 1)
+    from PySide6.QtWidgets import QCheckBox as _Chk
+
+    win.chk_video_pingpong = _Chk("Ping-pong")
+    win.chk_video_pingpong.setChecked(False)
+    win.chk_video_pingpong.setToolTip("Forward-backward loop (no jump cut)")
+    win.chk_video_pingpong.stateChanged.connect(lambda _: win._schedule_refresh())
+    row3.addWidget(win.chk_video_pingpong)
+    g.addLayout(row3)
+    play_row = QHBoxLayout()
+    win.btn_video_play = QPushButton("⏸ Pause")
+    win.btn_video_play.setToolTip("Play / pause video preview")
+    win.btn_video_play.clicked.connect(win._on_video_playpause)
+    play_row.addWidget(win.btn_video_play)
+    g.addLayout(play_row)
+
+
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     # Biblioteca: una paleta con nombre cargada = punto de partida editable.
     lib_row = QHBoxLayout()
@@ -405,5 +492,6 @@ __all__ = [
     "build_grade_section",
     "build_texture_section",
     "build_glitch_section",
+    "build_video_section",
     "build_custom_palette_section",
 ]

@@ -142,34 +142,31 @@ def test_export_dialog_plan_and_options(qt_app):
     assert n0 > 0
     dlg.chk_thumb.setChecked(False)
     assert dlg.list_files.count() == n0 - 1
-    opts, out, gframes, gmode = dlg.options()
+    opts, out, gopts = dlg.options()
     assert opts.base == "d" and out == Path("/tmp")
     assert opts.selection.thumb_1080p is False
-    assert (gframes, gmode) == (6, "both")
+    assert (gopts["frames"], gopts["mode"]) == (6, "both")
+    assert (gopts["fps"], gopts["size"], gopts["pingpong"]) == (8, 1200, False)
     # tamaño + formato viajan en las opciones
     dlg2 = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
-    o2, _, _, _ = dlg2.options()
+    o2, _, _ = dlg2.options()
     assert (o2.size, o2.format, o2.quality) == (1920, "jpg", 80)
     close_dialog(dlg2)
     close_dialog(dlg)
 
 
 def test_export_dialog_size_and_format(qt_app):
+    # Doc único: el tamaño viene de CANVAS, el diálogo solo lo muestra.
     from app.exporter import plan_export
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
     dlg = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
-    assert dlg.cmb_size.currentText() == "1920"
-    assert dlg.spn_size.value() == 1920
+    assert not hasattr(dlg, "cmb_size") and not hasattr(dlg, "spn_size")
     assert dlg.cmb_format.currentText() == "jpg"
-    assert "1920×1920" in dlg.lbl_dims.text()  # ratio 1:1
-    dlg.spn_size.setValue(1234)
-    assert dlg.cmb_size.currentText() == "Custom"
-    dlg.cmb_size.setCurrentText("1080")
-    assert dlg.spn_size.value() == 1080
-    opts, _, _, _ = dlg.options()
-    assert (opts.size, opts.format, opts.quality) == (1080, "jpg", 80)
+    assert "1920×1920" in dlg.lbl_dims.text()  # ratio 1:1, doc 1920
+    opts, _, _ = dlg.options()
+    assert (opts.size, opts.format, opts.quality) == (1920, "jpg", 80)
     names = [f for _, f, _ in plan_export(_img(), opts, meta={"ratio": "1:1"})]
     assert names[0].endswith(".jpg")
     close_dialog(dlg)
@@ -199,40 +196,33 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     assert (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
-def test_gif_live_preview_plays(window, qt_app):
+def test_gif_opts_without_preview(window, qt_app):
+    # Sin preview en export: los controles viajan en options(), el preview vive en VIDEO.
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
     preset = window.current_params()
     dlg = ExportDialog(window.src, preset.meta(), preset=preset)
-    assert not dlg._gif_timer.isActive()
-    assert dlg.lbl_gifprev.text() == "GIF preview off"
+    assert not hasattr(dlg, "lbl_gifprev")
+    assert not hasattr(dlg, "_gif_timer")
     dlg.spn_gframes.setValue(2)
-    dlg.cmb_gifmode.setCurrentText("phase")
-    dlg.chk_anim.setChecked(True)
-    assert dlg._gif_timer.isActive()
-    assert (2, "phase") in dlg._gif_cache
-    assert len(dlg._gif_cache[(2, "phase")]) == 2
-    assert dlg.lbl_gifprev.pixmap() is not None
-    assert not dlg.lbl_gifprev.pixmap().isNull()
-    first = dlg._gif_idx
-    dlg._next_gif_frame()
-    assert dlg._gif_idx == (first + 1) % 2
-    dlg.spn_gframes.setValue(3)  # cambio invalida cache y regenera
-    assert (3, "phase") in dlg._gif_cache
-    dlg.chk_anim.setChecked(False)
-    assert not dlg._gif_timer.isActive()
+    dlg.cmb_gifmode.setCurrentText("mix")
+    dlg.spn_gfps.setValue(12)
+    dlg.spn_gsize.setValue(1200)
+    dlg.chk_pingpong.setChecked(True)
+    opts, _, gopts = dlg.options()
+    assert (gopts["frames"], gopts["mode"]) == (2, "mix")
+    assert (gopts["fps"], gopts["size"], gopts["pingpong"]) == (12, 1200, True)
     close_dialog(dlg)
 
 
-def test_gif_preview_without_preset(qt_app):
+def test_gif_dialog_without_preset(qt_app):
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
-    dlg = ExportDialog(_img(), {"ratio": "1:1"})  # sin preset: sin preview
+    dlg = ExportDialog(_img(), {"ratio": "1:1"})  # sin preset: sin preview igual
     dlg.chk_anim.setChecked(True)  # no revienta
-    assert not dlg._gif_timer.isActive()
-    assert dlg.lbl_gifprev.text() == "GIF preview off"
+    assert not hasattr(dlg, "lbl_gifprev")
     close_dialog(dlg)
 
 
@@ -276,7 +266,8 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
     assert dlg.btn_run.isEnabled()
     assert dlg.output_options() == {"vector_export": True, "vector_cell": 12,
                                     "gif_export": True, "gif_frames": 4,
-                                    "gif_mode": "hue",
+                                    "gif_mode": "hue", "gif_fps": 8,
+                                    "gif_size": 1200, "gif_pingpong": False,
                                     "export_size": 1920, "export_format": "webp",
                                     "export_quality": 75}
     assert "cells" in dlg.lbl_vec_est.text()  # estimación con el canvas actual

@@ -29,6 +29,9 @@ def export_full(
     overwrite: str = "overwrite",
     gif_frames: int | None = None,
     gif_mode: str | None = None,
+    gif_fps: int | None = None,
+    gif_size: int | None = None,
+    gif_pingpong: bool | None = None,
     vector_cells: tuple[int, int] | None = None,
     size: int | None = None,
     format: str | None = None,
@@ -69,6 +72,7 @@ def export_full(
         cols_rows = estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
 
     frames: list[Image.Image] | None = None
+    fps = int(gif_fps if gif_fps is not None else getattr(preset, "gif_fps", 8))
     if want_gif:
         from app.gif import gif_frames as _gif_frames  # alias: no shadow al parámetro
 
@@ -76,6 +80,9 @@ def export_full(
             src, preset,
             frames=int(gif_frames if gif_frames is not None else preset.gif_frames),
             mode=gif_mode if gif_mode is not None else preset.gif_mode,
+            max_side=int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480)),
+            pingpong=bool(gif_pingpong if gif_pingpong is not None
+                          else getattr(preset, "gif_pingpong", False)),
         )
 
     options = ExportOptions(
@@ -86,7 +93,7 @@ def export_full(
     )
     paths, skipped = export_with_options(
         res, out_dir, options, meta=preset.meta(),
-        vector_svg=svg, gif_frames=frames,
+        vector_svg=svg, gif_frames=frames, gif_fps=fps,
     )
     if store is not None and paths:
         try:

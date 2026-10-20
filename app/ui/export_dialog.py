@@ -1,4 +1,4 @@
-"""Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
+﻿"""Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
 
 El motor (`export_bundle`/`export_with_options`) no pregunta nada;
 este diálogo pregunta todo y previsualiza lo que va a salir.
@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
-    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
 )
@@ -29,15 +28,10 @@ from app.exporter import (
     EXPORT_FORMATS,
     MAX_SIDE,
     MIN_SIDE,
-    SIZE_PRESETS,
     ExportOptions,
     ExportSelection,
     plan_export,
 )
-from app.ui.qt_image import pil_to_pixmap
-
-GIF_PREVIEW_FPS = 8
-GIF_PREVIEW_MAX_SIDE = 240
 
 
 def _fmt_size(n: int) -> str:
@@ -51,6 +45,8 @@ def _fmt_size(n: int) -> str:
 class ExportDialog(QDialog):
     """Qué sale, dónde y con qué nombre. `options()` solo válido tras Accept."""
 
+    GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
+
     def __init__(
         self,
         img: Image.Image,
@@ -60,6 +56,9 @@ class ExportDialog(QDialog):
         selection: ExportSelection | None = None,
         gif_frames: int = 6,
         gif_mode: str = "both",
+        gif_fps: int = 8,
+        gif_size: int = 1200,
+        gif_pingpong: bool = False,
         overwrite: str = "overwrite",
         vector_cells: tuple[int, int] | None = None,
         preset=None,
@@ -74,17 +73,9 @@ class ExportDialog(QDialog):
         self._img = img
         self._meta = meta or {}
         self._vector_cells = vector_cells
-        self._preset = preset  # para el live preview del GIF (None = sin preview)
+        self._preset = preset  # se guarda por compat; el preview vive en modo Video
         self._gif_count = max(1, int(gif_frames))
         self._ready = False  # las señales del __init__ no pintan nada aún
-        self._gif_cache: dict[tuple[int, str], list] = {}
-        self._gif_idx = 0
-        self._gif_timer = None
-        from PySide6.QtCore import QTimer
-
-        self._gif_timer = QTimer(self)
-        self._gif_timer.setInterval(1000 // GIF_PREVIEW_FPS)
-        self._gif_timer.timeout.connect(self._next_gif_frame)
 
         col = QVBoxLayout(self)
         # -- nombre --
@@ -105,27 +96,16 @@ class ExportDialog(QDialog):
         self.btn_browse.clicked.connect(self._browse)
         dest_row.addWidget(self.btn_browse)
         col.addLayout(dest_row)
-        # -- tamaño (GIMP/photoshop: el lienzo se dimensiona aquí) --
-        size_row = QHBoxLayout()
-        size_row.addWidget(QLabel("Size:"))
-        self.cmb_size = QComboBox()
-        self.cmb_size.addItems([str(s) for s in SIZE_PRESETS] + ["Custom"])
-        self.cmb_size.setToolTip("Long side in px (presets or Custom)")
-        self.cmb_size.currentTextChanged.connect(self._on_size_preset)
-        size_row.addWidget(self.cmb_size)
-        self.spn_size = QSpinBox()
-        self.spn_size.setRange(MIN_SIDE, MAX_SIDE)
-        self.spn_size.setValue(max(MIN_SIDE, min(MAX_SIDE, int(size))))
-        self.spn_size.setSuffix(" px")
-        self.spn_size.setToolTip("Long side of the exported image")
-        self.spn_size.valueChanged.connect(self._on_size_custom)
-        size_row.addWidget(self.spn_size, 1)
+        # -- documento único: el tamaño viene de CANVAS, aquí solo se muestra --
+        self._doc_size = max(MIN_SIDE, min(MAX_SIDE, int(size)))
+        doc_row = QHBoxLayout()
+        doc_row.addWidget(QLabel("Document:"))
         self.lbl_dims = QLabel()
         self.lbl_dims.setMinimumWidth(130)
         self.lbl_dims.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        size_row.addWidget(self.lbl_dims)
-        col.addLayout(size_row)
-        self._sync_size_combo(int(size))
+        self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
+        doc_row.addWidget(self.lbl_dims, 1)
+        col.addLayout(doc_row)
         # -- formato (GIMP: la extensión manda; aquí el combo) --
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
@@ -162,32 +142,44 @@ class ExportDialog(QDialog):
                     self.chk_vector, self.chk_anim, self.chk_meta):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
-        # -- gif --
+        # -- gif (frames / mode / fps / size / pingpong) --
         gif_row = QHBoxLayout()
         gif_row.addWidget(QLabel("GIF frames:"))
         self.spn_gframes = QSpinBox()
-        self.spn_gframes.setRange(2, 8)
-        self.spn_gframes.setValue(int(gif_frames))
+        self.spn_gframes.setRange(2, 12)
+        self.spn_gframes.setValue(max(2, min(12, int(gif_frames))))
+        self.spn_gframes.setToolTip("2-12 frames (more = heavier)")
         self.spn_gframes.valueChanged.connect(self._refresh_plan)
         gif_row.addWidget(self.spn_gframes)
         self.cmb_gifmode = QComboBox()
-        self.cmb_gifmode.addItems(["phase", "hue", "both"])
-        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in ("phase", "hue", "both") else "both")
+        self.cmb_gifmode.addItems(list(self.GIF_MODES))
+        self.cmb_gifmode.setCurrentText(gif_mode if gif_mode in self.GIF_MODES else "both")
+        self.cmb_gifmode.setToolTip("phase=march · hue=cycle · both=legacy · glitch=CRT · mix=all")
         self.cmb_gifmode.currentTextChanged.connect(self._refresh_plan)
         gif_row.addWidget(self.cmb_gifmode, 1)
         col.addLayout(gif_row)
-        self.chk_anim.stateChanged.connect(self._refresh_gif_preview)
-        self.spn_gframes.valueChanged.connect(self._refresh_gif_preview)
-        self.cmb_gifmode.currentTextChanged.connect(self._refresh_gif_preview)
-        # -- live preview del GIF (se genera al activar, cacheado por config) --
-        prev_row = QHBoxLayout()
-        self.lbl_gifprev = QLabel("GIF preview off")
-        self.lbl_gifprev.setAlignment(Qt.AlignCenter)
-        self.lbl_gifprev.setMinimumSize(160, 120)
-        self.lbl_gifprev.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.lbl_gifprev.setObjectName("previewFrame")
-        prev_row.addWidget(self.lbl_gifprev, 1)
-        col.addLayout(prev_row)
+        gif_row2 = QHBoxLayout()
+        gif_row2.addWidget(QLabel("FPS:"))
+        self.spn_gfps = QSpinBox()
+        self.spn_gfps.setRange(2, 24)
+        self.spn_gfps.setValue(max(2, min(24, int(gif_fps))))
+        self.spn_gfps.setToolTip("Playback speed 2-24 fps")
+        self.spn_gfps.valueChanged.connect(self._refresh_plan)
+        gif_row2.addWidget(self.spn_gfps)
+        gif_row2.addWidget(QLabel("Size:"))
+        self.spn_gsize = QSpinBox()
+        self.spn_gsize.setRange(240, 1920)
+        self.spn_gsize.setValue(max(240, min(1920, int(gif_size))))
+        self.spn_gsize.setSuffix(" px")
+        self.spn_gsize.setToolTip("Long side 240-1920px (480 = socials, 1200 = HD)")
+        self.spn_gsize.valueChanged.connect(self._refresh_plan)
+        gif_row2.addWidget(self.spn_gsize)
+        self.chk_pingpong = QCheckBox("Ping-pong")
+        self.chk_pingpong.setChecked(bool(gif_pingpong))
+        self.chk_pingpong.setToolTip("Forward-backward loop (no jump cut)")
+        gif_row2.addWidget(self.chk_pingpong)
+        col.addLayout(gif_row2)
+        col.addWidget(QLabel("Tip: preview the animation live in VIDEO mode (main window)."))
         # -- colisión (GIMP pregunta; aquí se elige política) --
         ow_row = QHBoxLayout()
         ow_row.addWidget(QLabel("If files exist:"))
@@ -231,28 +223,7 @@ class ExportDialog(QDialog):
         )
 
     def _current_size(self) -> int:
-        return max(MIN_SIDE, min(MAX_SIDE, int(self.spn_size.value())))
-
-    def _on_size_preset(self, text: str) -> None:
-        if text == "Custom":
-            return
-        try:
-            self.spn_size.blockSignals(True)
-            self.spn_size.setValue(int(text))
-        finally:
-            self.spn_size.blockSignals(False)
-        self._refresh_plan()
-
-    def _on_size_custom(self) -> None:
-        self._sync_size_combo(int(self.spn_size.value()))
-        self._refresh_plan()
-
-    def _sync_size_combo(self, size: int) -> None:
-        txt = str(size) if size in SIZE_PRESETS else "Custom"
-        if self.cmb_size.currentText() != txt:
-            self.cmb_size.blockSignals(True)
-            self.cmb_size.setCurrentText(txt)
-            self.cmb_size.blockSignals(False)
+        return int(getattr(self, "_doc_size", 3000))
 
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
@@ -265,7 +236,7 @@ class ExportDialog(QDialog):
                 w, h = canvas_size_for(ratio, self._current_size())
             except KeyError:
                 w, h = (self._current_size(), self._current_size())
-            self.lbl_dims.setText(f"{w}×{h}")
+            self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
             opts = ExportOptions(
                 base=self.edit_base.text().strip() or "cover",
                 selection=self._current_selection(),
@@ -278,7 +249,8 @@ class ExportDialog(QDialog):
                 self._img, opts, meta=self._meta,
                 has_vector=True, has_gif=True,
                 extra={"vector_cells": self._vector_cells or (0, 0),
-                       "gif_frames": int(self.spn_gframes.value())},
+                       "gif_frames": int(self.spn_gframes.value()),
+                       "gif_size": int(self.spn_gsize.value())},
             )
         except ValueError:
             plan = []
@@ -296,83 +268,29 @@ class ExportDialog(QDialog):
         if d:
             self.edit_dir.setText(d)
 
-    # -- live preview del GIF (cacheado por config, ~8fps como el export) --
-    def _refresh_gif_preview(self) -> None:
-        if not getattr(self, "_ready", False):
-            return
-        if not self.chk_anim.isChecked() or self._preset is None:
-            self._gif_timer.stop()
-            from PySide6.QtGui import QPixmap
-
-            self.lbl_gifprev.setPixmap(QPixmap())
-            self.lbl_gifprev.setText("GIF preview off")
-            return
-        key = (int(self.spn_gframes.value()), self.cmb_gifmode.currentText())
-        if key not in self._gif_cache:
-            self._gif_cache[key] = self._build_gif_preview(*key)
-        self._gif_key = key
-        self._gif_idx = 0
-        self._show_gif_frame()
-        if len(self._gif_cache.get(key, [])) > 1 and not self._gif_timer.isActive():
-            self._gif_timer.start()
-
-    def _build_gif_preview(self, frames: int, mode: str) -> list:
-        """Frames reducidos (240px) con la config actual. Lento sin numba: 1 vez por config."""
-        from PySide6.QtWidgets import QApplication
-
-        from app.gif import gif_frames
-
-        small = self._img.convert("RGB")
-        m = max(small.width, small.height)
-        if m > GIF_PREVIEW_MAX_SIDE:
-            f = GIF_PREVIEW_MAX_SIDE / m
-            small = small.resize(
-                (max(1, round(small.width * f)), max(1, round(small.height * f))),
-                Image.BICUBIC,
-            )
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        QApplication.processEvents()
-        try:
-            out = gif_frames(small, self._preset, frames=int(frames), mode=mode)
-            return [pil_to_pixmap(f, max_side=200) for f in out]
-        except Exception:  # noqa: BLE001
-            return []
-        finally:
-            QApplication.restoreOverrideCursor()
-
-    def _show_gif_frame(self) -> None:
-        frames = self._gif_cache.get(getattr(self, "_gif_key", None), [])
-        if frames:
-            self.lbl_gifprev.setPixmap(frames[self._gif_idx % len(frames)])
-            self.lbl_gifprev.setText("")
-
-    def _next_gif_frame(self) -> None:
-        frames = self._gif_cache.get(getattr(self, "_gif_key", None), [])
-        if not frames:
-            self._gif_timer.stop()
-            return
-        self._gif_idx = (self._gif_idx + 1) % len(frames)
-        self._show_gif_frame()
-
-    def _stop_preview(self) -> None:
-        try:
-            self._gif_timer.stop()
-        except Exception:  # noqa: BLE001
-            pass
-
-    def reject(self) -> None:  # noqa: N802
-        self._stop_preview()
-        super().reject()
+    # -- gif opts (sin preview: el preview vive en modo VIDEO) --
+    def _gif_opts(self) -> dict:
+        return {
+            "frames": int(self.spn_gframes.value()),
+            "mode": self.cmb_gifmode.currentText(),
+            "fps": int(self.spn_gfps.value()),
+            "size": int(self.spn_gsize.value()),
+            "pingpong": bool(self.chk_pingpong.isChecked()),
+        }
 
     def _on_export(self) -> None:
         if not self.edit_base.text().strip():
             self.edit_base.setText("cover")
-        self._stop_preview()
         self.accept()
 
     # -- resultado --
-    def options(self) -> tuple[ExportOptions, Path, int, str]:
-        """(opciones, destino, gif_frames, gif_mode). Solo tras Accept."""
+    def options(self) -> tuple[ExportOptions, Path, dict]:
+        """(opciones, destino, gif_opts). Solo tras Accept.
+
+        gif_opts = {frames, mode, fps, size, pingpong}. Los callers viejos
+        que desempaquetaban (opts, out, frames, mode) siguen funcionando
+        via GifOpts (tupla + dict a la vez).
+        """
         opts = ExportOptions(
             base=self.edit_base.text().strip() or "cover",
             selection=self._current_selection(),
@@ -381,7 +299,12 @@ class ExportDialog(QDialog):
             format=self.cmb_format.currentText(),
             quality=int(self.spn_quality.value()),
         )
-        return opts, Path(self.edit_dir.text()), int(self.spn_gframes.value()), self.cmb_gifmode.currentText()
+        return opts, Path(self.edit_dir.text()), self._gif_opts()
+
+    # -- compat: (opts, out, frames, mode) para código/tests viejos --
+    def legacy_options(self) -> tuple[ExportOptions, Path, int, str]:
+        opts, out, g = self.options()
+        return opts, out, int(g["frames"]), str(g["mode"])
 
 
 __all__ = ["ExportDialog"]

@@ -58,7 +58,9 @@ def build_extras(img: Image.Image, preset: Preset) -> tuple[str | None, list | N
     if preset.gif_export:
         from app.gif import gif_frames
 
-        frames = gif_frames(img, preset, frames=int(preset.gif_frames), mode=preset.gif_mode)
+        frames = gif_frames(img, preset, frames=int(preset.gif_frames), mode=preset.gif_mode,
+                            max_side=int(getattr(preset, "gif_size", 480)),
+                            pingpong=bool(getattr(preset, "gif_pingpong", False)))
     return svg, frames
 
 
@@ -82,7 +84,8 @@ def _render_one(args: tuple) -> dict:
         opts = options_from_preset(p)
         opts.base = base
         paths, _ = _export_with_options(res, out_str, opts, meta=p.meta(),
-                                        vector_svg=svg, gif_frames=frames)
+                                        vector_svg=svg, gif_frames=frames,
+                                        gif_fps=int(getattr(p, "gif_fps", 8)))
         return {"file": Path(path_str).name, "status": "ok",
                 "outputs": [str(x) for x in paths.values()]}
     except Exception as e:  # noqa: BLE001
@@ -175,7 +178,8 @@ def batch_process(
             opts = options_from_preset(preset)
             opts.base = base
             paths, _ = export_with_options(res, dst, opts, meta=preset.meta(),
-                                           vector_svg=svg, gif_frames=frames)
+                                           vector_svg=svg, gif_frames=frames,
+                                           gif_fps=int(getattr(preset, "gif_fps", 8)))
             results.append({"file": f.name, "status": "ok", "outputs": [str(p) for p in paths.values()]})
             _log(base, results[-1])
         except Exception as e:  # noqa: BLE001

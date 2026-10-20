@@ -232,6 +232,40 @@ def frames_ok(ctx):
         assert max(f.size) <= 480
 
 
+@when("I generate 4 frames in glitch mode")
+def gen_glitch(ctx):
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    ctx["frames"] = gif_frames(ctx["img"], Preset(name="g", method="floyd"),
+                               frames=4, mode="glitch")
+
+
+@then("the glitch frames differ from each other")
+def glitch_differs(ctx):
+    datas = [list(f.get_flattened_data()) for f in ctx["frames"]]
+    assert any(a != b for a, b in zip(datas[1:], datas[:-1]))
+
+
+@when("I generate 4 frames in mix ping-pong mode")
+def gen_pingpong(ctx):
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    ctx["frames"] = gif_frames(ctx["img"], Preset(name="g"),
+                               frames=4, mode="mix", pingpong=True)
+
+
+@then("the ping-pong loop has 6 frames and loops smoothly")
+def pingpong_ok(ctx):
+    assert len(ctx["frames"]) == 6  # 4 + middle reversed
+    first = list(ctx["frames"][0].get_flattened_data())
+    last = list(ctx["frames"][-1].get_flattened_data())
+    # No hay salto: el último es el segundo frame (ida-vuelta).
+    second = list(ctx["frames"][1].get_flattened_data())
+    assert last == second and first != second
+
+
 # -- flow.feature --
 @given("a test image with gradient")
 def gradient_flow(ctx):

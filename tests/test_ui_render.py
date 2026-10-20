@@ -121,18 +121,21 @@ def test_gif_preset_roundtrip(window, isolated_presets, monkeypatch):
     from app.presets import load_preset
 
     window._gif_export = True
-    window._gif_frames = 4
-    window._gif_mode = "hue"
+    window.spn_video_frames.setValue(4)
+    window.cmb_video_mode.setCurrentText("hue")
     assert window.current_params().gif_export is True
     assert window.current_params().gif_frames == 4
+    assert window.current_params().gif_mode == "hue"
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("WithGif", True))
     window.save_current_preset()
     back = load_preset("WithGif", isolated_presets)
     assert back.gif_export is True and back.gif_mode == "hue"
+    assert back.gif_frames == 4
     window._gif_export = False
     window._apply_preset("WithGif")
     assert window._gif_export is True
-    assert window._gif_mode == "hue"
+    assert window.cmb_video_mode.currentText() == "hue"
+    assert window.spn_video_frames.value() == 4
     assert window.current_params().gif_frames == 4
 
 
@@ -262,6 +265,19 @@ def test_copy_and_paste(window, qt_app):
     cb.setImage(qimg)
     window.paste_image()
     assert window.src is not None and window.src.size == (16, 16)
+
+
+def test_hold_to_compare_single_canvas(window, qt_app):
+    window.refresh()
+    assert window.result is not None
+    assert window.btn_compare.text() == "Hold to compare"
+    assert "DITHER" in window.lbl_res_title.text()
+    window._compare_pressed()
+    assert window._comparing is True
+    assert "ORIGINAL (hold)" in window.lbl_res_title.text()
+    window._compare_released()
+    assert window._comparing is False
+    assert "DITHER" in window.lbl_res_title.text()
 
 
 def test_preview_worker_runs_sync(qt_app):

@@ -1,4 +1,4 @@
-"""Tests GIF animado: frames, determinismo, tope 480px, modos."""
+"""Tests GIF animado: frames, determinismo, tope anim (1200), modos."""
 
 from PIL import Image
 
@@ -22,11 +22,15 @@ def _img(size: int = 128) -> Image.Image:
 
 
 def test_frames_count_and_size_cap():
+    # Anim único default 1200: una 1200x800 queda igual, una mayor baja a 1200.
     big = Image.new("RGB", (1200, 800), (10, 20, 30))
     frames = gif_frames(big, _preset(), frames=4, mode="phase")
     assert len(frames) == 4
     for f in frames:
-        assert max(f.size) <= 480
+        assert max(f.size) <= 1200
+    huge = Image.new("RGB", (2400, 2400), (10, 20, 30))
+    capped = gif_frames(huge, _preset(), frames=2, mode="phase")
+    assert max(capped[0].size) == 1200
 
 
 def test_frames_deterministic():
@@ -44,7 +48,55 @@ def test_modes_differ_and_invalid_falls_back():
     )
     fallback = gif_frames(_img(), _preset(), frames=2, mode="nope")
     assert len(fallback) == 2
-    assert set(GIF_MODES) == {"phase", "hue", "both"}
+    assert set(GIF_MODES) == {"phase", "hue", "both", "glitch", "mix"}
+
+
+def test_glitch_and_mix_animate_ed_static():
+    # Floyd ignora phase: glitch/mix deben moverse igual via post-fx.
+    p = _preset(method="floyd")
+    a = gif_frames(_img(), p, frames=3, mode="glitch")
+    b = gif_frames(_img(), p, frames=3, mode="mix")
+    assert any(
+        list(x.get_flattened_data()) != list(y.get_flattened_data())
+        for x, y in zip(a[1:], a[:-1])
+    )
+    assert any(
+        list(x.get_flattened_data()) != list(y.get_flattened_data())
+        for x, y in zip(b[1:], b[:-1])
+    )
+
+
+def test_pingpong_and_size_and_fps():
+    p = _preset(gif_size=320, gif_pingpong=True)
+    frames = gif_frames(_img(64), p, frames=4, mode="mix")
+    assert len(frames) == 4 + 2  # ping-pong expande
+    assert max(frames[0].size) <= 320
+    out_frames = gif_frames(_img(64), _preset(), frames=3, mode="phase",
+                            max_side=240, pingpong=False)
+    assert len(out_frames) == 3
+    assert max(out_frames[0].size) <= 240
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        from pathlib import Path
+
+        o = save_gif(out_frames, Path(d) / "x.gif", fps=12)
+        assert o.exists()
+        with __import__("PIL.Image", fromlist=["open"]).open(o) as im:
+            assert im.n_frames == 3
+
+
+def test_video_defaults_1200():
+    from app.gif import VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE
+
+    assert VIDEO_DEFAULT_SIZE == 1200
+    assert (VIDEO_MIN_SIZE, VIDEO_MAX_SIZE) == (480, 1920)
+    # Canvas completo a 1200: una 1600px baja a 1200, una chica no se amplía.
+    big = Image.new("RGB", (1600, 1600), (10, 20, 30))
+    frames = gif_frames(big, _preset(), frames=2, mode="phase", max_side=1200)
+    assert max(frames[0].size) == 1200
+    small = gif_frames(_img(256), _preset(), frames=2, mode="phase", max_side=1200)
+    assert max(small[0].size) == 256
 
 
 def test_save_gif_valid(tmp_path):

@@ -200,6 +200,9 @@ def meta_dict(
     gif_export: bool = False,
     gif_frames: int = 6,
     gif_mode: str = "both",
+    gif_fps: int = 8,
+    gif_size: int = 480,
+    gif_pingpong: bool = False,
 ) -> dict:
     a = adjust if isinstance(adjust, Adjust) else Adjust.from_dict(adjust)
     _, pal_label = resolve_palette(palette_name, custom_palette)
@@ -227,7 +230,8 @@ def meta_dict(
         "phase": int(phase),
         "glitch": {"chroma": int(glitch_chroma), "slice_bands": int(glitch_slice_bands),
                    "slice_max": int(glitch_slice_max)},
-        "gif": {"export": bool(gif_export), "frames": int(gif_frames), "mode": gif_mode},
+        "gif": {"export": bool(gif_export), "frames": int(gif_frames), "mode": gif_mode,
+                "fps": int(gif_fps), "size": int(gif_size), "pingpong": bool(gif_pingpong)},
         "vector_export": bool(vector_export),
         "vector_cell": int(vector_cell),
     }
