@@ -415,9 +415,11 @@ def sync_docdims(win) -> None:
     try:
         w, h = doc_dims(win)
         label = win.cmb_ratio.currentText()
-        win.lbl_docdims.setText(f"{w}×{h} px · {label}")
+        win.lbl_docdims.setText(f"{w}×{h} · {label}")
+        win.lbl_docdims.setToolTip(f"{w}×{h} px · {label}")
         try:
-            win.lbl_video_size.setText(f"{w}×{h} px (canvas)")
+            win.lbl_video_size.setText(f"{w}×{h}")
+            win.lbl_video_size.setToolTip(f"{w}×{h} px (canvas)")
         except Exception:  # noqa: BLE001
             pass
     except Exception:  # noqa: BLE001

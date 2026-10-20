@@ -9,7 +9,7 @@ Flow: `Image → method + palette + pixel + threshold → preview → bundle →
 
 Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).
 
-## 2. Current state — v0.17.0 (done)
+## 2. Current state — v0.18.0 (done)
 
 - `app/dither.py`: `ordered_bayer` (4x4/8x8) + `floyd_steinberg` (B&W and palette), `apply_method()`, `pixel_size`, `threshold`. Only numpy + Pillow.
 - `app/palettes.py`: `BW / SLIME / VAPOR / EMBER` originals. `get_palette()`, `palette_names()`.
@@ -177,11 +177,11 @@ Gap: still GIF + animated preview only. Goal: MP4 import, timeline layers (from/
 - [x] Export MP4 (same frame→dither→stack pipeline, optional shared anti-flicker palette) + Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust). MP4 single-export (batch stays GIF).
 - [x] Gherkin 48/48 (timeline sin ffmpeg skipea limpio).
 
-### v1.5 — Iteration UX + content
-- [ ] Viewport mode selector Full/Live/Still (hoy debounce fijo 350ms + proxies Draft/HD/Full → exponerlo como setting + statusbar).
-- [ ] Fast path: ajustes core (brightness/contrast/sat/mid/high) con refresh prioritario; blur/denoise marcados como "heavy" (ya documentado en DIG_PROD, hacerlo explícito en UI).
-- [ ] In-app tutorial (`Help → Tutorial`, primer-run dialog corto) + sample pack + batch menu visible (hoy batch vive en export flow; añadir entrada `Batch` en menubar).
-- [ ] App themes (claro/oscuro/retro-green/pink) vía `theme.qss` variants — saca `app themes` de rechazados, es barato y lo piden.
+### v1.5 — Iteration UX + content (done)
+- [x] Viewport mode selector Full/Live/Still (`app/viewport.py`: 0ms / 120ms-fast-350ms-slow / F5-only + statusbar label + View menu).
+- [x] Fast path: core adjusts (brightness/contrast/sat/mid/high) refresh at 120ms in Live; blur/denoise marked "(heavy)" in tooltips + background worker (`is_heavy_preset`).
+- [x] In-app tutorial (`Help → Quick tour`, 5 steps, first-run once + `data/samples/` pack generated offline) + batch menu entry verified (File → Batch folder Ctrl+B since v0.2, no duplicate menu).
+- [x] App themes (Dark/Light/Handheld green/Pink) via single-source token swap over `theme.qss` + View menu radio. Gherkin 50/50.
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -209,4 +209,4 @@ Gap: still GIF + animated preview only. Goal: MP4 import, timeline layers (from/
 - Webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
 - Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (v1.4 = opt-in `requirements-video.txt` only; batch MP4 out of scope, single-export only).
-- Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED in v1.5 (cheap qss variants, user-requested).
+- Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).

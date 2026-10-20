@@ -47,6 +47,7 @@ def build_menus(win) -> None:
 
     m_view = bar.addMenu("View")
     for label, shortcut, slot in [
+        ("Refresh preview", "F5", win.refresh),
         ("Zoom +", "Ctrl+=", lambda: win._zoom_step(1.25)),
         ("Zoom -", "Ctrl+-", lambda: win._zoom_step(1 / 1.25)),
         ("Fit", "Ctrl+0", win._zoom_fit),
@@ -59,3 +60,36 @@ def build_menus(win) -> None:
             a.setShortcut(shortcut)
         a.triggered.connect(slot)
         m_view.addAction(a)
+
+    m_viewport = m_view.addMenu("Viewport")
+    from app.viewport import MODES, mode_label
+
+    for mode in MODES:
+        a = QAction(f"{mode_label(mode)} (auto)" if mode == "live" else mode_label(mode), win)
+        a.setCheckable(True)
+        a.setChecked(win.viewport_mode == mode)
+        a.triggered.connect(lambda _=False, _m=mode: win.set_viewport_mode(_m))
+        setattr(win, f"_act_viewport_{mode}", a)
+        m_viewport.addAction(a)
+
+    m_themes = m_view.addMenu("Theme")
+    from app.ui.theme import theme_label, theme_names
+
+    for name in theme_names():
+        a = QAction(theme_label(name), win)
+        a.setCheckable(True)
+        a.setChecked(win.app_theme == name)
+        a.triggered.connect(lambda _=False, _n=name: win.set_theme(_n))
+        setattr(win, f"_act_theme_{name}", a)
+        m_themes.addAction(a)
+
+    m_help = bar.addMenu("Help")
+    for label, shortcut, slot in [
+        ("Quick tour...", "", lambda: win.show_tutorial(manual=True)),
+        ("Open samples folder", "", win.open_samples),
+    ]:
+        a = QAction(label, win)
+        if shortcut:
+            a.setShortcut(shortcut)
+        a.triggered.connect(slot)
+        m_help.addAction(a)

@@ -18,6 +18,7 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (  # noqa: F401 (QMessageBox: test seam, see note below)
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QVBoxLayout,
@@ -101,19 +102,27 @@ class MainWindow(QMainWindow):
         self._video_token: int = 0
         from PySide6.QtCore import QTimer
 
+        # -- viewport + theme (v1.5): set BEFORE _build_menus (actions read them) --
+        self.viewport_mode: str = "live"
+        self.app_theme: str = "dark"
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
-        self._preview_timer.setInterval(350)  # family-style debounce (never freeze UI)
+        self._preview_timer.setInterval(350)  # live default; modes retime it
         self._preview_timer.timeout.connect(self.refresh)
         self._video_timer = QTimer(self)
         self._video_timer.timeout.connect(self._next_video_frame)
         self._video_timer.setInterval(125)  # 8fps default
         self._setup_ui()
+        self.set_theme("dark")
         self._build_menus()
+        self.lbl_viewport = QLabel("Viewport: Live")
+        self.lbl_viewport.setObjectName("subtitleLabel")
+        self.statusBar().addPermanentWidget(self.lbl_viewport)
         self.refresh_presets()
         self.refresh_palette_list()
         self._apply_preset("SLIME_FS")
         self._status("Open an image to start.")
+        self._maybe_first_run()
 
     def closeEvent(self, event) -> None:  # noqa: N802
         """Limpieza determinista: sin timers ni slots huerfanos tras cerrar.
@@ -139,9 +148,105 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _schedule_refresh(self) -> None:
-        """Deferred 350ms re-render: sliders never freeze the UI."""
+        """Viewport-aware re-render: full = now, live = debounced, still = F5 only."""
+        from app.viewport import normalize_mode, resolve_interval
+
+        mode = normalize_mode(getattr(self, "viewport_mode", "live"))
+        if mode == "still":
+            try:
+                self._preview_timer.stop()  # cancel any pending auto-refresh
+            except Exception:  # noqa: BLE001
+                pass
+            self._status("Still mode: press Refresh (F5) to update")
+            return
+        if mode == "full":
+            self.refresh()
+            return
+        try:
+            fast = bool(self.sender().property("fast"))
+        except Exception:  # noqa: BLE001
+            fast = False
+        interval = int(resolve_interval("live", fast=fast) or 350)
         if not self._preview_timer.isActive():
+            self._preview_timer.setInterval(interval)
             self._preview_timer.start()
+
+    def set_viewport_mode(self, mode: str) -> None:
+        from app.viewport import mode_label, normalize_mode
+
+        self.viewport_mode = normalize_mode(mode)
+        for m in ("full", "live", "still"):
+            try:
+                getattr(self, f"_act_viewport_{m}").setChecked(m == self.viewport_mode)
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            self.lbl_viewport.setText(f"Viewport: {mode_label(self.viewport_mode)}")
+        except Exception:  # noqa: BLE001
+            pass
+        self._status(f"Viewport: {mode_label(self.viewport_mode)}")
+        if self.viewport_mode in ("full", "live"):
+            self.refresh()
+
+    def set_theme(self, name: str) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        from app.ui.theme import set_theme as _apply, theme_names
+
+        resolved = _apply(QApplication.instance() or self, name if name in theme_names() else "dark")
+        self.app_theme = resolved
+        for n in theme_names():
+            try:
+                getattr(self, f"_act_theme_{n}").setChecked(n == resolved)
+            except Exception:  # noqa: BLE001
+                pass
+        self._status(f"Theme: {resolved}")
+
+    def show_tutorial(self, manual: bool = False) -> None:
+        from app.tutorial import ensure_samples, mark_seen
+        from app.ui.tutorial_dialog import TutorialDialog
+
+        try:
+            ensure_samples()
+        except Exception:  # noqa: BLE001
+            pass
+        dlg = TutorialDialog(parent=self)
+        dlg.exec()
+        try:
+            mark_seen()
+        except Exception:  # noqa: BLE001
+            pass
+        if manual:
+            self._status("Quick tour done")
+
+    def open_samples(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from app.tutorial import ensure_samples
+
+        try:
+            paths = ensure_samples()
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths[0].parent)))
+            self._status(f"Samples: {len(paths)} images")
+        except Exception as e:  # noqa: BLE001
+            self._status(f"Samples unavailable: {e}")
+
+    def _maybe_first_run(self) -> None:
+        """First launch: samples + tour once. Never blocks tests/headless."""
+        import os
+
+        if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TRAKKART_SKIP_FIRST_RUN"):
+            return
+        try:
+            from app.tutorial import ensure_samples, first_run_needed
+
+            if not first_run_needed():
+                return
+            ensure_samples()
+            self.show_tutorial(manual=False)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _status(self, msg: str) -> None:
         """Single status point: label + status bar (family pattern)."""

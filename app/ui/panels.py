@@ -29,6 +29,24 @@ def make_group(host: QVBoxLayout, title: str) -> QVBoxLayout:
     return lay
 
 
+def hlab(parent, text: str) -> QLabel:
+    """Section header that wraps instead of forcing panel width."""
+    lab = QLabel(text)
+    lab.setWordWrap(True)
+    parent.addWidget(lab)
+    return lab
+
+
+def tight(cmb, chars: int = 12):
+    """Cap combo min-width so long items don't blow the panel (tooltips stay full)."""
+    try:
+        cmb.setSizeAdjustPolicy(cmb.AdjustToMinimumContentsLengthWithIcon)
+        cmb.setMinimumContentsLength(max(4, int(chars)))
+    except Exception:  # noqa: BLE001
+        pass
+    return cmb
+
+
 def labeled_slider(win, parent, label, lo, hi, val, tooltip="", div=None):
     """Fila [label | slider | valor]. Doble-click resetea (ValueSlider)."""
     row = QHBoxLayout()
@@ -133,6 +151,7 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
     row.addWidget(win.btn_method_prev)
     win.cmb_method = QComboBox()
     win.cmb_method.addItems(list(methods))
+    tight(win.cmb_method)
     win.cmb_method.currentTextChanged.connect(lambda _: win._schedule_refresh())
     row.addWidget(win.cmb_method, 1)
     win.btn_method_next = QPushButton("▶")
@@ -169,6 +188,11 @@ def build_color_section(win, g: QVBoxLayout) -> None:
     win.sld_sat, _ = labeled_slider(win, g, "Saturation:", 0, 200, 100, div=100.0)
     win.sld_mid, _ = labeled_slider(win, g, "Midtones:", 0, 200, 100, "Mids gamma 0.0-2.0", div=100.0)
     win.sld_high, _ = labeled_slider(win, g, "Highlights:", -100, 100, 0, "Lift/cut brights")
+    for sld in (win.sld_bri, win.sld_con, win.sld_sat, win.sld_mid, win.sld_high):
+        try:
+            sld.setProperty("fast", True)  # core adjusts: 120ms fast path in Live
+        except Exception:  # noqa: BLE001
+            pass
     lock_row = QHBoxLayout()
     lock_row.addWidget(QLabel("Lock:"))
     win._adjust_locks = getattr(win, "_adjust_locks", {})
@@ -211,6 +235,7 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     g.addWidget(QLabel("Ratio / Mode:"))
     row = QHBoxLayout()
     win.cmb_ratio = QComboBox()
+    tight(win.cmb_ratio, 10)
     win.cmb_ratio.addItems(canvas_ratios())
     win.cmb_ratio.setToolTip("Preset aspect, or Custom for free W×H")
     # activated = solo gesto del usuario: aplica el preset sin pelear con sync.
@@ -219,18 +244,20 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_ratio, 1)
     win.cmb_crop = QComboBox()
+    tight(win.cmb_crop, 10)
     win.cmb_crop.addItems(list(crop_modes))
     win.cmb_crop.setToolTip("; ".join(f"{m}: {MODE_TIPS.get(m, '')}" for m in crop_modes))
     win.cmb_crop.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_crop.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_crop, 1)
     g.addLayout(row)
-    g.addWidget(QLabel("Canvas Size (W × H):"))
+    hlab(g, "Canvas Size (W × H):")
     doc_row = QHBoxLayout()
     win.spn_canvas_w = QSpinBox()
     win.spn_canvas_w.setRange(MIN_DIM, MAX_DIM)
     win.spn_canvas_w.setValue(3000)
     win.spn_canvas_w.setSuffix(" px")
+    win.spn_canvas_w.setMinimumWidth(85)
     win.spn_canvas_w.setToolTip("Canvas width: typing it flips Ratio to Custom (free)")
     win.spn_canvas_w.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
     doc_row.addWidget(win.spn_canvas_w, 1)
@@ -239,17 +266,18 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.spn_canvas_h.setRange(MIN_DIM, MAX_DIM)
     win.spn_canvas_h.setValue(3000)
     win.spn_canvas_h.setSuffix(" px")
+    win.spn_canvas_h.setMinimumWidth(85)
     win.spn_canvas_h.setToolTip("Canvas height: typing it flips Ratio to Custom (free)")
     win.spn_canvas_h.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
     doc_row.addWidget(win.spn_canvas_h, 1)
     win.lbl_docdims = QLabel()
-    win.lbl_docdims.setMinimumWidth(130)
+    win.lbl_docdims.setMinimumWidth(110)
     from PySide6.QtCore import Qt as _Qt2
 
     win.lbl_docdims.setAlignment(_Qt2.AlignRight | _Qt2.AlignVCenter)
     doc_row.addWidget(win.lbl_docdims)
     g.addLayout(doc_row)
-    g.addWidget(QLabel("Crop (visual editor):"))
+    hlab(g, "Crop (visual editor):")
     crop_row = QHBoxLayout()
     win.btn_crop = QPushButton("Adjust crop...")
     win.btn_crop.setToolTip("Visual crop: drag to move, wheel to zoom")
@@ -265,11 +293,11 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
 
 
 def build_pre_section(win, g: QVBoxLayout) -> None:
-    win.sld_blur, _ = labeled_slider(win, g, "Blur:", 0, 50, 0, "Blur 0.0-5.0", div=10.0)
+    win.sld_blur, _ = labeled_slider(win, g, "Blur:", 0, 50, 0, "Blur 0.0-5.0 (heavy: slower preview)", div=10.0)
     win.spn_sharp = spin_row(g, "Sharpen:", 0, 3, 0, "Sharpen 0-3")
     win.spn_sharp.valueChanged.connect(lambda _: win._schedule_refresh())
     win.sld_hue, _ = labeled_slider(win, g, "Hue:", -180, 180, 0, "Hue -180..180")
-    win.spn_denoise = spin_row(g, "Denoise:", 0, 5, 0, "Denoise 0-5")
+    win.spn_denoise = spin_row(g, "Denoise:", 0, 5, 0, "Denoise 0-5 (heavy: slower preview)")
     win.spn_denoise.valueChanged.connect(lambda _: win._schedule_refresh())
     win.sld_smooth, _ = labeled_slider(win, g, "Smooth:", 0, 50, 0, "Smooth 0.0-5.0", div=10.0)
     for sp in (win.spn_sharp, win.spn_denoise):
@@ -284,11 +312,12 @@ def build_motif_section(win, g: QVBoxLayout) -> None:
     """
     from app.motif import BAND_NAMES, SHAPES
 
-    g.addWidget(QLabel("Bands → shape/size (method `motif`):"))
+    hlab(g, "Bands → shape/size (method `motif`):")
     for i, band in enumerate(BAND_NAMES):
         row = QHBoxLayout()
         row.addWidget(QLabel(f"{band}:"))
         cmb = QComboBox()
+        tight(cmb, 8)
         cmb.addItems(list(SHAPES))
         cmb.setCurrentText(["dot", "line", "cross", "square"][i])
         cmb.setToolTip(f"Shape for {band} band")
@@ -311,7 +340,7 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     sliders existentes (una sola fuente); aquí solo se ordena y conmuta."""
     from PySide6.QtWidgets import QListWidget
 
-    g.addWidget(QLabel("FX stack (order matters):"))
+    hlab(g, "FX stack (order matters):")
     win.fx_list = QListWidget()
     win.fx_list.setMinimumHeight(150)
     win.fx_list.setMaximumHeight(220)
@@ -332,6 +361,7 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     row.addWidget(win.btn_fx_down)
     row.addWidget(QLabel("Add:"))
     win.cmb_fx_add = QComboBox()
+    tight(win.cmb_fx_add, 14)
     win.cmb_fx_add.setToolTip("Re-enable a bypassed FX")
     win.cmb_fx_add.currentTextChanged.connect(win._on_fx_add)
     row.addWidget(win.cmb_fx_add, 1)
@@ -340,15 +370,17 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     win.sld_postblur, _ = labeled_slider(win, g, "Post blur:", 0, 50, 0, "Post-dither blur 0.0-5.0", div=10.0)
     win.spn_postsharp = spin_row(g, "Post sharp:", 0, 3, 0, "Post-dither sharpen 0-3")
     win.spn_postsharp.valueChanged.connect(lambda _: win._schedule_refresh())
-    g.addWidget(QLabel("Paste-Up:"))
+    hlab(g, "Paste-Up:")
     paste_row = QHBoxLayout()
     win.cmb_paste = QComboBox()
     win.cmb_paste.addItems(["off", "paper", "riso", "fiber"])
+    tight(win.cmb_paste, 8)
     win.cmb_paste.setToolTip("Procedural paper overlay (post-dither stack FX)")
     win.cmb_paste.currentTextChanged.connect(lambda _: win._schedule_refresh())
     paste_row.addWidget(win.cmb_paste, 1)
     win.cmb_paste_blend = QComboBox()
     win.cmb_paste_blend.addItems(["overlay", "multiply", "screen"])
+    tight(win.cmb_paste_blend, 10)
     win.cmb_paste_blend.setToolTip("Paste-Up blend mode")
     win.cmb_paste_blend.currentTextChanged.connect(lambda _: win._schedule_refresh())
     paste_row.addWidget(win.cmb_paste_blend, 1)
@@ -361,7 +393,7 @@ def build_timeline_section(win, g: QVBoxLayout) -> None:
     """TIMELINE (v1.4): clip import + animation layers + Signal Drift."""
     from PySide6.QtWidgets import QListWidget
 
-    g.addWidget(QLabel("Clip (optional video source):"))
+    hlab(g, "Clip (optional video source):")
     clip_row = QHBoxLayout()
     win.btn_clip_open = QPushButton("Open clip...")
     win.btn_clip_open.setToolTip("Import MP4/GIF/WebP clip (opt-in video extra)")
@@ -371,10 +403,12 @@ def build_timeline_section(win, g: QVBoxLayout) -> None:
     win.btn_clip_browse.setToolTip("Pick the poster frame / clear the clip")
     win.btn_clip_browse.clicked.connect(win.browse_clip)
     clip_row.addWidget(win.btn_clip_browse)
-    win.lbl_clip = QLabel("still image")
-    clip_row.addWidget(win.lbl_clip, 1)
+    clip_row.addStretch()
     g.addLayout(clip_row)
-    g.addWidget(QLabel("Layers (prop frm→to ease [start-end]):"))
+    win.lbl_clip = QLabel("still image")
+    win.lbl_clip.setObjectName("subtitleLabel")
+    g.addWidget(win.lbl_clip)
+    hlab(g, "Layers (prop frm→to ease [start-end]):")
     win.anim_list = QListWidget()
     win.anim_list.setMinimumHeight(90)
     win.anim_list.setMaximumHeight(150)
@@ -391,6 +425,7 @@ def build_timeline_section(win, g: QVBoxLayout) -> None:
     g.addLayout(lr)
     erow = QHBoxLayout()
     win.cmb_anim_prop = QComboBox()
+    tight(win.cmb_anim_prop, 14)
     win.cmb_anim_prop.addItems(["threshold", "pixel_size", "pre_hue", "grain",
                                 "glow_intensity", "glitch_chroma", "wave", "jpeg",
                                 "fade", "split_tone"])
@@ -399,6 +434,7 @@ def build_timeline_section(win, g: QVBoxLayout) -> None:
     erow.addWidget(win.cmb_anim_prop, 1)
     win.cmb_anim_ease = QComboBox()
     win.cmb_anim_ease.addItems(["linear", "in", "out"])
+    tight(win.cmb_anim_ease, 8)
     win.cmb_anim_ease.setToolTip("Easing from→to")
     win.cmb_anim_ease.currentTextChanged.connect(lambda _: win._on_anim_edited())
     erow.addWidget(win.cmb_anim_ease, 1)
@@ -432,11 +468,12 @@ def build_timeline_section(win, g: QVBoxLayout) -> None:
     win.spn_anim_end.valueChanged.connect(lambda _: win._on_anim_edited())
     srow.addWidget(win.spn_anim_end, 1)
     g.addLayout(srow)
-    g.addWidget(QLabel("Signal Drift (animated pre-dither noise):"))
+    hlab(g, "Signal Drift (animated pre-dither noise):")
     drow = QHBoxLayout()
     win.cmb_drift = QComboBox()
     win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
                             "weave", "flicker", "moire", "sweep", "jitter"])
+    tight(win.cmb_drift, 10)
     win.cmb_drift.setToolTip("Retro-screen noise, marches with phase")
     win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
     drow.addWidget(win.cmb_drift, 1)
@@ -478,7 +515,9 @@ def build_grade_section(win, g: QVBoxLayout) -> None:
     win.sld_fade, _ = labeled_slider(win, g, "Fade:", 0, 100, 0, "Lift blacks (matte film)")
     win.sld_glow, _ = labeled_slider(win, g, "Glow:", 0, 100, 0, "Glow intensity")
     glow_row = QHBoxLayout()
-    glow_row.addWidget(QLabel("Glow radius / threshold:"))
+    _glow_lab = QLabel("Glow rad/thr:")
+    _glow_lab.setToolTip("Glow radius / threshold")
+    glow_row.addWidget(_glow_lab)
     win.spn_glowrad = QSpinBox()
     win.spn_glowrad.setRange(0, 50)
     win.spn_glowrad.setValue(8)
@@ -507,7 +546,7 @@ def build_grade_section(win, g: QVBoxLayout) -> None:
 
 
 def build_texture_section(win, g: QVBoxLayout) -> None:
-    g.addWidget(QLabel("Texture / decay:"))
+    hlab(g, "Texture / decay:")
     win.sld_grain, _ = labeled_slider(win, g, "Grain:", 0, 50, 0, "Grain 0-50")
     win.sld_vig, _ = labeled_slider(win, g, "Vignette:", 0, 100, 0, "Vignette 0-100")
     half_row = QHBoxLayout()
@@ -521,12 +560,13 @@ def build_texture_section(win, g: QVBoxLayout) -> None:
     half_row.addWidget(win.spn_halftone)
     win.cmb_halftone = QComboBox()
     win.cmb_halftone.addItems(["dots", "lines"])
+    tight(win.cmb_halftone, 8)
     win.cmb_halftone.setToolTip("Dot screen vs line screen")
     win.cmb_halftone.currentTextChanged.connect(lambda _: win._schedule_refresh())
     half_row.addWidget(win.cmb_halftone, 1)
     g.addLayout(half_row)
     win.sld_dust, _ = labeled_slider(win, g, "Dust:", 0, 100, 0, "Dust & scratches")
-    g.addWidget(QLabel("Scanlines / Frame:"))
+    hlab(g, "Scanlines / Frame:")
     fx_row = QHBoxLayout()
     win.spn_scan = QSpinBox()
     win.spn_scan.setRange(0, 8)
@@ -618,6 +658,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
 
     win.cmb_video_mode = QComboBox()
     win.cmb_video_mode.addItems(list(GIF_MODES))
+    tight(win.cmb_video_mode, 8)
     win.cmb_video_mode.setCurrentText("mix")
     win.cmb_video_mode.setToolTip("phase=march · hue=cycle · both · glitch=CRT · mix=all")
     win.cmb_video_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
@@ -630,6 +671,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     from app.gif import GIF_FRAMES_SUGGESTED, GIF_FPS_SUGGESTED
 
     win.cmb_video_frames = _Cmb()
+    tight(win.cmb_video_frames, 6)
     win.cmb_video_frames.setEditable(True)
     win.cmb_video_frames.addItems([str(n) for n in GIF_FRAMES_SUGGESTED])
     win.cmb_video_frames.setCurrentText("6")
@@ -639,6 +681,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     row2.addWidget(win.cmb_video_frames)
     row2.addWidget(QLabel("FPS:"))
     win.cmb_video_fps = _Cmb()
+    tight(win.cmb_video_fps, 6)
     win.cmb_video_fps.setEditable(True)
     win.cmb_video_fps.addItems([str(n) for n in GIF_FPS_SUGGESTED])
     win.cmb_video_fps.setCurrentText("24")
@@ -656,25 +699,26 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.cmb_video_proxy = QComboBox()
     win.cmb_video_proxy.addItems(["Draft 720p", "HD 1080p", "Full (doc)"])
     win.cmb_video_proxy.setCurrentText("Draft 720p")
+    tight(win.cmb_video_proxy, 12)
     win.cmb_video_proxy.setToolTip(
         "Preview resolution only, like video proxies: lighter = instant. "
         "Export always renders at full document size.")
     win.cmb_video_proxy.setMinimumWidth(110)
     win.cmb_video_proxy.currentTextChanged.connect(win._on_video_proxy_changed)
     row3.addWidget(win.cmb_video_proxy)
-    from PySide6.QtWidgets import QCheckBox as _Chk
-
-    win.chk_video_pingpong = _Chk("Ping-pong")
-    win.chk_video_pingpong.setChecked(False)
-    win.chk_video_pingpong.setToolTip("Forward-backward loop (no jump cut)")
-    win.chk_video_pingpong.stateChanged.connect(lambda _: win._schedule_refresh())
-    row3.addWidget(win.chk_video_pingpong)
     g.addLayout(row3)
     play_row = QHBoxLayout()
     win.btn_video_play = QPushButton("⏸ Pause")
     win.btn_video_play.setToolTip("Play / pause video preview")
     win.btn_video_play.clicked.connect(win._on_video_playpause)
     play_row.addWidget(win.btn_video_play)
+    from PySide6.QtWidgets import QCheckBox as _Chk
+
+    win.chk_video_pingpong = _Chk("Ping-pong")
+    win.chk_video_pingpong.setChecked(False)
+    win.chk_video_pingpong.setToolTip("Forward-backward loop (no jump cut)")
+    win.chk_video_pingpong.stateChanged.connect(lambda _: win._schedule_refresh())
+    play_row.addWidget(win.chk_video_pingpong, 1)
     g.addLayout(play_row)
 
 
@@ -683,6 +727,7 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     lib_row = QHBoxLayout()
     lib_row.addWidget(QLabel("Palette:"))
     win.cmb_pal_preset = QComboBox()
+    tight(win.cmb_pal_preset, 14)
     win.cmb_pal_preset.setToolTip("Load a named palette as editable swatches")
     win.cmb_pal_preset.currentTextChanged.connect(win._on_palette_preset_changed)
     lib_row.addWidget(win.cmb_pal_preset, 1)
@@ -696,15 +741,12 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_custom_add.setToolTip("Quick-add one color")
     win.btn_custom_add.clicked.connect(win.add_custom_color)
     row.addWidget(win.btn_custom_add)
-    win.btn_pal_extract = QPushButton("From image")
-    win.btn_pal_extract.setToolTip("Auto-extract palette from current image (median-cut, offline)")
-    win.btn_pal_extract.clicked.connect(win.extract_palette_from_image)
-    row.addWidget(win.btn_pal_extract)
     win.btn_pal_gen = QPushButton("🎲")
     win.btn_pal_gen.setToolTip("Surprise palette: generate harmonious colors")
     win.btn_pal_gen.clicked.connect(win.gen_palette)
     row.addWidget(win.btn_pal_gen)
     win.cmb_palgen = QComboBox()
+    tight(win.cmb_palgen, 8)
     win.cmb_palgen.addItems(["Ramp", "Harmony"])
     win.cmb_palgen.setToolTip("Ramp: shading gradient (best for dither) · Harmony: analogous/complementary/triadic")
     row.addWidget(win.cmb_palgen)
@@ -712,13 +754,19 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_palette_edit.setToolTip("Editor: see, edit, reorder and sort colors")
     win.btn_palette_edit.clicked.connect(win.edit_custom_palette)
     row.addWidget(win.btn_palette_edit)
-    win.btn_custom_clear = QPushButton("Clear")
-    win.btn_custom_clear.clicked.connect(win.clear_custom_colors)
-    row.addWidget(win.btn_custom_clear)
-    win.lbl_custom = QLabel("0 colors")
-    row.addWidget(win.lbl_custom, 1)
     win.custom_colors: list[tuple[int, int, int]] = []
     g.addLayout(row)
+    row2 = QHBoxLayout()
+    win.btn_pal_extract = QPushButton("From image")
+    win.btn_pal_extract.setToolTip("Auto-extract palette from current image (median-cut, offline)")
+    win.btn_pal_extract.clicked.connect(win.extract_palette_from_image)
+    row2.addWidget(win.btn_pal_extract)
+    win.btn_custom_clear = QPushButton("Clear")
+    win.btn_custom_clear.clicked.connect(win.clear_custom_colors)
+    row2.addWidget(win.btn_custom_clear)
+    win.lbl_custom = QLabel("0 colors")
+    row2.addWidget(win.lbl_custom, 1)
+    g.addLayout(row2)
     depth_row = QHBoxLayout()
     depth_row.addWidget(QLabel("Depth:"))
     win.spn_pal_depth = QSpinBox()
@@ -733,15 +781,19 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_pal_shuffle.setToolTip("Shuffle unlocked swatches (locked stay)")
     win.btn_pal_shuffle.clicked.connect(win.shuffle_palette)
     depth_row.addWidget(win.btn_pal_shuffle)
-    win.btn_pal_import = QPushButton("Import...")
+    depth_row.addStretch()
+    g.addLayout(depth_row)
+    io_row = QHBoxLayout()
+    win.btn_pal_import = QPushButton("Import")
     win.btn_pal_import.setToolTip("Import palette .json / .gpl (offline)")
     win.btn_pal_import.clicked.connect(win.import_palette_file)
-    depth_row.addWidget(win.btn_pal_import)
-    win.btn_pal_export = QPushButton("Export...")
+    io_row.addWidget(win.btn_pal_import)
+    win.btn_pal_export = QPushButton("Export")
     win.btn_pal_export.setToolTip("Export current swatches .json / .gpl (offline share)")
     win.btn_pal_export.clicked.connect(win.export_palette_file)
-    depth_row.addWidget(win.btn_pal_export, 1)
-    g.addLayout(depth_row)
+    io_row.addWidget(win.btn_pal_export)
+    io_row.addStretch()
+    g.addLayout(io_row)
     # Tira de swatches: cada color visible, clic lo quita.
     strip_host = QWidget()
     win.palette_strip = QHBoxLayout(strip_host)
