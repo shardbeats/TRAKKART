@@ -10,7 +10,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Help → Keyboard shortcuts; File → Open recent (last 5, in prefs).
 - MOTIF section only visible for method `motif`; friendlier empty canvas.
 - File logging (`data/trakkart.log`, rotating) + friendly crash dialog.
-- Crop editor zoom/pan loop fixed (owned box, exact anchor).
+- Crop editor zoom/pan loop fixed (owned box, exact anchor, frame follows
+  finger, anchor clamped over black bars).
 - CHANGELOG started (this file).
 
 ## v0.18.0

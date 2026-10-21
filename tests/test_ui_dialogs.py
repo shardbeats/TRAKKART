@@ -311,6 +311,38 @@ def test_crop_drag_moves_frame_with_finger(qt_app):
     assert after[0] > before[0] and after[1] > before[1]
 
 
+def test_crop_editor_done_applies_visible_crop(window, qt_app):
+    # E2E: gestos en el diálogo -> Done -> win.result cambia de verdad.
+    from PIL import Image as Img
+    from PySide6.QtCore import QPointF
+
+    from app.services.render_service import render_full
+    from app.ui.crop_editor import CropEditorDialog
+    from tests.conftest import accept_next_dialog
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    from PIL import ImageDraw as _Draw
+
+    _Draw.Draw(src).rectangle([200, 0, 400, 300], fill=(200, 40, 40))
+    window.src = src
+    window.refresh()
+    before = window.result
+    assert before is not None
+
+    def _gestures(dlg):
+        dlg.view.resize(600, 600)
+        dlg.view.pan_by(80.0, 0.0)
+        dlg.view.zoom_at(QPointF(300, 300), 2.0)
+
+    accept_next_dialog(CropEditorDialog, setup=_gestures)
+    window.open_crop_editor()
+    assert window.crop_zoom == 2.0
+    assert (window.crop_fx, window.crop_fy) != (50.0, 50.0)
+    assert window.result is not None
+    assert window.result.tobytes() != before.tobytes()
+    assert window.result.tobytes() == render_full(src, window.current_params()).tobytes()
+
+
 def test_share_export_import(window, tmp_path, isolated_presets, monkeypatch):
     from PySide6.QtWidgets import QFileDialog
 

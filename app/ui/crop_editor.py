@@ -216,9 +216,11 @@ class CropView(QWidget):
                                           new_zoom, canvas_w=self.canvas_w,
                                           canvas_h=self.canvas_h)
         if obw > 0 and obh > 0 and nbw > 0 and nbh > 0:
-            # Keep the source point under the cursor fixed.
-            rx = (cx - obx) / obw
-            ry = (cy - oby) / obh
+            # Keep the source point under the cursor fixed. The cursor may sit
+            # over the black bars (outside the image): clamp the anchor to the
+            # box so zoom leans to the nearest edge instead of snapping away.
+            rx = min(1.0, max(0.0, (cx - obx) / obw))
+            ry = min(1.0, max(0.0, (cy - oby) / obh))
             slack_x, slack_y = iw - nbw, ih - nbh
             self._box[0] = min(slack_x, max(0.0, cx - rx * nbw)) if slack_x > 0 else 0.0
             self._box[1] = min(slack_y, max(0.0, cy - ry * nbh)) if slack_y > 0 else 0.0
