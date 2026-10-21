@@ -16,7 +16,7 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 ```
 main.py                  :: entry
 app/__init__.py          :: version
-app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert (23 methods)
+app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert + cmyk/ascii/edges/motif (36 methods)
 app/kernels.py           :: COEFFS (11 kernels) + diffuse_* (numpy/numba) + Hilbert order/diffusion
 app/accelerate.py        :: optional njit + fallback (bit-identical parity)
 app/canvas.py            :: ratios + free Custom WxH + cover/contain/stretch/blur
@@ -58,7 +58,7 @@ app/ui/workers.py        :: BatchWorker QThread (jobs + cancel)
 app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, stale drops)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
 presets/*.json           :: 4 bundled (never overwritten)
-features/*.feature       :: 38 Gherkin scenarios
+features/*.feature       :: 51 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
 ```

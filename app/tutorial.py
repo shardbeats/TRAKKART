@@ -26,8 +26,8 @@ STEPS: tuple[tuple[str, str], ...] = (
      "SOURCE auto-extracts the palette from your image, Depth limits "
      "shades, and the dice + locks remix swatches without losing a good one."),
     ("Animate",
-     "VIDEO mode previews the full canvas. Layers sweep any of 10 props "
-     "across frames, Signal Drift adds retro-screen noise, and GIF/MP4 "
+     "VIDEO mode previews the full canvas. GIF modes march/cycle/wobble "
+     "with Motion amount, Signal Drift adds retro-screen noise, and GIF/MP4 "
      "export at canvas size."),
     ("Export",
      "Export… (Ctrl+Shift+S) writes the canvas-size bundle; Quick export "

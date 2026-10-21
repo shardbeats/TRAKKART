@@ -45,10 +45,15 @@ features/vector.feature   :: 1 scenario (valid SVG with rects)
 features/flow.feature     :: 3 scenarios (chromatic aberration, deterministic slice, pixel sort)
 features/gif.feature      :: 3 scenarios (N frames, glitch animates ED, mix ping-pong loop)
 features/safety.feature   :: 2 scenarios (giant image, huge vector)
+features/color_pro.feature :: 2 scenarios (auto-extract, source/depth)
+features/fx_stack.feature :: 2 scenarios (stack order, jpeg neutral)
+features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
+features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
+features/ux.feature       :: 2 scenarios (viewport modes, tutorial/themes)
 ```
 
-Total: 38/38. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 281 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Total: 51/51. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 375 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

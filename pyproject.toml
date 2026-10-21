@@ -1,6 +1,6 @@
 [project]
 name = "trakkart"
-version = "0.17.0"
+version = "0.18.0"
 description = "TRAKKART — offline dither cover generator (ShardBeats TRAKK family)"
 requires-python = ">=3.11"
 dependencies = [

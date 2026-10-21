@@ -4,7 +4,7 @@ Part of the ShardBeats **TRAKK** family. Offline dither cover generator (own MIT
 
 ```
 Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)
-→ method (23 engines) + palette + pixel + threshold → still/video preview → export
+→ method (36 engines) + palette + pixel + threshold → still/video preview → export
 → main image (canvas W×H + format you choose) + optional 1080p thumb + metadata.json
 + optional vector SVG (logos/merch) + animated GIF (phase/hue/glitch/mix, socials)
 ```
@@ -57,7 +57,7 @@ app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale ren
 app/ui/workers.py        :: batch QThread
 app/ui/widgets.py        :: ValueSlider with reset on double-click
 app/ui/theme.qss         :: TRAKK family dark theme
-features/*.feature       :: 38 Gherkin acceptance scenarios (pytest-bdd)
+features/*.feature       :: 51 Gherkin acceptance scenarios (pytest-bdd)
 tools/quality_metrics.py :: 5 quality gates -> data/quality_report.json
 ```
 
