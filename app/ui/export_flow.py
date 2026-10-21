@@ -82,9 +82,11 @@ def export(win, quick: bool = False) -> None:
             parent=win,
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
+            dlg.deleteLater()  # no hoard hidden dialogs (they linger in topLevelWidgets)
             win._status("Export cancelled")
             return
         options, out_dir, gopts = dlg.options()
+        dlg.deleteLater()
         win._run_export(
             base=options.base, out_dir=out_dir, selection=options.selection,
             gif_opts=gopts, overwrite=options.overwrite,

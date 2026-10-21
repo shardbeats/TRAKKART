@@ -34,13 +34,28 @@ SUFFIXES = {
     "metadata": "_metadata.json",
 }
 
+# Animation single file (GIF + MP4 share the stem: one motion, two codecs).
+MP4_SUFFIX = "_anim.mp4"
+
+
+def mp4_name(base: str) -> str:
+    """`{base}_anim.mp4` (same stem as the GIF)."""
+    return f"{base}{MP4_SUFFIX}"
+
+
 _FORMAT_EXT = {"png": "png", "jpg": "jpg", "webp": "webp"}
 
 
 def sanitize_base(base: str) -> str:
-    """Nombre seguro para ficheros (GIMP deja escribirlo libre; aquí se sanea)."""
+    """Nombre seguro para ficheros (GIMP deja escribirlo libre; aquí se sanea).
+
+    Sin separadores (anti `../`), sin rachas de `_` ni bordes raros, para
+    que los sufijos (`_anim.gif`...) nunca generen `__`.
+    """
     safe = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in (base or ""))
-    return safe or "cover"
+    while "__" in safe:
+        safe = safe.replace("__", "_")
+    return safe.strip("_-") or "cover"
 
 
 def _raster_name(base: str, key: str, fmt: str) -> str:

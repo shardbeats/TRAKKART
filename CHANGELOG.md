@@ -16,6 +16,10 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   smear/ghost/rows/chroma/crush/speckle), `mosh_mode`/`mosh_seed`/`mosh_size`
   preset fields, dedicated DATAMOSH page (mode/amount/size/seed+dice),
   same envelope in GIF mix.
+- Export naming: MP4 shares the GIF stem (`*_anim.mp4`, was `*_clip.mp4`);
+  sanitizer collapses/trims (`mi cover!` → `mi_cover`); dedicated File name
+  section (live preview + Reset); accepted dialogs no longer hoard hidden
+  windows (fixes E2E modal flake).
 - CHANGELOG started (this file).
 
 ## v0.18.0

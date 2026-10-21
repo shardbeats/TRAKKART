@@ -30,7 +30,9 @@ from app.exporter import (
     MIN_SIDE,
     ExportOptions,
     ExportSelection,
+    mp4_name,
     plan_export,
+    sanitize_base,
 )
 
 
@@ -77,14 +79,24 @@ class ExportDialog(QDialog):
         self._ready = False  # las señales del __init__ no pintan nada aún
 
         col = QVBoxLayout(self)
-        # -- nombre --
+        # -- file name (dedicated section: base + reset + sanitized preview) --
+        col.addWidget(QLabel("File name:"))
         name_row = QHBoxLayout()
-        name_row.addWidget(QLabel("Name:"))
+        self._init_base = base
         self.edit_base = QLineEdit(base)
         self.edit_base.setPlaceholderText("trakkart_cover")
+        self.edit_base.setToolTip("Base for every file: unsafe characters become _")
         self.edit_base.textChanged.connect(self._refresh_plan)
         name_row.addWidget(self.edit_base, 1)
+        self.btn_name_reset = QPushButton("Reset")
+        self.btn_name_reset.setToolTip("Restore the initial name")
+        self.btn_name_reset.clicked.connect(lambda: self.edit_base.setText(self._init_base))
+        name_row.addWidget(self.btn_name_reset)
         col.addLayout(name_row)
+        self.lbl_basename = QLabel()
+        self.lbl_basename.setWordWrap(True)
+        self.lbl_basename.setObjectName("subtitleLabel")
+        col.addWidget(self.lbl_basename)
         # -- destino --
         dest_row = QHBoxLayout()
         dest_row.addWidget(QLabel("Folder:"))
@@ -240,6 +252,8 @@ class ExportDialog(QDialog):
         try:
             w, h = self._doc_wh()
             self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
+            safe = sanitize_base(self.edit_base.text().strip() or "cover")
+            self.lbl_basename.setText(f"Files start with: {safe}")
             opts = ExportOptions(
                 base=self.edit_base.text().strip() or "cover",
                 selection=self._current_selection(),
@@ -269,7 +283,7 @@ class ExportDialog(QDialog):
                 nf = int(self._gif_opts()["frames"])
                 est = int(w * h * nf * 0.12)
                 self.list_files.addItem(
-                    f"{self.edit_base.text().strip() or 'cover'}_clip.mp4  ({_fmt_size(est)})")
+                    f"{mp4_name(sanitize_base(self.edit_base.text().strip() or 'cover'))}  ({_fmt_size(est)})")
                 total += est
                 n += 1
             except Exception:  # noqa: BLE001

@@ -153,6 +153,9 @@ def test_crop_editor_accept_applies(window, monkeypatch):
         def exec(self):
             return QDialog.DialogCode.Accepted
 
+        def deleteLater(self):
+            pass
+
     monkeypatch.setattr(CE, "CropEditorDialog", FakeDialog)
     window.open_crop_editor()
     assert seen.get("created") is True
@@ -174,6 +177,9 @@ def test_crop_editor_cancel_keeps_values(window, monkeypatch):
 
         def exec(self):
             return QDialog.DialogCode.Rejected
+
+        def deleteLater(self):
+            pass
 
     monkeypatch.setattr(CE, "CropEditorDialog", FakeDialog)
     before = (window.crop_fx, window.crop_fy, window.crop_zoom)

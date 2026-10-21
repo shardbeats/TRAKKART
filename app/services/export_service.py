@@ -44,7 +44,7 @@ def export_full(
     Retorna (paths escritos, keys omitidas por skip). Sin `selection`
     equivale al bundle completo clásico. size/format/quality pisan al preset
     (los elige el diálogo); None = valor del preset.
-    MP4 se escribe como fichero extra `{base}_clip.mp4` fuera del bundle
+    MP4 se escribe como fichero extra `{base}_anim.mp4` fuera del bundle
     (single-export; el batch sigue ruta GIF).
     """
     from app.vector import estimate_cells
@@ -103,15 +103,17 @@ def export_full(
     if want_mp4 and frames:
         from app.video_io import write_mp4
 
-        mp4_name = f"{options.base}_clip.mp4"
-        mp4_path = Path(out_dir) / mp4_name
+        from app.exporter import MP4_SUFFIX, mp4_name as _mp4_name
+
+        name = _mp4_name(options.base)
+        mp4_path = Path(out_dir) / name
         if overwrite == "skip" and mp4_path.exists():
             skipped = [*skipped, "video"]
         else:
             if overwrite == "rename":
                 i = 2
                 while mp4_path.exists():
-                    mp4_path = Path(out_dir) / f"{options.base}_{i}_clip.mp4"
+                    mp4_path = Path(out_dir) / f"{options.base}_{i}{MP4_SUFFIX}"
                     i += 1
             write_mp4(frames, mp4_path,
                       fps=int(mp4_fps if mp4_fps is not None else fps))

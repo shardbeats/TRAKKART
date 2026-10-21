@@ -113,7 +113,7 @@ def test_base_sanitized(tmp_path: Path):
     paths = export_bundle(_img(), tmp_path, base="../../evil")
     for p in paths.values():
         assert tmp_path.resolve() in p.resolve().parents
-    assert (tmp_path / "______evil_cover.png").exists()  # 6 chars -> 6 "_"
+    assert (tmp_path / "evil_cover.png").exists()  # sin traversal ni rachas
 
 
 def test_prefs_roundtrip_and_corrupt(tmp_path: Path):
@@ -263,6 +263,30 @@ def test_show_exported_opens_folder_only_on_click(tmp_path, qt_app, monkeypatch)
     monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _make_fake_box("close"))
     _ef.show_exported(None, tmp_path, ["a.png"])
     assert opened == {}
+
+
+def test_mp4_shares_anim_stem(qt_app):
+    from app.exporter import MP4_SUFFIX, mp4_name, sanitize_base
+
+    assert mp4_name("shot") == "shot_anim.mp4"
+    assert MP4_SUFFIX == "_anim.mp4"
+    assert mp4_name(sanitize_base("mi cover!")) == "mi_cover_anim.mp4"
+
+
+def test_file_name_section_previews_and_resets(qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="srcname")
+    try:
+        assert "srcname" in dlg.lbl_basename.text()
+        dlg.edit_base.setText("mi cover!")
+        assert dlg.lbl_basename.text().endswith("mi_cover")
+        dlg.edit_base.setText("otra")
+        dlg.btn_name_reset.click()
+        assert dlg.edit_base.text() == "srcname"
+    finally:
+        close_dialog(dlg)
 
 
 def test_gif_opts_come_from_video(window, qt_app):

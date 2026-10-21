@@ -61,14 +61,18 @@ def accept_next_dialog(cls, setup=None):
     from PySide6.QtWidgets import QApplication
 
     def _close():
-        for w in QApplication.topLevelWidgets():
-            if isinstance(w, cls):
-                try:
-                    if setup is not None:
-                        setup(w)
-                finally:
-                    w.accept()  # aceptar siempre: un setup roto no cuelga la suite
-                return
+        cands = [w for w in QApplication.topLevelWidgets() if isinstance(w, cls)]
+        vis = [w for w in cands if w.isVisible()]
+        # Prefer the live dialog: accepted ones linger hidden (Qt-owned)
+        # and must never steal the accept.
+        target = vis[0] if vis else None
+        if target is None:
+            return
+        try:
+            if setup is not None:
+                setup(target)
+        finally:
+            target.accept()  # aceptar siempre: un setup roto no cuelga la suite
 
     QTimer.singleShot(400, _close)
 
