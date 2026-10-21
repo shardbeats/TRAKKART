@@ -22,42 +22,73 @@ py -m pytest tests -q
 ```
 main.py                  :: entry point
 app/__init__.py          :: single-source version
-app/dither.py            :: ordered dither (bayer/cross/bluenoise/halftone/cluster/pattern)
-app/kernels.py           :: error-diffusion kernels (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson)
+app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert + cmyk/ascii/edges/motif (36 methods)
+app/kernels.py           :: error-diffusion kernels + Hilbert order/diffusion
+app/ordered_maps.py      :: ordered threshold maps (bayer/cross/bluenoise/halftone/...)
 app/accelerate.py        :: optional numba backend (bit-identical output, falls back to numpy)
-app/adjust.py            :: brightness / contrast / saturation
-app/fx.py                :: pre/post fx (blur, sharpen, hue, denoise, smooth, glow, grain, vignette, scanlines)
-app/glitch.py            :: chromatic aberration + slice shift
+app/adjust.py            :: brightness / contrast / saturation / midtones / highlights
 app/canvas.py            :: ratios + free Custom W×H + cover/contain/stretch/blur
+app/fx.py                :: pre/post fx + replace-color + custom palette
+app/fx_dispatch.py       :: stack FX dispatch (one function per effect)
+app/fx_stack.py          :: ordered stack model + effect labels
+app/fx_jpeg.py           :: JPEG glitch effect (recompress, deterministic)
+app/grade.py             :: duotone / posterize / split-tone / fade
+app/texture.py           :: halftone / dust / border / letterbox
+app/glitch.py            :: chroma / slice / pixelsort / wave / grille (+datamosh compat)
+app/mosh.py              :: 7 datamosh flavors + dispatcher (blocks legacy byte-identical)
+app/drift.py             :: Signal Drift patterns (seeded pre-dither noise)
+app/pasteup.py           :: paper overlay (post-dither stack FX)
+app/motif.py             :: custom pattern builder (4 bands -> shape/size)
+app/ascii.py             :: ASCII engine (charset ramp, phase-animable)
+app/cmyk.py              :: CMYK halftone (print ink, threshold = dot gain)
 app/palettes.py          :: original TRAKK palettes (BW/SLIME/VAPOR/EMBER)
+app/palette_library.py   :: named palette JSONs (bundled + user) + BW equivalence
+app/palette_gen.py       :: random ramp/harmony palettes in Oklch (seedable)
+app/palette_extract.py   :: median-cut auto-extract (numpy only)
 app/presets.py           :: JSON presets (bundled + user) + declarative FIELDS schema
 app/batch.py             :: offline folder batch (sequential/multiprocess + cancel + history)
-app/exporter.py          :: canvas-size bundle + 1080p thumb + metadata.json (+SVG +GIF)
-app/render_params.py     :: shared normalizers (scan/slice/grille/posterize/halftone)
+app/exporter.py          :: canvas-size bundle + plan + _gif/_vid stems + metadata.json
+app/export_prefs.py      :: last-config prefs (incl. recent files + src_name guard)
+app/names.py             :: filename sanitizers (single home)
+app/recent.py            :: recent files (capped, prefs-backed)
 app/pipeline.py          :: RenderSpec (single ~40-param dataclass) + render_spec/render
+app/render_params.py     :: shared normalizers (delegates to RenderSpec.from_preset)
 app/vector.py            :: SVG renderer (gridded re-render + RLE)
 app/gif.py               :: animated GIF modes (phase/hue/both/glitch/mix, Pillow only)
+app/video_io.py          :: opt-in MP4 backend (imageio-ffmpeg, never in base exe)
+app/viewport.py          :: Full/Live/Still modes + fast/slow debounce
+app/tutorial.py          :: tour steps + offline sample pack
 app/paths.py             :: portable data dir (env / frozen data/ / APPDATA)
 app/history.py           :: SQLite export history (capped)
+app/log.py               :: rotating file log + crash hook source
 app/safety.py            :: image/vector size guards (TooBigError)
 app/dnd.py               :: drop classifier (image/data/url/folder)
 app/ops.py               :: rotate/flip/invert + undo stack
-app/ui/main_window.py    :: thin orchestrator (~700 lines): setup + refresh router + delegation
-app/ui/window_assembly.py:: frame, panel groups, action bar, single-canvas preview
-app/ui/menus.py          :: File/Edit/View menus
+app/services/            :: render / export / image_io services
+app/ui/main_window.py    :: thin orchestrator (~900 lines): setup + refresh router + delegation
+app/ui/window_assembly.py:: frame, 6-page accordion, action bar, single-canvas preview
+app/ui/menus.py          :: File/Edit/View/Help menus
+app/ui/panels/           :: accordion builders (IMAGE/DITHER/COLOR/FX/DATAMOSH/MOTION)
 app/ui/params_controller.py :: widgets <-> Preset (BINDINGS table + doc/anim readers)
-app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy player
+app/ui/params_binding.py :: widget get/set factories
+app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy player + duration label
 app/ui/preview_controller.py:: still preview (sync render or background thread)
-app/ui/compare_controller.py:: hold-to-compare (Space or button shows ORIGINAL)
-app/ui/export_flow.py    :: export dialog orchestration + bundle + history
+app/ui/compare_controller.py:: hold-to-compare (Space/button shows ORIGINAL)
+app/ui/export_flow.py    :: export dialog orchestration + bundle + history + collision alert
+app/ui/export_dialog.py  :: File name section + plan + policy note
 app/ui/batch_flow.py     :: batch dialog + worker + progress/ETA
 app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
 app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
-app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale renders)
-app/ui/workers.py        :: batch QThread
+app/ui/crop_editor.py    :: CropEditorDialog (visual crop, owned box, cached paint)
+app/ui/palette_dialog.py :: palette editor (swatches, locks, shuffle)
+app/ui/about_dialog.py   :: About (version, MIT, offline note)
+app/ui/shortcuts_dialog.py :: shortcut reference table
+app/ui/fx_stack_controller.py :: stack list sync (reorder/enable/add)
+app/ui/theme.py/.qss     :: TRAKK family theme (tokens #151617/#F5A623)
 app/ui/widgets.py        :: ValueSlider with reset on double-click
-app/ui/theme.qss         :: TRAKK family dark theme
-features/*.feature       :: 51 Gherkin acceptance scenarios (pytest-bdd)
+app/ui/workers.py        :: BatchWorker QThread
+app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale renders)
+features/*.feature       :: 52 Gherkin acceptance scenarios (pytest-bdd)
 tools/quality_metrics.py :: 5 quality gates -> data/quality_report.json
 ```
 
