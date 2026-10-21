@@ -233,6 +233,8 @@ def load_path(win, path) -> None:
 
 
 def load_pil(win, img) -> None:
+    from datetime import datetime
+
     from PySide6.QtWidgets import QMessageBox
 
     from app.safety import TooBigError, check_image
@@ -242,6 +244,9 @@ def load_pil(win, img) -> None:
     except TooBigError as e:
         QMessageBox.warning(win, "TRAKKART", f"Image too large:\n{e}")
         return
+    # Pasted/dropped/downloaded pixels get their own base (load_path
+    # overwrites with the file stem right after for real files).
+    win.src_name = datetime.now().strftime("pasted_%Y%m%d_%H%M%S")
     win.history.clear()
     win.history.push(img)
     win.src = img

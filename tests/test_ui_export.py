@@ -196,6 +196,50 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     assert (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
+def test_stale_prefs_yield_fresh_name(window, qt_app):
+    # Prefs de otra imagen: el diálogo propone el src actual, no el viejo.
+    from app.export_prefs import ExportPrefs, save_prefs
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="oldname",
+                           src_name="otherpic"), window._prefs_path)
+    window.src_name = "newpic"
+    seen = {}
+    accept_next_dialog(ExportDialog, setup=lambda dlg: seen.setdefault(
+        "base", dlg.edit_base.text()))
+    window.export()
+    assert seen.get("base") == "newpic"
+    assert (window.out_dir / "newpic.png").exists()
+    assert not (window.out_dir / "oldname.png").exists()
+
+
+def test_quick_with_new_image_opens_dialog(window, qt_app):
+    # Quick nunca escribe en silencio con el nombre rancio: abre diálogo.
+    from app.export_prefs import ExportPrefs, save_prefs
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="oldname",
+                           src_name="otherpic"), window._prefs_path)
+    window.src_name = "newpic"
+    accept_next_dialog(ExportDialog)
+    window.export(quick=True)
+    assert (window.out_dir / "newpic.png").exists()
+    assert not (window.out_dir / "oldname.png").exists()
+
+
+def test_paste_gets_own_name(window, qt_app):
+    import re
+
+    from PIL import Image as _Img
+
+    from app.ui.image_flow import load_pil
+
+    load_pil(window, _Img.new("RGB", (32, 32), (9, 9, 9)))
+    assert re.fullmatch(r"pasted_\d{8}_\d{6}", window.src_name), window.src_name
+
+
 def test_video_on_prechecks_anim_in_dialog(window, qt_app):
     # VIDEO preview ON => Animation GIF pre-marcado (desmarcable, ~MB visible).
     # Cubre las dos vías de init: sin prefs (desde preset) y con prefs.

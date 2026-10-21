@@ -20,6 +20,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   sanitizer collapses/trims (`mi cover!` → `mi_cover`); dedicated File name
   section (live preview + Reset); accepted dialogs no longer hoard hidden
   windows (fixes E2E modal flake).
+- Stale export names fixed: prefs remember their image (`src_name`); a new
+  image gets a fresh default (dialog opens instead of silent quick reuse);
+  pasted/dropped/downloaded pixels get `pasted_YYYYMMDD_HHMMSS`.
 - CHANGELOG started (this file).
 
 ## v0.18.0

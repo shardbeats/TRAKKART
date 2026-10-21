@@ -40,7 +40,12 @@ def export(win, quick: bool = False) -> None:
         preset = win.current_params()
         prefs = load_prefs(win._prefs_path)
         recent_files = list(getattr(prefs, "recent_files", []) or [])
-        if quick and prefs.out_dir:
+        # Stale-name guard: prefs belong to the image they were saved for.
+        # New image (or untracked old prefs) -> fresh defaults, never the
+        # previous name. Quick with a new image falls through to the dialog
+        # on purpose: silent writes must not reuse a stale base.
+        prefs_match = (not getattr(prefs, "src_name", "")) or prefs.src_name == win.src_name
+        if quick and prefs.out_dir and prefs_match:
             selection = prefs.to_selection()
             win._run_export(
                 base=prefs.base or win.src_name, out_dir=Path(prefs.out_dir),
@@ -50,7 +55,7 @@ def export(win, quick: bool = False) -> None:
                 size=prefs.size, format=prefs.format, quality=prefs.quality,
             )
             return
-        if prefs.out_dir:
+        if prefs.out_dir and prefs_match:
             init_sel = prefs.to_selection()
             init_base, init_out = prefs.base, prefs.out_dir
             init_gopts = _gif_opts_from_prefs(prefs)
@@ -104,7 +109,7 @@ def export(win, quick: bool = False) -> None:
             gif_pingpong=bool(gopts["pingpong"]),
             overwrite=options.overwrite,
             size=options.size, format=options.format, quality=options.quality,
-            recent_files=recent_files,
+            recent_files=recent_files, src_name=win.src_name,
         ), win._prefs_path)
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")

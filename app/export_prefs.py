@@ -34,6 +34,7 @@ class ExportPrefs:
     format: str = "png"
     quality: int = 90
     recent_files: list = field(default_factory=list)
+    src_name: str = ""  # image these prefs were saved for (stale-name guard)
 
     def to_selection(self) -> dict:
         from app.exporter import ExportSelection
