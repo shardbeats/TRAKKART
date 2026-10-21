@@ -409,8 +409,9 @@ class Preset:
 
 
 def _safe_name(name: str) -> str:
-    safe = "".join(c for c in name if c.isalnum() or c in (" ", "-", "_")).strip()
-    return safe or "preset"
+    from app.names import safe_stem
+
+    return safe_stem(name, "preset")
 
 
 # Guardia fail-fast: el schema cubre exactamente los campos del dataclass.

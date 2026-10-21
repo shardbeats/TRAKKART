@@ -63,6 +63,12 @@ class CropView(QWidget):
         self.canvas_w = int(canvas_w or 0)
         self.canvas_h = int(canvas_h or 0)
         self._drag_from: QPointF | None = None
+        # Paint cache (P1): the photo itself never changes while dragging
+        # (only the frame moves), so converting PIL->QPixmap every paint
+        # wastes full-res work at drag rate. Cached by object identity;
+        # rotate replaces _img, which invalidates automatically.
+        self._pix_src: Image.Image | None = None
+        self._pix_cache: QPixmap | None = None
         # Owned box (source px, floats): gestures mutate it directly so the
         # zoom anchor round-trips exactly. fx/fy stay synced for the dialog
         # result + summary; crop_box_for is only the seeder (ratio/mode/
@@ -115,6 +121,13 @@ class CropView(QWidget):
                 "frame": frame, "img_rect": QRectF(ox, oy, dw, dh),
                 "box": (bx, by, bw, bh)}
 
+    def _cover_pixmap(self) -> QPixmap:
+        """Full-res pixmap of the source, cached across paints."""
+        if self._pix_cache is None or self._pix_src is not self._img:
+            self._pix_src = self._img
+            self._pix_cache = _pil_to_pixmap(self._img)
+        return self._pix_cache
+
     # -- painting --
     def paintEvent(self, _event) -> None:  # noqa: N802
         lay = self._layout()
@@ -125,8 +138,7 @@ class CropView(QWidget):
             pix = _pil_to_pixmap(lay["canvas"])
             p.drawPixmap(lay["img_rect"].toRect(), pix)
         else:
-            pix = _pil_to_pixmap(self._img)
-            p.drawPixmap(lay["img_rect"].toRect(), pix)
+            p.drawPixmap(lay["img_rect"].toRect(), self._cover_pixmap())
         frame: QRectF = lay["frame"]
         radius = min(28.0, frame.width() / 8.0, frame.height() / 8.0)
         frame_path = QPainterPath()

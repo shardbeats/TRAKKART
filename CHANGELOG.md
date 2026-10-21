@@ -8,6 +8,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - VIDEO preview ON pre-checks Animation GIF in the Export dialog.
 - Help → About TRAKKART; post-export dialog with Show in folder.
 - Help → Keyboard shortcuts; File → Open recent (last 5, in prefs).
+- Refactor P1+M2: CropView caches its pixmap across paints (invalidated by
+  identity on rotate); filename sanitizers unified in `app/names.py`
+  (byte-identical outputs).
 - MOTIF section only visible for method `motif`; friendlier empty canvas.
 - File logging (`data/trakkart.log`, rotating) + friendly crash dialog.
 - Crop editor zoom/pan loop fixed (owned box, exact anchor, frame follows

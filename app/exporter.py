@@ -52,7 +52,9 @@ def sanitize_base(base: str) -> str:
     Sin separadores (anti `../`), sin rachas de `_` ni bordes raros, para
     que los sufijos (`_gif.gif`...) nunca generen `__`.
     """
-    safe = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in (base or ""))
+    from app.names import safe_stem
+
+    safe = safe_stem(base, "", keep=("-", "_"), fill="_")
     while "__" in safe:
         safe = safe.replace("__", "_")
     return safe.strip("_-") or "cover"

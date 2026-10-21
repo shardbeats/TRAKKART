@@ -207,3 +207,15 @@ def test_export_fields_roundtrip(pdir: Path):
 def test_safe_name_fallback(pdir: Path):
     path = save_preset(Preset(name="!!!", method="bayer4"), pdir)
     assert path.name == "preset.json"
+
+
+def test_safe_stem_single_home():
+    from app.exporter import sanitize_base
+    from app.names import safe_stem
+    from app.palette_library import _safe_name as lib_name
+    from app.presets import _safe_name as preset_name
+
+    assert safe_stem("A B!", "preset") == preset_name("A B!") == "A B"
+    assert lib_name("!!!") == "palette" and preset_name("") == "preset"
+    assert sanitize_base("Mi Beat v2.0 (final)") == "Mi_Beat_v2_0_final"
+    assert sanitize_base("../../evil") == "evil"

@@ -18,8 +18,9 @@ CUSTOM_SENTINEL = "(Custom)"
 
 
 def _safe_name(name: str) -> str:
-    safe = "".join(c for c in name if c.isalnum() or c in (" ", "-", "_")).strip()
-    return safe or "palette"
+    from app.names import safe_stem
+
+    return safe_stem(name, "palette")
 
 
 def ensure_bundled_palettes(palettes_dir: Path | None = None) -> list[str]:

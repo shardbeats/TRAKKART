@@ -349,6 +349,22 @@ def test_crop_editor_done_applies_visible_crop(window, qt_app):
     assert window.result.tobytes() == render_full(src, window.current_params()).tobytes()
 
 
+def test_cover_pixmap_cached_and_invalidated(qt_app):
+    # P1: la foto no se reconvierte en cada paint; rotar invalida.
+    from PIL import Image as Img
+
+    from app.ui.crop_editor import CropView
+
+    view = CropView(Img.new("RGB", (64, 48), (1, 2, 3)))
+    view.resize(300, 300)
+    first = view._cover_pixmap()
+    view.update()
+    view.repaint()
+    assert view._cover_pixmap() is first
+    view._img = Img.new("RGB", (64, 48), (9, 9, 9))
+    assert view._cover_pixmap() is not first
+
+
 def test_share_export_import(window, tmp_path, isolated_presets, monkeypatch):
     from PySide6.QtWidgets import QFileDialog
 

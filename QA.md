@@ -53,7 +53,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, tutorial/themes)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 412 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 414 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
