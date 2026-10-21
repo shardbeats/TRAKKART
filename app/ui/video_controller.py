@@ -64,8 +64,27 @@ def fps_changed(win) -> None:
         win._video_timer.setInterval(max(1, 1000 // fps))
     except Exception:  # noqa: BLE001
         pass
+    sync_duration_ui(win)
     # NOTE: intentionally no _schedule_refresh() here (was a full re-render
     # of N canvas-size frames on every fps tick).
+
+
+def duration_seconds(win) -> float:
+    """Current loop length = frames / fps (derived, never stored)."""
+    try:
+        frames = win._anim_combo_int(win.cmb_video_frames, 6, 2, 24)
+        fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
+        return frames / max(1, fps)
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def sync_duration_ui(win) -> None:
+    """Refresh the read-only loop label from frames ÷ fps."""
+    try:
+        win.lbl_duration.setText(f"= {duration_seconds(win):.1f}s loop")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def playpause(win) -> None:

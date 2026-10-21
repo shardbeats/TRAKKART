@@ -209,6 +209,9 @@ they added a model + locks + file pipeline far from the core job
 - Datamosh module: `app/mosh.py` owns 7 flavors (blocks legacy byte-identical); `mosh_mode`/`mosh_seed`/`mosh_size` preset fields (old presets default `blocks`/0/100); dedicated DATAMOSH accordion page (params live there, order stays in FX STACK); stack entry + GIF mix dispatch by mode. 397 tests, 52/52 Gherkin, 5/5 gates.
 - Export naming: `{base}_anim.mp4` (same stem as GIF); hardened sanitizer (no `__`, no edge junk); File name section with live preview + Reset; dialogs `deleteLater` on close (no hidden-window hoard).
 - Stale export names: prefs carry `src_name`; new image → fresh default (quick falls back to dialog, never silently reuses); `load_pil` stamps `pasted_YYYYMMDD_HHMMSS`. 402 tests, 5/5 gates.
+- Collision policy: single export (dialog + quick) always renames (`name_2`, …); skip/overwrite removed from the dialog (engine + batch keep all modes). 404 tests, 5/5 gates.
+- Collision alert (`resolve_collision`): lists clashing files, Overwrite / Rename-as-`base_2` / Cancel with safe default; ⚠ hint in the plan; quick stays silent-rename; dialogs `deleteLater` + visible-first accept (no modal flake in CI). 409 tests, 5/5 gates.
+- MOTION duration readout (driver spin removed: request-vs-reality split confused; label never lies). Animation suffixes `_gif.gif` + `_vid.mp4`. FPS combo sorted inserts (no stray 8). 412 tests, 5/5 gates.
 
 ## 5. Known tech debt
 

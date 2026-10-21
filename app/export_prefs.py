@@ -29,7 +29,7 @@ class ExportPrefs:
     gif_fps: int = 8
     gif_size: int = 1200
     gif_pingpong: bool = False
-    overwrite: str = "overwrite"
+    overwrite: str = "rename"  # fixed: never lose a file (engine keeps all modes)
     size: int = 3000
     format: str = "png"
     quality: int = 90

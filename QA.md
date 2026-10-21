@@ -53,7 +53,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, tutorial/themes)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 402 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 412 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -64,7 +64,7 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 2b. VIDEO mode: animated preview plays (Draft 720p default); switching to Full (doc) re-renders bigger; FPS change does NOT re-render (only retimes).
 3. Preset saves, reloads and applies sliders (incl. grade/texture/glitch + canvas W/H + anim).
 3b. CANVAS → ratio presets fill W/H; typing W/H flips Ratio to Custom. "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode incl. Custom with free frame); Done applies, Cancel keeps values.
-4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_anim.gif`, `*_anim.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
+4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
 

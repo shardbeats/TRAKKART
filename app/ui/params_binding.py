@@ -128,7 +128,12 @@ def set_anim_combo(cmb, value: int) -> None:
     txt = str(int(value))
     try:
         if cmb.findText(txt) < 0:
-            cmb.addItem(txt)
+            try:
+                pos = next(i for i in range(cmb.count())
+                           if int(str(cmb.itemText(i)).strip()) > int(value))
+            except (ValueError, StopIteration):
+                pos = cmb.count()  # non-numeric items or biggest: append
+            cmb.insertItem(pos, txt)
         cmb.blockSignals(True)
         cmb.setCurrentText(txt)
     finally:

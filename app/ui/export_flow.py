@@ -51,7 +51,7 @@ def export(win, quick: bool = False) -> None:
                 base=prefs.base or win.src_name, out_dir=Path(prefs.out_dir),
                 selection=selection,
                 gif_opts=_gif_opts_from_prefs(prefs),
-                overwrite=prefs.overwrite,
+                overwrite="rename",  # never lose a file (old prefs may say otherwise)
                 size=prefs.size, format=prefs.format, quality=prefs.quality,
             )
             return
@@ -59,14 +59,12 @@ def export(win, quick: bool = False) -> None:
             init_sel = prefs.to_selection()
             init_base, init_out = prefs.base, prefs.out_dir
             init_gopts = _gif_opts_from_prefs(prefs)
-            init_overwrite = prefs.overwrite
             init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
         else:
             init_sel = ExportSelection(vector=bool(preset.vector_export),
                                        anim=bool(preset.gif_export))
             init_base, init_out = win.src_name, str(win.out_dir)
             init_gopts = _gif_opts_from_preset(preset)
-            init_overwrite = "overwrite"
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
         if getattr(win, "_video_on", False):
@@ -82,7 +80,7 @@ def export(win, quick: bool = False) -> None:
             gif_frames=int(init_gopts["frames"]), gif_mode=str(init_gopts["mode"]),
             gif_fps=int(init_gopts["fps"]),
             gif_pingpong=bool(init_gopts["pingpong"]),
-            overwrite=init_overwrite, vector_cells=win._estimate_vector_cells(preset),
+            vector_cells=win._estimate_vector_cells(preset),
             preset=preset, size=init_size, format=init_fmt, quality=init_q,
             parent=win,
         )
@@ -92,9 +90,14 @@ def export(win, quick: bool = False) -> None:
             return
         options, out_dir, gopts = dlg.options()
         dlg.deleteLater()
+        choice = resolve_collision(win, out_dir, options,
+                                   want_mp4=bool(gopts.get("mp4", False)))
+        if choice is None:
+            win._status("Export cancelled")
+            return
         win._run_export(
             base=options.base, out_dir=out_dir, selection=options.selection,
-            gif_opts=gopts, overwrite=options.overwrite,
+            gif_opts=gopts, overwrite=choice,
             size=options.size, format=options.format, quality=options.quality,
             mp4=bool(gopts.get("mp4", False)),
         )
@@ -107,12 +110,56 @@ def export(win, quick: bool = False) -> None:
             gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
             gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
             gif_pingpong=bool(gopts["pingpong"]),
-            overwrite=options.overwrite,
+            overwrite="rename",  # per-run choice is not persisted (quick is always safe)
             size=options.size, format=options.format, quality=options.quality,
             recent_files=recent_files, src_name=win.src_name,
         ), win._prefs_path)
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
+
+
+def resolve_collision(win, out_dir, options, want_mp4: bool = False) -> str | None:
+    """Post-accept collision check: "overwrite" | "rename" | None (cancel).
+
+    No collision -> "rename" without asking (rename of a free base is a
+    no-op). With collision -> modal listing files, safe default = Rename.
+    Module-level so tests can stub it like show_exported.
+    """
+    from pathlib import Path
+
+    from app.exporter import _unique_base, bundle_filenames, mp4_name
+
+    out_dir = Path(out_dir)
+    sel = options.selection
+    names = bundle_filenames(options, has_vector=bool(sel.vector), has_gif=bool(sel.anim))
+    if want_mp4:
+        names["video"] = mp4_name(options.base)
+    try:
+        existing = [f for f in names.values() if (out_dir / f).exists()]
+    except OSError:
+        return "rename"
+    if not existing:
+        return "rename"
+    new_base = _unique_base(out_dir, options.base, list(names.values()))
+    listed = "\n".join(f"- {f}" for f in existing[:8])
+    if len(existing) > 8:
+        listed += f"\n- …and {len(existing) - 8} more"
+    from PySide6.QtWidgets import QMessageBox
+
+    msg = QMessageBox(QMessageBox.Icon.Warning, "Name exists",
+                      f"These files already exist:\n{listed}\n\n"
+                      f"Overwrite them, or save as {new_base}?",
+                      QMessageBox.StandardButton.Cancel, win)
+    b_over = msg.addButton("Overwrite", QMessageBox.ButtonRole.DestructiveRole)
+    b_rename = msg.addButton(f"Rename as {new_base}", QMessageBox.ButtonRole.ActionRole)
+    msg.setDefaultButton(b_rename)
+    msg.exec()
+    clicked = msg.clickedButton()
+    if clicked is b_over:
+        return "overwrite"
+    if clicked is b_rename:
+        return "rename"
+    return None
 
 
 def show_exported(win, out_dir, names: list[str]) -> None:

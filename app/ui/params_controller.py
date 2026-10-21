@@ -487,6 +487,7 @@ def apply_preset(win, name: str) -> None:
     win.border_color = str(p.border_color or "#000000")
     win.lbl_border.setText(win.border_color)
     sync_anim_ui(win)
+    win._sync_duration_ui()
     if win.cmb_preset.findText(name) < 0:
         win.refresh_presets()
     win.cmb_preset.setCurrentText(name)

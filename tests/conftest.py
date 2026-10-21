@@ -32,6 +32,8 @@ def window(qt_app, tmp_path, monkeypatch):
     import app.ui.export_flow as _ef
 
     monkeypatch.setattr(_ef, "show_exported", lambda *a, **k: None)
+    # Collision alert never blocks CI (covered directly in test_ui_export).
+    monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "rename")
     w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db",
                    prefs_path=_P(str(tmp_path)) / "prefs.json")
     w.src = Image.new("RGB", (64, 64), (200, 50, 90))

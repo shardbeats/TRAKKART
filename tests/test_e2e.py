@@ -115,7 +115,7 @@ def test_e2e_gif_svg_export(window, qt_app):
     window.export()
     out = window.out_dir
     assert (out / "trakkart_cover_vector.svg").exists()
-    assert (out / "trakkart_cover_anim.gif").exists()
+    assert (out / "trakkart_cover_gif.gif").exists()
 
 
 def test_e2e_preset_survives_restart(window, tmp_path: Path, monkeypatch):

@@ -60,7 +60,6 @@ class ExportDialog(QDialog):
         gif_mode: str = "both",
         gif_fps: int = 8,
         gif_pingpong: bool = False,
-        overwrite: str = "overwrite",
         vector_cells: tuple[int, int] | None = None,
         preset=None,
         size: int = 3000,
@@ -185,15 +184,11 @@ class ExportDialog(QDialog):
         self.lbl_gifspec.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_gifspec)
         self._sync_gifspec_label()
-        # -- colisión (GIMP pregunta; aquí se elige política) --
-        ow_row = QHBoxLayout()
-        ow_row.addWidget(QLabel("If files exist:"))
-        self.cmb_overwrite = QComboBox()
-        self.cmb_overwrite.addItems(["overwrite", "skip", "rename"])
-        self.cmb_overwrite.setCurrentText(overwrite if overwrite in ("overwrite", "skip", "rename") else "overwrite")
-        self.cmb_overwrite.setToolTip("overwrite: replace · skip: keep existing · rename: save as name_2…")
-        ow_row.addWidget(self.cmb_overwrite, 1)
-        col.addLayout(ow_row)
+        # -- colisión: siempre rename (nunca se pierde un archivo) --
+        self.lbl_policy = QLabel("Existing files are kept: repeats save as name_2, name_3…")
+        self.lbl_policy.setWordWrap(True)
+        self.lbl_policy.setObjectName("subtitleLabel")
+        col.addWidget(self.lbl_policy)
         # -- plan (GIMP muestra tamaño estimado: aquí la lista + ~peso) --
         col.addWidget(QLabel("Files to write:"))
         self.list_files = QListWidget()
@@ -201,6 +196,10 @@ class ExportDialog(QDialog):
         col.addWidget(self.list_files, 1)
         self.lbl_total = QLabel()
         col.addWidget(self.lbl_total)
+        self.lbl_exists = QLabel()
+        self.lbl_exists.setWordWrap(True)
+        self.lbl_exists.setObjectName("subtitleLabel")
+        col.addWidget(self.lbl_exists)
         # -- botones --
         bar = QHBoxLayout()
         bar.addStretch()
@@ -257,7 +256,7 @@ class ExportDialog(QDialog):
             opts = ExportOptions(
                 base=self.edit_base.text().strip() or "cover",
                 selection=self._current_selection(),
-                overwrite=self.cmb_overwrite.currentText(),
+                overwrite="rename",
                 size=self._current_size(),
                 format=self.cmb_format.currentText(),
                 quality=int(self.spn_quality.value()),
@@ -277,19 +276,29 @@ class ExportDialog(QDialog):
             self.list_files.addItem(f"{fname}  ({_fmt_size(est)})")
             total += est
         n = len(plan)
+        mp4_fname = ""
         if self.chk_mp4.isChecked() and self._video_ok:
             try:
                 w, h = self._doc_wh()
                 nf = int(self._gif_opts()["frames"])
                 est = int(w * h * nf * 0.12)
-                self.list_files.addItem(
-                    f"{mp4_name(sanitize_base(self.edit_base.text().strip() or 'cover'))}  ({_fmt_size(est)})")
+                mp4_fname = mp4_name(sanitize_base(self.edit_base.text().strip() or "cover"))
+                self.list_files.addItem(f"{mp4_fname}  ({_fmt_size(est)})")
                 total += est
                 n += 1
             except Exception:  # noqa: BLE001
                 pass
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
+        try:
+            dest = Path(self.edit_dir.text())
+            clashing = sum(1 for _, fname, _ in plan if (dest / fname).exists())
+            if mp4_fname and (dest / mp4_fname).exists():
+                clashing += 1
+        except OSError:
+            clashing = 0
+        self.lbl_exists.setText(
+            f"⚠ {clashing} already exist — you'll be asked" if clashing else "")
 
     def _browse(self) -> None:
         d = QFileDialog.getExistingDirectory(self, "Export folder", self.edit_dir.text())
@@ -334,7 +343,7 @@ class ExportDialog(QDialog):
         opts = ExportOptions(
             base=self.edit_base.text().strip() or "cover",
             selection=self._current_selection(),
-            overwrite=self.cmb_overwrite.currentText(),
+            overwrite="rename",
             size=self._current_size(),
             format=fmt,
             quality=int(self.spn_quality.value()),

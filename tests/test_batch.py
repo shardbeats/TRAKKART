@@ -67,7 +67,7 @@ def test_batch_with_gif(tmp_path: Path):
     preset = Preset(name="t", method="bayer4", palette="BW", gif_export=True, gif_frames=2)
     results = batch_process(src, dst, preset)
     assert results[0]["status"] == "ok"
-    assert any(o.endswith("_anim.gif") for o in results[0]["outputs"])
+    assert any(o.endswith("_gif.gif") for o in results[0]["outputs"])
     again = batch_process(src, dst, preset)
     assert again[0]["status"] == "skipped"
 

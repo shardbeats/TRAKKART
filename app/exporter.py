@@ -30,16 +30,16 @@ SUFFIXES = {
     "image": "",  # -> {base}.{ext} según formato
     "thumb_1080p": "_thumb1080p",  # -> {base}_thumb1080p.{ext}
     "vector": "_vector.svg",
-    "anim": "_anim.gif",
+    "anim": "_gif.gif",
     "metadata": "_metadata.json",
 }
 
 # Animation single file (GIF + MP4 share the stem: one motion, two codecs).
-MP4_SUFFIX = "_anim.mp4"
+MP4_SUFFIX = "_vid.mp4"
 
 
 def mp4_name(base: str) -> str:
-    """`{base}_anim.mp4` (same stem as the GIF)."""
+    """`{base}_vid.mp4` (same stem as the GIF)."""
     return f"{base}{MP4_SUFFIX}"
 
 
@@ -50,7 +50,7 @@ def sanitize_base(base: str) -> str:
     """Nombre seguro para ficheros (GIMP deja escribirlo libre; aquí se sanea).
 
     Sin separadores (anti `../`), sin rachas de `_` ni bordes raros, para
-    que los sufijos (`_anim.gif`...) nunca generen `__`.
+    que los sufijos (`_gif.gif`...) nunca generen `__`.
     """
     safe = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in (base or ""))
     while "__" in safe:

@@ -53,7 +53,7 @@ GIF_MAX_FPS = 60
 GIF_MIN_FRAMES = 2
 GIF_MAX_FRAMES = 24
 # Sugeridos (combos editables: la lista orienta, el valor es libre).
-GIF_FPS_SUGGESTED = (12, 24, 30, 48, 60)
+GIF_FPS_SUGGESTED = (8, 12, 24, 30, 48, 60)
 GIF_FRAMES_SUGGESTED = (4, 6, 8, 12, 24)
 # Video preview a canvas completo (personalizable, default 1200).
 VIDEO_DEFAULT_SIZE = 1200

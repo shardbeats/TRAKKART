@@ -20,9 +20,13 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   sanitizer collapses/trims (`mi cover!` → `mi_cover`); dedicated File name
   section (live preview + Reset); accepted dialogs no longer hoard hidden
   windows (fixes E2E modal flake).
-- MOTION duration driver: Duration spin (1–60s) sets frames = duration × FPS
-  (capped at 24f with an honest note); live `= Xs loop` label, no new preset
-  fields (duration stays derived).
+- MOTION duration readout: live `= Xs loop` label from frames ÷ fps (no
+  driver spin: three linked controls disagreed; readout never lies). No new
+  preset fields.
+- Animation suffixes: `{base}_gif.gif` + `{base}_vid.mp4` (lowercase pair;
+  legacy `_anim.gif` writer untouched for compat).
+- FPS combo: preset default 8 is a first-class entry; custom values insert
+  sorted instead of dangling at the end.
 - `build_exe.py` excludes numba/llvmlite/imageio (base exe stays light per
   policy); `dist/TRAKKART.exe` rebuilt (66MB) + offscreen smoke green.
 - Stale export names fixed: prefs remember their image (`src_name`); a new

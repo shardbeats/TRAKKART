@@ -172,6 +172,151 @@ def test_export_dialog_size_and_format(qt_app):
     close_dialog(dlg)
 
 
+def test_quick_never_overwrites_repeats_rename(window, qt_app):
+    # Ni quick ni el diálogo pisan: repetir crea _2 (aunque prefs digan overwrite).
+    from app.export_prefs import ExportPrefs, save_prefs
+
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="req",
+                           image=True, thumb_1080p=False, metadata=False,
+                           overwrite="overwrite", src_name="trakkart_cover"),
+               window._prefs_path)
+    window.refresh()
+    window.export(quick=True)
+    window.export(quick=True)
+    assert (window.out_dir / "req.png").exists()
+    assert (window.out_dir / "req_2.png").exists()
+
+
+def test_dialog_reports_rename_and_keeps_policy_label(qt_app):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d")
+    try:
+        assert not hasattr(dlg, "cmb_overwrite")
+        assert "name_2" in dlg.lbl_policy.text()
+        opts, _, _ = dlg.options()
+        assert opts.overwrite == "rename"
+    finally:
+        close_dialog(dlg)
+
+
+def _fake_collision_box(choice):
+    """Fake QMessageBox: choice is 'overwrite', 'rename' or 'cancel'."""
+    over, rename = object(), object()
+
+    class FakeMsg:
+        class Icon:
+            Warning = 0
+
+        class StandardButton:
+            Cancel = 0
+
+        class ButtonRole:
+            DestructiveRole = 0
+            ActionRole = 1
+
+        def __init__(self, *a, **k):
+            pass
+
+        def addButton(self, label, role):
+            return over if "Overwrite" in str(label) else rename
+
+        def setDefaultButton(self, b):
+            pass
+
+        def exec(self):
+            return 0
+
+        def clickedButton(self):
+            return {"overwrite": over, "rename": rename}.get(choice)
+
+    return FakeMsg
+
+
+class _NoBox:
+    """QMessageBox que revienta si se instancia (sin colisión no hay diálogo)."""
+
+    def __init__(self, *a, **k):
+        raise AssertionError("no dialog expected without collision")
+
+
+def test_resolve_collision_branches(tmp_path, qt_app, monkeypatch):
+    import app.ui.export_flow as _ef
+    from app.exporter import ExportOptions, ExportSelection
+
+    opts = ExportOptions(base="c", selection=ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False))
+    # Sin colisión: rename sin preguntar.
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _NoBox)
+    assert _ef.resolve_collision(None, tmp_path, opts) == "rename"
+    (tmp_path / "c.png").write_bytes(b"x")
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox",
+                        _fake_collision_box("rename"))
+    assert _ef.resolve_collision(None, tmp_path, opts) == "rename"
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox",
+                        _fake_collision_box("overwrite"))
+    assert _ef.resolve_collision(None, tmp_path, opts) == "overwrite"
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox",
+                        _fake_collision_box("cancel"))
+    assert _ef.resolve_collision(None, tmp_path, opts) is None
+
+
+def test_collision_rename_writes_suffixed(window, qt_app, monkeypatch):
+    import app.ui.export_flow as _ef
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    (window.out_dir / "dupe.png").write_bytes(b"old")
+    monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "rename")
+    accept_next_dialog(ExportDialog)
+    window.src_name = "dupe"
+    window.export()
+    assert (window.out_dir / "dupe.png").read_bytes() == b"old"
+    assert (window.out_dir / "dupe_2.png").exists()
+
+
+def test_collision_overwrite_replaces(window, qt_app, monkeypatch):
+    import app.ui.export_flow as _ef
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    (window.out_dir / "dupe.png").write_bytes(b"old")
+    monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "overwrite")
+    accept_next_dialog(ExportDialog)
+    window.src_name = "dupe"
+    window.export()
+    assert (window.out_dir / "dupe.png").read_bytes() != b"old"
+    assert not (window.out_dir / "dupe_2.png").exists()
+
+
+def test_collision_cancel_aborts(window, qt_app, monkeypatch):
+    import app.ui.export_flow as _ef
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: None)
+    accept_next_dialog(ExportDialog)
+    window.src_name = "fresh"
+    window.export()
+    assert "cancelled" in window.lbl_status.text().lower()
+    assert not (window.out_dir / "fresh.png").exists()
+
+
+def test_plan_warns_about_existing(qt_app, tmp_path):
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    (tmp_path / "w.png").write_text("old")
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="w", out_dir=str(tmp_path))
+    try:
+        assert "you'll be asked" in dlg.lbl_exists.text()
+        dlg.edit_base.setText("free")
+        assert dlg.lbl_exists.text() == ""
+    finally:
+        close_dialog(dlg)
+
+
 def test_quick_export_headless(window, qt_app):
     from app.export_prefs import ExportPrefs, save_prefs
 
@@ -312,9 +457,9 @@ def test_show_exported_opens_folder_only_on_click(tmp_path, qt_app, monkeypatch)
 def test_mp4_shares_anim_stem(qt_app):
     from app.exporter import MP4_SUFFIX, mp4_name, sanitize_base
 
-    assert mp4_name("shot") == "shot_anim.mp4"
-    assert MP4_SUFFIX == "_anim.mp4"
-    assert mp4_name(sanitize_base("mi cover!")) == "mi_cover_anim.mp4"
+    assert mp4_name("shot") == "shot_vid.mp4"
+    assert MP4_SUFFIX == "_vid.mp4"
+    assert mp4_name(sanitize_base("mi cover!")) == "mi_cover_vid.mp4"
 
 
 def test_file_name_section_previews_and_resets(qt_app):
