@@ -127,6 +127,7 @@ def setup_control_panel(win, panel) -> None:
 
     motion = add_page("MOTION")
     P.build_video_section(win, motion)
+    win._sync_motif_visibility()
     panel.addStretch()
 
 
@@ -223,7 +224,7 @@ def setup_previews(win, root) -> None:
     win._video_bar_widget.setLayout(win._video_bar)
     win._video_bar_widget.setVisible(False)
     res_col.addWidget(win._video_bar_widget)
-    win.lbl_res = QLabel("NO IMAGE")
+    win.lbl_res = QLabel("NO IMAGE\n\nDrop a file onto the window · Ctrl+O to open\nHelp → Quick tour for the 5-step tour")
     win.lbl_res.setObjectName("previewFrame")
     win.lbl_res.setAlignment(Qt.AlignCenter)
     win.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

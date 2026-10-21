@@ -42,7 +42,8 @@ def test_menus_complete(window):
     view = items("View")
     assert "Refresh preview" in view
     assert "Viewport" in view and "Theme" in view
-    assert items("Help") == ["Quick tour...", "Open samples folder"]
+    assert items("Help") == ["Quick tour...", "Open samples folder",
+                             "Keyboard shortcuts...", "About TRAKKART..."]
 
 
 def test_viewport_and_theme_actions_synced(window):

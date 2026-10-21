@@ -39,6 +39,7 @@ def export(win, quick: bool = False) -> None:
     try:
         preset = win.current_params()
         prefs = load_prefs(win._prefs_path)
+        recent_files = list(getattr(prefs, "recent_files", []) or [])
         if quick and prefs.out_dir:
             selection = prefs.to_selection()
             win._run_export(
@@ -63,6 +64,13 @@ def export(win, quick: bool = False) -> None:
             init_overwrite = "overwrite"
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
+        if getattr(win, "_video_on", False):
+            # VIDEO preview is ON: the user is watching motion, so the dialog
+            # pre-checks Animation GIF (still uncheckable, ~MB plan visible).
+            # Quick export above is untouched on purpose: silent big writes, no.
+            from dataclasses import replace
+
+            init_sel = replace(init_sel, anim=True)
         dlg = ExportDialog(
             win.src, preset.meta(), base=init_base, out_dir=init_out,
             selection=init_sel,
@@ -94,9 +102,28 @@ def export(win, quick: bool = False) -> None:
             gif_pingpong=bool(gopts["pingpong"]),
             overwrite=options.overwrite,
             size=options.size, format=options.format, quality=options.quality,
+            recent_files=recent_files,
         ), win._prefs_path)
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
+
+
+def show_exported(win, out_dir, names: list[str]) -> None:
+    """Exported dialog with a 'Show in folder' action (module-level for tests).
+
+    Tests stub this (like QMessageBox.information) so no modal ever blocks CI.
+    """
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMessageBox
+
+    msg = QMessageBox(QMessageBox.Icon.Information, "TRAKKART",
+                      "Exported:\n" + "\n".join(names),
+                      QMessageBox.StandardButton.Close, win)
+    show_btn = msg.addButton("Show in folder", QMessageBox.ButtonRole.ActionRole)
+    msg.exec()
+    if msg.clickedButton() is show_btn:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(out_dir)))
 
 
 def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
@@ -157,5 +184,5 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
             f"Skipped: {base} already exists (policy: skip).")
         win._status(f"Export skipped (exists): {base}")
         return
-    QMessageBox.information(win, "TRAKKART", "Exported:\n" + "\n".join(p.name for p in paths.values()))
+    show_exported(win, Path(out_dir).resolve(), [p.name for p in paths.values()])
     win._status(f"Exported to {Path(out_dir).resolve()}")

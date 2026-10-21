@@ -34,6 +34,8 @@ def build_menus(win) -> None:
     m_file = bar.addMenu("File")
     _act(win, m_file, "Open image...", win.open_image_dialog,
          "Ctrl+O", "Open an image into the canvas")
+    m_recent = m_file.addMenu("Open recent")
+    m_recent.aboutToShow.connect(lambda: _refresh_recent(win, m_recent))
     m_file.addSeparator()
     _act(win, m_file, "Export…", lambda: win.export(False),
          "Ctrl+Shift+S", "Export with options at canvas size")
@@ -94,6 +96,32 @@ def build_menus(win) -> None:
          "", "Replay the 5-step tour")
     _act(win, m_help, "Open samples folder", win.open_samples,
          "", "Open the offline sample pack")
+    _act(win, m_help, "Keyboard shortcuts...", win.show_shortcuts,
+         "", "Every shortcut in one table")
+    _act(win, m_help, "About TRAKKART...", win.show_about,
+         "", "Version, license and offline note")
+
+
+def _refresh_recent(win, m_recent) -> None:
+    """Rebuild Open recent from prefs (missing files skipped)."""
+    from pathlib import Path
+
+    from PySide6.QtGui import QAction
+
+    from app.recent import existing_recent
+
+    m_recent.clear()
+    items = existing_recent(getattr(win, "_prefs_path", None))
+    if not items:
+        empty = QAction("(empty)", win)
+        empty.setEnabled(False)
+        m_recent.addAction(empty)
+        return
+    for p in items:
+        a = QAction(Path(p).name, win)
+        a.setToolTip(str(p))
+        a.triggered.connect(lambda _=False, _p=Path(p): win._load_path(_p))
+        m_recent.addAction(a)
 
 
 def _act_compare(win, m_view):

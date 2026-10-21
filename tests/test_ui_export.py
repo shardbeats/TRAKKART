@@ -196,6 +196,75 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     assert (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
+def test_video_on_prechecks_anim_in_dialog(window, qt_app):
+    # VIDEO preview ON => Animation GIF pre-marcado (desmarcable, ~MB visible).
+    # Cubre las dos vías de init: sin prefs (desde preset) y con prefs.
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import accept_next_dialog
+
+    window.refresh()
+    seen = {}
+
+    def _setup(dlg):
+        seen.setdefault("off" if "off" not in seen else "on", dlg.chk_anim.isChecked())
+        dlg.chk_anim.setChecked(False)  # no escribir GIF: solo importa el default
+
+    window._video_on = False
+    accept_next_dialog(ExportDialog, setup=_setup)
+    window.export()
+    window._video_on = True
+    accept_next_dialog(ExportDialog, setup=_setup)
+    window.export()
+    assert seen == {"off": False, "on": True}, seen
+
+
+def _make_fake_box(clicked_name):
+    """Fake QMessageBox sin modal: clicked_name es 'show' o 'close'."""
+    show_btn, close_btn = object(), object()
+
+    class FakeMsg:
+        class Icon:
+            Information = 0
+
+        class StandardButton:
+            Close = 0
+
+        class ButtonRole:
+            ActionRole = 0
+
+        _buttons = {"show": show_btn, "close": close_btn}
+
+        def __init__(self, *a, **k):
+            pass
+
+        def addButton(self, label, role):
+            return self._buttons["show"]
+
+        def exec(self):
+            return 0
+
+        def clickedButton(self):
+            return self._buttons[clicked_name]
+
+    return FakeMsg
+
+
+def test_show_exported_opens_folder_only_on_click(tmp_path, qt_app, monkeypatch):
+    # El diálogo post-export abre la carpeta solo con "Show in folder".
+    import app.ui.export_flow as _ef
+
+    opened = {}
+    monkeypatch.setattr("PySide6.QtGui.QDesktopServices.openUrl",
+                        lambda url: opened.setdefault("url", str(url)))
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _make_fake_box("show"))
+    _ef.show_exported(None, tmp_path, ["a.png"])
+    assert "url" in opened
+    opened.clear()
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _make_fake_box("close"))
+    _ef.show_exported(None, tmp_path, ["a.png"])
+    assert opened == {}
+
+
 def test_gif_opts_come_from_video(window, qt_app):
     # Sin duplicados: el export no edita animación, solo on/off; la spec es la de VIDEO.
     from app.ui.export_dialog import ExportDialog

@@ -25,7 +25,11 @@ def build_motif_section(win, g: QVBoxLayout) -> None:
     """
     from app.motif import BAND_NAMES, SHAPES
 
-    hlab(g, "Bands → shape/size (method `motif`):")
+    box = QWidget()
+    lay = QVBoxLayout(box)
+    lay.setSpacing(4)
+    lay.setContentsMargins(0, 0, 0, 0)
+    hlab(lay, "Bands → shape/size (method `motif`):")
     for i, band in enumerate(BAND_NAMES):
         row = QHBoxLayout()
         row.addWidget(QLabel(f"{band}:"))
@@ -45,7 +49,9 @@ def build_motif_section(win, g: QVBoxLayout) -> None:
         spn.valueChanged.connect(lambda _: win._schedule_refresh())
         row.addWidget(spn)
         setattr(win, f"spn_motif_{i}", spn)
-        g.addLayout(row)
+        lay.addLayout(row)
+    g.addWidget(box)
+    win._motif_box = box
 
 
 def build_fx_stack_section(win, g: QVBoxLayout) -> None:

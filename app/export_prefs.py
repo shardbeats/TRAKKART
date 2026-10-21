@@ -7,7 +7,7 @@ inyectado para tests.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from app.paths import get_data_dir
@@ -33,6 +33,7 @@ class ExportPrefs:
     size: int = 3000
     format: str = "png"
     quality: int = 90
+    recent_files: list = field(default_factory=list)
 
     def to_selection(self) -> dict:
         from app.exporter import ExportSelection

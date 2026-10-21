@@ -220,6 +220,12 @@ def load_path(win, path) -> None:
         load_pil(win, _load(path))
         win.src_name = Path(path).stem  # default export base (GIMP style)
         win._status(f"Loaded: {Path(path).name}")
+        try:
+            from app.recent import remember_recent
+
+            remember_recent(Path(path), getattr(win, "_prefs_path", None))
+        except Exception:  # noqa: BLE001
+            pass
     except TooBigError as e:
         QMessageBox.warning(win, "TRAKKART", f"Image too large:\n{e}")
     except Exception as e:  # noqa: BLE001

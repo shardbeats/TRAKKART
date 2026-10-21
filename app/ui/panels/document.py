@@ -73,6 +73,7 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
     tight(win.cmb_method)
     win.cmb_method.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_method.currentTextChanged.connect(lambda _: win._sync_anim_ui())
+    win.cmb_method.currentTextChanged.connect(lambda _: win._sync_motif_visibility())
     row.addWidget(win.cmb_method, 1)
     win.btn_method_next = QPushButton("▶")
     win.btn_method_next.setFixedWidth(36)

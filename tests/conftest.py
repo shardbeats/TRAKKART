@@ -29,6 +29,9 @@ def window(qt_app, tmp_path, monkeypatch):
 
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    import app.ui.export_flow as _ef
+
+    monkeypatch.setattr(_ef, "show_exported", lambda *a, **k: None)
     w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db",
                    prefs_path=_P(str(tmp_path)) / "prefs.json")
     w.src = Image.new("RGB", (64, 64), (200, 50, 90))

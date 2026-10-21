@@ -213,6 +213,18 @@ def test_window_tutorial_samples_drop(window, qt_app, monkeypatch, tmp_path):
     monkeypatch.setattr(QDesktopServices, "openUrl", lambda *a, **k: True)
     window.open_samples()
     assert "samples" in window.lbl_status.text().lower()
+    # About dialog (static QMessageBox.about mocked): version + MIT shown.
+    from app import __version__ as _ver
+    from app.ui import about_dialog as _about
+
+    seen = {}
+    monkeypatch.setattr(
+        "PySide6.QtWidgets.QMessageBox.about",
+        lambda *a, **k: seen.setdefault("text", a[2] if len(a) > 2 else k.get("text", "")),
+    )
+    window.show_about()
+    assert f"v{_ver}" in seen.get("text", "") and "MIT" in seen.get("text", "")
+    assert "MIT" in _about.about_text() and f"v{_ver}" in _about.about_text()
 
     # Drop-folder gate: toggle off / empty / confirm-no / confirm-yes.
     src = tmp_path / "drop"
@@ -243,3 +255,64 @@ def test_window_tutorial_samples_drop(window, qt_app, monkeypatch, tmp_path):
     import app.ui.export_flow as ef
 
     assert ef.estimate_vector_cells(window, window.current_params()) is None
+
+
+def test_recent_files_roundtrip_cap_and_missing(tmp_path):
+    from app.recent import MAX_RECENT, existing_recent, load_recent, remember_recent
+
+    prefs = tmp_path / "prefs.json"
+    files = []
+    for i in range(MAX_RECENT + 2):
+        p = tmp_path / f"img{i}.png"
+        p.write_bytes(b"x")
+        files.append(p)
+        remember_recent(p, prefs)
+    assert load_recent(prefs) == [str(p) for p in reversed(files[-MAX_RECENT:])]
+    remember_recent(files[-1], prefs)  # move to front, no duplicates
+    assert load_recent(prefs)[0] == str(files[-1])
+    assert len(load_recent(prefs)) == MAX_RECENT
+    files[-1].unlink()  # missing files are filtered for the menu
+    assert all(p != files[-1] for p in existing_recent(prefs))
+
+
+def test_open_recent_menu_loads_image(window, qt_app, tmp_path):
+    from PIL import Image as _Image
+
+    from app.recent import remember_recent
+
+    p = tmp_path / "shot.png"
+    _Image.new("RGB", (8, 8), (1, 2, 3)).save(p)
+    remember_recent(p, window._prefs_path)
+    recent_menu = None
+    for a in window.menuBar().actions():
+        if a.text() == "File" and a.menu():
+            for b in a.menu().actions():
+                if b.text() == "Open recent" and b.menu():
+                    recent_menu = b.menu()
+    assert recent_menu is not None
+    recent_menu.aboutToShow.emit()
+    names = [x.text() for x in recent_menu.actions() if x.isEnabled()]
+    assert "shot.png" in names
+    recent_menu.actions()[0].trigger()
+    assert window.src_name == "shot"
+
+
+def test_shortcuts_dialog_lists_all(window, qt_app, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    import app.ui.shortcuts_dialog as _keys
+
+    monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Rejected)
+    window.show_shortcuts()  # no crash offscreen
+    assert len(_keys.SHORTCUTS) >= 10
+    assert any("Space" in keys for _, keys in _keys.SHORTCUTS)
+    assert any("Alt+Left" in keys for _, keys in _keys.SHORTCUTS)
+
+
+def test_motif_box_only_visible_for_motif(window, qt_app):
+    window.cmb_method.setCurrentText("bayer8")
+    assert window._motif_box.isHidden()
+    window.cmb_method.setCurrentText("motif")
+    assert not window._motif_box.isHidden()
+    assert window.step_method(1) != "motif"  # stepping away hides it again
+    assert window._motif_box.isHidden()

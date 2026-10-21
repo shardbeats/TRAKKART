@@ -229,6 +229,27 @@ class MainWindow(QMainWindow):
         except Exception as e:  # noqa: BLE001
             self._status(f"Samples unavailable: {e}")
 
+    def show_about(self) -> None:
+        from app.ui import about_dialog as _about
+
+        _about.show_about(self)
+
+    def show_shortcuts(self) -> None:
+        from app.ui import shortcuts_dialog as _keys
+
+        _keys.show_shortcuts(self)
+
+    def _sync_motif_visibility(self) -> None:
+        """MOTIF config only matters for method `motif`: hide it otherwise."""
+        try:
+            box = self._motif_box
+        except AttributeError:
+            return
+        try:
+            box.setVisible(self.cmb_method.currentText() == "motif")
+        except Exception:  # noqa: BLE001
+            pass
+
     def _maybe_first_run(self) -> None:
         """First launch: samples + tour once. Never blocks tests/headless."""
         import os
