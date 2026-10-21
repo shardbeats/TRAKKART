@@ -105,25 +105,13 @@ def wave(img: Image.Image, amplitude: int = 0, seed: int = 0x9A9E) -> Image.Imag
 
 
 def datamosh(img: Image.Image, amount: float = 0.0, seed: int = 0x405) -> Image.Image:
-    """Bloques desplazados al azar (datamosh). 0 = off."""
-    a = float(amount)
-    if a <= 0:
-        return img
-    arr = np.array(img.convert("RGB"))
-    h, w = arr.shape[:2]
-    rng = np.random.default_rng(int(seed))
-    n_blocks = max(1, int(a / 100.0 * 24))
-    out = arr.copy()
-    for _ in range(n_blocks):
-        bw = int(rng.integers(16, max(17, w // 4)))
-        bh = int(rng.integers(8, max(9, h // 8)))
-        x0 = int(rng.integers(0, max(1, w - bw)))
-        y0 = int(rng.integers(0, max(1, h - bh)))
-        dx = int(rng.integers(-w // 6, w // 6 + 1))
-        block = arr[y0:y0 + bh, x0:x0 + bw].copy()
-        x1 = min(w - bw, max(0, x0 + dx))
-        out[y0:y0 + bh, x1:x1 + bw] = block
-    return Image.fromarray(out)
+    """Bloques desplazados al azar (datamosh). 0 = off.
+
+    Compat: la implementación vive en app.mosh (mosh_blocks, byte-idéntica).
+    """
+    from app.mosh import mosh_blocks
+
+    return mosh_blocks(img, amount=amount, seed=seed)
 
 
 def rgb_grille(img: Image.Image, every: int = 0) -> Image.Image:

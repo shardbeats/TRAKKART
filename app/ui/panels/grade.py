@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from app.ui.panels.studio import build_fx_stack_section
-from app.ui.panels.widgets import hlab, tight, labeled_slider, mini_slider, spin_row
+from app.ui.panels.widgets import hlab, tight, labeled_slider, spin_row
 
 
 def build_pre_section(win, g: QVBoxLayout) -> None:
@@ -176,17 +176,15 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
     win.spn_wave.setToolTip("Sine displacement 0-30px, 0=off")
     win.spn_wave.valueChanged.connect(lambda _: win._schedule_refresh())
     fx2_row.addWidget(win.spn_wave)
-    fx2_row.addWidget(QLabel("Mosh:"))
-    win.sld_mosh, _mosh_lbl = mini_slider(win, 0, 100, 0, "Datamosh blocks")
-    win.sld_mosh.setToolTip("Datamosh blocks")
-    fx2_row.addWidget(win.sld_mosh, 1)
-    fx2_row.addWidget(_mosh_lbl)
-    fx2_row.addWidget(QLabel("Grille:"))
+    g.addLayout(fx2_row)
+    fx3_row = QHBoxLayout()
+    fx3_row.addWidget(QLabel("Grille:"))
     win.spn_grille = QSpinBox()
     win.spn_grille.setRange(0, 3)
     win.spn_grille.setValue(0)
     win.spn_grille.setFixedWidth(56)
     win.spn_grille.setToolTip("RGB grille every N px: 0=off, 2 or 3")
     win.spn_grille.valueChanged.connect(lambda _: win._schedule_refresh())
-    fx2_row.addWidget(win.spn_grille)
-    g.addLayout(fx2_row)
+    fx3_row.addWidget(win.spn_grille)
+    fx3_row.addStretch()
+    g.addLayout(fx3_row)

@@ -92,6 +92,9 @@ class RenderSpec:
     pixelsort: int = 0
     wave: int = 0
     mosh: float = 0.0
+    mosh_mode: str = "blocks"
+    mosh_seed: int = 0
+    mosh_size: int = 100
     grille: int = 0
     jpeg: float = 0.0
     post_blur: float = 0.0
@@ -162,6 +165,9 @@ class RenderSpec:
             pixelsort=int(getattr(preset, "pixelsort", 0)),
             wave=int(getattr(preset, "wave", 0)),
             mosh=float(getattr(preset, "mosh", 0.0)),
+            mosh_mode=str(getattr(preset, "mosh_mode", "blocks") or "blocks"),
+            mosh_seed=int(getattr(preset, "mosh_seed", 0) or 0),
+            mosh_size=int(getattr(preset, "mosh_size", 100) or 100),
             grille=normalize_grille(int(getattr(preset, "grille", 0))),
             jpeg=float(getattr(preset, "jpeg", 0.0) or 0.0),
             post_blur=float(getattr(preset, "post_blur", 0.0) or 0.0),
@@ -216,6 +222,9 @@ class RenderSpec:
                        "pixelsort": int(self.pixelsort),
                        "wave": int(self.wave),
                        "mosh": float(self.mosh),
+                       "mosh_mode": str(getattr(self, "mosh_mode", "blocks")),
+                       "mosh_seed": int(getattr(self, "mosh_seed", 0) or 0),
+                       "mosh_size": int(getattr(self, "mosh_size", 100) or 100),
                        "grille": int(self.grille)},
             "fx": {"jpeg": float(getattr(self, "jpeg", 0.0) or 0.0),
                    "post_blur": float(getattr(self, "post_blur", 0.0) or 0.0),

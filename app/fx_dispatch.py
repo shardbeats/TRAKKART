@@ -14,7 +14,6 @@ from PIL import Image
 from app.fx import apply_glow, apply_grain, apply_scanlines, apply_vignette
 from app.glitch import (
     chromatic_aberration,
-    datamosh,
     pixel_sort,
     rgb_grille,
     slice_shift,
@@ -98,7 +97,14 @@ def _wave(s: "RenderSpec", img: Image.Image) -> Image.Image:
 
 
 def _mosh(s: "RenderSpec", img: Image.Image) -> Image.Image:
-    return datamosh(img, amount=float(s.mosh)) if s.mosh else img
+    if float(getattr(s, "mosh", 0.0) or 0.0) > 0:
+        from app.mosh import apply_mosh
+
+        return apply_mosh(img, mode=str(getattr(s, "mosh_mode", "blocks") or "blocks"),
+                          amount=float(s.mosh),
+                          seed=int(getattr(s, "mosh_seed", 0) or 0),
+                          size=int(getattr(s, "mosh_size", 100) or 100))
+    return img
 
 
 def _jpeg(s: "RenderSpec", img: Image.Image) -> Image.Image:

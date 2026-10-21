@@ -18,3 +18,8 @@ Feature: Cover flow and glitch
     Given a test image with gradient
     When I apply pixel sort with threshold 128
     Then the image keeps its size and changes
+
+  Scenario: Datamosh modes are deterministic and distinct
+    Given a test image with gradient
+    When I apply every mosh mode twice
+    Then each mode is deterministic and modes differ

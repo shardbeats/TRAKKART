@@ -47,7 +47,8 @@ app/exporter.py          :: export canvas WxH + plan, skip/rename (+SVG/GIF/meta
 app/vector.py            :: grid re-render + RLE + SVG
 app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
 app/ops.py               :: rotate/flip/invert + undo cap 20
-app/glitch.py            :: chroma/slice + pixelsort/wave/mosh/grille
+app/glitch.py            :: chroma/slice + pixelsort/wave/mosh-blocks-compat/grille
+app/mosh.py              :: 7 datamosh flavors + dispatcher (blocks legacy byte-identical)
 app/grade.py             :: duotone/posterize/split-tone/fade (pre/post dither)
 app/texture.py           :: halftone/dust/border/letterbox (post-dither)
 app/paths.py             :: portable data (env/frozen/APPDATA)
@@ -58,7 +59,7 @@ app/ui/workers.py        :: BatchWorker QThread (jobs + cancel)
 app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, stale drops)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
 presets/*.json           :: 4 bundled (never overwritten)
-features/*.feature       :: 51 Gherkin scenarios
+features/*.feature       :: 52 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
 ```

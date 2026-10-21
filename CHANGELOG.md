@@ -12,6 +12,10 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - File logging (`data/trakkart.log`, rotating) + friendly crash dialog.
 - Crop editor zoom/pan loop fixed (owned box, exact anchor, frame follows
   finger, anchor clamped over black bars, free corner/edge positioning).
+- Datamosh module (`app/mosh.py`): 7 flavors (blocks legacy byte-identical +
+  smear/ghost/rows/chroma/crush/speckle), `mosh_mode`/`mosh_seed`/`mosh_size`
+  preset fields, dedicated DATAMOSH page (mode/amount/size/seed+dice),
+  same envelope in GIF mix.
 - CHANGELOG started (this file).
 
 ## v0.18.0

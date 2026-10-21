@@ -108,6 +108,51 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     win.fx_stack_data: list = []
 
 
+def build_mosh_section(win, g: QVBoxLayout) -> None:
+    """DATAMOSH page: flavor + amount + feature size + seed variation.
+
+    Params live here; order lives in the FX STACK (v1.2 rule). Amount 0
+    disables every flavor (off-safe). The dice re-rolls the seed.
+    """
+    from app.mosh import MOSH_MODES
+
+    mode_row = QHBoxLayout()
+    mode_row.addWidget(QLabel("Mode:"))
+    win.cmb_mosh_mode = QComboBox()
+    tight(win.cmb_mosh_mode, 10)
+    win.cmb_mosh_mode.addItems(list(MOSH_MODES))
+    win.cmb_mosh_mode.setToolTip("Datamosh flavor: blocks/smear/ghost/rows/chroma/crush/speckle")
+    win.cmb_mosh_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    mode_row.addWidget(win.cmb_mosh_mode, 1)
+    g.addLayout(mode_row)
+    win.sld_mosh, _ = labeled_slider(win, g, "Amount:", 0, 100, 0, "Datamosh amount 0=off")
+    win.sld_mosh_size, _ = labeled_slider(
+        win, g, "Size:", 10, 200, 100, "Feature scale % (100 = classic)")
+    seed_row = QHBoxLayout()
+    seed_row.addWidget(QLabel("Variation:"))
+    win.spn_mosh_seed = QSpinBox()
+    win.spn_mosh_seed.setRange(0, 99)
+    win.spn_mosh_seed.setValue(0)
+    win.spn_mosh_seed.setFixedWidth(56)
+    win.spn_mosh_seed.setToolTip("Seed variation 0-99: re-rolls the damage")
+    win.spn_mosh_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    seed_row.addWidget(win.spn_mosh_seed)
+    win.btn_mosh_dice = QPushButton("🎲")
+    win.btn_mosh_dice.setFixedWidth(36)
+    win.btn_mosh_dice.setToolTip("Re-roll the damage pattern")
+    win.btn_mosh_dice.clicked.connect(lambda: _roll_mosh_seed(win))
+    seed_row.addWidget(win.btn_mosh_dice)
+    seed_row.addStretch()
+    g.addLayout(seed_row)
+
+
+def _roll_mosh_seed(win) -> None:
+    import random
+
+    win.spn_mosh_seed.setValue(random.randint(0, 99))
+    win._status("Mosh variation re-rolled")
+
+
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     # Biblioteca: una paleta con nombre cargada = punto de partida editable.
     lib_row = QHBoxLayout()

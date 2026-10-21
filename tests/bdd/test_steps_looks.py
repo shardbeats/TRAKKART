@@ -142,6 +142,24 @@ def pixelsort_128(ctx):
     ctx["out"] = pixel_sort(ctx["img"], threshold=128)
 
 
+@when("I apply every mosh mode twice")
+def mosh_all_twice(ctx):
+    from app.mosh import MOSH_MODES, apply_mosh
+
+    ctx["pairs"] = {m: (apply_mosh(ctx["img"], mode=m, amount=60),
+                        apply_mosh(ctx["img"], mode=m, amount=60))
+                    for m in MOSH_MODES}
+
+
+@then("each mode is deterministic and modes differ")
+def mosh_modes_ok(ctx):
+    outs = {}
+    for mode, (a, b) in ctx["pairs"].items():
+        assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+        outs[mode] = list(a.get_flattened_data())
+    assert len({str(v) for v in outs.values()}) == len(outs)
+
+
 # -- color_pro.feature (v1.1) --
 @when("I extract 2 colors twice")
 def extract_twice(ctx):

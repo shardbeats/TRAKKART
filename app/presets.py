@@ -163,6 +163,10 @@ FIELDS: tuple[_Field, ...] = (
     _Field("pixelsort", "int", ("range", 0, 255)),
     _Field("wave", "int", ("range", 0, 30)),
     _Field("mosh", "float", ("range", 0.0, 100.0)),
+    _Field("mosh_mode", "str", ("oneof", (
+        "blocks", "smear", "ghost", "rows", "chroma", "crush", "speckle"))),
+    _Field("mosh_seed", "int", ("range", 0, 99)),
+    _Field("mosh_size", "int", ("range", 10, 200)),
     _Field("grille", "int", ("oneof", (0, 2, 3))),
     _Field("jpeg", "float", ("range", 0.0, 100.0)),
     _Field("post_blur", "float", ("range", 0.0, 5.0)),
@@ -262,6 +266,9 @@ class Preset:
     pixelsort: int = 0  # umbral luminancia 0-255, 0 = off
     wave: int = 0  # amplitud px 0-30, 0 = off
     mosh: float = 0.0  # 0-100
+    mosh_mode: str = "blocks"  # datamosh flavor (app/mosh.py)
+    mosh_seed: int = 0  # variation 0-99 (re-rolls the damage)
+    mosh_size: int = 100  # feature scale % (100 = classic)
     grille: int = 0  # 0 = off, 2 | 3
     # -- v1.2 stackable FX --
     jpeg: float = 0.0  # JPEG glitch 0-100, 0 = off
@@ -386,6 +393,9 @@ class Preset:
         m["glitch"]["pixelsort"] = int(self.pixelsort)
         m["glitch"]["wave"] = int(self.wave)
         m["glitch"]["mosh"] = float(self.mosh)
+        m["glitch"]["mosh_mode"] = str(getattr(self, "mosh_mode", "blocks"))
+        m["glitch"]["mosh_seed"] = int(getattr(self, "mosh_seed", 0) or 0)
+        m["glitch"]["mosh_size"] = int(getattr(self, "mosh_size", 100) or 100)
         m["glitch"]["grille"] = int(self.grille)
         m["glitch"]["jpeg"] = float(getattr(self, "jpeg", 0.0) or 0.0)
         m["post"] = {

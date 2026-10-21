@@ -89,12 +89,12 @@ def setup_ui(win) -> None:
 
 
 def setup_control_panel(win, panel) -> None:
-    """5 accordion pages in the SAME scroll (test_layout: 1 QScrollArea).
+    """6 accordion pages in the SAME scroll (test_layout: 1 QScrollArea).
 
     IMAGE = open/ops + canvas/crop · DITHER = preset/method/pixel/motif ·
     COLOR = adjusts + duotone/brand + palette library · FX = pre/grade/
-    texture/glitch params next to the stack that orders them · MOTION =
-    video preview + Signal Drift. Widget attribute names are unchanged,
+    texture/glitch params next to the stack that orders them · DATAMOSH =
+    flavor + amount + size + seed · MOTION = video preview + Signal Drift. Widget attribute names are unchanged,
     so controllers, presets and tests keep working.
     """
     from app.ui import panels as P
@@ -124,6 +124,9 @@ def setup_control_panel(win, panel) -> None:
     P.build_texture_section(win, fx)
     P.build_glitch_section(win, fx)
     P.build_fx_stack_section(win, fx)
+
+    mosh = add_page("DATAMOSH")
+    P.build_mosh_section(win, mosh)
 
     motion = add_page("MOTION")
     P.build_video_section(win, motion)

@@ -148,8 +148,9 @@ def gif_frames(
         frame = render(small, **kwargs)
 
         if want_glitch:
-            from app.glitch import chromatic_aberration, datamosh, slice_shift
+            from app.glitch import chromatic_aberration, slice_shift
             from app.glitch import wave as glitch_wave
+            from app.mosh import MOSH_MODES, apply_mosh
 
             t = 2.0 * math.pi * i / n
             # Chroma: preset amplitude, or subtle 3px wobble if preset is clean.
@@ -168,7 +169,14 @@ def gif_frames(
             # Mosh: only if the preset asks for it (too chaotic as default).
             if base_mosh > 0:
                 mosh_amt = base_mosh * amt * (0.6 + 0.4 * math.sin(t + 1.0))
-                frame = datamosh(frame, amount=max(0.0, mosh_amt), seed=0x405 + i)
+                mosh_mode = str(getattr(preset, "mosh_mode", "blocks") or "blocks")
+                if mosh_mode not in MOSH_MODES:
+                    mosh_mode = "blocks"
+                mosh_seed = int(getattr(preset, "mosh_seed", 0) or 0)
+                mosh_size = int(getattr(preset, "mosh_size", 100) or 100)
+                frame = apply_mosh(frame, mode=mosh_mode,
+                                   amount=max(0.0, mosh_amt),
+                                   seed=mosh_seed + i, size=mosh_size)
 
         # Grain shimmer: animated seed so mix feels alive without flicker.
         # Static grain would freeze; seeded-per-frame keeps the dither readable.
