@@ -31,14 +31,16 @@ def build_pre_section(win, g: QVBoxLayout) -> None:
 
 def build_effects_section(win, g: QVBoxLayout) -> None:
     """Compat: redirige a los tres grupos (GRADE/TEXTURE/GLITCH)."""
+    build_tint_section(win, g)
     build_grade_section(win, g)
     build_texture_section(win, g)
     build_glitch_section(win, g)
     build_fx_stack_section(win, g)
 
 
-def build_grade_section(win, g: QVBoxLayout) -> None:
-    g.addWidget(QLabel("Grade:"))
+def build_tint_section(win, g: QVBoxLayout) -> None:
+    """Duotone + brand: viven en la página COLOR (extraído de grade)."""
+    g.addWidget(QLabel("Duotone:"))
     duo_row = QHBoxLayout()
     duo_row.addWidget(QLabel("Duo:"))
     win.btn_duo_dark = QPushButton("Dark...")
@@ -56,6 +58,19 @@ def build_grade_section(win, g: QVBoxLayout) -> None:
     win.duotone_light = ""
     g.addLayout(duo_row)
     win.sld_duo_mid, _ = labeled_slider(win, g, "Duo mid:", 0, 100, 50, "Gradient midpoint")
+    g.addWidget(QLabel("Brand:"))
+    brand_row = QHBoxLayout()
+    win.btn_brand = QPushButton("Brand...")
+    win.btn_brand.setToolTip("Brand color: replaces dither white")
+    win.btn_brand.clicked.connect(win.pick_brand_color)
+    brand_row.addWidget(win.btn_brand)
+    win.lbl_brand = QLabel("(no brand)")
+    brand_row.addWidget(win.lbl_brand, 1)
+    win.brand_color = ""
+    g.addLayout(brand_row)
+
+
+def build_grade_section(win, g: QVBoxLayout) -> None:
     win.spn_poster = spin_row(g, "Posterize:", 0, 8, 0, "Tones 2-8, 0=off")
     win.spn_poster.valueChanged.connect(lambda _: win._schedule_refresh())
     win.sld_split, _ = labeled_slider(win, g, "Split tone:", 0, 100, 0, "Cool shadows / warm highlights")
@@ -80,16 +95,6 @@ def build_grade_section(win, g: QVBoxLayout) -> None:
     win.spn_glowthr.valueChanged.connect(lambda _: win._schedule_refresh())
     glow_row.addWidget(win.spn_glowthr)
     g.addLayout(glow_row)
-    g.addWidget(QLabel("Brand:"))
-    brand_row = QHBoxLayout()
-    win.btn_brand = QPushButton("Brand...")
-    win.btn_brand.setToolTip("Brand color: replaces dither white")
-    win.btn_brand.clicked.connect(win.pick_brand_color)
-    brand_row.addWidget(win.btn_brand)
-    win.lbl_brand = QLabel("(no brand)")
-    brand_row.addWidget(win.lbl_brand, 1)
-    win.brand_color = ""
-    g.addLayout(brand_row)
 
 
 def build_texture_section(win, g: QVBoxLayout) -> None:

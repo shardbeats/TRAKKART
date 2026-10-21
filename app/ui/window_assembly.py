@@ -89,24 +89,44 @@ def setup_ui(win) -> None:
 
 
 def setup_control_panel(win, panel) -> None:
+    """5 accordion pages in the SAME scroll (test_layout: 1 QScrollArea).
+
+    IMAGE = open/ops + canvas/crop · DITHER = preset/method/pixel/motif ·
+    COLOR = adjusts + duotone/brand + palette library · FX = pre/grade/
+    texture/glitch params next to the stack that orders them · MOTION =
+    video preview + Signal Drift. Widget attribute names are unchanged,
+    so controllers, presets and tests keep working.
+    """
     from app.ui import panels as P
     from app.canvas import CROP_MODES, ratio_names
     from app.dither import METHODS
 
-    P.build_image_section(win, P.make_group(panel, "IMAGE"))
-    P.build_preset_section(win, P.make_group(panel, "PRESET"))
-    P.build_method_section(win, P.make_group(panel, "METHOD"), METHODS)
-    P.build_pixel_section(win, P.make_group(panel, "PIXEL"))
-    P.build_color_section(win, P.make_group(panel, "COLOR"))
-    P.build_canvas_section(win, P.make_group(panel, "CANVAS"), ratio_names(), CROP_MODES)
-    P.build_pre_section(win, P.make_group(panel, "PRE-PROCESS"))
-    P.build_grade_section(win, P.make_group(panel, "GRADE"))
-    P.build_texture_section(win, P.make_group(panel, "TEXTURE"))
-    P.build_glitch_section(win, P.make_group(panel, "GLITCH"))
-    P.build_motif_section(win, P.make_group(panel, "MOTIF"))
-    P.build_fx_stack_section(win, P.make_group(panel, "FX STACK"))
-    P.build_video_section(win, P.make_group(panel, "VIDEO"))
-    P.build_custom_palette_section(win, P.make_group(panel, "CUSTOM PALETTE"))
+    add_page, win._accordion_pages = P.make_accordion(panel)
+
+    image = add_page("IMAGE")
+    P.build_image_section(win, image)
+    P.build_canvas_section(win, image, ratio_names(), CROP_MODES)
+
+    dither = add_page("DITHER")
+    P.build_preset_section(win, dither)
+    P.build_method_section(win, dither, METHODS)
+    P.build_pixel_section(win, dither)
+    P.build_motif_section(win, dither)
+
+    color = add_page("COLOR")
+    P.build_color_section(win, color)
+    P.build_tint_section(win, color)
+    P.build_custom_palette_section(win, color)
+
+    fx = add_page("FX")
+    P.build_pre_section(win, fx)
+    P.build_grade_section(win, fx)
+    P.build_texture_section(win, fx)
+    P.build_glitch_section(win, fx)
+    P.build_fx_stack_section(win, fx)
+
+    motion = add_page("MOTION")
+    P.build_video_section(win, motion)
     panel.addStretch()
 
 

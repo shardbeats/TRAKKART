@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 
@@ -21,6 +22,47 @@ def make_group(host: QVBoxLayout, title: str) -> QVBoxLayout:
     lay.setSpacing(4)
     host.addWidget(box)
     return lay
+
+
+def make_accordion(host: QVBoxLayout):
+    """Accordion pages in the single panel scroll (no nested QScrollArea).
+
+    Returns `(add_page, pages)`: `add_page(title)` appends a collapsible
+    page and returns its layout; opening one page closes the others.
+    The first page starts open.
+    """
+    from PySide6.QtWidgets import QPushButton
+
+    holders: list = []
+
+    def add_page(title: str) -> QVBoxLayout:
+        btn = QPushButton(title)
+        btn.setCheckable(True)
+        host.addWidget(btn)
+        content = QWidget()
+        lay = QVBoxLayout(content)
+        lay.setSpacing(4)
+        lay.setContentsMargins(2, 2, 2, 2)
+        host.addWidget(content)
+
+        def _on_toggle(on: bool, _content=content) -> None:
+            if on:
+                for _b, _c in holders:
+                    if _c is not _content:
+                        _b.setChecked(False)
+                _content.setVisible(True)
+            else:
+                _content.setVisible(False)
+
+        btn.toggled.connect(_on_toggle)
+        holders.append((btn, content))
+        if len(holders) == 1:
+            btn.setChecked(True)
+        else:
+            content.setVisible(False)
+        return lay
+
+    return add_page, holders
 
 
 def hlab(parent, text: str) -> QLabel:

@@ -19,6 +19,7 @@ from app.ui.panels.grade import (
     build_grade_section,
     build_pre_section,
     build_texture_section,
+    build_tint_section,
 )
 from app.ui.panels.studio import (
     build_custom_palette_section,
@@ -28,12 +29,14 @@ from app.ui.panels.studio import (
 from app.ui.panels.animate import build_video_section
 from app.ui.panels.widgets import (
     labeled_slider,
+    make_accordion,
     make_group,
     mini_slider,
     spin_row,
 )
 
 __all__ = [
+    "make_accordion",
     "make_group",
     "labeled_slider",
     "mini_slider",
@@ -49,6 +52,7 @@ __all__ = [
     "build_motif_section",
     "build_fx_stack_section",
     "build_grade_section",
+    "build_tint_section",
     "build_texture_section",
     "build_glitch_section",
     "build_video_section",
