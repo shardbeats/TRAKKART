@@ -122,3 +122,20 @@ def test_crop_box_for_mirrors_crop_cover():
     assert (box[2], box[3]) == out.size
     bx, by, bw, bh = box
     assert 0 <= bx <= 400 - bw and 0 <= by <= 300 - bh
+
+
+def test_crop_zoom_reaches_corners_not_just_center():
+    # fx/fy posicionan la caja con zoom: esquinas y bordes, sin recentrado.
+    from app.canvas import crop_box_for
+
+    assert crop_box_for(400, 300, "1:1", 0, 0, 2.0)[:2] == (0, 0)
+    bx, by, bw, bh = crop_box_for(400, 300, "1:1", 100, 100, 2.0)
+    assert (bx, by) == (400 - bw, 300 - bh)
+    mid = crop_box_for(400, 300, "1:1", 50, 50, 2.0)
+    assert mid[0] == round((400 - mid[2]) / 2.0)
+    # Paridad diálogo/pipeline: lo enmarcado es lo recortado.
+    halves = Image.new("RGB", (400, 300), (200, 30, 30))
+    halves.paste(Image.new("RGB", (200, 300), (30, 30, 200)), (200, 0))
+    left = to_canvas(halves, ratio="1:1", fx=0, fy=50, zoom=2.0)
+    right = to_canvas(halves, ratio="1:1", fx=100, fy=50, zoom=2.0)
+    assert list(left.get_flattened_data()) != list(right.get_flattened_data())

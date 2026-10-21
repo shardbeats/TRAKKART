@@ -113,13 +113,12 @@ def crop_cover(
         base = (0, y, cw, y + ch)
     if zoom <= 1.0:
         return img.crop(base)
-    # Tighter box around the same anchor point, clamped to the image.
-    bx0, by0, _, _ = base
-    cx, cy = bx0 + cw / 2.0, by0 + ch / 2.0
-    bw, bh = max(1, round(cw / zoom)), max(1, round(ch / zoom))
-    x = min(w - bw, max(0, round(cx - bw / 2.0)))
-    y = min(h - bh, max(0, round(cy - bh / 2.0)))
-    return img.crop((x, y, x + bw, y + bh))
+    # Zoomed box positioned directly by fx/fy (same contract as the visual
+    # editor): corners and edges reachable, no forced recenter. Delegates so
+    # the dialog frame and the pipeline can never disagree.
+    bx, by, bw, bh = crop_box_for(w, h, ratio, fx, fy, zoom,
+                                  canvas_w=canvas_w, canvas_h=canvas_h)
+    return img.crop((bx, by, bx + bw, by + bh))
 
 
 def crop_box_for(
@@ -127,27 +126,23 @@ def crop_box_for(
     fy: float = 50.0, zoom: float = 1.0,
     canvas_w: int = 0, canvas_h: int = 0,
 ) -> tuple[int, int, int, int]:
-    """Source-pixel crop box (x, y, w, h) mirroring crop_cover (for the editor)."""
+    """Source-pixel crop box (x, y, w, h) mirroring crop_cover (for the editor).
+
+    fx/fy describe the (possibly zoomed) box inside its own slack, so any
+    spot is reachable: corners and edges, not just the center. zoom == 1
+    keeps the classic full-bleed cover box.
+    """
     want, _, _ = resolve_frame(ratio, max(img_w, img_h), canvas_w, canvas_h)
     fx = min(100.0, max(0.0, float(fx)))
     fy = min(100.0, max(0.0, float(fy)))
     zoom = max(1.0, float(zoom))
     if img_w / img_h > want:
-        cw, ch = round(img_h * want), img_h
-        x = round((img_w - cw) * fx / 100.0)
-        base = (x, 0, cw, ch)
+        base_cw, base_ch = round(img_h * want), img_h
     else:
-        cw, ch = img_w, round(img_w / want)
-        y = round((img_h - ch) * fy / 100.0)
-        base = (0, y, cw, ch)
-    if zoom <= 1.0:
-        bx, by, bw, bh = base[0], base[1], base[2], base[3]
-        return (bx, by, bw, bh)
-    bx0, by0 = base[0], base[1]
-    cx, cy = bx0 + cw / 2.0, by0 + ch / 2.0
-    bw, bh = max(1, round(cw / zoom)), max(1, round(ch / zoom))
-    x = min(img_w - bw, max(0, round(cx - bw / 2.0)))
-    y = min(img_h - bh, max(0, round(cy - bh / 2.0)))
+        base_cw, base_ch = img_w, round(img_w / want)
+    bw, bh = max(1, round(base_cw / zoom)), max(1, round(base_ch / zoom))
+    x = round((img_w - bw) * fx / 100.0)
+    y = round((img_h - bh) * fy / 100.0)
     return (x, y, bw, bh)
 
 
