@@ -27,6 +27,13 @@ def main() -> int:
         py, "-m", "PyInstaller",
         "--noconfirm", "--name", "TRAKKART", "--onefile",
         *(["--console"] if args.console else ["--windowed"]),
+        # Base exe stays light (ROADMAP §4): numba is an optional accelerator
+        # with numpy fallback, imageio-ffmpeg is an opt-in extra. Exclude so
+        # a dev .venv with them installed never leaks them into the bundle.
+        "--exclude-module", "numba",
+        "--exclude-module", "llvmlite",
+        "--exclude-module", "imageio",
+        "--exclude-module", "imageio_ffmpeg",
         "main.py",
     ]
     icon = ROOT / "icon.ico"

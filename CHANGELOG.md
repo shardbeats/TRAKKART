@@ -20,9 +20,19 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   sanitizer collapses/trims (`mi cover!` → `mi_cover`); dedicated File name
   section (live preview + Reset); accepted dialogs no longer hoard hidden
   windows (fixes E2E modal flake).
+- MOTION duration driver: Duration spin (1–60s) sets frames = duration × FPS
+  (capped at 24f with an honest note); live `= Xs loop` label, no new preset
+  fields (duration stays derived).
+- `build_exe.py` excludes numba/llvmlite/imageio (base exe stays light per
+  policy); `dist/TRAKKART.exe` rebuilt (66MB) + offscreen smoke green.
 - Stale export names fixed: prefs remember their image (`src_name`); a new
   image gets a fresh default (dialog opens instead of silent quick reuse);
   pasted/dropped/downloaded pixels get `pasted_YYYYMMDD_HHMMSS`.
+- Collision policy fixed to rename: existing files are never replaced nor
+  skipped (repeats save as `name_2`, `name_3`); batch keeps its own policy.
+- Collision alert: post-Accept modal lists clashing files (Overwrite / Rename
+  as `base_2` / Cancel, safe default Rename); plan shows a ⚠ hint; quick stays
+  silent-rename. Test seam hardened (visible-dialog accept, no modal in CI).
 - CHANGELOG started (this file).
 
 ## v0.18.0
