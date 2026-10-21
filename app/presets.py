@@ -143,6 +143,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("gif_fps", "int", ("range", 2, 60)),
     _Field("gif_size", "int", ("range", 64, 8000)),
     _Field("gif_pingpong", "bool"),
+    _Field("motion_amount", "float", ("range", 0.0, 3.0)),
     _Field("export_size", "int", ("range", 64, 8000)),
     _Field("export_format", "str", ("oneof", ("png", "jpg", "webp"))),
     _Field("export_quality", "int", ("range", 1, 100)),
@@ -238,6 +239,7 @@ class Preset:
     gif_fps: int = 8
     gif_size: int = 1200  # anim único: lo usan el preview VIDEO y el GIF exportado
     gif_pingpong: bool = False
+    motion_amount: float = 1.0  # animation intensity: 0 = freeze, 1 = legacy, up to 3
     export_size: int = 3000  # lado largo px de la imagen principal
     export_format: str = "png"  # png | jpg | webp
     export_quality: int = 90  # solo jpg/webp, 1-100
@@ -390,6 +392,7 @@ class Preset:
             "blur": float(getattr(self, "post_blur", 0.0) or 0.0),
             "sharpen": int(getattr(self, "post_sharpen", 0) or 0),
         }
+        m["gif"]["motion_amount"] = float(getattr(self, "motion_amount", 1.0))
         m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
         m["motif"] = copy.deepcopy(getattr(self, "motif", None))
         return m

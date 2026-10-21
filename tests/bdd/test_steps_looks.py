@@ -289,6 +289,25 @@ def pasteup_neutral_ok(ctx):
     assert list(ctx["out_b"].get_flattened_data()) == flat
 
 
+@when("I render mix frames with motion 0 and motion 1")
+def render_motion_levels(ctx):
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    base = dict(name="m", method="bayer8", palette="SLIME")
+    ctx["out_a"] = gif_frames(ctx["img"], Preset(**base, motion_amount=0.0),
+                              frames=3, mode="mix")
+    ctx["out_b"] = gif_frames(ctx["img"], Preset(**base, motion_amount=1.0),
+                              frames=3, mode="mix")
+
+
+@then("the motion-0 frames match and the motion-1 frames move")
+def motion_levels_ok(ctx):
+    flat = lambda frames: [tuple(f.get_flattened_data()) for f in frames]  # noqa: E731
+    assert len(set(flat(ctx["out_a"]))) == 1
+    assert len(set(flat(ctx["out_b"]))) > 1
+
+
 @given("no video backend installed")
 def no_backend(ctx):
     import pytest

@@ -20,6 +20,31 @@ from pathlib import Path
 from PIL import Image
 
 GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
+
+# Human-facing labels + one-line explanations (ids stay stable for presets).
+GIF_MODE_INFO: dict[str, tuple[str, str]] = {
+    "phase": ("March",
+              "Matrix march: the dither pattern crawls. Ordered methods only — "
+              "frozen on error-diffusion (floyd, atkinson, …)."),
+    "hue": ("Hue cycle",
+            "Color wash: hue swings on every method, ordered or not."),
+    "both": ("March + Hue",
+             "Matrix march plus hue cycle. March part needs an ordered method."),
+    "glitch": ("CRT wobble",
+               "Chroma shift + slice offset + wave. Moves on every method."),
+    "mix": ("Full mix",
+            "March + hue + wobble + grain shimmer. Maximum motion."),
+}
+
+
+def mode_label(mode: str) -> str:
+    return GIF_MODE_INFO.get(str(mode), ("?", ""))[0]
+
+
+def mode_desc(mode: str) -> str:
+    return GIF_MODE_INFO.get(str(mode), ("?", ""))[1]
+
+
 GIF_MAX_SIDE = 480
 GIF_MIN_SIDE = 240
 GIF_LIMIT_SIDE = 8000  # el canvas manda: el anim sale al tamaño del documento
@@ -71,6 +96,7 @@ def gif_frames(
     Animation comes from phase march + hue cycle + glitch wobble + drift;
     every frame is deterministic (seed + frame index, no random).
     """
+    from app.ordered_maps import march_offset
     from app.render_params import normalize_slice_bands
 
     if mode not in GIF_MODES:
@@ -79,6 +105,9 @@ def gif_frames(
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
     pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
     small = _fit_small(img.convert("RGB"), side)
+    # Motion amount: 1.0 = legacy amplitudes (byte-identical), 0 = freeze, up to 3.
+    # (NaN clamps to 0.0 via max below.)
+    amt = min(3.0, max(0.0, float(getattr(preset, "motion_amount", 1.0) or 0.0)))
 
     from app.pipeline import render
     from app.render_params import preset_to_render_kwargs
@@ -110,11 +139,12 @@ def gif_frames(
     base_kwargs["dust"] = 0.0
 
     out: list[Image.Image] = []
+    march_method = str(getattr(preset, "method", "bayer4"))
     for i in range(n):
         kwargs = dict(base_kwargs)
-        kwargs["phase"] = int(i * 2) if want_phase else 0
+        kwargs["phase"] = march_offset(march_method, i, n, amt) if want_phase else 0
         if want_hue:
-            kwargs["pre_hue"] = base_hue + round(14.0 * math.sin(2.0 * math.pi * i / n), 2)
+            kwargs["pre_hue"] = base_hue + round(14.0 * amt * math.sin(2.0 * math.pi * i / n), 2)
         frame = render(small, **kwargs)
 
         if want_glitch:
@@ -124,43 +154,43 @@ def gif_frames(
             t = 2.0 * math.pi * i / n
             # Chroma: preset amplitude, or subtle 3px wobble if preset is clean.
             amp_c = base_chroma if base_chroma > 0 else 3
-            dx = int(round(amp_c * math.sin(t)))
+            dx = int(round(amp_c * amt * math.sin(t)))
             if dx:
                 frame = chromatic_aberration(frame, dx=dx)
             # Slices: preset bands, or 4 light bands if clean.
             bands = base_bands if base_bands >= 2 else 4
-            maxoff = base_max if base_max > 0 else 8
+            maxoff = int(round((base_max if base_max > 0 else 8) * amt))
             # Deterministic per-frame offsets (seed + i), no drift.
             frame = slice_shift(frame, bands=bands, max_offset=maxoff, seed=0x6A17 + i)
             # Wave: preset amplitude, or gentle 2px CRT wobble if clean.
-            amp_w = base_wave if base_wave > 0 else 2
+            amp_w = int(round((base_wave if base_wave > 0 else 2) * amt))
             frame = glitch_wave(frame, amplitude=amp_w, seed=0x9A9E + i)
             # Mosh: only if the preset asks for it (too chaotic as default).
             if base_mosh > 0:
-                amt = base_mosh * (0.6 + 0.4 * math.sin(t + 1.0))
-                frame = datamosh(frame, amount=max(0.0, amt), seed=0x405 + i)
+                mosh_amt = base_mosh * amt * (0.6 + 0.4 * math.sin(t + 1.0))
+                frame = datamosh(frame, amount=max(0.0, mosh_amt), seed=0x405 + i)
 
         # Grain shimmer: animated seed so mix feels alive without flicker.
         # Static grain would freeze; seeded-per-frame keeps the dither readable.
         if mode == "mix":
             from app.fx import apply_grain
 
-            g = base_grain if base_grain > 0 else 4.0
+            g = (base_grain if base_grain > 0 else 4.0) * amt
             frame = apply_grain(frame, amount=g, seed=0x7A4B + i)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 
-                frame = grain_dust(frame, amount=base_dust, seed=0xD57 + i)
+                frame = grain_dust(frame, amount=base_dust * amt, seed=0xD57 + i)
         elif base_grain > 0 or base_dust > 0:
             # Non-mix modes keep the preset grain but animated (no freeze).
             from app.fx import apply_grain
 
             if base_grain > 0:
-                frame = apply_grain(frame, amount=base_grain, seed=0x7A4B + i)
+                frame = apply_grain(frame, amount=base_grain * amt, seed=0x7A4B + i)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 
-                frame = grain_dust(frame, amount=base_dust, seed=0xD57 + i)
+                frame = grain_dust(frame, amount=base_dust * amt, seed=0xD57 + i)
 
         out.append(frame)
 

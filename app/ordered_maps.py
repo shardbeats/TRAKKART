@@ -241,3 +241,23 @@ def _tile_matrix(mat: np.ndarray, h: int, w: int) -> np.ndarray:
     reps_y = (h + mh - 1) // mh
     reps_x = (w + mw - 1) // mw
     return np.tile(mat, (reps_y, reps_x))[:h, :w]
+
+
+def march_offset(method: str, frame: int, n_frames: int, amt: float = 1.0) -> int:
+    """Phase offset for frame `i` of `n` so the march loops seamlessly.
+
+    Tiled matrices crawl exactly `loops` full periods per loop
+    (`loops` from the motion amount, min 1; 0 freezes). Function masks
+    have no clean period, so they keep the legacy small crawl.
+    """
+    amt = min(3.0, max(0.0, float(amt or 0.0)))
+    if amt <= 0:
+        return 0
+    i = max(0, int(frame))
+    n = max(1, int(n_frames))
+    loops = max(1, int(round(amt)))
+    entry = _ORDERED_DEFS.get(str(method))
+    if entry is not None:
+        period = int(entry[0].shape[0])
+        return int(round(period * loops * (i % n) / n))
+    return int(round(2 * amt * i))

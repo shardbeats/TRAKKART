@@ -177,7 +177,8 @@ they added a model + locks + file pipeline far from the core job
 - [x] Video export MP4 (`imageio-ffmpeg` SOLO como extra opcional, `requirements-video.txt`, nunca en base exe; fallback con mensaje claro si falta). Same frame→dither→stack pipeline, shared anti-flicker palette.
 - [x] Signal Drift: 9 animated retro-screen noise patterns (`app/drift.py`, seeded, deterministic, works with any method). UI lives in VIDEO (pattern + amount).
 - [x] Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust) as `pasteup` FX stack item (neutral when off).
-- [x] Gherkin 50/50 (drift determinism + paste-up neutral + backend-missing skips clean).
+- [x] Gherkin 51/51 (drift determinism + paste-up neutral + motion freeze + backend-missing skips clean).
+- [x] Motion legibility pass (post-v1.4, option A+E): mode names + one-line descriptions in UI, `motion_amount` 0–3 (`1.0` = legacy bytes, `0` = freeze), ED-march compat hint with one-click `bayer8` switch, loop-clean march (full matrix period per loop). No engine change besides the march step.
 
 ### v1.5 — Iteration UX + content (done)
 - [x] Viewport mode selector Full/Live/Still (`app/viewport.py`: 0ms / 120ms-fast-350ms-slow / F5-only + statusbar label + View menu).

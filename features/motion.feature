@@ -14,6 +14,11 @@ Feature: Motion from stills
     When I render with paste-up off and paste-up paper at 0
     Then both outputs match the plain render
 
+  Scenario: Motion amount zero freezes the animation
+    Given a 48x48 gradient image
+    When I render mix frames with motion 0 and motion 1
+    Then the motion-0 frames match and the motion-1 frames move
+
   Scenario: Missing video backend fails with install instructions
     Given no video backend installed
     When I try to write an MP4

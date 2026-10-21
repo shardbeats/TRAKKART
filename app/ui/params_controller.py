@@ -276,6 +276,7 @@ BINDINGS: tuple = (
     ("gif_mode", _video_mode_get, _video_mode_set),
     ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
     ("gif_pingpong", _pingpong_get, _pingpong_set),
+    ("motion_amount",) + _slider("sld_motion", 100.0),
     ("duotone_mid", _duo_mid_get, _duo_mid_set),
     ("posterize",) + _spin("spn_poster"),
     ("split_tone",) + _slider("sld_split"),
@@ -321,6 +322,33 @@ def sync_docdims(win) -> None:
 # ------------------------------------------------------------------
 # Preset build / apply
 # ------------------------------------------------------------------
+def sync_anim_ui(win) -> None:
+    """Mode description + ED-march compat hint. No render, just labels."""
+    from app.dither import ED_METHODS
+    from app.gif import GIF_MODES, mode_desc, mode_label
+
+    try:
+        mode = win.cmb_video_mode.currentText()
+        if mode not in GIF_MODES:
+            mode = "both"
+        method = win.cmb_method.currentText()
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        win.lbl_mode_desc.setText(f"{mode_label(mode)} — {mode_desc(mode)}")
+    except Exception:  # noqa: BLE001
+        pass
+    frozen = mode in ("phase", "both") and method in set(ED_METHODS) | {"hilbert"}
+    try:
+        win.lbl_compat.setText(
+            f"March is frozen on {method} (error-diffusion ignores the matrix). "
+            "Hue still cycles; wobble/shimmer still move."
+            if frozen else "")
+        win.btn_use_ordered.setVisible(bool(frozen))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def current_adjust(win):
     from app.adjust import Adjust
 
@@ -455,6 +483,7 @@ def apply_preset(win, name: str) -> None:
     win._sync_duo_label()
     win.border_color = str(p.border_color or "#000000")
     win.lbl_border.setText(win.border_color)
+    sync_anim_ui(win)
     if win.cmb_preset.findText(name) < 0:
         win.refresh_presets()
     win.cmb_preset.setCurrentText(name)

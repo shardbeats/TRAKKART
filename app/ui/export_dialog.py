@@ -284,10 +284,13 @@ class ExportDialog(QDialog):
 
     # -- animación: la spec viene de VIDEO (aquí no se edita, solo se muestra) --
     def _sync_gifspec_label(self) -> None:
+        from app.gif import mode_label
+
         g = getattr(self, "_gif_spec", {})
         w, h = self._doc_wh()
+        m = str(g.get("mode", "both"))
         self.lbl_gifspec.setText(
-            f"Animation: {g.get('frames', 6)}f · {g.get('mode', 'both')} · "
+            f"Animation: {g.get('frames', 6)}f · {mode_label(m)} ({m}) · "
             f"{g.get('fps', 8)}fps"
             f"{' · ping-pong' if g.get('pingpong') else ''} "
             f"· {w}×{h}px (canvas). Edit it in VIDEO."

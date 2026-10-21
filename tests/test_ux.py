@@ -100,3 +100,36 @@ def test_no_timeline_leftovers(window):
     from app.presets import Preset
 
     assert not hasattr(Preset(name="t"), "anim_layers")
+
+
+def test_anim_compat_hint(window, qt_app):
+    from app.gif import mode_desc, mode_label
+
+    assert mode_label("mix") == "Full mix"
+    assert "ordered" in mode_desc("phase").lower()
+    # ED method + march mode -> hint + helper button.
+    window.cmb_method.setCurrentText("floyd")
+    window.cmb_video_mode.setCurrentText("phase")
+    window._sync_anim_ui()
+    assert "frozen" in window.lbl_compat.text().lower()
+    assert not window.btn_use_ordered.isHidden()
+    assert "march" in window.lbl_mode_desc.text().lower()
+    # Ordered method -> no hint; wobble mode on ED -> no hint either.
+    window.cmb_method.setCurrentText("bayer8")
+    window._sync_anim_ui()
+    assert window.lbl_compat.text() == ""
+    assert window.btn_use_ordered.isHidden()
+    window.cmb_method.setCurrentText("floyd")
+    window.cmb_video_mode.setCurrentText("mix")
+    window._sync_anim_ui()
+    assert window.lbl_compat.text() == ""
+    # Helper jumps to an ordered method.
+    window.cmb_video_mode.setCurrentText("both")
+    window._sync_anim_ui()
+    window._use_ordered_method()
+    assert window.cmb_method.currentText() == "bayer8"
+    # Motion amount round-trips through the panel.
+    window.sld_motion.setValue(200)
+    assert abs(window.current_params().motion_amount - 2.0) < 1e-9
+    window._apply_preset("SLIME_FS")
+    assert abs(window.sld_motion.value() / 100.0 - 1.0) < 1e-9

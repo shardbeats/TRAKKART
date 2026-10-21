@@ -89,6 +89,54 @@ def test_gif_drift_animates_frames():
     assert len({tuple(f.get_flattened_data()) for f in frames}) > 1
 
 
+def test_march_closes_the_loop():
+    from app.dither import apply_method
+    from app.ordered_maps import _ORDERED_DEFS as DEFS, march_offset
+
+    from PIL import Image
+
+    # Tiled matrices: frame n lands exactly on a full period -> seamless loop.
+    for name, (mat, _div) in DEFS.items():
+        m = int(mat.shape[0])
+        for n in (2, 3, 4, 6, 8, 12, 24):
+            for amt in (0.4, 1.0, 2.0, 2.9):
+                assert march_offset(name, n, n, amt) % m == 0, (name, n, amt)
+    # Unknown maps fall back to the legacy small crawl.
+    assert march_offset("nope", 3, 6, 1.0) == 6
+    assert march_offset("bayer8", 0, 6, 0.0) == 0
+    # Full-period march renders a clean loop on bayer8 / 6 frames.
+    im = Image.new("RGB", (32, 32), (120, 90, 200))
+    seq = [apply_method(im, method="bayer8", palette=None, phase=march_offset("bayer8", i, 6, 1.0))
+           for i in range(6)]
+    flats = [tuple(f.get_flattened_data()) for f in seq]
+    assert len(set(flats)) > 1  # it visibly marches
+    assert flats[0] == tuple(apply_method(
+        im, method="bayer8", palette=None,
+        phase=march_offset("bayer8", 6, 6, 1.0)).get_flattened_data())  # loop joint
+
+
+def test_motion_amount_freezes_and_scales():
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    im = _img()
+    base = dict(name="t", method="bayer8", palette="SLIME")
+    still = gif_frames(im, Preset(**base, motion_amount=0.0), frames=4, mode="mix")
+    assert len({tuple(f.get_flattened_data()) for f in still}) == 1
+    classic = gif_frames(im, Preset(**base, motion_amount=1.0), frames=4, mode="mix")
+    assert len({tuple(f.get_flattened_data()) for f in classic}) > 1
+    strong = gif_frames(im, Preset(**base, motion_amount=2.0), frames=4, mode="mix")
+    assert [tuple(f.get_flattened_data()) for f in strong] != [
+        tuple(f.get_flattened_data()) for f in classic]
+
+
+def test_motion_amount_default_is_legacy():
+    from app.presets import Preset
+
+    assert Preset(name="t").motion_amount == 1.0
+    assert Preset.from_dict({"name": "t"}).to_dict()["motion_amount"] == 1.0
+
+
 def test_preset_motion_roundtrip():
     from app.presets import Preset
 

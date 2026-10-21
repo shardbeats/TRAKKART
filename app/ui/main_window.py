@@ -640,6 +640,17 @@ class MainWindow(QMainWindow):
 
         _fx.on_add(self, label)
 
+    def _sync_anim_ui(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.sync_anim_ui(self)
+
+    def _use_ordered_method(self) -> None:
+        if self.cmb_method.findText("bayer8") >= 0:
+            self.cmb_method.setCurrentText("bayer8")
+        self._sync_anim_ui()
+        self._schedule_refresh()
+
     def step_method(self, delta: int) -> str:
         """Arrow-stepping por algoritmos (sin tocar el combo a mano)."""
         from app.dither import METHODS
