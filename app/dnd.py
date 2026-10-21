@@ -25,6 +25,8 @@ def classify_drop(target: str) -> str:
         return "blob"
     if scheme in ("", "file"):
         return "local"
+    if len(scheme) == 1 and scheme.isalpha():
+        return "local"  # bare Windows path (C:/...): urlsplit sees drive as scheme
     return "ignore"
 
 

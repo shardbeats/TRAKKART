@@ -133,3 +133,26 @@ def test_anim_compat_hint(window, qt_app):
     assert abs(window.current_params().motion_amount - 2.0) < 1e-9
     window._apply_preset("SLIME_FS")
     assert abs(window.sld_motion.value() / 100.0 - 1.0) < 1e-9
+
+
+def test_tutorial_dialog_walks_all_steps(qt_app):
+    from app.tutorial import STEPS
+    from app.ui.tutorial_dialog import TutorialDialog
+
+    dlg = TutorialDialog(parent=None)
+    assert dlg.lbl_pos.text() == f"1/{len(STEPS)}"
+    assert dlg.btn_back.isEnabled() is False
+    for _ in range(len(STEPS) - 1):
+        dlg.btn_next.click()
+    assert dlg.lbl_pos.text() == f"{len(STEPS)}/{len(STEPS)}"
+    assert dlg.btn_next.text() == "Done"
+    dlg.btn_back.click()
+    assert dlg.lbl_pos.text() == f"{len(STEPS) - 1}/{len(STEPS)}"
+    dlg.btn_skip.click()
+    assert dlg.result() == TutorialDialog.DialogCode.Rejected
+    dlg2 = TutorialDialog(parent=None)
+    for _ in range(len(STEPS)):
+        dlg2.btn_next.click()
+    assert dlg2.result() == TutorialDialog.DialogCode.Accepted
+    dlg.close()
+    dlg2.close()

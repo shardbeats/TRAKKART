@@ -75,3 +75,41 @@ def test_old_preset_migrates_to_default_stack():
     assert p.jpeg == 0.0 and p.post_blur == 0.0 and p.post_sharpen == 0
     spec_kwargs = p.to_render_kwargs()
     assert spec_kwargs["fx_stack"] is None
+
+
+def test_fx_stack_controller_roundtrip(window):
+    from app.fx_stack import normalize_stack
+    from app.ui import fx_stack_controller as fx
+
+    fx.set_stack(window, None)  # None -> default order, all enabled
+    assert [e["id"] for e in window.fx_stack_data] == [e["id"] for e in normalize_stack(None)]
+    assert window.fx_list.count() == len(normalize_stack(None))
+    # Disable one via the checklist, ADD combo offers it back.
+    fx.set_stack(window, [{"id": "grain", "enabled": False}])
+    assert "grain" not in [e["id"] for e in fx.get_stack(window) if e["enabled"]]
+    fx.on_add(window, "Grain")
+    assert any(e["id"] == "grain" and e["enabled"] for e in window.fx_stack_data)
+    # Move selected up/down.
+    fx.set_stack(window, [{"id": "grain", "enabled": True},
+                          {"id": "vignette", "enabled": True}])
+    window.fx_list.setCurrentRow(1)
+    fx.move_selected(window, -1)
+    assert [e["id"] for e in window.fx_stack_data][:2] == ["vignette", "grain"]
+    n = len(window.fx_stack_data)
+    window.fx_list.setCurrentRow(n - 1)
+    fx.move_selected(window, 1)  # last row: no-op
+    fx.move_selected(window, -5)  # out of range: no-op
+    assert [e["id"] for e in window.fx_stack_data][:2] == ["vignette", "grain"]
+    assert len(window.fx_stack_data) == n
+    # Toggle off via checkbox state.
+    from PySide6.QtCore import Qt
+
+    window.fx_list.setCurrentRow(0)
+    window.fx_list.item(0).setCheckState(Qt.Unchecked)
+    fx.on_toggled(window)
+    assert window.fx_stack_data[0]["enabled"] is False
+    # Empty selection: move/add are no-ops.
+    window.fx_list.clearSelection()
+    fx.move_selected(window, -1)
+    fx.on_add(window, "Not An Effect")
+    assert window._palette_base  # window alive, no crash

@@ -45,6 +45,40 @@ def test_numba_missing_raises(monkeypatch):
         run_kernel(_img(16), "floyd", None, 128.0, backend="numba")
 
 
+def test_coeffs_arrays_shapes():
+    from app.accelerate import coeffs_to_arrays
+
+    dys, dxs, wts = coeffs_to_arrays([(1, -1, 0.5), (0, 1, 0.25)])
+    assert dys.tolist() == [1, 0] and dxs.tolist() == [-1, 1]
+    assert wts.dtype == np.float64 and dys.dtype == np.int64
+
+
+@needs_numba
+def test_numba_direct_entry_points():
+    import numpy as np
+
+    from app import accelerate as acc
+    from app.kernels import COEFFS
+
+    dys, dxs, wts = acc.coeffs_to_arrays(COEFFS["floyd"])
+    lum = np.array(_img(16).convert("L"), dtype=np.float32)
+    out_bw = acc.ed_bw(lum.copy(), dys, dxs, wts, 128.0)
+    assert out_bw.shape == (16, 16) and set(np.unique(out_bw)) <= {0, 255}
+    pal = np.array(get_palette("SLIME"), dtype=np.float64)
+    arr = np.array(_img(16), dtype=np.float32)
+    out_c = acc.ed_color(arr.copy(), pal, dys, dxs, wts)
+    assert out_c.shape == (16, 16, 3)
+    # diffuse_* dispatch through numba explicitly.
+    from app.kernels import diffuse_bw, diffuse_color
+
+    a = np.array(diffuse_bw(lum.copy(), COEFFS["floyd"], 128.0, backend="numba"))
+    b = np.array(diffuse_bw(lum.copy(), COEFFS["floyd"], 128.0, backend="numpy"))
+    assert np.array_equal(a, b)
+    c = np.array(diffuse_color(arr.copy(), pal, COEFFS["floyd"], backend="numba"))
+    d = np.array(diffuse_color(arr.copy(), pal, COEFFS["floyd"], backend="numpy"))
+    assert np.array_equal(c, d)
+
+
 def test_batch_jobs(tmp_path):
     from app.batch import batch_process
     from app.presets import Preset

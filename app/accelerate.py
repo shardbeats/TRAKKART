@@ -31,7 +31,7 @@ def has_numba() -> bool:
 
 
 @njit(cache=True, nogil=True)
-def ed_bw(lum, dys, dxs, wts, threshold):
+def ed_bw(lum, dys, dxs, wts, threshold):  # pragma: no cover - numba nopython: invisible to coverage.py, verified by parity tests
     """B&W diffusion over float32 in-place. Returns uint8 0/255."""
     h, w = lum.shape
     n = dys.shape[0]
@@ -56,7 +56,7 @@ def ed_bw(lum, dys, dxs, wts, threshold):
 
 
 @njit(cache=True, nogil=True)
-def ed_color(arr, pal, dys, dxs, wts):
+def ed_color(arr, pal, dys, dxs, wts):  # pragma: no cover - numba nopython: invisible to coverage.py, verified by parity tests
     """Palette diffusion over float32 in-place. Returns uint8 RGB."""
     h, w, _ = arr.shape
     p = pal.shape[0]

@@ -289,3 +289,73 @@ def test_cancel_button(window):
     window.cancel_batch()
     assert window._batch_cancel == [True]
     assert "Cancelling" in window.lbl_status.text()
+
+
+def test_crop_editor_programmatic(qt_app):
+    """Crop dialog + view math without driving the real mouse."""
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent, QWheelEvent
+    from PIL import Image
+
+    from app.ui.crop_editor import CropEditorDialog, _pil_to_pixmap
+
+    assert _pil_to_pixmap(Image.new("RGB", (8, 8), (1, 2, 3))) is not None
+    dlg = CropEditorDialog(Image.new("RGB", (64, 48), (90, 100, 140)))
+    try:
+        assert dlg.ratio == "1:1" and dlg.mode == "cover"
+        assert dlg.fx == 50.0 and dlg.zoom == 1.0
+        assert dlg.doc_w > 0 and dlg.doc_h > 0
+        dlg.rotate_cw()
+        assert dlg.turns == 1
+        dlg.reset_crop()
+        assert (dlg.fx, dlg.fy, dlg.zoom) == (50.0, 50.0, 1.0)
+        dlg._on_ratio("16:9")
+        assert dlg.ratio == "16:9"
+        dlg._on_wh()
+        assert dlg.doc_w >= 64 and dlg.doc_h >= 64
+        dlg._on_mode("contain")
+        assert dlg.mode == "contain"
+        dlg._on_mode("cover")
+        assert dlg.mode == "cover"
+        dlg._sync_summary()
+        assert dlg.lbl_summary.text() != ""
+        view = dlg.view
+        view.resize(300, 300)
+        view.pan_by(5.0, -3.0)
+        view.zoom_at(QPointF(150.0, 150.0), 1.5)
+        assert 1.0 <= view.zoom <= 4.0
+        view.reset_crop()
+        assert (view.fx, view.fy, view.zoom) == (50.0, 50.0, 1.0)
+        view.mousePressEvent(QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress, QPointF(10, 10),
+            Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier))
+        view.mouseMoveEvent(QMouseEvent(
+            QMouseEvent.Type.MouseMove, QPointF(20, 25),
+            Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier))
+        view.mouseReleaseEvent(QMouseEvent(
+            QMouseEvent.Type.MouseButtonRelease, QPointF(20, 25),
+            Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier))
+        view.mode = "contain"
+
+        def _wheel():
+            return QWheelEvent(
+                QPointF(150, 150), QPoint(0, 0), QPoint(0, 0), QPoint(0, 120),
+                Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+                Qt.ScrollPhase.NoScrollPhase, False)
+
+        view.wheelEvent(_wheel())  # contain: ignored
+        view.mode = "cover"
+        view.wheelEvent(_wheel())
+        view.repaint()  # offscreen paint path
+        dlg.accept()
+        assert dlg.result() == dlg.DialogCode.Accepted
+        bad = CropEditorDialog(Image.new("RGB", (32, 32)), ratio="nope", mode="nope")
+        try:
+            assert bad.ratio == "1:1" and bad.mode == "cover"
+        finally:
+            bad.close()
+    finally:
+        dlg.close()

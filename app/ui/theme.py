@@ -78,10 +78,18 @@ def load_stylesheet(name: str = "dark") -> str:
 
 
 def set_theme(app, name: str) -> str:
-    """Apply a variant to the QApplication. Returns the resolved name."""
+    """Apply a variant to the QApplication. Returns the resolved name.
+
+    Idempotent per app instance: re-applying the same theme is a no-op.
+    (Repolishing the whole app on every MainWindow() made startup O(n²)
+    across the test-suite and slowed real restarts for nothing.)
+    """
     resolved = name if name in THEMES else "dark"
     try:
+        if app is not None and app.property("_trakkart_theme") == resolved:
+            return resolved
         app.setStyleSheet(load_stylesheet(resolved))
+        app.setProperty("_trakkart_theme", resolved)
     except Exception:
         pass
     return resolved

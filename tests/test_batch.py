@@ -96,3 +96,38 @@ def test_batch_jpg_small(tmp_path: Path):
     assert any(o.endswith(".jpg") and Path(o).exists() for o in results[0]["outputs"])
     again = batch_process(src, dst, preset)
     assert again[0]["status"] == "skipped"
+
+
+def test_batch_unit_helpers(tmp_path: Path):
+    import json
+
+    from app.batch import _outputs_for, _render_one, _sort_results, build_extras, options_from_preset, render_single_image
+
+    preset = Preset(name="t", method="bayer4", palette="SLIME", vector_export=True,
+                    gif_export=True, gif_frames=2, export_format="png", export_size=64)
+    opts = options_from_preset(preset)
+    assert opts.selection.vector is True and opts.selection.anim is True
+    outs = _outputs_for(tmp_path, "b", preset)
+    assert any(str(o).endswith((".png", ".jpg")) for o in outs)
+    img = Image.new("RGB", (48, 48), (90, 100, 140))
+    assert render_single_image(img, preset).size == (48, 48)
+    svg, frames = build_extras(img, preset)
+    assert svg is not None and svg.startswith("<svg")
+    assert frames is not None and len(frames) == 2
+    plain = Preset(name="t", method="bayer4", palette="BW")
+    assert build_extras(img, plain) == (None, None)
+    # _render_one error path (bad file) returns an error dict, never raises.
+    bad = _render_one((str(tmp_path / "nope.png"), str(tmp_path), "b",
+                       json.dumps(plain.to_dict())))
+    assert bad["status"] == "error"
+    # cancel flag aborts before processing anything.
+    src = tmp_path / "in2"
+    src.mkdir()
+    _make_inputs(src, 2)
+    results = batch_process(src, tmp_path / "o2", Preset(name="t", method="bayer4"),
+                            cancel=[True])
+    assert results == []
+    by_name = [{"file": "b.png", "status": "ok"}, {"file": "a.png", "status": "ok"}]
+    files = [tmp_path / "b.png", tmp_path / "a.png"]
+    _sort_results(by_name, files)  # in place, like input order
+    assert [r["file"] for r in by_name] == ["b.png", "a.png"]

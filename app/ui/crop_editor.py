@@ -309,10 +309,10 @@ class CropEditorDialog(QDialog):
         self.view.update()
 
     def _on_wh(self) -> None:
-        self.doc_w = int(self.spn_w.value())
-        self.doc_h = int(self.spn_h.value())
-        self.view.canvas_w = self.doc_w
-        self.view.canvas_h = self.doc_h
+        doc_w = int(self.spn_w.value())
+        doc_h = int(self.spn_h.value())
+        self.view.canvas_w = doc_w
+        self.view.canvas_h = doc_h
         if self.view.ratio != CUSTOM_RATIO:
             self.cmb_ratio.blockSignals(True)
             self.cmb_ratio.setCurrentText(ratio_label(CUSTOM_RATIO))
