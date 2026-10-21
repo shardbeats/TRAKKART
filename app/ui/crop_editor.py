@@ -63,9 +63,33 @@ class CropView(QWidget):
         self.canvas_w = int(canvas_w or 0)
         self.canvas_h = int(canvas_h or 0)
         self._drag_from: QPointF | None = None
+        # Owned box (source px, floats): gestures mutate it directly so the
+        # zoom anchor round-trips exactly. fx/fy stay synced for the dialog
+        # result + summary; crop_box_for is only the seeder (ratio/mode/
+        # canvas/rotate/reset), never part of the gesture loop.
+        self._box: list[float] = [0.0, 0.0, 1.0, 1.0]
+        self._reseed()
         self.setMinimumSize(420, 420)
         self.setMouseTracking(False)
         self.setCursor(Qt.OpenHandCursor)
+
+    def _reseed(self) -> None:
+        """Recompute the box from fx/fy/zoom (structural changes only)."""
+        iw, ih = self._img.width, self._img.height
+        bx, by, bw, bh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom,
+                                      canvas_w=self.canvas_w, canvas_h=self.canvas_h)
+        self._box = [float(bx), float(by), float(bw), float(bh)]
+        self._sync_focus()
+
+    def _sync_focus(self) -> None:
+        """fx/fy describe where the owned box sits inside its slack."""
+        iw, ih = self._img.width, self._img.height
+        _bx, _by, bw, bh = self._box
+        slack_x, slack_y = iw - bw, ih - bh
+        if slack_x > 0:
+            self.fx = min(100.0, max(0.0, 100.0 * _bx / slack_x))
+        if slack_y > 0:
+            self.fy = min(100.0, max(0.0, 100.0 * _by / slack_y))
 
     # -- geometry (source px <-> widget px) --
     def _layout(self) -> dict:
@@ -85,8 +109,7 @@ class CropView(QWidget):
         s = min(w / iw, h / ih)
         dw, dh = iw * s, ih * s
         ox, oy = (w - dw) / 2.0, (h - dh) / 2.0
-        bx, by, bw, bh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom,
-                                      canvas_w=self.canvas_w, canvas_h=self.canvas_h)
+        bx, by, bw, bh = self._box
         frame = QRectF(ox + bx * s, oy + by * s, bw * s, bh * s)
         return {"mode": "cover", "s": s, "ox": ox, "oy": oy,
                 "frame": frame, "img_rect": QRectF(ox, oy, dw, dh),
@@ -143,7 +166,8 @@ class CropView(QWidget):
         dx = (event.position().x() - self._drag_from.x()) / s
         dy = (event.position().y() - self._drag_from.y()) / s
         self._drag_from = QPointF(event.position())
-        self.pan_by(-dx, -dy)
+        # The photo is static, the frame moves: frame follows the finger.
+        self.pan_by(dx, dy)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.LeftButton:
@@ -158,50 +182,55 @@ class CropView(QWidget):
             return
         self.zoom_at(QPointF(event.position()), 1.15 ** steps)
 
-    # -- crop math (source pixels) --
+    # -- crop math (source pixels, on the owned box) --
     def pan_by(self, dx: float, dy: float) -> None:
         """Shift the crop box by (dx, dy) source px (drag moves the frame)."""
         iw, ih = self._img.width, self._img.height
-        bx, by, bw, bh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom)
-        nbx = min(iw - bw, max(0.0, bx + dx))
-        nby = min(ih - bh, max(0.0, by + dy))
-        slack_x, slack_y = iw - bw, ih - bh
-        if slack_x > 0:
-            self.fx = min(100.0, max(0.0, 100.0 * nbx / slack_x))
-        if slack_y > 0:
-            self.fy = min(100.0, max(0.0, 100.0 * nby / slack_y))
+        bx, by, bw, bh = self._box
+        self._box[0] = min(iw - bw, max(0.0, bx + dx))
+        self._box[1] = min(ih - bh, max(0.0, by + dy))
+        self._sync_focus()
         self.cropChanged.emit()
         self.update()
 
     def zoom_at(self, pos: QPointF, factor: float) -> None:
-        """Zoom anchored at a widget point (clamped 1-4x)."""
+        """Zoom anchored at a widget point (clamped 1-4x).
+
+        The anchor is read from the owned box, so the source point under
+        the cursor survives every step (no snap-back loop).
+        """
+        new_zoom = min(MAX_ZOOM, max(MIN_ZOOM, self.zoom * factor))
+        if new_zoom <= MIN_ZOOM:
+            self.zoom = MIN_ZOOM
+            self._reseed()
+            self.cropChanged.emit()
+            self.update()
+            return
         lay = self._layout()
         s, ox, oy = lay["s"], lay["ox"], lay["oy"]
         iw, ih = self._img.width, self._img.height
         cx = (pos.x() - ox) / s
         cy = (pos.y() - oy) / s
-        old = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, self.zoom)
-        new_zoom = min(MAX_ZOOM, max(MIN_ZOOM, self.zoom * factor))
-        new = crop_box_for(iw, ih, self.ratio, self.fx, self.fy, new_zoom)
-        obx, oby, obw, obh = old
-        nbx0, nby0, nbw, nbh = new
+        obx, oby, obw, obh = self._box
+        _nx, _ny, nbw, nbh = crop_box_for(iw, ih, self.ratio, self.fx, self.fy,
+                                          new_zoom, canvas_w=self.canvas_w,
+                                          canvas_h=self.canvas_h)
         if obw > 0 and obh > 0 and nbw > 0 and nbh > 0:
             # Keep the source point under the cursor fixed.
             rx = (cx - obx) / obw
             ry = (cy - oby) / obh
-            want_bx = cx - rx * nbw
-            want_by = cy - ry * nbh
             slack_x, slack_y = iw - nbw, ih - nbh
-            if slack_x > 0:
-                self.fx = min(100.0, max(0.0, 100.0 * want_bx / slack_x))
-            if slack_y > 0:
-                self.fy = min(100.0, max(0.0, 100.0 * want_by / slack_y))
+            self._box[0] = min(slack_x, max(0.0, cx - rx * nbw)) if slack_x > 0 else 0.0
+            self._box[1] = min(slack_y, max(0.0, cy - ry * nbh)) if slack_y > 0 else 0.0
+            self._box[2], self._box[3] = float(nbw), float(nbh)
         self.zoom = new_zoom
+        self._sync_focus()
         self.cropChanged.emit()
         self.update()
 
     def reset_crop(self) -> None:
         self.fx, self.fy, self.zoom = 50.0, 50.0, 1.0
+        self._reseed()
         self.cropChanged.emit()
         self.update()
 
@@ -305,8 +334,10 @@ class CropEditorDialog(QDialog):
     # -- slots --
     def _on_ratio(self, name: str) -> None:
         self.view.ratio = ratio_value(name)
+        self.view._reseed()
         self._sync_wh_enabled()
         self.view.update()
+        self._sync_summary()
 
     def _on_wh(self) -> None:
         doc_w = int(self.spn_w.value())
@@ -319,6 +350,7 @@ class CropEditorDialog(QDialog):
             self.cmb_ratio.blockSignals(False)
             self.view.ratio = CUSTOM_RATIO
             self._sync_wh_enabled()
+        self.view._reseed()
         self.view.update()
         self._sync_summary()
 
@@ -326,6 +358,8 @@ class CropEditorDialog(QDialog):
         self.view.mode = name
         if name != "cover":
             self.view.reset_crop()
+        else:
+            self.view._reseed()
         self.view.update()
         self._sync_summary()
 
@@ -333,6 +367,7 @@ class CropEditorDialog(QDialog):
         self.image = rotate_right(self.image)
         self.turns = (self.turns + 1) % 4
         self.view._img = self.image
+        self.view._reseed()
         self.view.update()
 
     def reset_crop(self) -> None:

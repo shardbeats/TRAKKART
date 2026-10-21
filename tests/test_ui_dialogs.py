@@ -236,6 +236,81 @@ def test_crop_editor_custom_free_frame(qt_app):
     close_dialog(dlg)
 
 
+def test_crop_zoom_anchor_does_not_snap_back(qt_app):
+    # Bucle del zoom: el punto bajo el cursor sobrevive a cada paso.
+    from PIL import Image as Img
+    from PySide6.QtCore import QPointF
+
+    from app.ui.crop_editor import CropView
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    view = CropView(src, "1:1", "cover", 50, 50, 1.0)
+    view.resize(600, 600)
+    lay = view._layout()
+    frame = lay["frame"]
+    pos = QPointF(frame.left() + frame.width() * 0.2,
+                  frame.top() + frame.height() * 0.2)
+
+    def anchor():
+        lay = view._layout()
+        cx = (pos.x() - lay["ox"]) / lay["s"]
+        cy = (pos.y() - lay["oy"]) / lay["s"]
+        bx, by, bw, bh = view._box
+        return ((cx - bx) / bw, (cy - by) / bh)
+
+    before = anchor()
+    for _ in range(4):
+        view.zoom_at(pos, 1.5)
+    after = anchor()
+    assert view.zoom > 1.0
+    assert abs(after[0] - before[0]) < 0.01
+    assert abs(after[1] - before[1]) < 0.01
+
+
+def test_crop_pan_moves_box_exactly(qt_app):
+    from PIL import Image as Img
+
+    from app.ui.crop_editor import CropView
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    view = CropView(src, "1:1", "cover", 50, 50, 2.0)
+    before = tuple(view._box)
+    view.pan_by(10.0, -5.0)
+    after = view._box
+    assert after[0] == before[0] + 10.0
+    assert after[1] == before[1] - 5.0
+    assert (after[2], after[3]) == (before[2], before[3])
+
+
+def test_crop_drag_moves_frame_with_finger(qt_app):
+    # El marco sigue al dedo (la foto está fija): arrastrar a la derecha
+    # y abajo desplaza la caja en +x/+y.
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PIL import Image as Img
+
+    from app.ui.crop_editor import CropView
+
+    src = Img.new("RGB", (400, 300), (10, 20, 30))
+    view = CropView(src, "1:1", "cover", 50, 50, 2.0)
+    view.resize(600, 600)
+    before = tuple(view._box)
+    view.mousePressEvent(QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress, QPointF(100, 100),
+        Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier))
+    view.mouseMoveEvent(QMouseEvent(
+        QMouseEvent.Type.MouseMove, QPointF(160, 140),
+        Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier))
+    view.mouseReleaseEvent(QMouseEvent(
+        QMouseEvent.Type.MouseButtonRelease, QPointF(160, 140),
+        Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier))
+    after = view._box
+    assert after[0] > before[0] and after[1] > before[1]
+
+
 def test_share_export_import(window, tmp_path, isolated_presets, monkeypatch):
     from PySide6.QtWidgets import QFileDialog
 
