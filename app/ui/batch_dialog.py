@@ -1,4 +1,4 @@
-﻿"""Batch dialog: in/out en un solo sitio, validado antes.
+"""Batch dialog: in/out en un solo sitio, validado antes.
 
 Valida carpetas y cuenta imágenes ANTES de lanzar (nada de dos diálogos
 seguidos a ciegas). Las salidas vector/GIF se eligen aquí por operación
@@ -12,12 +12,9 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -39,8 +36,6 @@ def count_images(folder: str | Path) -> int:
 
 class BatchDialog(QDialog):
     """Recoge in/out/jobs validados. `paths()` solo válido tras Accept."""
-
-    GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
 
     def __init__(
         self,
@@ -69,31 +64,27 @@ class BatchDialog(QDialog):
 
         col = QVBoxLayout(self)
         col.addWidget(QLabel("Process every image in a folder with the current preset."))
-        self.edit_in = QLineEdit(str(in_dir))
-        self.edit_out = QLineEdit(str(out_dir))
-        for caption, edit in (("Input folder:", self.edit_in), ("Output folder:", self.edit_out)):
-            row = QHBoxLayout()
-            row.addWidget(QLabel(caption))
-            edit.setPlaceholderText("Choose folder…")
+        from app.ui.dialog_fields import (build_folder_row, build_format_quality,
+                                          build_jobs_spin, normalize_gif_spec)
+
+        self.edit_in = self.edit_out = None
+        for caption, initial in (("Input folder:", in_dir), ("Output folder:", out_dir)):
+            row, edit, _btn = build_folder_row(caption, str(initial), self, editable=True)
             edit.textChanged.connect(self._validate)
-            row.addWidget(edit, 1)
-            btn = QPushButton("Browse...")
-            btn.clicked.connect(lambda _=False, _e=edit: self._browse(_e))
-            row.addWidget(btn)
+            if caption.startswith("Input"):
+                self.edit_in = edit
+            else:
+                self.edit_out = edit
             col.addLayout(row)
         jobs_row = QHBoxLayout()
         jobs_row.addWidget(QLabel("Jobs:"))
-        self.spn_jobs = QSpinBox()
-        self.spn_jobs.setRange(1, 8)
-        self.spn_jobs.setValue(max(1, min(8, int(jobs))))
-        self.spn_jobs.setToolTip("1 = sequential (safe). >1 = multiprocessing.")
+        self.spn_jobs = build_jobs_spin(jobs)
         jobs_row.addWidget(self.spn_jobs)
         jobs_row.addStretch()
         col.addLayout(jobs_row)
 
         # -- documento único: W/H vienen del preset CANVAS; aquí solo formato --
         from app.canvas import MAX_DIM, MIN_DIM
-        from app.exporter import EXPORT_FORMATS
 
         self._doc_w = max(MIN_DIM, min(MAX_DIM, int(doc_w)))
         self._doc_h = max(MIN_DIM, min(MAX_DIM, int(doc_h)))
@@ -105,14 +96,8 @@ class BatchDialog(QDialog):
         col.addLayout(doc_row)
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
-        self.cmb_format = QComboBox()
-        self.cmb_format.addItems(list(EXPORT_FORMATS))
-        self.cmb_format.setCurrentText(format if format in EXPORT_FORMATS else "png")
+        self.cmb_format, self.spn_quality = build_format_quality(format, quality)
         fmt_row.addWidget(self.cmb_format)
-        self.spn_quality = QSpinBox()
-        self.spn_quality.setRange(1, 100)
-        self.spn_quality.setValue(max(1, min(100, int(quality))))
-        self.spn_quality.setSuffix("%")
         fmt_row.addWidget(self.spn_quality)
         self.chk_lossless = QCheckBox("Lossless PNG")
         self.chk_lossless.setToolTip("Force PNG (ignores format combo)")
@@ -139,22 +124,15 @@ class BatchDialog(QDialog):
         self.lbl_vec_est = QLabel("")
         vec_row.addWidget(self.lbl_vec_est, 1)
         col.addLayout(vec_row)
-        self._gif_spec = {
-            "frames": max(2, min(24, int(gif_frames))),
-            "mode": gif_mode if gif_mode in self.GIF_MODES else "both",
-            "fps": max(2, min(60, int(gif_fps))),
-            "pingpong": bool(gif_pingpong),
-        }
+        self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
         gif_row = QHBoxLayout()
         self.chk_gif = QCheckBox("Animation GIF")
         self.chk_gif.setToolTip("Animation uses the VIDEO panel setup at canvas size")
         self.chk_gif.setChecked(bool(gif_export))
         gif_row.addWidget(self.chk_gif)
-        self.lbl_gifspec = QLabel(
-            f"{self._gif_spec['frames']}f · {self._gif_spec['mode']} · "
-            f"{self._gif_spec['fps']}fps"
-            f"{' · ping-pong' if self._gif_spec['pingpong'] else ''} · canvas px"
-        )
+        from app.ui.dialog_fields import gif_summary
+
+        self.lbl_gifspec = QLabel(gif_summary(self._gif_spec, "canvas px"))
         self.lbl_gifspec.setObjectName("subtitleLabel")
         self.lbl_gifspec.setWordWrap(True)
         gif_row.addWidget(self.lbl_gifspec, 1)
@@ -193,11 +171,6 @@ class BatchDialog(QDialog):
             self.lbl_vec_est.setText(f"~{cols}x{rows} cells, ~{kb}KB{warn}")
         except Exception:  # noqa: BLE001
             self.lbl_vec_est.setText("")
-
-    def _browse(self, edit: QLineEdit) -> None:
-        d = QFileDialog.getExistingDirectory(self, "Choose folder", edit.text() or str(Path.home()))
-        if d:
-            edit.setText(d)
 
     def _validate(self) -> None:
         n = count_images(self.edit_in.text().strip())

@@ -1,4 +1,4 @@
-"""v1.5 Iteration UX: viewport modes, heavy fast-path, tutorial, themes."""
+"""v1.5 Iteration UX: viewport modes, heavy fast-path, tutorial, static stylesheet."""
 
 
 def test_viewport_intervals():
@@ -41,24 +41,17 @@ def test_tutorial_steps_and_samples(tmp_path):
     assert ensure_samples(tmp_path) == paths
 
 
-def test_themes_all_load_with_same_selectors():
-    from app.ui.theme import load_stylesheet, theme_label, theme_names
+def test_static_stylesheet_loads_with_selectors():
+    from pathlib import Path
 
-    base = load_stylesheet("dark")
-    assert set(theme_names()) == {"dark", "light", "green", "pink"}
-    assert theme_label("green") == "Handheld green"
-    for name in theme_names():
-        css = load_stylesheet(name)
-        assert css
-        for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
-                    "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
-            assert sel in css, (name, sel)
-    assert load_stylesheet("nope") == base  # unknown falls back to dark
+    css = (Path(__file__).resolve().parent.parent / "app" / "ui" / "theme.qss").read_text(encoding="utf-8")
+    assert css
+    for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
+                "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
+        assert sel in css, sel
 
 
-def test_window_viewport_and_theme_switch(window, qt_app):
-    from PySide6.QtWidgets import QApplication
-
+def test_window_viewport_switch(window, qt_app):
     assert window.viewport_mode == "live"
     assert window.lbl_viewport.text() == "Viewport: Live"
     window.set_viewport_mode("still")
@@ -66,26 +59,14 @@ def test_window_viewport_and_theme_switch(window, qt_app):
     assert window.lbl_viewport.text() == "Viewport: Still"
     window.set_viewport_mode("full")
     assert window._act_viewport_full.isChecked()
-    window.set_theme("green")
-    assert window.app_theme == "green"
-    assert window._act_theme_green.isChecked()
-    assert "8BC34A" in (QApplication.instance().styleSheet() or "")
-    window.set_theme("dark")
-    assert window.app_theme == "dark"
 
 
 def test_still_mode_skips_auto_refresh(window, qt_app):
-    from PySide6.QtWidgets import QApplication
-
     window.set_viewport_mode("still")
     window._preview_timer.stop()  # isolate: init arms it once via preset apply
     window._schedule_refresh()  # must not re-arm the timer
     assert not window._preview_timer.isActive()
     assert "Still mode" in window.lbl_status.text()
-    # Theme applies app-wide; the window inherits it.
-    window.set_theme("green")
-    assert window.app_theme == "green"
-    assert "8BC34A" in (QApplication.instance().styleSheet() or "")
 
 
 def test_no_timeline_leftovers(window):

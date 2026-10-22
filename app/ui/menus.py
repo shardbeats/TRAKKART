@@ -4,10 +4,10 @@ Pure assembly: creates actions and wires them to `win.*` methods (which
 delegate to controllers). The window keeps `_build_menus()` by delegation.
 
 Layout (one group per block, separated):
-- File: open | export/batch | preset share
-- Edit: undo/randomize | clipboard | method stepping | transforms
-- View: refresh/compare | zoom | Viewport proxy | Theme
-- Help: tour/samples (unchanged)
+- File: open | export/batch | preset share | settings
+- Edit: undo/redo/randomize | clipboard | method stepping | transforms
+- View: refresh/compare | zoom | Viewport proxy
+- Help: tour/samples/manual/logs/shortcuts/about
 """
 
 from __future__ import annotations
@@ -48,10 +48,15 @@ def build_menus(win) -> None:
          "", "Share the current preset as a .json file (offline)")
     _act(win, m_file, "Import preset...", win.share_preset_import,
          "", "Load a preset from a .json file (offline)")
+    m_file.addSeparator()
+    _act(win, m_file, "Settings...", win.open_settings,
+         "Ctrl+,", "Default output folder, export defaults and behavior")
 
     m_edit = bar.addMenu("Edit")
     _act(win, m_edit, "Undo image", win.undo_image,
          "Ctrl+Z", "Undo the last image op")
+    _act(win, m_edit, "Redo", win.redo_image,
+         "Ctrl+Y", "Redo the last undone op")
     _act(win, m_edit, "Surprise me", win.randomize,
          "Ctrl+R", "Randomize method/palette/params")
     m_edit.addSeparator()
@@ -89,7 +94,6 @@ def build_menus(win) -> None:
          "Ctrl+1", "Preview at 100%")
     m_view.addSeparator()
     _viewport_menu(win, m_view)
-    _theme_menu(win, m_view)
 
     m_help = bar.addMenu("Help")
     _act(win, m_help, "Quick tour...", lambda: win.show_tutorial(manual=True),
@@ -98,6 +102,10 @@ def build_menus(win) -> None:
          "", "Open the offline sample pack")
     _act(win, m_help, "Keyboard shortcuts...", win.show_shortcuts,
          "", "Every shortcut in one table")
+    _act(win, m_help, "User manual...", win.open_manual,
+         "F1", "Open MANUAL.md (bundled offline handbook)")
+    _act(win, m_help, "Show logs folder", win.open_logs,
+         "", "Reveal prefs, database and trakkart.log")
     _act(win, m_help, "About TRAKKART...", win.show_about,
          "", "Version, license and offline note")
 
@@ -165,18 +173,3 @@ def _viewport_menu(win, m_view) -> None:
         a.triggered.connect(lambda _=False, _m=mode: win.set_viewport_mode(_m))
         setattr(win, f"_act_viewport_{mode}", a)
         m_viewport.addAction(a)
-
-
-def _theme_menu(win, m_view) -> None:
-    from PySide6.QtGui import QAction
-
-    from app.ui.theme import theme_label, theme_names
-
-    m_themes = m_view.addMenu("Theme")
-    for name in theme_names():
-        a = QAction(theme_label(name), win)
-        a.setCheckable(True)
-        a.setChecked(win.app_theme == name)
-        a.triggered.connect(lambda _=False, _n=name: win.set_theme(_n))
-        setattr(win, f"_act_theme_{name}", a)
-        m_themes.addAction(a)

@@ -70,8 +70,10 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
 
     window._op_image(flip_h, "flip")
     assert _trigger(window, "Ctrl+Z")
-    assert window.lbl_status.text() == "Undone"
+    assert window.lbl_status.text() == "Undone (Ctrl+Y to redo)"
     assert list(window.src.get_flattened_data()) == list(before.get_flattened_data())
+    assert _trigger(window, "Ctrl+Y")
+    assert window.lbl_status.text() == "Redone"
     assert _trigger(window, "Ctrl+S")
     assert (window.out_dir / "shot.png").exists()
 

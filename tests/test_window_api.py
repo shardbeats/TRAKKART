@@ -31,7 +31,9 @@ def test_window_api_sweep(window, qt_app, monkeypatch, tmp_path):
     window._op_image(lambda i: i.transpose(Image.FLIP_LEFT_RIGHT), "flip")
     assert len(window.history) == n_hist + 1
     window.undo_image()
-    assert window.lbl_status.text() == "Undone"
+    assert window.lbl_status.text() == "Undone (Ctrl+Y to redo)"
+    window.redo_image()
+    assert window.lbl_status.text() == "Redone"
     window.copy_result()  # needs result; without it stays silent
     window._set_drag_hover(True)
     window._set_drag_hover(False)

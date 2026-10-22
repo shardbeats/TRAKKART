@@ -23,4 +23,38 @@ def show_about(win) -> None:
     QMessageBox.about(win, "About TRAKKART", about_text())
 
 
-__all__ = ["about_text", "show_about"]
+def show_manual(win) -> None:
+    """Open the bundled MANUAL.md (F1). Falls back to a warning if missing."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.paths import bundle_path
+
+    manual = bundle_path("MANUAL.md")
+    if manual.is_file():
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(manual)))
+        win._status(f"Manual: {manual}")
+    else:
+        QMessageBox.information(win, "TRAKKART", "MANUAL.md not found next to the app.")
+        win._status("Manual not found")
+
+
+def show_logs(win) -> None:
+    """Reveal the data folder (prefs, db, trakkart.log) in the file manager."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+
+    from app.log import log_path
+
+    try:
+        folder = log_path().parent
+        folder.mkdir(parents=True, exist_ok=True)
+    except Exception:  # noqa: BLE001
+        win._status("Logs unavailable")
+        return
+    QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
+    win._status(f"Logs: {folder}")
+
+
+__all__ = ["about_text", "show_about", "show_logs", "show_manual"]

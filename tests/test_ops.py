@@ -33,6 +33,7 @@ def test_invert():
 def test_history_undo_cap_clear():
     h = ImageHistory(limit=3)
     assert h.undo() is None
+    assert h.redo() is None
     base = _img()
     h.push(base)
     assert len(h) == 1
@@ -44,3 +45,34 @@ def test_history_undo_cap_clear():
     assert back is not None and back.size == (40, 20)
     h.clear()
     assert len(h) == 0 and h.undo() is None
+
+
+def test_history_redo_roundtrip_and_branch():
+    h = ImageHistory(limit=5)
+    a, b = _img(), flip_h(_img())
+    h.push(a)
+    h.push(b)
+    assert h.can_undo and not h.can_redo
+    cur = _img()
+    assert h.undo(cur) is not None  # pops b, stashes cur for redo
+    assert h.can_redo
+    assert h.redo() is not None  # replays the stashed cur
+    assert not h.can_redo  # consumed
+    # new branch clears redo
+    h.undo(cur)
+    h.push(invert(_img()))
+    assert not h.can_redo
+    assert h.redo(cur) is None
+
+
+def test_history_redo_cap():
+    h = ImageHistory(limit=2)
+    imgs = [_img() for _ in range(4)]
+    for im in imgs:
+        h.push(im)
+    cur = _img()
+    h.undo(cur)
+    h.undo(cur)
+    assert len(h) == 0  # undo stack drained, redo holds 2 (cap)
+    assert h.redo() is not None and h.redo() is not None
+    assert h.redo() is None

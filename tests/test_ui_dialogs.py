@@ -392,9 +392,15 @@ def test_ops_and_undo(window):
     window._op_image(flip_h, "flip")
     assert len(window.history) == 1
     window.undo_image()
-    assert window.lbl_status.text() == "Undone"
+    assert window.lbl_status.text() == "Undone (Ctrl+Y to redo)"
+    window.redo_image()
+    assert window.lbl_status.text() == "Redone"
+    window.undo_image()
     window.undo_image()
     assert "Nothing to undo" in window.lbl_status.text()
+    window.redo_image()
+    window.redo_image()
+    assert "Nothing to redo" in window.lbl_status.text()
     assert window.result is not None
 
 

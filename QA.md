@@ -15,7 +15,7 @@ Verification procedures (TRAKK standard).
 .venv\Scripts\python -m coverage run -m pytest tests -q
 .venv\Scripts\python -m coverage report
 .venv\Scripts\python -m coverage html   :: data/quality_html
-.venv\Scripts\python -m flake8 app tests tools main.py
+.venv\Scripts\python -m flake8 app tests tools main.py build_exe.py build_installer.py
 ```
 
 ## Gates (release)
@@ -49,11 +49,11 @@ features/color_pro.feature :: 2 scenarios (auto-extract, source/depth)
 features/fx_stack.feature :: 2 scenarios (stack order, jpeg neutral)
 features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
 features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
-features/ux.feature       :: 2 scenarios (viewport modes, tutorial/themes)
+features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 414 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 437 tests. Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -67,6 +67,7 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
+5b. Release extras: `build_installer.py` builds the Inno Setup installer (needs `dist/TRAKKART.exe` + ISCC; `--full` for the full flavor); session smoke = open image → close → reopen restores it; Edit → Redo (Ctrl+Y) after Undo; Settings Export…/Import… round-trips the JSON; Settings → Extras shows accel/MP4 state; F1 opens MANUAL.md; Help → Show logs folder reveals data dir.
 
 ## Perf (manual, before release)
 

@@ -41,16 +41,15 @@ def test_menus_complete(window):
 
     view = items("View")
     assert "Refresh preview" in view
-    assert "Viewport" in view and "Theme" in view
+    assert "Viewport" in view and "Theme" not in view
+    file_items = items("File")
+    assert "Settings..." in file_items
     assert items("Help") == ["Quick tour...", "Open samples folder",
-                             "Keyboard shortcuts...", "About TRAKKART..."]
+                             "Keyboard shortcuts...", "User manual...",
+                             "Show logs folder", "About TRAKKART..."]
 
 
-def test_viewport_and_theme_actions_synced(window):
+def test_viewport_actions_synced(window):
     window.set_viewport_mode("still")
     assert window._act_viewport_still.isChecked()
     assert not window._act_viewport_live.isChecked()
-    window.set_theme("pink")
-    assert window._act_theme_pink.isChecked()
-    window.set_theme("dark")
-    assert window._act_theme_dark.isChecked()

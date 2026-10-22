@@ -1,4 +1,4 @@
-﻿"""Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
+"""Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
 
 El motor (`export_bundle`/`export_with_options`) no pregunta nada;
 este diálogo pregunta todo y previsualiza lo que va a salir.
@@ -12,7 +12,6 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -20,12 +19,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
 )
 
 from app.exporter import (
-    EXPORT_FORMATS,
     MAX_SIDE,
     MIN_SIDE,
     ExportOptions,
@@ -46,8 +43,6 @@ def _fmt_size(n: int) -> str:
 
 class ExportDialog(QDialog):
     """Qué sale, dónde y con qué nombre. `options()` solo válido tras Accept."""
-
-    GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
 
     def __init__(
         self,
@@ -97,14 +92,11 @@ class ExportDialog(QDialog):
         self.lbl_basename.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_basename)
         # -- destino --
-        dest_row = QHBoxLayout()
-        dest_row.addWidget(QLabel("Folder:"))
-        self.edit_dir = QLineEdit(str(out_dir))
-        self.edit_dir.setReadOnly(True)
-        dest_row.addWidget(self.edit_dir, 1)
-        self.btn_browse = QPushButton("Browse...")
-        self.btn_browse.clicked.connect(self._browse)
-        dest_row.addWidget(self.btn_browse)
+        from app.ui.dialog_fields import (build_folder_row, build_format_quality,
+                                          normalize_gif_spec)
+
+        dest_row, self.edit_dir, self.btn_browse = build_folder_row(
+            "Folder:", str(out_dir), self, on_browse=self._browse)
         col.addLayout(dest_row)
         # -- documento único: el tamaño viene de CANVAS, aquí solo se muestra --
         self._doc_size = max(MIN_SIDE, min(MAX_SIDE, int(size)))
@@ -119,16 +111,10 @@ class ExportDialog(QDialog):
         # -- formato (GIMP: la extensión manda; aquí el combo) --
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
-        self.cmb_format = QComboBox()
-        self.cmb_format.addItems(list(EXPORT_FORMATS))
-        self.cmb_format.setCurrentText(format if format in EXPORT_FORMATS else "png")
+        self.cmb_format, self.spn_quality = build_format_quality(format, quality)
         self.cmb_format.setToolTip("PNG: lossless, ideal dither · JPG: small, artifacts · WebP: small, modern")
         self.cmb_format.currentTextChanged.connect(self._refresh_plan)
         fmt_row.addWidget(self.cmb_format)
-        self.spn_quality = QSpinBox()
-        self.spn_quality.setRange(1, 100)
-        self.spn_quality.setValue(max(1, min(100, int(quality))))
-        self.spn_quality.setSuffix("%")
         self.spn_quality.setToolTip("Quality for JPG/WebP (PNG ignores it)")
         self.spn_quality.valueChanged.connect(self._refresh_plan)
         fmt_row.addWidget(self.spn_quality)
@@ -165,7 +151,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setToolTip("H.264 clip at canvas size (opt-in video extra present)")
         else:
             self.chk_mp4.setEnabled(False)
-            self.chk_mp4.setToolTip("Needs the opt-in video extra: pip install -r requirements-video.txt")
+            self.chk_mp4.setToolTip("Settings → Extras → Instalar vídeo (o TRAKKART-full.exe)")
         for chk in (self.chk_image, self.chk_thumb,
                     self.chk_vector, self.chk_anim, self.chk_meta,
                     self.chk_black, self.chk_mp4):
@@ -173,12 +159,7 @@ class ExportDialog(QDialog):
             col.addWidget(chk)
         col.addWidget(self.chk_lossless)
         # -- animación: sin duplicados (se edita solo en VIDEO); aquí solo on/off --
-        self._gif_spec = {
-            "frames": max(2, min(24, int(gif_frames))),
-            "mode": gif_mode if gif_mode in self.GIF_MODES else "both",
-            "fps": max(2, min(60, int(gif_fps))),
-            "pingpong": bool(gif_pingpong),
-        }
+        self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
         self.lbl_gifspec = QLabel()
         self.lbl_gifspec.setWordWrap(True)
         self.lbl_gifspec.setObjectName("subtitleLabel")

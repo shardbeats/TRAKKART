@@ -76,6 +76,11 @@ app/ui/preview_controller.py:: still preview (sync render or background thread)
 app/ui/compare_controller.py:: hold-to-compare (Space/button shows ORIGINAL)
 app/ui/export_flow.py    :: export dialog orchestration + bundle + history + collision alert
 app/ui/export_dialog.py  :: File name section + plan + policy note
+app/ui/settings_dialog.py :: Settings (default output, export defaults, jobs/drop/viewport)
+app/ui/settings_flow.py   :: Settings orchestration (dialog + save + apply, win delegates)
+app/ui/session_flow.py    :: session restore (last image + preset, silent + opt-out)
+app/extras.py             :: accel/MP4 detection + pip install (dev; frozen → full build)
+app/ui/dialog_fields.py   :: shared dialog builders (format/quality, jobs, folder row, gif-spec)
 app/ui/batch_flow.py     :: batch dialog + worker + progress/ETA
 app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
 app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
@@ -84,7 +89,7 @@ app/ui/palette_dialog.py :: palette editor (swatches, locks, shuffle)
 app/ui/about_dialog.py   :: About (version, MIT, offline note)
 app/ui/shortcuts_dialog.py :: shortcut reference table
 app/ui/fx_stack_controller.py :: stack list sync (reorder/enable/add)
-app/ui/theme.py/.qss     :: TRAKK family theme (tokens #151617/#F5A623)
+app/ui/theme.qss        :: static dark stylesheet (tokens #151617/#F5A623, no switching)
 app/ui/widgets.py        :: ValueSlider with reset on double-click
 app/ui/workers.py        :: BatchWorker QThread
 app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale renders)

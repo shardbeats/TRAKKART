@@ -1,4 +1,4 @@
-﻿"""TRAKKART main window — dither preview + export + cover flow.
+"""TRAKKART main window — dither preview + export + cover flow.
 
 Refactorizado: la ventana orquesta, no implementa.
 - Construcción UI -> app.ui.panels
@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (  # noqa: F401 (QMessageBox: test seam, see note 
 from app.adjust import Adjust
 from app.history import HistoryStore
 from app.ops import ImageHistory
-from app.paths import get_db_path, get_out_dir
+from app.paths import get_db_path, get_out_dir, get_presets_dir
 from app.presets import Preset, ensure_bundled
 # NOTE: QMessageBox/BatchDialog stay imported (no direct use below) because
 # tests stub them as MW.QMessageBox / MW.BatchDialog. BatchWorker is resolved
@@ -79,10 +79,11 @@ class MainWindow(QMainWindow):
         self._palette_locks: list[bool] = []
         self._adjust_locks: dict[str, bool] = {}
         self.fx_stack_data: list = []
-        ensure_bundled()
+        ensure_bundled(get_presets_dir())
         from app.palette_library import ensure_bundled_palettes
+        from app.paths import get_palettes_dir
 
-        ensure_bundled_palettes()
+        ensure_bundled_palettes(get_palettes_dir())
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
         self._preview_worker = None
@@ -99,9 +100,16 @@ class MainWindow(QMainWindow):
         self._video_token: int = 0
         from PySide6.QtCore import QTimer
 
-        # -- viewport + theme (v1.5): set BEFORE _build_menus (actions read them) --
+        # -- viewport: prefs default BEFORE _build_menus (actions read it) --
         self.viewport_mode: str = "live"
-        self.app_theme: str = "dark"
+        try:
+            from app.export_prefs import load_prefs as _load_prefs
+
+            _vp = str(getattr(_load_prefs(prefs_path), "viewport", "live")).lower()
+            if _vp in ("full", "live", "still"):
+                self.viewport_mode = _vp
+        except Exception:  # noqa: BLE001
+            pass
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(350)  # live default; modes retime it
@@ -110,15 +118,43 @@ class MainWindow(QMainWindow):
         self._video_timer.timeout.connect(self._next_video_frame)
         self._video_timer.setInterval(125)  # 8fps default
         self._setup_ui()
-        self.set_theme("dark")
         self._build_menus()
-        self.lbl_viewport = QLabel("Viewport: Live")
+        # -- general prefs: jobs / drop / output (action bar exists now) --
+        try:
+            from app.export_prefs import load_prefs as _load_prefs2, resolve_out_dir as _resolve
+
+            _p = _load_prefs2(self._prefs_path)
+            if out_dir is None and getattr(_p, "out_dir", ""):
+                try:
+                    self.out_dir = _resolve(str(_p.out_dir))
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                self.spn_jobs.setValue(max(1, min(8, int(getattr(_p, "jobs", 1)))))
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                self.chk_batch_drop.setChecked(bool(getattr(_p, "drop_batch", False)))
+            except Exception:  # noqa: BLE001
+                pass
+        except Exception:  # noqa: BLE001
+            pass
+        from app.viewport import mode_label as _mode_label
+
+        self.lbl_viewport = QLabel(f"Viewport: {_mode_label(self.viewport_mode)}")
         self.lbl_viewport.setObjectName("subtitleLabel")
         self.statusBar().addPermanentWidget(self.lbl_viewport)
         self.refresh_presets()
         self.refresh_palette_list()
         self._apply_preset("SLIME_FS")
         self._status("Open an image to start.")
+        self._session_restored = False
+        try:
+            from app.ui import session_flow as _sess
+
+            self._session_restored = bool(_sess.restore(self))
+        except Exception:  # noqa: BLE001
+            pass
         self._maybe_first_run()
 
     def closeEvent(self, event) -> None:  # noqa: N802
@@ -142,6 +178,12 @@ class MainWindow(QMainWindow):
                     worker.blockSignals(True)  # sus slots nunca tocan UI muerta
             except Exception:  # noqa: BLE001
                 pass
+        try:
+            from app.ui import session_flow as _sess
+
+            _sess.save_on_close(self)
+        except Exception:  # noqa: BLE001
+            pass
         super().closeEvent(event)
 
     def _schedule_refresh(self) -> None:
@@ -185,20 +227,6 @@ class MainWindow(QMainWindow):
         if self.viewport_mode in ("full", "live"):
             self.refresh()
 
-    def set_theme(self, name: str) -> None:
-        from PySide6.QtWidgets import QApplication
-
-        from app.ui.theme import set_theme as _apply, theme_names
-
-        resolved = _apply(QApplication.instance() or self, name if name in theme_names() else "dark")
-        self.app_theme = resolved
-        for n in theme_names():
-            try:
-                getattr(self, f"_act_theme_{n}").setChecked(n == resolved)
-            except Exception:  # noqa: BLE001
-                pass
-        self._status(f"Theme: {resolved}")
-
     def show_tutorial(self, manual: bool = False) -> None:
         from app.tutorial import ensure_samples, mark_seen
         from app.ui.tutorial_dialog import TutorialDialog
@@ -239,6 +267,22 @@ class MainWindow(QMainWindow):
 
         _keys.show_shortcuts(self)
 
+    def open_manual(self) -> None:
+        from app.ui import about_dialog as _about
+
+        _about.show_manual(self)
+
+    def open_logs(self) -> None:
+        from app.ui import about_dialog as _about
+
+        _about.show_logs(self)
+
+    def open_settings(self) -> None:
+        """File > Settings: default output + export defaults + general."""
+        from app.ui import settings_flow as _sf
+
+        _sf.open_settings(self)
+
     def _sync_motif_visibility(self) -> None:
         """MOTIF config only matters for method `motif`: hide it otherwise."""
         try:
@@ -256,6 +300,8 @@ class MainWindow(QMainWindow):
 
         if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TRAKKART_SKIP_FIRST_RUN"):
             return
+        if getattr(self, "_session_restored", False):
+            return  # returning user with a restored session: no tour
         try:
             from app.tutorial import ensure_samples, first_run_needed
 
@@ -779,6 +825,11 @@ class MainWindow(QMainWindow):
         from app.ui import image_flow as _im
 
         _im.undo_image(self)
+
+    def redo_image(self) -> None:
+        from app.ui import image_flow as _im
+
+        _im.redo_image(self)
 
     def randomize(self) -> None:
         from app.ui import image_flow as _im

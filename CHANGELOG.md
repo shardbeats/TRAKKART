@@ -3,6 +3,24 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- Full flavor: `build_exe.py --full` bundles numba + video (`TRAKKART-full.exe`);
+  `build_installer.py --full` packages it (setup `-full` suffix).
+- Settings → Extras: accel/MP4 state with 1-click pip install on dev (threaded);
+  frozen exe points to TRAKKART-full.exe. MP4 tooltip updated.
+- Portable user data: presets/palettes now live in `data/` (seeded from
+  bundled, user edits shadow them); frozen-safe, test seams preserved.
+- Release build: exe embeds version metadata; bundled MANUAL.md + icon;
+  optional Authenticode signing via `TRAKKART_PFX` (`installer/SIGNING.md`).
+- Installer: `installer/trakkart.iss` (Inno Setup 6, EN/ES) + builder
+  `build_installer.py` (version from `app.__version__`, signs the setup too).
+- User manual: `MANUAL.md` (ES) bundled with the app; Help → User manual (F1).
+- Session restore: reopens last image + preset on startup (opt-out in
+  Settings); Help → Show logs folder (prefs/db/`trakkart.log`).
+- Undo/redo: 20-level `ImageHistory` with redo branch; Edit → Redo (Ctrl+Y).
+- Settings backup: Export…/Import… of the full `.json` (validated import).
+- Prefs hardened: every numeric/enum clamped (`normalize_prefs`); writable
+  output resolution (`resolve_out_dir`); shared dialog builders
+  (`app/ui/dialog_fields.py`), Settings split into `settings_flow` + builders.
 - Grouped menus (File/Edit/View/Help with separators; clipboard in Edit).
 - Panel as a 5-page accordion: IMAGE / DITHER / COLOR / FX / MOTION.
 - VIDEO preview ON pre-checks Animation GIF in the Export dialog.

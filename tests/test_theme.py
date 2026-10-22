@@ -1,15 +1,23 @@
-"""TRAKK family theme tests."""
+"""Static dark stylesheet tests (no theme switching)."""
 
-from app.ui.theme import THEME_FILE, accent, load_stylesheet
+from pathlib import Path
+
+THEME_FILE = Path(__file__).resolve().parent.parent / "app" / "ui" / "theme.qss"
 
 
 def test_stylesheet_loads_with_family_tokens():
-    css = load_stylesheet()
+    assert THEME_FILE.exists()
+    css = THEME_FILE.read_text(encoding="utf-8")
     assert css
     for token in ("#151617", "#F5A623", "#E5E5E5", "#45474A", "Segoe UI", "#exportBtn"):
         assert token in css, token
-    assert THEME_FILE.exists()
-    assert accent() == "#F5A623"
+
+
+def test_stylesheet_covers_selectors():
+    css = THEME_FILE.read_text(encoding="utf-8")
+    for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
+                "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
+        assert sel in css, sel
 
 
 def test_window_applies_stylesheet(tmp_path):

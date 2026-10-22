@@ -20,13 +20,23 @@ def op_image(win, fn, what: str) -> None:
 
 
 def undo_image(win) -> None:
-    prev = win.history.undo()
+    prev = win.history.undo(win.src if win.src is not None else None)
     if prev is None:
         win._status("Nothing to undo")
         return
     win.src = prev
     win.refresh()
-    win._status("Undone")
+    win._status("Undone (Ctrl+Y to redo)")
+
+
+def redo_image(win) -> None:
+    nxt = win.history.redo(win.src if win.src is not None else None)
+    if nxt is None:
+        win._status("Nothing to redo")
+        return
+    win.src = nxt
+    win.refresh()
+    win._status("Redone")
 
 
 def randomize(win) -> None:
@@ -222,8 +232,10 @@ def load_path(win, path) -> None:
         win._status(f"Loaded: {Path(path).name}")
         try:
             from app.recent import remember_recent
+            from app.ui import session_flow as _sess
 
             remember_recent(Path(path), getattr(win, "_prefs_path", None))
+            _sess.remember_image(win, Path(path))
         except Exception:  # noqa: BLE001
             pass
     except TooBigError as e:

@@ -16,6 +16,22 @@ PALETTES_DIR = Path(__file__).resolve().parent.parent / "palettes"
 
 CUSTOM_SENTINEL = "(Custom)"
 
+_BUNDLED_DIR = PALETTES_DIR  # repo copy (frozen: _MEIPASS, read-only seed)
+
+
+def _user_dir() -> Path:
+    """Writable user dir (data/palettes). Frozen-safe; explicit arg wins."""
+    from app.paths import get_palettes_dir
+
+    return get_palettes_dir()
+
+
+def _default_dir() -> Path:
+    # Test seam: a monkeypatched PALETTES_DIR keeps working as the default.
+    if PALETTES_DIR != _BUNDLED_DIR:
+        return Path(PALETTES_DIR)
+    return _user_dir()
+
 
 def _safe_name(name: str) -> str:
     from app.names import safe_stem
@@ -27,7 +43,7 @@ def ensure_bundled_palettes(palettes_dir: Path | None = None) -> list[str]:
     """Crea los JSON built-in que falten. Retorna los creados."""
     from app.palettes import PALETTES
 
-    d = Path(palettes_dir) if palettes_dir else PALETTES_DIR
+    d = Path(palettes_dir) if palettes_dir else _default_dir()
     d.mkdir(parents=True, exist_ok=True)
     created: list[str] = []
     for name, colors in PALETTES.items():
@@ -41,11 +57,18 @@ def ensure_bundled_palettes(palettes_dir: Path | None = None) -> list[str]:
     return created
 
 
-def list_palettes(palettes_dir: Path | None = None) -> list[str]:
-    d = Path(palettes_dir) if palettes_dir else PALETTES_DIR
+def _stems(d: Path) -> list[str]:
     if not d.exists():
         return []
     return sorted(p.stem for p in d.glob("*.json"))
+
+
+def list_palettes(palettes_dir: Path | None = None) -> list[str]:
+    if palettes_dir is not None:
+        return _stems(Path(palettes_dir))
+    if PALETTES_DIR != _BUNDLED_DIR:
+        return _stems(Path(PALETTES_DIR))  # test seam
+    return sorted(set(_stems(_user_dir())) | set(_stems(PALETTES_DIR)))
 
 
 def palette_colors(name: str, palettes_dir: Path | None = None) -> list[tuple[int, int, int]]:
@@ -54,17 +77,25 @@ def palette_colors(name: str, palettes_dir: Path | None = None) -> list[tuple[in
 
     if name == "SOURCE":
         raise ValueError("SOURCE is auto-extracted at render time, not a swatch list")
-    d = Path(palettes_dir) if palettes_dir else PALETTES_DIR
-    path = d / f"{_safe_name(name)}.json"
-    if path.exists():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            colors = raw.get("colors", raw) if isinstance(raw, dict) else raw
-            valid = normalize_custom_palette(colors)
-            if valid is not None:
-                return valid
-        except (ValueError, OSError):
-            pass
+    # User dir first (own edits shadow builtins), repo copy as fallback.
+    if palettes_dir is not None:
+        dirs = [Path(palettes_dir)]
+    elif PALETTES_DIR != _BUNDLED_DIR:
+        dirs = [Path(PALETTES_DIR)]  # test seam
+    else:
+        dirs = [_user_dir(), PALETTES_DIR]
+    for d in dirs:
+        path = d / f"{_safe_name(name)}.json"
+        if path.exists():
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                colors = raw.get("colors", raw) if isinstance(raw, dict) else raw
+                valid = normalize_custom_palette(colors)
+                if valid is not None:
+                    return valid
+            except (ValueError, OSError):
+                pass
+            break  # file exists but invalid: fall through to builtin, not next dir
     pal = get_palette(name)
     if pal is None:  # BW: 2 celdas, el motor usa la ruta rápida solo
         from app.palettes import PALETTES
@@ -122,7 +153,7 @@ def save_palette(name: str, colors: list, palettes_dir: Path | None = None) -> P
         raise ValueError("palette needs 2-16 colors")
     if not (name or "").strip():
         raise ValueError("palette needs a name")
-    d = Path(palettes_dir) if palettes_dir else PALETTES_DIR
+    d = Path(palettes_dir) if palettes_dir else _default_dir()
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{_safe_name(name)}.json"
     path.write_text(

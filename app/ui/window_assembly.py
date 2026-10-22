@@ -26,16 +26,25 @@ def setup_ui(win) -> None:
     win.setWindowTitle(f"TRAKKART v{__version__} — dither covers")
     win.resize(1280, 780)
     win.setMinimumSize(1060, 640)
-    icon = Path(__file__).resolve().parent.parent.parent / "icon.png"
-    if icon.exists():
+    from app.paths import bundle_path
+
+    icon = bundle_path("icon.png")
+    if icon.is_file():
         from PySide6.QtGui import QIcon
 
         win.setWindowIcon(QIcon(str(icon)))
     try:
-        from app.ui.theme import load_stylesheet
+        from PySide6.QtWidgets import QApplication
 
-        qss = load_stylesheet()
+        qss_path = Path(__file__).with_name("theme.qss")
+        qss = qss_path.read_text(encoding="utf-8") if qss_path.exists() else ""
         if qss:
+            try:
+                app = QApplication.instance()
+                if app is not None:
+                    app.setStyleSheet(qss)
+            except Exception:
+                pass
             win.setStyleSheet(qss)
     except Exception:
         pass
@@ -140,8 +149,9 @@ def setup_action_bar(win) -> None:
         QLabel,
         QProgressBar,
         QPushButton,
-        QSpinBox,
     )
+
+    from app.ui.dialog_fields import build_jobs_spin
 
     win.btn_export = QPushButton("Export…")
     win.btn_export.setToolTip("Export with options (Ctrl+Shift+S) · Quick export (Ctrl+S)")
@@ -166,11 +176,8 @@ def setup_action_bar(win) -> None:
     win.chk_batch_drop.setChecked(False)
     batch_row.addWidget(win.chk_batch_drop)
     batch_row.addWidget(QLabel("Jobs:"))
-    win.spn_jobs = QSpinBox()
-    win.spn_jobs.setRange(1, 8)
-    win.spn_jobs.setValue(1)
+    win.spn_jobs = build_jobs_spin(1)
     win.spn_jobs.setFixedWidth(56)
-    win.spn_jobs.setToolTip("1 = sequential (safe). >1 = multiprocessing.")
     batch_row.addWidget(win.spn_jobs)
     win._action_bar.addLayout(batch_row)
 

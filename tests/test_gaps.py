@@ -106,18 +106,13 @@ def test_paths_branches(tmp_path, monkeypatch):
     assert P.get_out_dir().exists()
 
 
-def test_theme_invalid_falls_back(qt_app):
-    from PySide6.QtWidgets import QApplication
+def test_static_stylesheet_loads(qt_app):
+    from pathlib import Path
 
-    from app.ui.theme import accent, load_stylesheet, set_theme, theme_label, theme_names
-
-    assert set(theme_names()) >= {"dark", "light", "green", "pink"}
-    assert theme_label("nope") == theme_label("dark")
-    assert accent("nope") == accent("dark")
-    assert load_stylesheet("nope") == load_stylesheet("dark")
-    assert set_theme(QApplication.instance(), "nope") == "dark"
-    assert set_theme(QApplication.instance(), "pink") == "pink"
-    set_theme(QApplication.instance(), "dark")
+    css_path = Path(__file__).resolve().parent.parent / "app" / "ui" / "theme.qss"
+    assert css_path.exists()
+    css = css_path.read_text(encoding="utf-8")
+    assert "#151617" in css and "#F5A623" in css
 
 
 def test_fx_stack_normalize_edges():

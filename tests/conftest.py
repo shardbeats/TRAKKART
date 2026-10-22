@@ -18,6 +18,19 @@ def qt_app():
     yield app
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolated_data_dir(tmp_path_factory):
+    """All data-dir access (presets/palettes/prefs/db) stays inside pytest tmp.
+
+    Without this, default-path behavior (user presets, session restore)
+    would read/write the real per-user folder during the suite.
+    Per-test monkeypatch.setenv still wins where a test needs it.
+    """
+    d = tmp_path_factory.mktemp("trakkart-data")
+    os.environ["TRAKKART_DATA_DIR"] = str(d)
+    yield
+
+
 @pytest.fixture
 def window(qt_app, tmp_path, monkeypatch):
     from pathlib import Path as _P
@@ -25,6 +38,7 @@ def window(qt_app, tmp_path, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
     from PIL import Image
 
+    from app.export_prefs import ExportPrefs, save_prefs
     from app.ui.main_window import MainWindow
 
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
@@ -34,6 +48,8 @@ def window(qt_app, tmp_path, monkeypatch):
     monkeypatch.setattr(_ef, "show_exported", lambda *a, **k: None)
     # Collision alert never blocks CI (covered directly in test_ui_export).
     monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "rename")
+    # Each window starts fresh: no session restore from earlier tests.
+    save_prefs(ExportPrefs(restore_session=False), _P(str(tmp_path)) / "prefs.json")
     w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db",
                    prefs_path=_P(str(tmp_path)) / "prefs.json")
     w.src = Image.new("RGB", (64, 64), (200, 50, 90))

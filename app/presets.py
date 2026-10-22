@@ -20,6 +20,23 @@ from app.palettes import palette_names
 
 PRESETS_DIR = Path(__file__).resolve().parent.parent / "presets"
 
+_BUNDLED_DIR = PRESETS_DIR  # repo copy (frozen: _MEIPASS, read-only seed)
+
+
+def _user_dir() -> Path:
+    """Writable user dir (data/presets). Frozen-safe; explicit arg wins."""
+    from app.paths import get_presets_dir
+
+    return get_presets_dir()
+
+
+def _default_dir() -> Path:
+    # Test seam: a monkeypatched PRESETS_DIR keeps working as the default.
+    if PRESETS_DIR != _BUNDLED_DIR:
+        return Path(PRESETS_DIR)
+    return _user_dir()
+
+
 BUNDLED: dict[str, dict] = {
     "SLIME_FS": {"method": "floyd", "palette": "SLIME", "pixel_size": 2, "threshold": 128},
     "VAPOR_BAYER8": {"method": "bayer8", "palette": "VAPOR", "pixel_size": 3, "threshold": 128},
@@ -422,7 +439,7 @@ assert {f.name for f in FIELDS} == set(Preset.__dataclass_fields__), (
 
 def ensure_bundled(presets_dir: Path | None = None) -> list[str]:
     """Create missing bundled presets. Returns created names."""
-    d = Path(presets_dir) if presets_dir else PRESETS_DIR
+    d = Path(presets_dir) if presets_dir else _default_dir()
     d.mkdir(parents=True, exist_ok=True)
     created: list[str] = []
     for name, params in BUNDLED.items():
@@ -439,7 +456,7 @@ def save_preset(preset: Preset, presets_dir: Path | None = None) -> Path:
     preset.validate()
     if not preset.name.strip():
         raise ValueError("preset needs a name")
-    d = Path(presets_dir) if presets_dir else PRESETS_DIR
+    d = Path(presets_dir) if presets_dir else _default_dir()
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{_safe_name(preset.name)}.json"
     path.write_text(json.dumps(preset.to_dict(), indent=2), encoding="utf-8")
@@ -447,26 +464,52 @@ def save_preset(preset: Preset, presets_dir: Path | None = None) -> Path:
 
 
 def load_preset(name: str, presets_dir: Path | None = None) -> Preset:
-    d = Path(presets_dir) if presets_dir else PRESETS_DIR
     base = name[:-5] if name.endswith(".json") else name
-    path = d / f"{base}.json"
-    if not path.exists():
-        raise FileNotFoundError(f"preset does not exist: {name}")
-    return Preset.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    if presets_dir is not None:
+        d = Path(presets_dir)
+        path = d / f"{base}.json"
+        if not path.exists():
+            raise FileNotFoundError(f"preset does not exist: {name}")
+        return Preset.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    # User dir first (own edits shadow bundled), repo copy as fallback.
+    if presets_dir is not None:
+        search = [Path(presets_dir)]
+    elif PRESETS_DIR != _BUNDLED_DIR:
+        search = [Path(PRESETS_DIR)]  # test seam
+    else:
+        search = [_user_dir(), PRESETS_DIR]
+    for d in search:
+        path = d / f"{base}.json"
+        if path.exists():
+            return Preset.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    raise FileNotFoundError(f"preset does not exist: {name}")
 
 
-def list_presets(presets_dir: Path | None = None) -> list[str]:
-    d = Path(presets_dir) if presets_dir else PRESETS_DIR
+def _stems(d: Path) -> list[str]:
     if not d.exists():
         return []
     return sorted(p.stem for p in d.glob("*.json"))
 
 
+def list_presets(presets_dir: Path | None = None) -> list[str]:
+    if presets_dir is not None:
+        return _stems(Path(presets_dir))
+    if PRESETS_DIR != _BUNDLED_DIR:
+        return _stems(Path(PRESETS_DIR))  # test seam
+    return sorted(set(_stems(_user_dir())) | set(_stems(PRESETS_DIR)))
+
+
 def delete_preset(name: str, presets_dir: Path | None = None) -> bool:
-    d = Path(presets_dir) if presets_dir else PRESETS_DIR
     base = name[:-5] if name.endswith(".json") else name
-    path = d / f"{base}.json"
-    if path.exists():
-        path.unlink()
-        return True
+    if presets_dir is not None:
+        dirs = [Path(presets_dir)]
+    elif PRESETS_DIR != _BUNDLED_DIR:
+        dirs = [Path(PRESETS_DIR)]  # test seam
+    else:
+        dirs = [_user_dir(), PRESETS_DIR]
+    for d in dirs:
+        path = d / f"{base}.json"
+        if path.exists():
+            path.unlink()
+            return True
     return False
