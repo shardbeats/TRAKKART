@@ -1,8 +1,9 @@
 """Acceleration + video status (pure logic, no Qt).
 
-The shipped bundle includes both (numba + imageio-ffmpeg). On a dev
-machine without them this module answers "what is installed?" and,
-via Settings → Extras, pip-installs the missing pieces.
+Both ship inside the bundle. On a dev machine without the packages,
+this module answers "what is installed?" and, via Settings → Extras,
+pip-installs the missing pieces. Import errors are surfaced verbatim
+so the Extras page shows WHY a backend is missing.
 """
 
 from __future__ import annotations
@@ -21,30 +22,28 @@ def is_frozen() -> bool:
 def accel_status() -> tuple[bool, str]:
     """(available, human detail) for the numba accelerator."""
     try:
-        from app.accelerate import has_numba
-
-        if has_numba():
-            try:
-                import numba
-
-                return True, f"numba {numba.__version__} (10-50x on large Floyd)"
-            except ImportError:
-                return True, "numba (unknown version)"
-    except ImportError:
-        pass
-    return False, "numpy fallback (slower on large Floyd)"
+        import numba  # noqa: F401
+    except ImportError as e:
+        return False, f"numpy fallback (numba not installed: {e})"
+    except Exception as e:  # noqa: BLE001  (frozen surprises: DLLs, AV interference)
+        return False, f"numpy fallback ({type(e).__name__}: {e})"
+    try:
+        ver = numba.__version__
+    except Exception:  # noqa: BLE001
+        ver = "unknown version"
+    return True, f"numba {ver} (10-50x on large Floyd)"
 
 
 def video_status() -> tuple[bool, str]:
     """(available, human detail) for MP4 export."""
     try:
-        from app.video_io import has_video
-
-        if has_video():
-            return True, "MP4 available (imageio + ffmpeg)"
-    except ImportError:
-        pass
-    return False, "MP4 disabled (extra not installed)"
+        import imageio  # noqa: F401
+        import imageio_ffmpeg  # noqa: F401
+    except ImportError as e:
+        return False, f"MP4 disabled (missing package: {e})"
+    except Exception as e:  # noqa: BLE001  (frozen surprises: DLLs, AV interference)
+        return False, f"MP4 disabled ({type(e).__name__}: {e})"
+    return True, "MP4 available (imageio + ffmpeg)"
 
 
 def missing_packages(kind: str) -> tuple[str, ...]:

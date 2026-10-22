@@ -173,7 +173,7 @@ class SettingsDialog(QDialog):
         """Extras group: acceleration + MP4 state, 1-click install on dev."""
         from app import extras as _ex
 
-        box = QGroupBox("Extras (optional)")
+        box = QGroupBox("Extras")
         col = QVBoxLayout(box)
         self.lbl_accel = QLabel()
         self.lbl_accel.setWordWrap(True)

@@ -148,7 +148,7 @@ class ExportDialog(QDialog):
         self.chk_mp4 = QCheckBox("Animation MP4")
         self.chk_mp4.setChecked(False)
         if self._video_ok:
-            self.chk_mp4.setToolTip("H.264 clip at canvas size (opt-in video extra present)")
+            self.chk_mp4.setToolTip("H.264 clip at canvas size (video backend present)")
         else:
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")

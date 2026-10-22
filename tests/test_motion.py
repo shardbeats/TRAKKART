@@ -1,4 +1,4 @@
-"""Motion from stills: Signal Drift, Paste-Up, opt-in MP4 backend.
+"""Motion from stills: Signal Drift, Paste-Up, MP4 backend.
 
 (No timeline layers, no clip import: animation always runs over the
 still image via GIF modes + drift + phase.)
