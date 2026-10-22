@@ -39,7 +39,13 @@ def _rss_mb() -> float:
 
 
 def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
-    """5 fast refreshes with a heavy image → ≤2 workers, no thread storm."""
+    """5 rapid refreshes with a heavy image → ≤2 workers, no thread storm.
+
+    Deterministic (no wall-clock race): the first worker is held at a gate
+    until all 5 refreshes are queued, so 2-5 MUST coalesce into
+    _preview_pending instead of spawning extra workers.
+    """
+    import threading
     import time as _t
 
     import app.accelerate as A
@@ -47,20 +53,35 @@ def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
     from PIL import Image
     from PySide6.QtCore import QCoreApplication
 
-    monkeypatch.setattr(A, "has_numba", lambda: False)  # force the async path
+    monkeypatch.setattr(A, "has_numba", lambda: False)  # force async path
     created: list = []
     Real = PW.PreviewWorker
+    gate = threading.Event()
 
     class Counting(Real):
         def __init__(self, *a, **k):
             created.append(1)
             super().__init__(*a, **k)
 
+    real_work = Real.work
+
+    def gated_work(self):
+        gate.wait(60)
+        return real_work(self)
+
     monkeypatch.setattr(PW, "PreviewWorker", Counting)
+    monkeypatch.setattr(Real, "work", gated_work)
     window.src = Image.new("RGB", (900, 900), (90, 60, 140))
-    for _ in range(5):
-        window.refresh()
-    assert window._preview_worker is not None
+    window.refresh()  # worker 1 starts, blocks at the gate
+    deadline = _t.time() + 60
+    while ((window._preview_worker is None or not window._preview_worker.isRunning())
+           and _t.time() < deadline):
+        QCoreApplication.processEvents()
+        _t.sleep(0.01)
+    assert window._preview_worker is not None and window._preview_worker.isRunning()
+    for _ in range(4):
+        window.refresh()  # all coalesce: no new workers while one runs
+    gate.set()  # release worker 1; pending spawns exactly one more
     deadline = _t.time() + 60
     while window._preview_worker.isRunning() and _t.time() < deadline:
         QCoreApplication.processEvents()

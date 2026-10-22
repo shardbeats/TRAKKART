@@ -128,15 +128,16 @@ def test_fx_stack_normalize_edges():
     assert normalize_stack("notalist") is not None
 
 
-def test_export_service_mp4_and_dialog_extras(window, qt_app, monkeypatch, tmp_path):
-    from PySide6.QtWidgets import QFileDialog
+def test_export_service_mp4(window, qt_app, tmp_path):
+    import pytest
 
     from app.exporter import ExportSelection
     from app.services.export_service import export_full
     from app.presets import Preset
-    from app.ui.export_dialog import ExportDialog
-    from tests.conftest import close_dialog
+    from app.video_io import has_video
 
+    if not has_video():
+        pytest.skip("video extra not installed (imageio + imageio-ffmpeg)")
     window.src = _img(64, 64)
     preset = Preset(
         name="t", method="bayer4", palette="SLIME", gif_export=True,
@@ -148,6 +149,19 @@ def test_export_service_mp4_and_dialog_extras(window, qt_app, monkeypatch, tmp_p
         selection=sel, mp4=True, gif_frames=2, gif_size=64)
     assert any(str(p).endswith(".mp4") for p in paths.values())
     assert any(str(p).endswith(".gif") for p in paths.values())
+
+
+def test_export_dialog_extras(window, qt_app, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+
+    from app.presets import Preset
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    window.src = _img(64, 64)
+    preset = Preset(
+        name="t", method="bayer4", palette="SLIME", gif_export=True,
+        gif_frames=2, export_size=64)
     # Dialog: browse + empty base + legacy options + lossless toggle.
     dlg = ExportDialog(window.src, preset.meta(), base="", out_dir=str(tmp_path),
                        gif_frames=2)

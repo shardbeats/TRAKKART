@@ -3,6 +3,9 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- CI fixes: MP4 export test skips without the video extra (was a hard
+  VideoBackendMissing on runners without imageio); thread-storm test is now
+  deterministic (gate-held worker instead of a wall-clock race).
 - Full flavor: `build_exe.py --full` bundles numba + video (`TRAKKART-full.exe`);
   `build_installer.py --full` packages it (setup `-full` suffix).
 - Settings → Extras: accel/MP4 state with 1-click pip install on dev (threaded);
