@@ -1,4 +1,4 @@
-"""UI drag & drop: files, folders, urls, clipboard payloads (fixtures en conftest)."""
+"""UI drag & drop: files, folders, urls, clipboard payloads (fixtures in conftest)."""
 
 import pytest
 
@@ -57,7 +57,7 @@ def test_drag_hover_feedback(window, tmp_path):
     Img.new("RGB", (32, 32), (9, 9, 9)).save(p)
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(p))])
-    # QDragEnterEvent exige QPoint (no QPointF) en esta versión de PySide6.
+    # QDragEnterEvent requires QPoint (not QPointF) in this PySide6 version.
     window.dragEnterEvent(QDragEnterEvent(QPoint(5, 5), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier))
     assert window.lbl_orig.property("dragHover") == "true"
     from PySide6.QtGui import QDragLeaveEvent

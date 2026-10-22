@@ -11,9 +11,9 @@ from __future__ import annotations
 
 
 # ------------------------------------------------------------------
-# Widget readers (doc único CANVAS + anim único VIDEO) + tabla de bindings.
-# Añadir un control = 1 fila en BINDINGS (antes: tocar build y apply a mano).
-# Cada fila: (campo, get(win) -> valor, set(win, valor)).
+# Widget readers (single doc CANVAS + single anim VIDEO) + bindings table.
+# Adding a control = 1 row in BINDINGS (before: touch build and apply by hand).
+# Each row: (field, get(win) -> value, set(win, value)).
 # ------------------------------------------------------------------
 
 
@@ -37,8 +37,8 @@ from app.ui.params_binding import (  # noqa: F401 (set_anim_combo re-exported fo
 )
 
 
-# Normalizaciones de render_params que el build aplica (la UI admite
-# intermedios que el motor redondea al válido más cercano).
+# Render-param normalizations applied by build (UI accepts
+# intermediates that the engine rounds to the nearest valid one).
 def _norms():
     from app.render_params import (
         normalize_grille,
@@ -87,7 +87,7 @@ def _pingpong_set(win, v):
 
 
 def doc_dims(win) -> tuple[int, int]:
-    """W/H del documento (Photoshop-style: los spins mandan)."""
+    """Document W/H (Photoshop-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
 
     try:
@@ -138,7 +138,7 @@ def write_motif(win, cfg: dict | None) -> None:
 
 
 def doc_size(win) -> int:
-    """Lado largo (compat: prefs, batch legacy, GIF)."""
+    """Long side (compat: prefs, batch legacy, GIF)."""
     w, h = doc_dims(win)
     return max(w, h)
 
@@ -168,7 +168,7 @@ def gif_anim_fps(win) -> int:
 
 
 def gif_anim_size(win) -> int:
-    # Sin Size en VIDEO: el anim sale al tamaño del documento canvas.
+    # No Size in VIDEO: anim renders at document canvas size.
     return int(doc_size(win))
 
 
@@ -186,7 +186,7 @@ def valid_slice_bands(win) -> int:
 
 
 def on_ratio_preset(win) -> None:
-    """El usuario eligió un ratio: rellena W/H a la escala actual (Photoshop)."""
+    """User picked a ratio: fills W/H at current scale (Photoshop)."""
     from app.canvas import canvas_size_for, ratio_value
 
     try:
@@ -213,7 +213,7 @@ def on_ratio_preset(win) -> None:
 
 
 def on_canvas_wh_changed(win) -> None:
-    """Editar W/H salta solo a Custom (Photoshop). Sin bucles: activated no re-flippea."""
+    """Editing W/H jumps to Custom only (Photoshop). No loops: activated never re-flips."""
     from app.canvas import CUSTOM_LABEL
 
     try:
@@ -385,7 +385,7 @@ def _coerce_kind(kind: str, value):
 
 
 def build_params(win):
-    """Preset from widgets. Única fuente (la UI es el editor)."""
+    """Preset from widgets. Single source (the UI is the editor)."""
     from app.palettes import palette_names
     from app.presets import Preset
 
@@ -432,7 +432,7 @@ def apply_preset(win, name: str) -> None:
         p = load_preset(name)
     except Exception:
         return
-    # Auto -> concreto: presets viejos/a mano sin W/H heredan ratio+export_size.
+    # Auto -> concrete: old/hand-made presets without W/H inherit ratio+export_size.
     from app.canvas import doc_dimensions
 
     cw, ch = doc_dimensions(p.ratio, p.export_size,
@@ -441,13 +441,13 @@ def apply_preset(win, name: str) -> None:
     p.canvas_w, p.canvas_h = int(cw), int(ch)
     for field, _get, set in BINDINGS:
         set(win, getattr(p, field))
-    # Crop vars (sin widget directo).
+    # Crop vars (no direct widget).
     win.crop_fx = float(p.focus_x)
     win.crop_fy = float(p.focus_y)
     win.crop_zoom = float(p.crop_zoom)
     win._sync_crop_label()
-    # La paleta en uso es la tira custom: del preset, o la built-in base.
-    # SOURCE no tiene swatches: conserva la tira actual como editable.
+    # The palette in use is the custom strip: from the preset, or the built-in base.
+    # SOURCE has no swatches: keeps the current strip as editable.
     win._palette_base = p.palette
     if p.palette == "SOURCE":
         win._palette_dirty = False
@@ -459,13 +459,13 @@ def apply_preset(win, name: str) -> None:
         )
         win._palette_dirty = False
     win.refresh_palette_list()
-    # FX stack (v1.2): None = legacy -> default; sync lista + ADD.
+    # FX stack (v1.2): None = legacy -> default; sync list + ADD.
     from app.ui import fx_stack_controller as _fx
 
     _fx.set_stack(win, getattr(p, "fx_stack", None))
     # Motif (v1.3): panel config; None = default.
     write_motif(win, getattr(p, "motif", None))
-    # Salidas: el preset es la receta; los diálogos las aplican por operación.
+    # Outputs: the preset is the recipe; dialogs apply it per operation.
     win._vector_export = bool(p.vector_export)
     win._vector_cell = int(p.vector_cell)
     win._vector_black = bool(getattr(p, "vector_black", False))
@@ -478,9 +478,9 @@ def apply_preset(win, name: str) -> None:
     win._export_size = int(p.export_size)
     win._export_format = str(p.export_format)
     win._export_quality = int(p.export_quality)
-    # Doc único: W/H del CANVAS (los setters bloquean señales: sin flips).
+    # Single doc: CANVAS W/H (setters block signals: no flips).
     sync_docdims(win)
-    # Grado + resto de etiquetas.
+    # Grade + remaining labels.
     win.duotone_dark = str(p.duotone_dark or "")
     win.duotone_light = str(p.duotone_light or "")
     win._sync_duo_label()

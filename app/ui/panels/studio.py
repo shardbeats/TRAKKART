@@ -55,8 +55,8 @@ def build_motif_section(win, g: QVBoxLayout) -> None:
 
 
 def build_fx_stack_section(win, g: QVBoxLayout) -> None:
-    """FX STACK reordenable (v1.2): orden + on/off. Los params viven en los
-    sliders existentes (una sola fuente); aquí solo se ordena y conmuta."""
+    """Reorderable FX STACK (v1.2): order + on/off. Params live in the
+    existing sliders (single source); here only order and toggle."""
     from PySide6.QtWidgets import QListWidget
 
     hlab(g, "FX stack (order matters):")
@@ -154,7 +154,7 @@ def _roll_mosh_seed(win) -> None:
 
 
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
-    # Biblioteca: una paleta con nombre cargada = punto de partida editable.
+    # Library: a loaded named palette = editable starting point.
     lib_row = QHBoxLayout()
     lib_row.addWidget(QLabel("Palette:"))
     win.cmb_pal_preset = QComboBox()
@@ -225,7 +225,7 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     io_row.addWidget(win.btn_pal_export)
     io_row.addStretch()
     g.addLayout(io_row)
-    # Tira de swatches: cada color visible, clic lo quita.
+    # Swatch strip: each color visible, click removes it.
     strip_host = QWidget()
     win.palette_strip = QHBoxLayout(strip_host)
     win.palette_strip.setContentsMargins(0, 2, 0, 2)

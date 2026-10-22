@@ -1,7 +1,7 @@
 """TRAKKART pipeline: canvas -> pre -> grade -> dither -> brand -> post.
 
-Orden (signal chain): los adjustments y el grade van ANTES del dither
-sobre tono continuo; textura y glitch van después sobre el dither.
+Order (signal chain): adjustments and grade run BEFORE the dither
+on continuous tone; texture and glitch run after over the dither.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def resolve_palette(palette_name: str, custom: list | None):
     custom_pal = normalize_custom_palette(custom)
     if custom_pal is not None:
         if is_bw(custom_pal):
-            return None, "BW"  # equivale al B&W puro: ruta rápida, sin ramas en la UI
+            return None, "BW"  # equals pure B&W: fast path, no branches in the UI
         return custom_pal, "custom"
     if palette_name == "SOURCE":
         return "SOURCE", "source"
@@ -36,11 +36,11 @@ def resolve_palette(palette_name: str, custom: list | None):
 
 
 # ---------------------------------------------------------------------------
-# RenderSpec: un solo dataclass para pipeline.render + meta + render_params.
-# Antes: la misma lista de ~40 params escrita en render(), meta_dict() y
-# preset_to_render_kwargs(). Ahora: de Preset a spec (from_preset), de spec
-# a render (render_spec) o a dict/meta. render()/meta_dict() quedan como
-# wrappers compatibles (tests + callers antiguos).
+# RenderSpec: one dataclass for pipeline.render + meta + render_params.
+# Before: the same ~40-param list written in render(), meta_dict() and
+# preset_to_render_kwargs(). Now: Preset to spec (from_preset), spec
+# to render (render_spec) or to dict/meta. render()/meta_dict() stay as
+# compatible wrappers (tests + old callers).
 # ---------------------------------------------------------------------------
 from dataclasses import dataclass, fields
 
@@ -109,7 +109,7 @@ class RenderSpec:
 
     @staticmethod
     def from_preset(preset, phase: int = 0) -> "RenderSpec":
-        """Preset -> spec normalizado. Única conversión (ver render_params)."""
+        """Preset -> normalized spec. Single conversion (see render_params)."""
         from app.render_params import (
             normalize_grille,
             normalize_halftone,
@@ -184,11 +184,11 @@ class RenderSpec:
         )
 
     def as_kwargs(self) -> dict:
-        """Spec -> kwargs de render(). Shallow, como la conversión anterior."""
+        """Spec -> render() kwargs. Shallow, like the previous conversion."""
         return {f.name: getattr(self, f.name) for f in fields(self)}
 
     def meta(self) -> dict:
-        """Bloque params para metadata.json (sin gif/vector: los añade meta_dict)."""
+        """Params block for metadata.json (no gif/vector: meta_dict adds them)."""
         a = self.adjust if isinstance(self.adjust, Adjust) else Adjust.from_dict(self.adjust)
         _, pal_label = resolve_palette(self.palette_name, self.custom_palette)
         return {
@@ -235,10 +235,10 @@ class RenderSpec:
 
 
 def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
-    """Pipeline completo sobre un RenderSpec: canvas -> pre -> grade -> dither -> brand -> STACK.
+    """Full pipeline over a RenderSpec: canvas -> pre -> grade -> dither -> brand -> STACK.
 
-    El stack post-dither es ordenado y conmutable (v1.2). None = orden
-    legacy (byte-idéntico a la cadena fija anterior).
+    The post-dither stack is ordered and switchable (v1.2). None = order
+    legacy (byte-identical to the previous fixed chain).
     """
     from app.fx_stack import normalize_stack
 
@@ -287,12 +287,12 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
 
 
 def render(img: Image.Image, **kwargs) -> Image.Image:
-    """Compat: render sobre kwargs (los tests y callers antiguos)."""
+    """Compat: render over kwargs (tests and old callers)."""
     return render_spec(img, RenderSpec(**kwargs))
 
 
 def render_preset(img: Image.Image, preset, phase: int = 0) -> Image.Image:
-    """Atajo: render_spec(img, RenderSpec.from_preset(preset, phase))."""
+    """Shortcut: render_spec(img, RenderSpec.from_preset(preset, phase))."""
     return render_spec(img, RenderSpec.from_preset(preset, phase=phase))
 
 
@@ -334,7 +334,7 @@ def meta_dict(
     gif_size: int = 480,
     gif_pingpong: bool = False,
 ) -> dict:
-    """Compat (firma posicional intacta para tests): spec + extras gif/vector."""
+    """Compat (positional signature intact for tests): spec + gif/vector extras."""
     spec = RenderSpec(
         method=method, palette_name=palette_name, threshold=threshold,
         pixel_size=pixel_size, adjust=adjust, ratio=ratio,

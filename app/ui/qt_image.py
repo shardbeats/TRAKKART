@@ -1,8 +1,8 @@
 """Qt <-> PIL image conversions. Single implementation.
 
-Antes: `main_window.pil_to_pixmap` y `crop_editor._pil_to_pixmap`
-duplicaban la misma conversión, y `MainWindow._load_qimage` /
-`paste_image` duplicaban QImage -> PIL con numpy.
+Before: `main_window.pil_to_pixmap` and `crop_editor._pil_to_pixmap`
+duplicated the same conversion, and `MainWindow._load_qimage` /
+`paste_image` duplicated QImage -> PIL with numpy.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from PIL import Image
 
 
 def pil_to_pixmap(img: Image.Image, max_side: int = 520):
-    """PIL -> QPixmap, downscaleando el lado largo a max_side. No muta."""
+    """PIL -> QPixmap, downscaling the long side to max_side. No mutation."""
     from PySide6.QtGui import QImage, QPixmap
 
     rgb = img.convert("RGB")
@@ -24,7 +24,7 @@ def pil_to_pixmap(img: Image.Image, max_side: int = 520):
 
 
 def pil_to_qimage(img: Image.Image):
-    """PIL -> QImage (copia independiente, sin downscale)."""
+    """PIL -> QImage (independent copy, no downscale)."""
     from PySide6.QtGui import QImage
 
     rgb = img.convert("RGB")
@@ -34,7 +34,7 @@ def pil_to_qimage(img: Image.Image):
 
 
 def qimage_to_pil(qimg) -> Image.Image:
-    """QImage -> PIL RGB. Lanza ValueError si es nula."""
+    """QImage -> PIL RGB. Raises ValueError when null."""
     from PySide6.QtGui import QImage
 
     import numpy as np

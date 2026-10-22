@@ -31,8 +31,8 @@ SPECIAL_RENDER = ("cmyk", "ascii", "edges")
 def _nearest_palette(lum_or_rgb: np.ndarray, palette: list[tuple]) -> np.ndarray:
     """Map each pixel to the closest color (euclidean RGB).
 
-    Por chunks de 50k px: la versión anterior materializaba (N,P,3)
-    float32 de golpe -> 3000x3000 con 4 colores = ~1GB y OOM.
+    In 50k px chunks: the previous version materialized an (N,P,3)
+    float32 at once -> 3000x3000 with 4 colors = ~1GB and OOM.
     """
     pal = np.asarray(palette, dtype=np.float32)  # (P, 3)
     flat = lum_or_rgb.reshape(-1, 3).astype(np.float32)
@@ -40,7 +40,7 @@ def _nearest_palette(lum_or_rgb: np.ndarray, palette: list[tuple]) -> np.ndarray
     chunk = 50_000
     for i in range(0, flat.shape[0], chunk):
         block = flat[i:i + chunk]
-        # (C, P) distancias sin sqrt
+        # (C, P) distances without sqrt
         diff = block[:, None, :] - pal[None, :, :]
         idx = np.argmin(np.einsum("cpd,cpd->cp", diff, diff), axis=1)
         out[i:i + chunk] = pal[idx]
@@ -106,7 +106,7 @@ def error_diffusion(
     adjust: Adjust | dict | None = None,
     backend: str = "auto",
 ) -> Image.Image:
-    """Generic error diffusion (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson + nuevos)."""
+    """Generic error diffusion (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson + more)."""
     if kernel not in COEFFS:
         kernel = "floyd"
     base = apply_adjust(img.convert("RGB"), adjust)
@@ -127,7 +127,7 @@ def hilbert_diffusion(
     pixel_size: int = 1,
     adjust: Adjust | dict | None = None,
 ) -> Image.Image:
-    """Hilbert-ordered error diffusion (Riemersma-style, sin vetas de barrido)."""
+    """Hilbert-ordered error diffusion (Riemersma-style, no sweep streaks)."""
     from app.kernels import diffuse_hilbert
 
     base = apply_adjust(img.convert("RGB"), adjust)
@@ -167,7 +167,7 @@ def edges_dither(
     adjust: Adjust | dict | None = None,
     phase: int = 0,
 ) -> Image.Image:
-    """Edge-detect + bayer overlay (special): contornos ditherizados sobre base."""
+    """Edge-detect + bayer overlay (special): dithered contours over base."""
     from PIL import ImageFilter
 
     base = apply_adjust(img.convert("RGB"), adjust)
@@ -221,7 +221,7 @@ def apply_method(
     if method == "cmyk":
         from app.cmyk import cmyk_halftone
 
-        # CMYK ignora la paleta por diseño (tinta de imprenta); threshold = dot gain.
+        # CMYK ignores the palette by design (print ink); threshold = dot gain.
         base = apply_adjust(img.convert("RGB"), adjust)
         return cmyk_halftone(base, threshold=float(threshold), phase=int(phase),
                              pixel_size=int(pixel_size))

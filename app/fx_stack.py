@@ -9,9 +9,9 @@ and reordering visibly changes the result (commutativity tested).
 
 from __future__ import annotations
 
-# Orden legacy = orden de pipeline.render_spec antes del stack.
-# brand (replace_white) queda fijo justo tras el dither (no reordena:
-# es mapeo de marca, no FX creativo).
+# Legacy order = pipeline.render_spec order before the stack.
+# brand (replace_white) stays pinned right after the dither (not reordered:
+# it is brand mapping, not creative FX).
 DEFAULT_FX_ORDER: tuple[str, ...] = (
     "split_tone",
     "fade",
@@ -37,7 +37,7 @@ DEFAULT_FX_ORDER: tuple[str, ...] = (
 
 FX_IDS: frozenset[str] = frozenset(DEFAULT_FX_ORDER)
 
-# Etiquetas cortas para el combo ADD / la lista.
+# Short labels for the ADD combo / list.
 FX_LABELS: dict[str, str] = {
     "split_tone": "Split tone",
     "fade": "Fade",
@@ -63,10 +63,10 @@ FX_LABELS: dict[str, str] = {
 
 
 def normalize_stack(raw: list | tuple | None) -> list[dict]:
-    """Valida/normaliza stack [{id, enabled}] o lista simple [id, ...].
+    """Validates/normalizes a stack [{id, enabled}] or a plain [id, ...] list.
 
-    None -> default completo habilitado (legacy). Ids desconocidos se
-    ignoran; duplicados se colapsan (primera aparición manda).
+    None -> full enabled default (legacy). Unknown ids are
+    ignored; duplicates collapse (first occurrence wins).
     """
     if raw is None:
         return [{"id": fid, "enabled": True} for fid in DEFAULT_FX_ORDER]
@@ -85,8 +85,8 @@ def normalize_stack(raw: list | tuple | None) -> list[dict]:
             continue
         seen.add(fid)
         items.append({"id": fid, "enabled": enabled})
-    # Los efectos que falten se añaden al final habilitados (migración
-    # hacia adelante: presets con stack parcial siguen completos).
+    # Missing effects are appended enabled (forward migration:
+    # partial-stack presets stay complete).
     for fid in DEFAULT_FX_ORDER:
         if fid not in seen:
             items.append({"id": fid, "enabled": True})

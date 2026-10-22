@@ -33,7 +33,7 @@ def check_path(path: str | Path) -> tuple[int, int]:
     p = Path(path)
     try:
         with Image.open(p) as im:
-            w, h = im.size  # header: no decodifica pixeles
+            w, h = im.size  # header: decodes no pixels
     except TooBigError:
         raise
     except Exception as e:  # noqa: BLE001

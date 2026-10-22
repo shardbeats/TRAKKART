@@ -38,7 +38,7 @@ MAX_ZOOM = 4.0
 
 
 def _pil_to_pixmap(img: Image.Image) -> QPixmap:
-    """Compat: usa la implementación única de ui.qt_image."""
+    """Compat: uses the single ui.qt_image implementation."""
     from app.ui.qt_image import pil_to_pixmap
 
     return pil_to_pixmap(img, max_side=4096)

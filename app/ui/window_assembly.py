@@ -211,7 +211,7 @@ def setup_previews(win, root) -> None:
     win.lbl_res_title.setObjectName("previewTitle")
     win.lbl_res_title.setAlignment(Qt.AlignCenter)
     title_row.addWidget(win.lbl_res_title, 1)
-    # Hold-to-compare: mantener pulsado (o Espacio) = ORIGINAL.
+    # Hold-to-compare: hold (or Space) = ORIGINAL.
     win.btn_compare = QPushButton("Hold to compare")
     win.btn_compare.setToolTip("Hold to see ORIGINAL (or hold Space). Release to go back.")
     win.btn_compare.setMinimumWidth(140)
@@ -219,7 +219,7 @@ def setup_previews(win, root) -> None:
     win.btn_compare.released.connect(win._compare_released)
     title_row.addWidget(win.btn_compare)
     res_col.addLayout(title_row)
-    # Video toolbar: scrub + counter (solo visible en modo Video).
+    # Video toolbar: scrub + counter (visible only in Video mode).
     win._video_bar = QHBoxLayout()
     win.sld_video = QSlider(Qt.Horizontal)
     win.sld_video.setRange(0, 0)

@@ -1,4 +1,4 @@
-"""Tests GIF animado: frames, determinismo, tope anim (1200), modos."""
+"""Tests for animated GIF: frames, determinism, anim cap (1200), modes."""
 
 from PIL import Image
 
@@ -22,7 +22,7 @@ def _img(size: int = 128) -> Image.Image:
 
 
 def test_frames_count_and_size_cap():
-    # Anim único default 1200: una 1200x800 queda igual, una mayor baja a 1200.
+    # Single-anim default 1200: a 1200x800 stays as is, a larger one shrinks to 1200.
     big = Image.new("RGB", (1200, 800), (10, 20, 30))
     frames = gif_frames(big, _preset(), frames=4, mode="phase")
     assert len(frames) == 4
@@ -52,7 +52,7 @@ def test_modes_differ_and_invalid_falls_back():
 
 
 def test_glitch_and_mix_animate_ed_static():
-    # Floyd ignora phase: glitch/mix deben moverse igual via post-fx.
+    # Floyd ignores phase: glitch/mix must move equally via post-fx.
     p = _preset(method="floyd")
     a = gif_frames(_img(), p, frames=3, mode="glitch")
     b = gif_frames(_img(), p, frames=3, mode="mix")
@@ -69,7 +69,7 @@ def test_glitch_and_mix_animate_ed_static():
 def test_pingpong_and_size_and_fps():
     p = _preset(gif_size=320, gif_pingpong=True)
     frames = gif_frames(_img(64), p, frames=4, mode="mix")
-    assert len(frames) == 4 + 2  # ping-pong expande
+    assert len(frames) == 4 + 2  # ping-pong expands
     assert max(frames[0].size) <= 320
     out_frames = gif_frames(_img(64), _preset(), frames=3, mode="phase",
                             max_side=240, pingpong=False)
@@ -91,7 +91,7 @@ def test_video_defaults_1200():
 
     assert VIDEO_DEFAULT_SIZE == 1200
     assert (VIDEO_MIN_SIZE, VIDEO_MAX_SIZE) == (480, 1920)
-    # Canvas completo a 1200: una 1600px baja a 1200, una chica no se amplía.
+    # Full canvas at 1200: a 1600px one shrinks to 1200, a small one is not upscaled.
     big = Image.new("RGB", (1600, 1600), (10, 20, 30))
     frames = gif_frames(big, _preset(), frames=2, mode="phase", max_side=1200)
     assert max(frames[0].size) == 1200

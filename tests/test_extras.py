@@ -30,13 +30,13 @@ def test_settings_extras_group_dev(qt_app, monkeypatch):
 
     monkeypatch.setattr(_ex, "is_frozen", lambda: False)
     monkeypatch.setattr(_ex, "accel_status", lambda: (False, "numpy fallback"))
-    monkeypatch.setattr(_ex, "video_status", lambda: (False, "MP4 desactivado"))
+    monkeypatch.setattr(_ex, "video_status", lambda: (False, "MP4 disabled"))
     dlg = SettingsDialog(ExportPrefs(), data_dir="/tmp", recent_count=0)
     try:
         assert "numpy fallback" in dlg.lbl_accel.text()
-        assert "MP4 desactivado" in dlg.lbl_video.text()
+        assert "MP4 disabled" in dlg.lbl_video.text()
         assert dlg.btn_accel.isEnabled() and dlg.btn_video.isEnabled()
-        assert "Reinicia" in dlg.lbl_extra_note.text() or "reiniciar" in dlg.lbl_extra_note.text()
+        assert "Restart" in dlg.lbl_extra_note.text() or "restart" in dlg.lbl_extra_note.text()
     finally:
         from tests.conftest import close_dialog
 

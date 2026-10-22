@@ -1,4 +1,4 @@
-"""v1.2 Stackable FX: jpeg determinista, stack ordenado, migración byte-idéntica."""
+"""v1.2 Stackable FX: deterministic jpeg, ordered stack, byte-identical migration."""
 
 from PIL import Image
 

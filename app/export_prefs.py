@@ -1,7 +1,7 @@
-"""Export prefs: recuerda la última configuración (Quick Export style).
+"""Export prefs: remembers the last setup (Quick Export style).
 
-JSON en el data dir (testeable sin Qt). MainWindow acepta prefs_path
-inyectado para tests.
+JSON in the data dir (testable without Qt). MainWindow accepts an injected
+prefs_path for tests.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def _prefs_path(data_dir: Path | None = None) -> Path:
 
 
 def load_prefs(prefs_path: str | Path | None = None) -> ExportPrefs:
-    """Lee prefs; si no existen o están rotas, devuelve defaults."""
+    """Reads prefs; missing or broken prefs return defaults."""
     p = Path(prefs_path) if prefs_path else _prefs_path()
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))

@@ -13,12 +13,12 @@ from __future__ import annotations
 
 
 # Preview-only resolution (video-proxy style): long side per tier.
-# Export SIEMPRE sale al documento completo, elija lo que elija el preview.
+# Export ALWAYS renders the full document, whatever the preview uses.
 PROXY_SIDES = {"Draft 720p": 720, "HD 1080p": 1080}
 
 
 def proxy_size(win) -> int:
-    """Long side para el preview (0 = doc completo). Nunca afecta al export."""
+    """Long side for preview (0 = full doc). Never affects export."""
     try:
         return int(PROXY_SIDES.get(str(win.cmb_video_proxy.currentText()), 0) or 0)
     except Exception:  # noqa: BLE001
@@ -39,7 +39,7 @@ def spec(win) -> dict:
 
 
 def proxy_changed(win) -> None:
-    """Cambiar de proxy re-renderiza (barato en Draft/HD)."""
+    """Switching proxy re-renders (cheap in Draft/HD)."""
     win._schedule_refresh()
 
 
@@ -110,7 +110,7 @@ def start_async(win) -> None:
     if win.src is None:
         return
     if win._video_worker is not None and win._video_worker.isRunning():
-        return  # uno en vuelo basta; el debounce reintentará
+        return  # one in flight is enough; debounce will retry
     s = spec(win)
     win._video_token += 1
     win._video_timer.stop()

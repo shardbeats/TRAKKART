@@ -1,13 +1,13 @@
 """TRAKKART main window — dither preview + export + cover flow.
 
-Refactorizado: la ventana orquesta, no implementa.
-- Construcción UI -> app.ui.panels
-- Conversiones Qt/PIL -> app.ui.qt_image
-- Carga IO (fs/web/clipboard) -> app.services.image_io
+Refactored: the window orchestrates, it does not implement.
+- UI construction -> app.ui.panels
+- Qt/PIL conversions -> app.ui.qt_image
+- IO loading (fs/web/clipboard) -> app.services.image_io
 - Render/export -> app.services.render_service / export_service
-- Params únicos -> Preset.to_render_kwargs (app.render_params)
+- Single params -> Preset.to_render_kwargs (app.render_params)
 
-API pública intacta (tests test_ui_* dependen de ella).
+Public API intact (tests test_ui_* depend on it).
 """
 
 from __future__ import annotations
@@ -55,8 +55,8 @@ class MainWindow(QMainWindow):
         self._prefs_path = Path(prefs_path) if prefs_path else None
         self._batch_start: float = 0.0
         self._batch_out: Path | None = None
-        # Salidas vector/GIF + tamaño/formato: viven en el preset (receta);
-        # cada diálogo elige por operación (sin panel duplicado).
+        # Vector/GIF outputs + size/format: live in the preset (recipe);
+        # each dialog picks per operation (no duplicated panel).
         self._vector_export: bool = False
         self._vector_cell: int = 8
         self._vector_black: bool = False
@@ -72,8 +72,8 @@ class MainWindow(QMainWindow):
         self.duotone_dark: str = ""
         self.duotone_light: str = ""
         self.border_color: str = "#000000"
-        # La paleta en uso es la tira custom (los presets con nombre son
-        # puntos de partida). _palette_base recuerda de cuál se derivó.
+        # The palette in use is the custom strip (named presets are
+        # starting points). _palette_base remembers which one it came from.
         self._palette_base: str = "SLIME"
         self._palette_dirty: bool = False
         self._palette_locks: list[bool] = []
@@ -158,10 +158,10 @@ class MainWindow(QMainWindow):
         self._maybe_first_run()
 
     def closeEvent(self, event) -> None:  # noqa: N802
-        """Limpieza determinista: sin timers ni slots huerfanos tras cerrar.
+        """Deterministic cleanup: no orphan timers/slots after closing.
 
-        Sin esto, una ventana cerrada puede sobrevivir al GC con el timer
-        de debounce armado y renderizar sobre UI muerta (caza de los E2E).
+        Without this, a closed window can outlive GC with the debounce
+        timer armed and render over dead UI (hunting the E2E tests).
         """
         try:
             self._preview_timer.stop()
@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
             pass
 
     # ------------------------------------------------------------------
-    # UI construction (cuerpo en window_assembly; orquesta, no construye)
+    # UI construction (body in window_assembly; orchestrates, does not build)
     # ------------------------------------------------------------------
     def _setup_ui(self) -> None:
         from app.ui import window_assembly as _wa
@@ -348,7 +348,7 @@ class MainWindow(QMainWindow):
         self.open_image_dialog()
 
     # ------------------------------------------------------------------
-    # Params: current_params() es la única fuente; _render_kwargs delega.
+    # Params: current_params() is the single source; _render_kwargs delegates.
     # ------------------------------------------------------------------
     def _render_kwargs(self) -> dict:
         return self.current_params().to_render_kwargs()
@@ -371,9 +371,9 @@ class MainWindow(QMainWindow):
             self._status(f"Error: {e}")
 
     # ------------------------------------------------------------------
-    # Doc único (CANVAS) + anim único (VIDEO): una sola fuente por tamaño
+    # Single doc (CANVAS) + single anim (VIDEO): one size source each
     # ------------------------------------------------------------------
-    # Widget readers (doc CANVAS + anim VIDEO): params_controller es la única fuente.
+    # Widget readers (doc CANVAS + anim VIDEO): params_controller is the single source.
     def _doc_size(self) -> int:
         from app.ui import params_controller as _par
 
@@ -558,13 +558,13 @@ class MainWindow(QMainWindow):
 
         return _par.current_adjust(self)
 
-    # -- presets (cuerpo en params_controller) --
+    # -- presets (body in params_controller) --
     def current_params(self) -> Preset:
         from app.ui import params_controller as _par
 
         return _par.build_params(self)
 
-    # -- color/palette actions (cuerpo en color_actions) --
+    # -- color/palette actions (body in color_actions) --
     def pick_brand_color(self) -> None:
         from app.ui import color_actions as _ca
 
@@ -611,7 +611,7 @@ class MainWindow(QMainWindow):
         _ca.add_custom_color(self)
 
     def gen_palette(self) -> None:
-        """🎲 Sorpresa: genera una paleta armoniosa (ramp/harmony en Oklch)."""
+        """🎲 Surprise: generates a harmonious palette (ramp/harmony in Oklch)."""
         from app.ui import color_actions as _ca
 
         _ca.gen_palette(self)
@@ -628,7 +628,7 @@ class MainWindow(QMainWindow):
         _ca.remove_custom_color(self, i)
 
     def _palette_preview_small(self):
-        """Canvas actual reducido (160px) para el % de uso. None sin imagen."""
+        """Small current canvas (160px) for usage %. None without image."""
         from app.ui import color_actions as _ca
 
         return _ca.palette_preview_small(self)
@@ -639,7 +639,7 @@ class MainWindow(QMainWindow):
         _ca.clear_custom_colors(self)
 
     def _set_custom_colors(self, colors: list, dirty: bool = True) -> None:
-        """Único punto de escritura: actualiza tira + estado dirty."""
+        """Single write point: updates strip + dirty state."""
         from app.ui import color_actions as _ca
 
         _ca.set_custom_colors(self, colors, dirty)
@@ -655,13 +655,13 @@ class MainWindow(QMainWindow):
         _par.refresh_presets(self)
 
     def refresh_palette_list(self) -> None:
-        """Combo de la biblioteca (built-ins + usuario)."""
+        """Library combo (built-ins + user)."""
         from app.ui import color_actions as _ca
 
         _ca.refresh_palette_list(self)
 
     def _on_palette_preset_changed(self, name: str) -> None:
-        """Elegir paleta = cargarla como copia editable en la tira."""
+        """Choosing a palette = loading it as an editable copy into the strip."""
         from app.ui import color_actions as _ca
 
         _ca.on_palette_preset_changed(self, name)
@@ -691,7 +691,7 @@ class MainWindow(QMainWindow):
 
         _ca.shuffle_custom_colors(self)
 
-    # -- FX stack (cuerpo en fx_stack_controller) --
+    # -- FX stack (body in fx_stack_controller) --
     def _on_fx_toggled(self) -> None:
         from app.ui import fx_stack_controller as _fx
 
@@ -724,7 +724,7 @@ class MainWindow(QMainWindow):
         self._schedule_refresh()
 
     def step_method(self, delta: int) -> str:
-        """Arrow-stepping por algoritmos (sin tocar el combo a mano)."""
+        """Arrow-stepping through algorithms (without touching the combo by hand)."""
         from app.dither import METHODS
 
         methods = list(METHODS)
@@ -770,9 +770,9 @@ class MainWindow(QMainWindow):
 
         _par.save_current_preset(self)
 
-    # -- batch (cuerpo en batch_flow) --
+    # -- batch (body in batch_flow) --
     def run_batch_dialog(self) -> None:
-        """Un solo diálogo validado, no dos seguidos a ciegas."""
+        """Single validated dialog, no two blind dialogs in a row."""
         from app.ui import batch_flow as _bf
 
         _bf.run_batch_dialog(self)
@@ -809,13 +809,13 @@ class MainWindow(QMainWindow):
 
         _bf.on_error(self, msg)
 
-    # -- menus (cuerpo en menus.py) --
+    # -- menus (body in menus.py) --
     def _build_menus(self) -> None:
         from app.ui import menus as _menus
 
         _menus.build_menus(self)
 
-    # -- image ops + undo (cuerpo en image_flow) --
+    # -- image ops + undo (body in image_flow) --
     def _op_image(self, fn, what: str) -> None:
         from app.ui import image_flow as _im
 
@@ -836,7 +836,7 @@ class MainWindow(QMainWindow):
 
         _im.randomize(self)
 
-    # -- zoom / clipboard (cuerpo en image_flow) --
+    # -- zoom / clipboard (body in image_flow) --
     def _zoom_step(self, factor: float) -> None:
         from app.ui import image_flow as _im
 
@@ -863,7 +863,7 @@ class MainWindow(QMainWindow):
         _im.paste_image(self)
 
     @property
-    def lbl_orig(self):  # compat: single canvas (dnd/tests viejos)
+    def lbl_orig(self):  # compat: single canvas (dnd/old tests)
         return self.lbl_res
 
     @property
@@ -934,7 +934,7 @@ class MainWindow(QMainWindow):
 
         _im.load_pil(self, img)
 
-    # -- preset share (cuerpo en params_controller) --
+    # -- preset share (body in params_controller) --
     def share_preset_export(self) -> None:
         from app.ui import params_controller as _par
 
@@ -946,7 +946,7 @@ class MainWindow(QMainWindow):
         _par.share_import(self)
 
     def export(self, quick: bool = False) -> None:
-        """Export bundle. Dialogo profesional por defecto; `quick` repite el último."""
+        """Export bundle. Pro dialog by default; `quick` repeats the last one."""
         from app.ui import export_flow as _ef
 
         _ef.export(self, quick)
@@ -959,7 +959,7 @@ class MainWindow(QMainWindow):
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
                     quality: int, mp4: bool = False) -> None:
-        """Render full-res + bundle según opciones. Full-res siempre."""
+        """Render full-res + bundle per options. Always full-res."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,

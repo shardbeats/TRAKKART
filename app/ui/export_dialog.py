@@ -1,7 +1,7 @@
 """Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
 
-El motor (`export_bundle`/`export_with_options`) no pregunta nada;
-este diálogo pregunta todo y previsualiza lo que va a salir.
+The engine (`export_bundle`/`export_with_options`) never asks;
+this dialog asks everything and previews what will be written.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _fmt_size(n: int) -> str:
 
 
 class ExportDialog(QDialog):
-    """Qué sale, dónde y con qué nombre. `options()` solo válido tras Accept."""
+    """What, where and under which name. `options()` only valid after Accept."""
 
     def __init__(
         self,
@@ -68,9 +68,9 @@ class ExportDialog(QDialog):
         self._img = img
         self._meta = meta or {}
         self._vector_cells = vector_cells
-        self._preset = preset  # se guarda por compat; el preview vive en modo Video
+        self._preset = preset  # kept for compat; preview lives in Video mode
         self._gif_count = max(1, int(gif_frames))
-        self._ready = False  # las señales del __init__ no pintan nada aún
+        self._ready = False  # __init__ signals paint nothing yet
 
         col = QVBoxLayout(self)
         # -- file name (dedicated section: base + reset + sanitized preview) --
@@ -91,14 +91,14 @@ class ExportDialog(QDialog):
         self.lbl_basename.setWordWrap(True)
         self.lbl_basename.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_basename)
-        # -- destino --
+        # -- destination --
         from app.ui.dialog_fields import (build_folder_row, build_format_quality,
                                           normalize_gif_spec)
 
         dest_row, self.edit_dir, self.btn_browse = build_folder_row(
             "Folder:", str(out_dir), self, on_browse=self._browse)
         col.addLayout(dest_row)
-        # -- documento único: el tamaño viene de CANVAS, aquí solo se muestra --
+        # -- single document: size comes from CANVAS, shown here only --
         self._doc_size = max(MIN_SIDE, min(MAX_SIDE, int(size)))
         doc_row = QHBoxLayout()
         doc_row.addWidget(QLabel("Document:"))
@@ -108,7 +108,7 @@ class ExportDialog(QDialog):
         self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
         doc_row.addWidget(self.lbl_dims, 1)
         col.addLayout(doc_row)
-        # -- formato (GIMP: la extensión manda; aquí el combo) --
+        # -- format (GIMP: extension rules; here the combo) --
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
         self.cmb_format, self.spn_quality = build_format_quality(format, quality)
@@ -119,7 +119,7 @@ class ExportDialog(QDialog):
         self.spn_quality.valueChanged.connect(self._refresh_plan)
         fmt_row.addWidget(self.spn_quality)
         col.addLayout(fmt_row)
-        # -- salidas --
+        # -- outputs --
         col.addWidget(QLabel("Include:"))
         self.chk_image = QCheckBox("Main image")
         self.chk_thumb = QCheckBox("Social thumb 1080p")
@@ -151,26 +151,26 @@ class ExportDialog(QDialog):
             self.chk_mp4.setToolTip("H.264 clip at canvas size (opt-in video extra present)")
         else:
             self.chk_mp4.setEnabled(False)
-            self.chk_mp4.setToolTip("Settings → Extras → Instalar vídeo (o TRAKKART-full.exe)")
+            self.chk_mp4.setToolTip("Settings → Extras → Install video (or TRAKKART-full.exe)")
         for chk in (self.chk_image, self.chk_thumb,
                     self.chk_vector, self.chk_anim, self.chk_meta,
                     self.chk_black, self.chk_mp4):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
         col.addWidget(self.chk_lossless)
-        # -- animación: sin duplicados (se edita solo en VIDEO); aquí solo on/off --
+        # -- animation: no duplicates (edited only in VIDEO); on/off here --
         self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
         self.lbl_gifspec = QLabel()
         self.lbl_gifspec.setWordWrap(True)
         self.lbl_gifspec.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_gifspec)
         self._sync_gifspec_label()
-        # -- colisión: siempre rename (nunca se pierde un archivo) --
+        # -- collision: always rename (never lose a file) --
         self.lbl_policy = QLabel("Existing files are kept: repeats save as name_2, name_3…")
         self.lbl_policy.setWordWrap(True)
         self.lbl_policy.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_policy)
-        # -- plan (GIMP muestra tamaño estimado: aquí la lista + ~peso) --
+        # -- plan (GIMP shows estimated size: here the list + ~weight) --
         col.addWidget(QLabel("Files to write:"))
         self.list_files = QListWidget()
         self.list_files.setMinimumHeight(110)
@@ -181,7 +181,7 @@ class ExportDialog(QDialog):
         self.lbl_exists.setWordWrap(True)
         self.lbl_exists.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_exists)
-        # -- botones --
+        # -- buttons --
         bar = QHBoxLayout()
         bar.addStretch()
         self.btn_cancel = QPushButton("Cancel")
@@ -203,7 +203,7 @@ class ExportDialog(QDialog):
         self.spn_quality.setEnabled(not on)
         self._refresh_plan()
 
-    # -- plan en vivo --
+    # -- live plan --
     def _current_selection(self) -> ExportSelection:
         return ExportSelection(
             image=self.chk_image.isChecked(),
@@ -286,7 +286,7 @@ class ExportDialog(QDialog):
         if d:
             self.edit_dir.setText(d)
 
-    # -- animación: la spec viene de VIDEO (aquí no se edita, solo se muestra) --
+    # -- animation: spec comes from VIDEO (shown here, not edited) --
     def _sync_gifspec_label(self) -> None:
         from app.gif import mode_label
 
@@ -302,7 +302,7 @@ class ExportDialog(QDialog):
 
     def _gif_opts(self) -> dict:
         g = dict(getattr(self, "_gif_spec", {}))
-        g["size"] = self._current_size()  # el canvas manda también en el anim
+        g["size"] = self._current_size()  # canvas also rules the anim
         g["pingpong"] = bool(g.get("pingpong", False))
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         return g
@@ -312,13 +312,13 @@ class ExportDialog(QDialog):
             self.edit_base.setText("cover")
         self.accept()
 
-    # -- resultado --
+    # -- result --
     def options(self) -> tuple[ExportOptions, Path, dict]:
-        """(opciones, destino, gif_opts). Solo tras Accept.
+        """(options, destination, gif_opts). Only valid after Accept.
 
-        gif_opts = {frames, mode, fps, size, pingpong}. Los callers viejos
-        que desempaquetaban (opts, out, frames, mode) siguen funcionando
-        via GifOpts (tupla + dict a la vez).
+        gif_opts = {frames, mode, fps, size, pingpong}. Old callers
+        unpacking (opts, out, frames, mode) still work
+        via GifOpts (tuple + dict at once).
         """
         fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
         opts = ExportOptions(
@@ -331,7 +331,7 @@ class ExportDialog(QDialog):
         )
         return opts, Path(self.edit_dir.text()), self._gif_opts()
 
-    # -- compat: (opts, out, frames, mode) para código/tests viejos --
+    # -- compat: (opts, out, frames, mode) for old code/tests --
     def legacy_options(self) -> tuple[ExportOptions, Path, int, str]:
         opts, out, g = self.options()
         return opts, out, int(g["frames"]), str(g["mode"])

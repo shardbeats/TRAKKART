@@ -47,17 +47,17 @@ CUSTOM_LABEL = "Custom"
 
 
 def ratio_label(value: str) -> str:
-    """Valor interno -> texto del combo (custom se muestra 'Custom')."""
+    """Internal value -> combo text (custom shows 'Custom')."""
     return CUSTOM_LABEL if value == CUSTOM_RATIO else value
 
 
 def ratio_value(label: str) -> str:
-    """Texto del combo -> valor interno."""
+    """Combo text -> internal value."""
     return CUSTOM_RATIO if label == CUSTOM_LABEL else label
 
 
 def canvas_ratios() -> list[str]:
-    """Entradas del combo: presets + Custom libre (display; ver ratio_value)."""
+    """Combo entries: presets + free Custom (display; see ratio_value)."""
     return [*RATIOS.keys(), CUSTOM_LABEL]
 
 

@@ -1,9 +1,9 @@
-"""Batch dialog: in/out en un solo sitio, validado antes.
+"""Batch dialog: in/out in one place, validated first.
 
-Valida carpetas y cuenta imágenes ANTES de lanzar (nada de dos diálogos
-seguidos a ciegas). Las salidas vector/GIF se eligen aquí por operación
-(photoshop-style); el preset aporta los defaults. El progreso con fps/ETA
-vive en la ventana principal.
+Validates folders and counts images BEFORE launching (no two blind
+dialogs in a row). Vector/GIF outputs are chosen here per operation
+(photoshop-style); the preset provides the defaults. Progress with fps/ETA
+lives in the main window.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from app.batch import EXTS
 
 
 def count_images(folder: str | Path) -> int:
-    """Nº de imágenes compatibles (0 si no es carpeta). Sin lanzar nada."""
+    """Number of compatible images (0 if not a folder). Launches nothing."""
     try:
         p = Path(folder)
         if not p.is_dir():
@@ -35,7 +35,7 @@ def count_images(folder: str | Path) -> int:
 
 
 class BatchDialog(QDialog):
-    """Recoge in/out/jobs validados. `paths()` solo válido tras Accept."""
+    """Collects validated in/out/jobs. `paths()` only valid after Accept."""
 
     def __init__(
         self,
@@ -83,7 +83,7 @@ class BatchDialog(QDialog):
         jobs_row.addStretch()
         col.addLayout(jobs_row)
 
-        # -- documento único: W/H vienen del preset CANVAS; aquí solo formato --
+        # -- single document: W/H come from the CANVAS preset; format only here --
         from app.canvas import MAX_DIM, MIN_DIM
 
         self._doc_w = max(MIN_DIM, min(MAX_DIM, int(doc_w)))
@@ -104,7 +104,7 @@ class BatchDialog(QDialog):
         fmt_row.addWidget(self.chk_lossless)
         col.addLayout(fmt_row)
 
-        # -- salidas por operación (el preset aporta los defaults) --
+        # -- outputs per operation (preset provides the defaults) --
         col.addWidget(QLabel("Outputs:"))
         vec_row = QHBoxLayout()
         self.chk_vector = QCheckBox("SVG")
@@ -195,11 +195,11 @@ class BatchDialog(QDialog):
             self.accept()
 
     def paths(self) -> tuple[Path, Path, int]:
-        """(input, output, jobs). Solo tras Accept."""
+        """(input, output, jobs). Only after Accept."""
         return Path(self.edit_in.text().strip()), Path(self.edit_out.text().strip()), int(self.spn_jobs.value())
 
     def output_options(self) -> dict:
-        """Flags vector/gif + formato elegidos para este batch. Solo tras Accept."""
+        """Vector/gif flags + format chosen for this batch. Only after Accept."""
         g = dict(getattr(self, "_gif_spec", {}))
         fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
         return {

@@ -1,4 +1,4 @@
-"""UI dialogs & actions: open/batch/crop/share/ops/layout (fixtures en conftest)."""
+"""UI dialogs & actions: open/batch/crop/share/ops/layout (fixtures in conftest)."""
 
 from pathlib import Path
 
@@ -26,7 +26,7 @@ def test_run_batch_sync(window, tmp_path: Path):
     results = window.run_batch_sync(src, dst)
     assert len(results) == 2
     assert all(r["status"] == "ok" for r in results)
-    assert len(list(dst.glob("*.png"))) == 4  # imagen + thumb por fichero
+    assert len(list(dst.glob("*.png"))) == 4  # image + thumb per file
 
 
 def test_batch_dialog_cancel(window, monkeypatch):
@@ -84,7 +84,7 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
     window.run_batch_dialog()
     assert seen["src"] == src and seen["dst"] == tmp_path / "dst"
     assert seen["jobs"] == 2
-    assert seen["vector"] is False  # preset por defecto, sin SVG
+    assert seen["vector"] is False  # default preset, no SVG
     assert seen["preset"].export_size == 3000
     assert seen["preset"].export_format == "png"
 
@@ -227,23 +227,23 @@ def test_crop_editor_custom_free_frame(qt_app):
                            canvas_w=1920, canvas_h=800)
     assert dlg.ratio == "custom"
     assert (dlg.doc_w, dlg.doc_h) == (1920, 800)
-    assert dlg.spn_w.isEnabled()  # custom: W/H editables
+    assert dlg.spn_w.isEnabled()  # custom: editable W/H
     assert "1920×800" in dlg.lbl_summary.text()
-    dlg.spn_w.setValue(1600)  # editar W/H mantiene custom
+    dlg.spn_w.setValue(1600)  # editing W/H keeps custom
     assert dlg.ratio == "custom"
     assert (dlg.doc_w, dlg.doc_h) == (1600, 800)
-    # Marco libre con el aspecto pedido.
+    # Free frame with the requested aspect.
     view = CropView(src, "custom", "cover", 50, 50, 1.0, canvas_w=1600, canvas_h=800)
     view.resize(600, 600)
     lay = view._layout()
     assert abs(lay["frame"].width() / lay["frame"].height() - 2.0) < 0.05
-    dlg.cmb_ratio.setCurrentText("1:1")  # volver a preset bloquea W/H
+    dlg.cmb_ratio.setCurrentText("1:1")  # switching back to preset locks W/H
     assert not dlg.spn_w.isEnabled()
     close_dialog(dlg)
 
 
 def test_crop_zoom_anchor_does_not_snap_back(qt_app):
-    # Bucle del zoom: el punto bajo el cursor sobrevive a cada paso.
+    # Zoom loop: the point under the cursor survives each step.
     from PIL import Image as Img
     from PySide6.QtCore import QPointF
 
@@ -289,8 +289,8 @@ def test_crop_pan_moves_box_exactly(qt_app):
 
 
 def test_crop_drag_moves_frame_with_finger(qt_app):
-    # El marco sigue al dedo (la foto está fija): arrastrar a la derecha
-    # y abajo desplaza la caja en +x/+y.
+    # The frame follows the finger (the photo stays fixed): dragging right
+    # and down moves the box in +x/+y.
     from PySide6.QtCore import QPointF, Qt
     from PySide6.QtGui import QMouseEvent
     from PIL import Image as Img
@@ -318,7 +318,7 @@ def test_crop_drag_moves_frame_with_finger(qt_app):
 
 
 def test_crop_editor_done_applies_visible_crop(window, qt_app):
-    # E2E: gestos en el diálogo -> Done -> win.result cambia de verdad.
+    # E2E: gestures in the dialog -> Done -> win.result really changes.
     from PIL import Image as Img
     from PySide6.QtCore import QPointF
 
@@ -350,7 +350,7 @@ def test_crop_editor_done_applies_visible_crop(window, qt_app):
 
 
 def test_cover_pixmap_cached_and_invalidated(qt_app):
-    # P1: la foto no se reconvierte en cada paint; rotar invalida.
+    # P1: the photo is not reconverted on every paint; rotating invalidates it.
     from PIL import Image as Img
 
     from app.ui.crop_editor import CropView

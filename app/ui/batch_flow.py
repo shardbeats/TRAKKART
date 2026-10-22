@@ -11,15 +11,15 @@ from __future__ import annotations
 
 
 def _dialog_cls():
-    # La clase se resuelve en el namespace de main_window (no import directo)
-    # para que los tests puedan sustituirla (monkeypatch MW.BatchDialog).
+    # Class is resolved in the main_window namespace (no direct import)
+    # so tests can substitute it (monkeypatch MW.BatchDialog).
     from app.ui import main_window as _mw
 
     return _mw.BatchDialog
 
 
 def run_batch_dialog(win) -> None:
-    """Un solo diálogo validado, no dos seguidos a ciegas."""
+    """Single validated dialog, no two blind dialogs in a row."""
     from dataclasses import replace
 
     from app.canvas import doc_dimensions
@@ -73,7 +73,7 @@ def run_batch_dialog(win) -> None:
 
 
 def _worker_cls():
-    # Igual que _dialog_cls: resoluble vía MW para los stubs de tests.
+    # Same as _dialog_cls: resolvable via MW for test stubs.
     from app.ui import main_window as _mw
 
     return _mw.BatchWorker

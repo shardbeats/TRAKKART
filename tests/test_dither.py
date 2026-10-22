@@ -60,7 +60,7 @@ def test_checker_exact_pattern():
     solid = Image.new("RGB", (4, 4), (200, 200, 200))
     out = ordered(solid, palette=None, map_name="checker", threshold=128)
     px = list(out.convert("L").get_flattened_data())
-    # Tablero 2x2 repetido: esquinas opuestas iguales, adyacentes distintas.
+    # Repeated 2x2 board: opposite corners match, adjacent ones differ.
     assert px[0] == px[1 + 4] != px[1] == px[4]
 
 

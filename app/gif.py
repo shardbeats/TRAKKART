@@ -5,7 +5,7 @@ Modes:
   hue    = hue cycle (sinus, loops perfectly)
   both   = phase + hue (legacy default)
   glitch = CRT glitch anim (chroma + slice + wave) + phase march
-  mix    = phase + hue + glitch + grain shimmer (todo junto)
+   mix    = phase + hue + glitch + grain shimmer (all together)
 
 ED methods (floyd/atkinson/...) ignore `phase`, so glitch/mix keep
 them alive via post-fx animation. Everything deterministic:
@@ -47,15 +47,15 @@ def mode_desc(mode: str) -> str:
 
 GIF_MAX_SIDE = 480
 GIF_MIN_SIDE = 240
-GIF_LIMIT_SIDE = 8000  # el canvas manda: el anim sale al tamaño del documento
+GIF_LIMIT_SIDE = 8000  # canvas rules: the anim ships at document size
 GIF_MIN_FPS = 2
 GIF_MAX_FPS = 60
 GIF_MIN_FRAMES = 2
 GIF_MAX_FRAMES = 24
-# Sugeridos (combos editables: la lista orienta, el valor es libre).
+# Suggested (editable combos: the list guides, the value is free).
 GIF_FPS_SUGGESTED = (8, 12, 24, 30, 48, 60)
 GIF_FRAMES_SUGGESTED = (4, 6, 8, 12, 24)
-# Video preview a canvas completo (personalizable, default 1200).
+# Full-canvas video preview (customizable, default 1200).
 VIDEO_DEFAULT_SIZE = 1200
 VIDEO_MIN_SIZE = 480
 VIDEO_MAX_SIZE = 1920

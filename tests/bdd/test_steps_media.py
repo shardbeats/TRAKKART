@@ -73,7 +73,7 @@ def duotone_order(ctx):
 
 
 def gradient_map_for(ctx, rgb):
-    """Aplica el mismo duotone del step a un color plano (helper, no step)."""
+    """Apply the same duotone as the step to a flat color (helper, not a step)."""
     from PIL import Image as Img
 
     from app.grade import gradient_map
@@ -233,6 +233,6 @@ def pingpong_ok(ctx):
     assert len(ctx["frames"]) == 6  # 4 + middle reversed
     first = list(ctx["frames"][0].get_flattened_data())
     last = list(ctx["frames"][-1].get_flattened_data())
-    # No hay salto: el último es el segundo frame (ida-vuelta).
+    # No jump: the last frame equals the second frame (round trip).
     second = list(ctx["frames"][1].get_flattened_data())
     assert last == second and first != second

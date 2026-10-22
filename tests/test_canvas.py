@@ -67,14 +67,14 @@ def test_invalid_ratio_and_mode_fallback():
 def test_stretch_honors_ratio_without_crop():
     out = to_canvas(_img(), ratio="9:16", mode="stretch")
     assert out.size[0] / out.size[1] == 9 / 16
-    # Misma magnitud que la fuente: lado largo preservado.
+    # Same magnitude as the source: long side preserved.
     assert max(out.size) == 400
 
 
 def test_blur_fits_whole_image_without_bars():
     out = to_canvas(_img(), ratio="1:1", mode="blur")
     assert out.size == (400, 400)
-    # Sin barras negras puras en las esquinas: el fondo es blur, no (0,0,0).
+    # No pure-black bars in the corners: the background is blur, not (0,0,0).
     assert out.getpixel((0, 0)) != (0, 0, 0)
     out169 = to_canvas(_img(), ratio="16:9", mode="blur")
     assert out169.size == (400, 225)
@@ -94,7 +94,7 @@ def test_crop_zoom_tighter_same_ratio():
 
 
 def test_custom_ratio_free_dimensions():
-    # Photoshop-style: custom = W/H libres, sin 1:1 forzado.
+    # Photoshop-style: custom = free W/H, no forced 1:1.
     assert CUSTOM_RATIO not in ratio_names()
     assert canvas_ratios() == ratio_names() + ["Custom"]
     assert ratio_label("custom") == "Custom"
@@ -103,14 +103,14 @@ def test_custom_ratio_free_dimensions():
     assert doc_dimensions("custom", 3000, 1920, 800) == (1920, 800)
     assert doc_dimensions("1:1", 3000, 0, 0) == (3000, 3000)
     out = to_canvas(_img(), ratio="custom", canvas_w=1920, canvas_h=800)
-    assert out.size == (400, 167)  # aspecto libre a escala de la fuente
+    assert out.size == (400, 167)  # free aspect at the source scale
     out = to_canvas(_img(), ratio="custom", mode="contain", canvas_w=1920, canvas_h=800)
     assert out.size[0] / out.size[1] == 1920 / 800
     out = to_canvas(_img(), ratio="custom", mode="stretch", canvas_w=1920, canvas_h=800)
     assert (out.width, out.height) == (400, 167)
     out = to_canvas(_img(), ratio="custom", mode="blur", canvas_w=1920, canvas_h=800)
     assert (out.width, out.height) == (400, 167)
-    # Sin W/H el custom cae a 1:1 (seguro, nunca revienta).
+    # Without W/H, custom falls back to 1:1 (safe, never crashes).
     assert to_canvas(_img(), ratio="custom").size == (300, 300)
 
 
@@ -125,7 +125,7 @@ def test_crop_box_for_mirrors_crop_cover():
 
 
 def test_crop_zoom_reaches_corners_not_just_center():
-    # fx/fy posicionan la caja con zoom: esquinas y bordes, sin recentrado.
+    # fx/fy position the box under zoom: corners and edges, no recentering.
     from app.canvas import crop_box_for
 
     assert crop_box_for(400, 300, "1:1", 0, 0, 2.0)[:2] == (0, 0)
@@ -133,7 +133,7 @@ def test_crop_zoom_reaches_corners_not_just_center():
     assert (bx, by) == (400 - bw, 300 - bh)
     mid = crop_box_for(400, 300, "1:1", 50, 50, 2.0)
     assert mid[0] == round((400 - mid[2]) / 2.0)
-    # Paridad diálogo/pipeline: lo enmarcado es lo recortado.
+    # Dialog/pipeline parity: the framed area is what gets cropped.
     halves = Image.new("RGB", (400, 300), (200, 30, 30))
     halves.paste(Image.new("RGB", (200, 300), (30, 30, 200)), (200, 0))
     left = to_canvas(halves, ratio="1:1", fx=0, fy=50, zoom=2.0)

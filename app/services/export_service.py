@@ -1,7 +1,7 @@
 """Export service: render full-res + optional SVG/GIF + bundle + history.
 
-Extraído de MainWindow.export() (que mezclaba UI + pipeline + IO).
-La UI solo muestra diálogos; esto hace el trabajo testeable.
+Extracted from MainWindow.export() (which mixed UI + pipeline + IO).
+The UI only shows dialogs; this does the testable work.
 """
 
 from __future__ import annotations
@@ -39,21 +39,21 @@ def export_full(
     mp4: bool = False,
     mp4_fps: int | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
-    """Renderiza, genera SVG/GIF/MP4 si se piden, guarda bundle y loguea.
+    """Render, generate SVG/GIF/MP4 on request, write bundle and log.
 
-    Retorna (paths escritos, keys omitidas por skip). Sin `selection`
-    equivale al bundle completo clásico. size/format/quality pisan al preset
-    (los elige el diálogo); None = valor del preset.
-    MP4 se escribe como fichero extra `{base}_anim.mp4` fuera del bundle
-    (single-export; el batch sigue ruta GIF).
+    Returns (written paths, keys skipped). Without `selection` it equals
+    the classic full bundle. size/format/quality override the preset
+    (chosen by the dialog); None = preset value.
+    MP4 is written as an extra `{base}_anim.mp4` file outside the bundle
+    (single-export; batch keeps the GIF route).
     """
     from app.vector import estimate_cells
 
     sel = selection or ExportSelection(
         vector=bool(preset.vector_export), anim=bool(preset.gif_export),
     )
-    # La selección (diálogo o prefs) manda; el preset aporta parámetros
-    # (celda, ratio, frames/mode por defecto). El batch usa el preset directo.
+    # The selection (dialog or prefs) wins; the preset provides parameters
+    # (cell, ratio, default frames/mode). Batch uses the preset directly.
     want_vector = bool(sel.vector)
     want_gif = bool(sel.anim)
     want_mp4 = bool(mp4)
@@ -79,7 +79,7 @@ def export_full(
     frames: list[Image.Image] | None = None
     fps = int(gif_fps if gif_fps is not None else getattr(preset, "gif_fps", 8))
     if want_gif or want_mp4:
-        from app.gif import gif_frames as _gif_frames  # alias: no shadow al parámetro
+        from app.gif import gif_frames as _gif_frames  # alias: no shadowing of the parameter
 
         frames = _gif_frames(
             src, preset,

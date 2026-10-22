@@ -1,5 +1,5 @@
-"""Shared QThread base — antes PreviewWorker y BatchWorker duplicaban
-el patrón QThread + try/except + señal de error cada uno por su lado."""
+"""Shared QThread base — before PreviewWorker and BatchWorker duplicated
+the QThread + try/except + error-signal pattern each on their own."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from PySide6.QtCore import QThread
 
 
 class WorkerBase(QThread):
-    """Template-method: `work()` hace el trabajo, `run()` lo envuelve.
+    """Template-method: `work()` does the job, `run()` wraps it.
 
-    Las subclases implementan `work()` y `_report_error()`. La API pública
-    (señales y constructor) de cada worker no cambia.
+    Subclasses implement `work()` and `_report_error()`. The public API
+    (signals and constructor) of each worker is unchanged.
     """
 
     def run(self) -> None:  # noqa: N802

@@ -1,4 +1,4 @@
-"""Custom palette UX: roles, usage, strip, dialog (fixtures en conftest)."""
+"""Custom palette UX: roles, usage, strip, dialog (fixtures in conftest)."""
 
 import pytest
 
@@ -33,7 +33,7 @@ def test_palette_usage_half_half():
 
 
 def test_strip_shows_colors_and_hint(window):
-    assert window.lbl_custom.text() == "4/16"  # preset SLIME precargado
+    assert window.lbl_custom.text() == "4/16"  # preset SLIME preloaded
     assert window.lbl_palette_hint.text() == ""
     window._set_custom_colors([(255, 0, 0)])
     assert window.lbl_custom.text() == "1/16"
@@ -42,7 +42,7 @@ def test_strip_shows_colors_and_hint(window):
     window._set_custom_colors([(0, 0, 0), (255, 255, 255)])
     assert window.lbl_palette_hint.text() == ""
     assert window.lbl_custom.text() == "2/16"
-    # click en el primer swatch lo quita
+    # clicking the first swatch removes it
     sw = window.palette_strip.itemAt(0).widget()
     sw.click()
     assert window.custom_colors == [(255, 255, 255)]
@@ -78,10 +78,10 @@ def test_dialog_add_and_edit(qt_app, monkeypatch):
     dlg._add()
     assert (17, 34, 51) in dlg.colors
     monkeypatch.setattr(QColorDialog, "getColor", lambda *a, **k: QColor())
-    dlg._add()  # cancel: no cambia
+    dlg._add()  # cancel: no change
     assert len(dlg.colors) == 2
     dlg._edit(0)
-    assert (17, 34, 51) in dlg.colors  # inválido: no cambia (sigue el dupe check)
+    assert (17, 34, 51) in dlg.colors  # invalid: unchanged (dupe check still applies)
     close_dialog(dlg)
 
 

@@ -1,9 +1,9 @@
 """Stability + security + CPU budgets: anti-hang, anti-leak, anti-bomb.
 
-Garantías: sin tormentas de hilos (coalescing), sin renders redundantes
-(debounce), ficheros corruptos nunca tumban la app, el batch se cancela
-limpio, la memoria no crece por render y los límites de seguridad paran
-bombas antes de decodificar.
+Guarantees: no thread storms (coalescing), no redundant renders
+(debounce), corrupt files never take down the app, batch cancels
+cleanly, memory does not grow per render, and safety limits stop
+bombs before decoding.
 """
 
 import time
@@ -14,7 +14,7 @@ pytestmark = pytest.mark.slow
 
 
 def _rss_mb() -> float:
-    """RSS del proceso en MB (stdlib; Windows vía ctypes, resto vía resource)."""
+    """Process RSS in MB (stdlib; Windows via ctypes, rest via resource)."""
     try:
         import resource
 
@@ -39,7 +39,7 @@ def _rss_mb() -> float:
 
 
 def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
-    """5 refresh rápidos con imagen pesada → ≤2 workers, no tormenta de hilos."""
+    """5 fast refreshes with a heavy image → ≤2 workers, no thread storm."""
     import time as _t
 
     import app.accelerate as A
@@ -47,7 +47,7 @@ def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
     from PIL import Image
     from PySide6.QtCore import QCoreApplication
 
-    monkeypatch.setattr(A, "has_numba", lambda: False)  # fuerza ruta async
+    monkeypatch.setattr(A, "has_numba", lambda: False)  # force the async path
     created: list = []
     Real = PW.PreviewWorker
 
@@ -72,7 +72,7 @@ def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
 
 
 def test_debounce_coalesces_renders(window, qt_app, monkeypatch):
-    """20 cambios de slider seguidos → 1 solo render (no 20)."""
+    """20 back-to-back slider changes → a single render (not 20)."""
     import app.services.render_service as RS
     from PySide6.QtTest import QTest
 
@@ -85,8 +85,8 @@ def test_debounce_coalesces_renders(window, qt_app, monkeypatch):
 
     monkeypatch.setattr(RS, "render_full", counting)
     for v in range(100, 120):
-        window.sld_thr.setValue(v)  # solo arma el timer, sin procesar eventos
-    QTest.qWait(800)  # deja que el debounce (350ms) dispare
+        window.sld_thr.setValue(v)  # only arms the timer, no event processing
+    QTest.qWait(800)  # let the debounce (350ms) fire
     assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
     assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
     assert window.result is not None
@@ -98,7 +98,7 @@ def test_corrupt_files_never_crash(window, tmp_path):
     (tmp_path / "text.png").write_text("not an image", encoding="utf-8")
     (tmp_path / "cut.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
     for name in ("empty.png", "text.png", "cut.png", "missing.png"):
-        window._load_path(tmp_path / name)  # avisa, no lanza
+        window._load_path(tmp_path / name)  # warns, does not raise
     assert list(window.src.get_flattened_data()) == list(before.get_flattened_data())
 
 
@@ -128,7 +128,7 @@ def test_batch_cancel_midrun(tmp_path):
     cancel = [False]
 
     def _cb(done, total, name):
-        cancel[0] = True  # cancela tras el primer fichero
+        cancel[0] = True  # cancels after the first file
 
     t = time.time()
     results = batch_process(src, dst, Preset(name="t"), progress_cb=_cb, cancel=cancel)
@@ -146,12 +146,12 @@ def test_vector_bomb_blocked_in_export(window, qt_app, monkeypatch):
 
     warned: list = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a))
-    window.cmb_method.setCurrentText("bayer4")  # render rápido, la bomba está en el SVG
+    window.cmb_method.setCurrentText("bayer4")  # fast render, the bomb is in the SVG
     window.src = Image.new("RGB", (1700, 1700), (9, 9, 9))
-    window._vector_export = True  # el preset pide SVG…
-    window._vector_cell = 4  # 425x425 = 180k celdas > límite
+    window._vector_export = True  # the preset asks for SVG…
+    window._vector_cell = 4  # 425x425 = 180k cells > limit
     accept_next_dialog(ExportDialog)
-    window.export()  # avisa TooBigError, no revienta
+    window.export()  # warns TooBigError, does not crash
     assert warned
 
 
@@ -165,7 +165,7 @@ def test_oversized_data_url_rejected(monkeypatch):
     url = "data:image/png;base64," + base64.b64encode(b"x" * 100).decode()
     try:
         IO.decode_data_url(url)
-        raise AssertionError("debió fallar")
+        raise AssertionError("should have failed")
     except TooBigError:
         pass
 
@@ -175,7 +175,7 @@ def test_bomb_header_rejected_without_decoding(window, tmp_path):
 
     Image.new("RGB", (9000, 10), (1, 2, 3)).save(tmp_path / "bomb.png")
     before = window.src.size
-    window._load_path(tmp_path / "bomb.png")  # TooBigError por cabecera, sin decodificar
+    window._load_path(tmp_path / "bomb.png")  # TooBigError from headers, no decoding
     assert window.src.size == before
 
 
@@ -189,7 +189,7 @@ def test_cpu_budgets():
     im = Image.new("RGB", (960, 960), (90, 60, 120))
     t = time.time()
     ordered(im, palette=get_palette("SLIME"), map_name="bayer8")
-    assert time.time() - t < 5, "bayer 960px se salió del presupuesto"
+    assert time.time() - t < 5, "bayer 960px exceeded budget"
     import tempfile
     from pathlib import Path
 
@@ -197,14 +197,14 @@ def test_cpu_budgets():
         small = Image.new("RGB", (256, 256), (9, 9, 9))
         t = time.time()
         export_bundle(small, Path(tmp), base="b")
-        assert time.time() - t < 15, "export bundle se salió del presupuesto"
+        assert time.time() - t < 15, "export bundle exceeded budget"
 
 
 def test_rss_does_not_grow_per_render(window):
     from app.services.render_service import render_full
 
     preset = window.current_params()
-    render_full(window.src, preset)  # calienta caches (_BLUE_BASE, crosshatch…)
+    render_full(window.src, preset)  # warm up caches (_BLUE_BASE, crosshatch…)
     base = _rss_mb()
     for _ in range(5):
         render_full(window.src, preset)

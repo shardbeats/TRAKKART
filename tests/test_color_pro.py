@@ -35,7 +35,7 @@ def test_source_mode_renders():
 
     spec = RenderSpec(method="bayer4", palette_name="SOURCE", palette_depth=2)
     out = render_spec(_img_half(), spec)
-    assert out.size == (32, 32)  # canvas 1:1 por defecto recorta a cuadrado
+    assert out.size == (32, 32)  # default 1:1 canvas crops to a square
 
 
 def test_depth_truncates_named_palette():

@@ -1,4 +1,4 @@
-"""Shared BDD givens/thens used by 2+ domain modules (visible a todo tests/bdd)."""
+"""Shared BDD givens/thens used by 2+ domain modules (visible to all of tests/bdd)."""
 
 from PIL import Image
 from pytest_bdd import given, then

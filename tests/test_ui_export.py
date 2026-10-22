@@ -1,4 +1,4 @@
-"""Export profesional: plan, políticas, prefs, diálogos, quick (fixtures en conftest)."""
+"""Professional export: plan, policies, prefs, dialogs, quick (fixtures in conftest)."""
 
 from pathlib import Path
 
@@ -22,7 +22,7 @@ def test_plan_lists_everything(tmp_path: Path):
     keys = [k for k, _, _ in plan]
     assert keys == ["image", "thumb_1080p", "vector", "anim", "metadata"]
     names = [f for _, f, _ in plan]
-    assert names[0] == "mix.png"  # la imagen manda: nombre + extensión
+    assert names[0] == "mix.png"  # the image rules: name + extension
     assert all(f.startswith("mix") for f in names)
     assert all(est > 0 for _, _, est in plan)
 
@@ -44,8 +44,8 @@ def test_plan_jpg_uses_extension_and_size():
     opts = ExportOptions(base="j", size=400, format="jpg", quality=80)
     plan = dict((k, (f, e)) for k, f, e in plan_export(img, opts, meta={"ratio": "2:1"}))
     assert plan["image"][0] == "j.jpg"
-    assert plan["thumb_1080p"][0] == "j_thumb1080p.jpg"  # mismo formato
-    # el thumb siempre es 1920x1080
+    assert plan["thumb_1080p"][0] == "j_thumb1080p.jpg"  # same format
+    # the thumb is always 1920x1080
 
 
 def test_with_options_subset_and_rename(tmp_path: Path):
@@ -57,12 +57,12 @@ def test_with_options_subset_and_rename(tmp_path: Path):
     assert set(paths) == {"image", "metadata"}
     assert paths["image"].suffix == ".png"
     assert skipped == []
-    # rename: segunda vez con el mismo base no pisa
+    # rename: second time with the same base does not overwrite
     paths2, _ = export_with_options(
         _img(), tmp_path, ExportOptions(base="sel", selection=opts.selection,
                                         overwrite="rename"))
     assert paths2["image"].name == "sel_2.png"
-    assert (tmp_path / "sel.png").exists()  # el original intacto
+    assert (tmp_path / "sel.png").exists()  # the original stays intact
 
 
 def test_skip_policy_returns_existing(tmp_path: Path):
@@ -89,7 +89,7 @@ def test_format_mapping_writes_real_files(tmp_path: Path):
         assert paths["image"].suffix == f".{ext}"
         assert paths["image"].stat().st_size > 0
         with Image.open(paths["image"]) as im:
-            im.load()  # fichero válido
+            im.load()  # valid file
 
 
 def test_invalid_options_rejected():
@@ -113,19 +113,19 @@ def test_base_sanitized(tmp_path: Path):
     paths = export_bundle(_img(), tmp_path, base="../../evil")
     for p in paths.values():
         assert tmp_path.resolve() in p.resolve().parents
-    assert (tmp_path / "evil_cover.png").exists()  # sin traversal ni rachas
+    assert (tmp_path / "evil_cover.png").exists()  # no traversal, no stray runs
 
 
 def test_prefs_roundtrip_and_corrupt(tmp_path: Path):
     from app.export_prefs import ExportPrefs, load_prefs, save_prefs
 
     f = tmp_path / "p.json"
-    assert load_prefs(f).base == "trakkart_cover"  # sin fichero: defaults
+    assert load_prefs(f).base == "trakkart_cover"  # no file: defaults
     save_prefs(ExportPrefs(base="mibase", out_dir=str(tmp_path), gif_frames=4), f)
     assert load_prefs(f).base == "mibase"
     assert load_prefs(f).gif_frames == 4
     f.write_text("{roto", encoding="utf-8")
-    assert load_prefs(f).base == "trakkart_cover"  # roto: defaults
+    assert load_prefs(f).base == "trakkart_cover"  # corrupt: defaults
 
 
 def test_export_dialog_plan_and_options(qt_app):
@@ -135,7 +135,7 @@ def test_export_dialog_plan_and_options(qt_app):
 
     dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d",
                        out_dir="/tmp", selection=ExportSelection(vector=True))
-    assert dlg.chk_vector.isChecked()  # el diálogo manda, siempre habilitado
+    assert dlg.chk_vector.isChecked()  # the dialog is in charge, always enabled
     assert dlg.chk_vector.isEnabled()
     assert dlg.btn_export.isEnabled()
     n0 = dlg.list_files.count()
@@ -147,7 +147,7 @@ def test_export_dialog_plan_and_options(qt_app):
     assert opts.selection.thumb_1080p is False
     assert (gopts["frames"], gopts["mode"]) == (6, "both")
     assert (gopts["fps"], gopts["size"], gopts["pingpong"]) == (8, 3000, False)
-    # tamaño + formato viajan en las opciones
+    # size + format travel in the options
     dlg2 = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
     o2, _, _ = dlg2.options()
     assert (o2.size, o2.format, o2.quality) == (1920, "jpg", 80)
@@ -156,7 +156,7 @@ def test_export_dialog_plan_and_options(qt_app):
 
 
 def test_export_dialog_size_and_format(qt_app):
-    # Doc único: el tamaño viene de CANVAS, el diálogo solo lo muestra.
+    # Single doc: the size comes from CANVAS, the dialog only shows it.
     from app.exporter import plan_export
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
@@ -173,7 +173,7 @@ def test_export_dialog_size_and_format(qt_app):
 
 
 def test_quick_never_overwrites_repeats_rename(window, qt_app):
-    # Ni quick ni el diálogo pisan: repetir crea _2 (aunque prefs digan overwrite).
+    # Neither quick nor the dialog overwrite: repeating creates _2 (even if prefs say overwrite).
     from app.export_prefs import ExportPrefs, save_prefs
 
     save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="req",
@@ -235,7 +235,7 @@ def _fake_collision_box(choice):
 
 
 class _NoBox:
-    """QMessageBox que revienta si se instancia (sin colisión no hay diálogo)."""
+    """QMessageBox that crashes if instantiated (no dialog without a collision)."""
 
     def __init__(self, *a, **k):
         raise AssertionError("no dialog expected without collision")
@@ -247,7 +247,7 @@ def test_resolve_collision_branches(tmp_path, qt_app, monkeypatch):
 
     opts = ExportOptions(base="c", selection=ExportSelection(
         image=True, thumb_1080p=False, vector=False, anim=False, metadata=False))
-    # Sin colisión: rename sin preguntar.
+    # No collision: rename without asking.
     monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _NoBox)
     assert _ef.resolve_collision(None, tmp_path, opts) == "rename"
     (tmp_path / "c.png").write_bytes(b"x")
@@ -324,7 +324,7 @@ def test_quick_export_headless(window, qt_app):
                            image=True, thumb_1080p=False,
                            metadata=True), window._prefs_path)
     window.refresh()
-    window.export(quick=True)  # no pregunta: repite prefs
+    window.export(quick=True)  # does not ask: repeats prefs
     assert (window.out_dir / "quick.png").exists()
     assert (window.out_dir / "quick_metadata.json").exists()
     assert not (window.out_dir / "quick_thumb1080p.png").exists()
@@ -342,7 +342,7 @@ def test_export_dialog_e2e_defaults(window, qt_app):
 
 
 def test_stale_prefs_yield_fresh_name(window, qt_app):
-    # Prefs de otra imagen: el diálogo propone el src actual, no el viejo.
+    # Prefs from another image: the dialog proposes the current src, not the old one.
     from app.export_prefs import ExportPrefs, save_prefs
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import accept_next_dialog
@@ -360,7 +360,7 @@ def test_stale_prefs_yield_fresh_name(window, qt_app):
 
 
 def test_quick_with_new_image_opens_dialog(window, qt_app):
-    # Quick nunca escribe en silencio con el nombre rancio: abre diálogo.
+    # Quick never silently writes with the stale name: it opens a dialog.
     from app.export_prefs import ExportPrefs, save_prefs
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import accept_next_dialog
@@ -386,8 +386,8 @@ def test_paste_gets_own_name(window, qt_app):
 
 
 def test_video_on_prechecks_anim_in_dialog(window, qt_app):
-    # VIDEO preview ON => Animation GIF pre-marcado (desmarcable, ~MB visible).
-    # Cubre las dos vías de init: sin prefs (desde preset) y con prefs.
+    # VIDEO preview ON => Animation GIF pre-checked (uncheckable, ~MB visible).
+    # Covers both init paths: without prefs (from preset) and with prefs.
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import accept_next_dialog
 
@@ -396,7 +396,7 @@ def test_video_on_prechecks_anim_in_dialog(window, qt_app):
 
     def _setup(dlg):
         seen.setdefault("off" if "off" not in seen else "on", dlg.chk_anim.isChecked())
-        dlg.chk_anim.setChecked(False)  # no escribir GIF: solo importa el default
+        dlg.chk_anim.setChecked(False)  # do not write GIF: only the default matters
 
     window._video_on = False
     accept_next_dialog(ExportDialog, setup=_setup)
@@ -408,7 +408,7 @@ def test_video_on_prechecks_anim_in_dialog(window, qt_app):
 
 
 def _make_fake_box(clicked_name):
-    """Fake QMessageBox sin modal: clicked_name es 'show' o 'close'."""
+    """Fake QMessageBox without modal: clicked_name is 'show' or 'close'."""
     show_btn, close_btn = object(), object()
 
     class FakeMsg:
@@ -439,7 +439,7 @@ def _make_fake_box(clicked_name):
 
 
 def test_show_exported_opens_folder_only_on_click(tmp_path, qt_app, monkeypatch):
-    # El diálogo post-export abre la carpeta solo con "Show in folder".
+    # The post-export dialog opens the folder only with "Show in folder".
     import app.ui.export_flow as _ef
 
     opened = {}
@@ -479,7 +479,7 @@ def test_file_name_section_previews_and_resets(qt_app):
 
 
 def test_gif_opts_come_from_video(window, qt_app):
-    # Sin duplicados: el export no edita animación, solo on/off; la spec es la de VIDEO.
+    # No duplicates: export does not edit animation, only on/off; the spec is VIDEO's.
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
@@ -500,8 +500,8 @@ def test_gif_dialog_without_preset(qt_app):
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
-    dlg = ExportDialog(_img(), {"ratio": "1:1"})  # sin preset: sin preview igual
-    dlg.chk_anim.setChecked(True)  # no revienta
+    dlg = ExportDialog(_img(), {"ratio": "1:1"})  # no preset: still no preview
+    dlg.chk_anim.setChecked(True)  # does not crash
     assert not hasattr(dlg, "lbl_gifprev")
     close_dialog(dlg)
 
@@ -515,7 +515,7 @@ def test_batch_dialog_validation(tmp_path: Path, qt_app):
     assert count_images(src) == 0
     assert count_images(tmp_path / "nope") == 0
     dlg = BatchDialog(in_dir=str(src), out_dir="", jobs=3)
-    assert not dlg.btn_run.isEnabled()  # sin out ni imágenes
+    assert not dlg.btn_run.isEnabled()  # no out or images
     from PIL import Image
 
     Image.new("RGB", (16, 16)).save(src / "a.png")
@@ -557,9 +557,9 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
     for gone in ("spn_gframes", "cmb_gifmode", "spn_gfps", "spn_gsize",
                  "chk_pingpong", "spn_size", "cmb_size"):
         assert not hasattr(dlg, gone)
-    assert "cells" in dlg.lbl_vec_est.text()  # estimación con el canvas actual
+    assert "cells" in dlg.lbl_vec_est.text()  # estimate with the current canvas
     dlg2 = BatchDialog(in_dir=str(src), out_dir=str(tmp_path / "o"))
-    assert dlg2.lbl_vec_est.text() == ""  # sin canvas: sin estimación
+    assert dlg2.lbl_vec_est.text() == ""  # no canvas: no estimate
     dlg.accept()
     assert dlg.result() == dlg.DialogCode.Accepted
     close_dialog(dlg)

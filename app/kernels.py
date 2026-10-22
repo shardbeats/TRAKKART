@@ -43,18 +43,18 @@ COEFFS: dict[str, list[tuple[int, int, float]]] = {
         (2, -2, 12 / 200), (2, 0, 26 / 200), (2, 2, 12 / 200),
         (3, -3, 5 / 200), (3, -1, 12 / 200), (3, 1, 12 / 200), (3, 3, 5 / 200),
     ],
-    # Shiau-Fan 5x3 en su forma publicada habitual (suma 42): denso y suave,
-    # a medio camino entre Burkes y Stucki en agresividad.
+    # Shiau-Fan 5x3 in its usual published form (sums to 42): dense and smooth,
+    # halfway between Burkes and Stucki in aggressiveness.
     "shiaufan": [
         (0, 1, 8 / 42), (0, 2, 4 / 42),
         (1, -2, 2 / 42), (1, -1, 4 / 42), (1, 0, 8 / 42), (1, 1, 4 / 42), (1, 2, 2 / 42),
         (2, -2, 1 / 42), (2, -1, 2 / 42), (2, 0, 4 / 42), (2, 1, 2 / 42), (2, 2, 1 / 42),
     ],
-    # Filter Lite: rapidísimo (2 toques), granulado fino tipo semitono.
+    # Filter Lite: super fast (2 taps), fine halftone-like grain.
     "filterlite": [(0, 1, 7 / 8), (1, 0, 1 / 8)],
-    # Sierra Lite: el clásico mínimo de 2 filas (divisor 4).
+    # Sierra Lite: the classic 2-row minimum (divisor 4).
     "sierralite": [(0, 1, 2 / 4), (1, -1, 1 / 4), (1, 0, 1 / 4)],
-    # Sierra-3 completo de 3 filas (divisor 32), el más suave de la familia.
+    # Full 3-row Sierra-3 (divisor 32), the smoothest of the family.
     "sierra3": [
         (0, 1, 5 / 32), (0, 2, 3 / 32),
         (1, -2, 2 / 32), (1, -1, 4 / 32), (1, 0, 5 / 32), (1, 1, 4 / 32), (1, 2, 2 / 32),
@@ -77,7 +77,7 @@ def _backend(name: str) -> str:
     if name not in BACKENDS:
         return "auto"
     if name == "numba" and not has_numba():
-        raise RuntimeError("numba no instalado: pip install numba")
+        raise RuntimeError("numba not installed: pip install numba")
     return name
 
 
@@ -121,8 +121,8 @@ def diffuse_color(
         pal = np.asarray(palette, dtype=np.float32)
         dys, dxs, wts = coeffs_to_arrays(coeffs)
         return ed_color(np.ascontiguousarray(arr, dtype=np.float32), pal, dys, dxs, wts)
-    # Fallback numpy: paleta como array + búsqueda vectorizada por fila.
-    # Antes: doble loop python (y,x) + loop python sobre paleta -> ~50x más lento.
+    # Numpy fallback: palette as array + vectorized per-row search.
+    # Before: double python loop (y,x) + python loop over palette -> ~50x slower.
     pc = np.asarray(palette, dtype=np.float32)  # (P, 3)
     h, w, _ = arr.shape
     max_dy = max(dy for dy, _, _ in coeffs)
@@ -130,7 +130,7 @@ def diffuse_color(
         row = arr[y]
         nxt = [arr[y + k] if y + k < h else None for k in range(1, max_dy + 1)]
         for x in range(w):
-            px = row[x]  # vista (3,)
+            px = row[x]  # view (3,)
             d = np.sum((pc - px) ** 2, axis=1)
             best = int(np.argmin(d))
             nr, ng, nb = float(pc[best, 0]), float(pc[best, 1]), float(pc[best, 2])
@@ -172,17 +172,17 @@ def run_kernel(
 
 
 # ---------------------------------------------------------------------------
-# Hilbert-ordered diffusion (Riemersma-style). Recorre la imagen por una
-# curva de Hilbert en vez de por filas: el error se reparte a los siguientes
-# píxeles de la curva (fracciones de Floyd). Sin vetas horizontales.
+# Hilbert-ordered diffusion (Riemersma-style). Walks the image along a
+# Hilbert curve instead of rows: the error spreads to the next
+# pixels of the curve (Floyd fractions). No horizontal streaks.
 # ---------------------------------------------------------------------------
 
 _HILBERT_CACHE: dict[tuple[int, int], np.ndarray] = {}
-_HILBERT_CHUNK = 1 << 18  # trozos de 256k puntos: memoria acotada (~12MB)
+_HILBERT_CHUNK = 1 << 18  # 256k-point chunks: bounded memory (~12MB)
 
 
 def _d2xy_chunk(d: np.ndarray, n: int) -> tuple[np.ndarray, np.ndarray]:
-    """Distancia Hilbert -> (x, y). Vectorizado (algoritmo público d2xy)."""
+    """Hilbert distance -> (x, y). Vectorized (public d2xy algorithm)."""
     x = np.zeros_like(d)
     y = np.zeros_like(d)
     s = 1
@@ -205,7 +205,7 @@ def _d2xy_chunk(d: np.ndarray, n: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def hilbert_order(h: int, w: int) -> np.ndarray:
-    """Índices planos (y*w+x) en orden Hilbert. Cacheado por tamaño."""
+    """Flat (y*w+x) indices in Hilbert order. Cached by size."""
     key = (int(h), int(w))
     cached = _HILBERT_CACHE.get(key)
     if cached is not None:
@@ -226,7 +226,7 @@ def hilbert_order(h: int, w: int) -> np.ndarray:
     return order
 
 
-# Fracciones de Floyd a los 4 siguientes de la curva (suman 1).
+# Floyd fractions to the next 4 of the curve (sum to 1).
 _HILBERT_WTS = (7 / 16, 3 / 16, 5 / 16, 1 / 16)
 
 
@@ -235,11 +235,11 @@ def diffuse_hilbert(
     palette: list[tuple] | None,
     threshold: float = 128.0,
 ) -> np.ndarray:
-    """Difunde en orden Hilbert. arr float32 (H,W) gris o (H,W,3) RGB.
+    """Diffuse in Hilbert order. arr float32 (H,W) gray or (H,W,3) RGB.
 
-    Devuelve uint8. Secuencial por construcción (como todo ED): para
-    full-res grande se recomienda numba en el resto de motores; aquí el
-    recorrido numpy-vectorizado compensa el orden.
+    Returns uint8. Sequential by construction (like all ED): for
+    large full-res, numba is recommended in the other engines; here the
+    numpy-vectorized walk makes up for the order.
     """
     order = hilbert_order(arr.shape[0], arr.shape[1])
     n = len(order)

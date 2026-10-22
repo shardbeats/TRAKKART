@@ -51,7 +51,7 @@ def test_pixelsort_identity_and_sorts():
     out = pixel_sort(_img(), threshold=128)
     assert out.size == (32, 32)
     assert _flat(out) != _flat(_img())
-    assert _flat(pixel_sort(_img(), threshold=128)) == _flat(out)  # determinista
+    assert _flat(pixel_sort(_img(), threshold=128)) == _flat(out)  # deterministic
 
 
 def test_wave_identity_and_moves():
@@ -65,25 +65,25 @@ def test_mosh_and_grille():
     assert _flat(datamosh(_img())) == _flat(_img())
     a = datamosh(_img(), amount=50)
     assert _flat(a) != _flat(_img())
-    assert _flat(datamosh(_img(), amount=50)) == _flat(a)  # determinista
+    assert _flat(datamosh(_img(), amount=50)) == _flat(a)  # deterministic
     assert _flat(rgb_grille(_img())) == _flat(_img())
     assert _flat(rgb_grille(_img(), every=1)) == _flat(_img())
     assert _flat(rgb_grille(_img(), every=3)) != _flat(_img())
 
 
 def test_grille_every2_no_crash_and_tints():
-    # Regresión: mask[:, bool, [0, 2]] reventaba en numpy
+    # Regression: mask[:, bool, [0, 2]] used to crash numpy
     # "shape mismatch ... shapes (160,) (2,)".
     for w in (2, 3, 31, 320):
         im = Image.new("RGB", (w, 16), (200, 100, 50))
         out = rgb_grille(im, every=2)
         assert out.size == (w, 16)
         assert list(out.get_flattened_data()) != list(im.get_flattened_data())
-    # Columnas pares rojizas (G,B atenuados), impares verdosas (R,B atenuados).
+    # Even columns reddish (G,B attenuated), odd ones greenish (R,B attenuated).
     im = Image.new("RGB", (4, 1), (200, 100, 50))
     px = list(rgb_grille(im, every=2).get_flattened_data())
     assert px[0][0] == 200 and px[0][1] < 100 and px[0][2] < 50
     assert px[1][1] == 100 and px[1][0] < 200 and px[1][2] < 50
-    # Determinista.
+    # Deterministic.
     a = rgb_grille(_img(), every=2)
     assert _flat(rgb_grille(_img(), every=2)) == _flat(a)

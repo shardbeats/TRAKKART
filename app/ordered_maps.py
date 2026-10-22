@@ -47,7 +47,7 @@ def _bayer_2n(n: int) -> np.ndarray:
 BAYER_16X16 = _bayer_2n(16)
 BAYER_32X32 = _bayer_2n(32)
 
-# Pantallas de líneas/rejas (matemática estándar, originales en escala).
+# Line/grille screens (standard math, originals at scale).
 _LINES_8X8 = np.fromfunction(lambda i, j: (i % 8) * 32.0, (8, 8)).astype(np.float32)
 _COLUMNS_8X8 = np.fromfunction(lambda i, j: (j % 8) * 32.0, (8, 8)).astype(np.float32)
 _DIAG_8X8 = np.fromfunction(lambda i, j: ((i + j) % 8) * 32.0, (8, 8)).astype(np.float32)
@@ -79,7 +79,7 @@ CLUSTER_4X4 = np.array(
 
 _PATTERN_8X8 = np.fromfunction(lambda i, j: ((i + j) % 8) * 32.0, (8, 8)).astype(np.float32)
 
-# nombre -> (matriz, divisor de normalizacion)
+# name -> (matrix, normalization divisor)
 _ORDERED_DEFS: dict[str, tuple[np.ndarray, float]] = {
     "bayer4": (BAYER_4X4, 16.0),
     "bayer8": (BAYER_8X8, 64.0),
@@ -101,8 +101,8 @@ _CROSS_CACHE: dict[tuple[int, int], np.ndarray] = {}
 
 
 def _blue_base_tile() -> np.ndarray:
-    """Máscara base 64x64 (una sola vez). Antes se cacheaba por (h,w):
-    cada tamaño distinto generaba y retenía un array full-res -> leak."""
+    """Base 64x64 mask (built once). It used to be cached per (h,w):
+    each distinct size generated and held a full-res array -> leak."""
     global _BLUE_BASE
     if _BLUE_BASE is None:
         from PIL import Image, ImageFilter
@@ -124,9 +124,9 @@ def _blue_noise(h: int, w: int) -> np.ndarray:
 
 
 def _crosshatch(h: int, w: int) -> np.ndarray:
-    """Original crosshatch pattern with sines. Deterministic + cacheado.
+    """Original crosshatch pattern with sines. Deterministic + cached.
 
-    El sin() por render costaba ~10-30ms en 1080p; ahora se memoiza por tamaño.
+    The sin() per render cost ~10-30ms at 1080p; now memoized by size.
     """
     key = (h, w)
     cached = _CROSS_CACHE.get(key)
@@ -136,7 +136,7 @@ def _crosshatch(h: int, w: int) -> np.ndarray:
     xs = np.arange(w, dtype=np.float32)[None, :]
     wave = np.sin(xs * 0.35) + np.sin(ys * 0.35) + np.sin((xs + ys) * 0.18)
     out = (wave - wave.min()) / max(wave.max() - wave.min(), 1e-6) * 255.0
-    # Evita crecimiento sin cota: conserva solo los últimos 8 tamaños.
+    # Avoid unbounded growth: keep only the last 8 sizes.
     if len(_CROSS_CACHE) >= 8:
         _CROSS_CACHE.pop(next(iter(_CROSS_CACHE)))
     _CROSS_CACHE[key] = out
@@ -144,10 +144,10 @@ def _crosshatch(h: int, w: int) -> np.ndarray:
 
 
 def _ign(h: int, w: int) -> np.ndarray:
-    """Interleaved Gradient Noise (Jorge Jimenez, fórmula pública).
+    """Interleaved Gradient Noise (Jorge Jimenez, public formula).
 
-    Ruido azulado barato sin tablas: f(n) = fract(52.98 * fract(dot(p))).
-    Determinista; `phase` lo desplaza para animar (marching sin coste).
+    Cheap bluish noise without tables: f(n) = fract(52.98 * fract(dot(p))).
+    Deterministic; `phase` shifts it for animation (marching at no cost).
     """
     ys = np.arange(h, dtype=np.float64)[:, None]
     xs = np.arange(w, dtype=np.float64)[None, :]
@@ -157,13 +157,13 @@ def _ign(h: int, w: int) -> np.ndarray:
 
 
 def _white_noise(h: int, w: int) -> np.ndarray:
-    """Ruido blanco uniforme 0-255 con seed fija. Determinista."""
+    """Uniform 0-255 white noise with fixed seed. Deterministic."""
     rng = np.random.default_rng(0xC0FFEE)
     return rng.integers(0, 256, (h, w)).astype(np.float32)
 
 
 def _blocks(h: int, w: int) -> np.ndarray:
-    """Bloques 4x4 aleatorios (glitch): cada bloque un umbral. Determinista."""
+    """Random 4x4 blocks (glitch): one threshold per block. Deterministic."""
     rng = np.random.default_rng(0xB10C)
     bh, bw = (h + 3) // 4, (w + 3) // 4
     small = rng.integers(0, 256, (bh, bw)).astype(np.float32)
@@ -171,14 +171,14 @@ def _blocks(h: int, w: int) -> np.ndarray:
 
 
 def _scan_bayer(h: int, w: int) -> np.ndarray:
-    """Bayer8 modulado por scanlines (cada 3 filas oscurece): look CRT."""
+    """Bayer8 modulated by scanlines (every 3rd row darkens): CRT look."""
     tiled = _tile_matrix(BAYER_8X8, h, w)
     rows = (np.arange(h, dtype=np.float32)[:, None] % 3 == 2) * 48.0
     return np.clip(tiled * 4.0 - rows, 0, 255)
 
 
 def _wave_map(h: int, w: int) -> np.ndarray:
-    """Bayer8 deformado por seno (marching waves con phase)."""
+    """Sine-warped Bayer8 (marching waves with phase)."""
     ys = np.arange(h, dtype=np.float32)[:, None]
     xs = np.arange(w, dtype=np.float32)[None, :]
     warp = (np.sin(xs * 0.12) * 3.0 + np.sin(ys * 0.09) * 3.0)

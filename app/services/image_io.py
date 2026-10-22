@@ -1,7 +1,7 @@
 """Image loading service: filesystem / clipboard / web / drag&drop.
 
-Extraído de MainWindow (que mezclaba UI + IO + red). Funciones puras
-testeables sin Qt, salvo qimage_to_pil que vive en ui.qt_image.
+Extracted from MainWindow (which mixed UI + IO + network). Pure functions
+testable without Qt, except qimage_to_pil which lives in ui.qt_image.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def load_path(path: Path) -> Image.Image:
 
 
 def download_image(url: str, max_bytes: int = MAX_BYTES, timeout: int = 15) -> tuple[Image.Image, int]:
-    """Descarga una imagen http(s). Devuelve (PIL, bytes). Valida content-type."""
+    """Download an http(s) image. Returns (PIL, bytes). Validates content-type."""
     req = urllib.request.Request(url, headers={"User-Agent": "TRAKKART/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         ctype = (resp.headers.get_content_type() or "").lower()

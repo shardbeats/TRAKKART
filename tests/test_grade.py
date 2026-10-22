@@ -23,7 +23,7 @@ def test_duotone_identity_and_maps_ends():
     assert _flat(gradient_map(_img(), color_dark="#000000")) == _flat(_img())
     out = gradient_map(_img(), "#000000", "#ffffff")
     assert out.size == (32, 32)
-    # Negro puro mapea al dark, blanco puro al light.
+    # Pure black maps to dark, pure white to light.
     assert _flat(gradient_map(Image.new("RGB", (4, 4), (0, 0, 0)), "#112233", "#aabbcc")) == [(17, 34, 51)] * 16
     assert _flat(gradient_map(Image.new("RGB", (4, 4), (255, 255, 255)), "#112233", "#aabbcc")) == [(170, 187, 204)] * 16
     assert _flat(out) != _flat(_img())
@@ -44,7 +44,7 @@ def test_split_tone_and_fade():
     assert _flat(fade(_img())) == _flat(_img())
     assert _flat(split_tone(_img(), 50)) != _flat(_img())
     assert _flat(fade(_img(), 50)) != _flat(_img())
-    # Fade solo levanta (nunca oscurece).
+    # Fade only lifts (never darkens).
     import numpy as np
 
     a = np.array(_img(), dtype=np.int16)

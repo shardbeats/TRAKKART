@@ -64,7 +64,7 @@ def test_coeffs_present():
 def test_coeffs_weights_sum_to_one():
     for k, coeffs in COEFFS.items():
         s = sum(w for _, _, w in coeffs)
-        if k == "atkinson":  # pérdida intencional (contraste alto)
+        if k == "atkinson":  # intentional loss (high contrast)
             assert s == 0.75
         else:
             assert abs(s - 1.0) < 1e-9, k
@@ -74,10 +74,10 @@ def test_hilbert_order_covers_once():
     from app.kernels import hilbert_order
 
     o2 = hilbert_order(2, 2)
-    assert [int(i) for i in o2] == [0, 2, 3, 1]  # curva en U
+    assert [int(i) for i in o2] == [0, 2, 3, 1]  # U-shaped curve
     o = hilbert_order(4, 5)
     assert len(o) == 20 and len(set(int(i) for i in o)) == 20
-    assert hilbert_order(4, 5) is o  # cacheado por tamaño
+    assert hilbert_order(4, 5) is o  # cached by size
 
 
 def test_hilbert_diffusion_deterministic():

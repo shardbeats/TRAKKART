@@ -46,11 +46,11 @@ def slice_shift(
 
 
 def pixel_sort(img: Image.Image, threshold: int = 0, seed: int = 0x9150) -> Image.Image:
-    """Ordena de oscuro a claro los tramos brillantes de cada fila.
+    """Sorts the bright runs of each row from dark to light.
 
-    threshold 0 = off. Solo reordena píxeles con luminancia > threshold,
-    así que el look dither se estira en vetas (efecto trendy barato:
-    O(filas · ancho log ancho)).
+    threshold 0 = off. Only reorders pixels brighter than threshold,
+    so the dither look stretches into streaks (cheap trendy effect:
+    O(rows · width log width)).
     """
     t = int(threshold)
     if t <= 0:
@@ -65,7 +65,7 @@ def pixel_sort(img: Image.Image, threshold: int = 0, seed: int = 0x9150) -> Imag
         row_lum = lum[y]
         mask = row_lum > t
         if not mask.any() or mask.all():
-            # Todo o nada brillante: ordenar todo evita un caso borde soso.
+            # All or nothing bright: sorting everything avoids a dull edge case.
             idx = np.argsort(row_lum, kind="stable")
             out[y] = arr[y][idx]
             continue
@@ -79,7 +79,7 @@ def pixel_sort(img: Image.Image, threshold: int = 0, seed: int = 0x9150) -> Imag
                 x += 1
             seg = np.arange(x0, x)
             order = np.argsort(row_lum[seg], kind="stable")
-            # Desempate determinista pero no monótono: desplaza el tramo.
+            # Deterministic but non-monotonic tie-break: shifts the run.
             shift = int(rng.integers(0, max(1, len(seg))))
             order = np.roll(order, shift)
             out[y][seg] = arr[y][seg[order]]
@@ -87,7 +87,7 @@ def pixel_sort(img: Image.Image, threshold: int = 0, seed: int = 0x9150) -> Imag
 
 
 def wave(img: Image.Image, amplitude: int = 0, seed: int = 0x9A9E) -> Image.Image:
-    """Desplazamiento sinusoidal por filas (wobble CRT). 0 = off."""
+    """Sine displacement by row (CRT wobble). 0 = off."""
     a = int(amplitude)
     if a <= 0:
         return img
@@ -105,9 +105,9 @@ def wave(img: Image.Image, amplitude: int = 0, seed: int = 0x9A9E) -> Image.Imag
 
 
 def datamosh(img: Image.Image, amount: float = 0.0, seed: int = 0x405) -> Image.Image:
-    """Bloques desplazados al azar (datamosh). 0 = off.
+    """Randomly shifted blocks (datamosh). 0 = off.
 
-    Compat: la implementación vive en app.mosh (mosh_blocks, byte-idéntica).
+    Compat: the implementation lives in app.mosh (mosh_blocks, byte-identical).
     """
     from app.mosh import mosh_blocks
 
@@ -115,7 +115,7 @@ def datamosh(img: Image.Image, amount: float = 0.0, seed: int = 0x405) -> Image.
 
 
 def rgb_grille(img: Image.Image, every: int = 0) -> Image.Image:
-    """Rejilla de apertura RGB: columnas R/G/B. 0 = off (2 o 3 válidos)."""
+    """RGB aperture grille: R/G/B columns. 0 = off (2 or 3 valid)."""
     e = int(every)
     if e not in (2, 3):
         return img
@@ -124,8 +124,8 @@ def rgb_grille(img: Image.Image, every: int = 0) -> Image.Image:
     phase = np.arange(w, dtype=np.int32) % e
     mask = np.ones_like(arr)
     if e == 2:
-        # Alterna columnas con tinte R / cian para simular la rejilla.
-        # (Un solo array por indexado: mezclar bool + lista revienta en numpy.)
+        # Alternate R-tinted / cyan columns to fake the grille.
+        # (One array per indexing: mixing bool + list breaks in numpy.)
         odd = phase == 1
         mask[:, phase == 0, 1:] *= 0.55
         mask[:, odd, 0] *= 0.55

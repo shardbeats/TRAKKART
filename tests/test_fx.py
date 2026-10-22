@@ -80,7 +80,7 @@ def test_vignette_identity_and_change():
     assert _flat(apply_vignette(_img())) == _flat(_img())
     out = apply_vignette(_img(), strength=60)
     assert _flat(out) != _flat(_img())
-    # centro mas claro que esquina
+    # center lighter than corner
     px = out.load()
     assert sum(px[32, 32]) > sum(px[0, 0])
 
@@ -90,8 +90,8 @@ def test_scanlines_identity_and_rows():
     assert _flat(apply_scanlines(_img(), every=1)) == _flat(_img())
     out = apply_scanlines(_img(), every=4, darken=0.5)
     px, ref = out.load(), _img().load()
-    assert sum(px[0, 3]) < sum(ref[0, 3])  # fila 3 oscurecida
-    assert px[0, 0] == ref[0, 0]  # fila 0 intacta
+    assert sum(px[0, 3]) < sum(ref[0, 3])  # row 3 darkened
+    assert px[0, 0] == ref[0, 0]  # row 0 intact
 
 
 def test_parse_hex():

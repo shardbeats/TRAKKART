@@ -1,9 +1,9 @@
 """Custom palette editor — swatches, roles and real usage.
 
-El panel antes solo decía "N colors": críptico. Aquí cada color se ve
-(swatch + hex), tiene un rol por luminancia (shadow/mid/light) y muestra
-su % de uso aproximado sobre el canvas actual. El motor mapea por color
-más cercano, así que el "rol" honesto es: rango de luminancia + peso real.
+The panel used to say only "N colors": cryptic. Here each color is shown
+(swatch + hex), has a luminance role (shadow/mid/light) and shows
+its approximate usage % over the current canvas. The engine maps by closest
+color, so the honest "role" is: luminance range + real weight.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def luminance(rgb: tuple[int, int, int]) -> float:
 
 
 def luminance_roles(colors: list[tuple[int, int, int]]) -> list[str]:
-    """Rol por rango de luminancia: shadow … mid k … light."""
+    """Role by luminance range: shadow … mid k … light."""
     n = len(colors)
     if n == 0:
         return []
@@ -52,10 +52,10 @@ def luminance_roles(colors: list[tuple[int, int, int]]) -> list[str]:
 
 
 def palette_usage(img: Image.Image | None, palette: list[tuple[int, int, int]]) -> list[float]:
-    """% de píxeles que caería en cada color (nearest RGB, preview 160px).
+    """% of pixels that would fall on each color (nearest RGB, 160px preview).
 
-    Estimación barata para orientar ("para qué parte es cada color"),
-    no el render final. Sin imagen o sin paleta devuelve ceros.
+    Cheap estimate to guide ("which part each color is for"),
+    not the final render. No image or no palette returns zeros.
     """
     import numpy as np
 
@@ -78,7 +78,7 @@ def palette_usage(img: Image.Image | None, palette: list[tuple[int, int, int]]) 
 
 
 class ColorSwatch(QPushButton):
-    """Botón-cuadrado de color. Click izquierdo emite `picked(index`)."""
+    """Square color button. Left click emits `picked(index`)."""
 
     picked = Signal(int)
 
@@ -98,10 +98,10 @@ class ColorSwatch(QPushButton):
 
 
 class CustomPaletteDialog(QDialog):
-    """Editor de paleta custom: ver, editar, reordenar, ordenar por luz.
+    """Custom palette editor: view, edit, reorder, sort by light.
 
-    Trabaja sobre una copia; `colors` solo es válido tras Accept.
-    `preview` es una imagen pequeña ya recortada al canvas (o None).
+    Works on a copy; `colors` only valid after Accept.
+    `preview` is a small image already cropped to canvas (or None).
     """
 
     def __init__(
@@ -225,7 +225,7 @@ class CustomPaletteDialog(QDialog):
             return
         rgb = (color.red(), color.green(), color.blue())
         if rgb in self.colors and rgb != cur:
-            return  # no dupliques en silencio: se ignora igual que en el panel
+            return  # do not duplicate silently: ignored like in the panel
         self.colors[i] = rgb
         self._rebuild()
 
@@ -257,7 +257,7 @@ class CustomPaletteDialog(QDialog):
             self._rebuild()
 
     def _sort(self) -> None:
-        # Ordena los desbloqueados por luz; los 🔒 se quedan en su fila.
+        # Sort unlocked by light; locked ones stay in their row.
         free = [i for i, locked in enumerate(self.locks) if not locked]
         ordered = sorted((self.colors[i] for i in free), key=luminance)
         for i, c in zip(free, ordered):

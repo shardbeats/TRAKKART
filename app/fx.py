@@ -103,7 +103,7 @@ def apply_glow(img: Image.Image, radius: float = 0.0, intensity: float = 0.0,
     if t > 0:
         lum = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2])[..., None]
         k = np.clip((lum - t) / max(255 - t, 1), 0.0, 1.0)
-        k = k * k * (3.0 - 2.0 * k)  # smoothstep: el glow entra fundido
+        k = k * k * (3.0 - 2.0 * k)  # smoothstep: glow fades in
         out = a + (out - a) * k
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 

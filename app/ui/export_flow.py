@@ -24,7 +24,7 @@ def _gif_opts_from_preset(preset) -> dict:
 
 
 def export(win, quick: bool = False) -> None:
-    """Export bundle. Dialogo profesional por defecto; `quick` repite el último."""
+    """Export bundle. Pro dialog by default; `quick` repeats the last one."""
     from pathlib import Path
 
     from PySide6.QtWidgets import QMessageBox
@@ -181,7 +181,7 @@ def show_exported(win, out_dir, names: list[str]) -> None:
 
 
 def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
-    """Celdas SVG estimadas para el plan del diálogo (barato, sin dither)."""
+    """Estimated SVG cells for the dialog plan (cheap, no dither)."""
     if win.src is None:
         return None
     try:
@@ -203,7 +203,7 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
                quality: int, mp4: bool = False) -> None:
-    """Render full-res + bundle (+MP4) según opciones. Full-res siempre."""
+    """Render full-res + bundle (+MP4) per options. Always full-res."""
     from dataclasses import replace
     from pathlib import Path
 

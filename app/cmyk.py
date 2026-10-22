@@ -23,7 +23,7 @@ def _screened(channel: np.ndarray, angle_idx: int, phase: int = 0) -> np.ndarray
     import numpy as _np
 
     m = _bayer8()
-    # Ángulos simulados por roll distinto por canal (barato y determinista).
+    # Angles simulated by a different roll per channel (cheap and deterministic).
     shifts = (0, 13, 29, 47)
     tiled = _np.tile(m, ((channel.shape[0] + 7) // 8, (channel.shape[1] + 7) // 8))[:channel.shape[0], :channel.shape[1]]
     tiled = _np.roll(tiled, shifts[angle_idx % 4] + int(phase), axis=(0, 1))
@@ -40,7 +40,7 @@ def cmyk_halftone(img: Image.Image, threshold: float = 128.0, phase: int = 0,
         sh = max(1, base.height // pixel_size)
         base = base.resize((sw, sh), Image.NEAREST)
     arr = np.asarray(base, dtype=np.float32)
-    gain = (float(threshold) - 128.0) * 0.8  # +/-102 alrededor del neutro
+    gain = (float(threshold) - 128.0) * 0.8  # +/-102 around neutral
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     k = 255.0 - np.maximum(np.maximum(r, g), b)
     c = (255.0 - r - k)
@@ -54,7 +54,7 @@ def cmyk_halftone(img: Image.Image, threshold: float = 128.0, phase: int = 0,
     ms = _screened(m, 1, phase) / 255.0
     ys = _screened(y, 2, phase) / 255.0
     ks = _screened(k, 3, phase) / 255.0
-    # Multiplicativo sobre papel blanco (overprint simplificado).
+    # Multiplicative over white paper (simplified overprint).
     rr = 255.0 * (1.0 - cs) * (1.0 - ks)
     gg = 255.0 * (1.0 - ms) * (1.0 - ks)
     bb = 255.0 * (1.0 - ys) * (1.0 - ks)

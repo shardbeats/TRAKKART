@@ -27,12 +27,12 @@ def accel_status() -> tuple[bool, str]:
             try:
                 import numba
 
-                return True, f"numba {numba.__version__} (10-50x en Floyd grande)"
+                return True, f"numba {numba.__version__} (10-50x on large Floyd)"
             except ImportError:
-                return True, "numba (versión desconocida)"
+                return True, "numba (unknown version)"
     except ImportError:
         pass
-    return False, "numpy fallback (más lento en Floyd grande)"
+    return False, "numpy fallback (slower on large Floyd)"
 
 
 def video_status() -> tuple[bool, str]:
@@ -41,10 +41,10 @@ def video_status() -> tuple[bool, str]:
         from app.video_io import has_video
 
         if has_video():
-            return True, "MP4 disponible (imageio + ffmpeg)"
+            return True, "MP4 available (imageio + ffmpeg)"
     except ImportError:
         pass
-    return False, "MP4 desactivado (extra opt-in no instalado)"
+    return False, "MP4 disabled (opt-in extra not installed)"
 
 
 def missing_packages(kind: str) -> tuple[str, ...]:
@@ -73,7 +73,7 @@ def run_pip_install(packages: tuple[str, ...] | list[str], timeout: int = 600) -
     except (OSError, subprocess.TimeoutExpired) as e:
         return False, str(e)
     tail = "\n".join((proc.stdout + proc.stderr).strip().splitlines()[-5:])
-    return proc.returncode == 0, tail or "(sin salida)"
+    return proc.returncode == 0, tail or "(no output)"
 
 
 __all__ = ["ACCEL_PACKAGES", "VIDEO_PACKAGES", "accel_status", "is_frozen",

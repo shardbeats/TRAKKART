@@ -1,27 +1,27 @@
-"""TRAKKART render params — normalizaciones compartidas.
+"""TRAKKART render params — shared normalizations.
 
-La conversión Preset -> render vive en `pipeline.RenderSpec.from_preset`
-(este módulo delega en él para no duplicar la lista de ~40 params).
-Aquí quedan los normalizadores (scanlines/slice/grille/halftone/posterize)
-usados por UI y presets.
+The Preset -> render conversion lives in `pipeline.RenderSpec.from_preset`
+(this module delegates to it to avoid duplicating the ~40-param list).
+The normalizers left here (scanlines/slice/grille/halftone/posterize)
+are used by the UI and presets.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-# Valores válidos (la UI permite intermedios que se normalizan).
+# Valid values (the UI allows intermediates that get normalized).
 VALID_SCANLINES = (0, 2, 3, 4, 6, 8)
 VALID_SLICE_BANDS = (0, 2, 3, 4, 6, 8, 12, 16)
 
-# scan inválido -> válido más cercano (usado por QSpinBox 0-8).
+# Invalid scan -> nearest valid (used by QSpinBox 0-8).
 _SCAN_FIX = {1: 2, 5: 4, 7: 6}
-# slice inválido -> válido (usado por QSpinBox 0-16).
+# Invalid slice -> valid (used by QSpinBox 0-16).
 _SLICE_FIX = {1: 2, 5: 4, 7: 6, 9: 8, 10: 8, 11: 12, 13: 12, 14: 16, 15: 16}
 
 
 def normalize_scanlines(value: int) -> int:
-    """0,2,3,4,6,8 son válidos; 1->2, 5->4, 7->6."""
+    """0,2,3,4,6,8 are valid; 1->2, 5->4, 7->6."""
     v = int(value)
     if v in VALID_SCANLINES:
         return v
@@ -29,7 +29,7 @@ def normalize_scanlines(value: int) -> int:
 
 
 def normalize_slice_bands(value: int) -> int:
-    """0,2,3,4,6,8,12,16 válidos; el resto se redondea al válido cercano."""
+    """0,2,3,4,6,8,12,16 valid; the rest rounds to the nearest valid."""
     v = int(value)
     if v in VALID_SLICE_BANDS:
         return v
@@ -43,7 +43,7 @@ def normalize_slice_bands(value: int) -> int:
 
 
 def normalize_grille(value: int) -> int:
-    """RGB grille: solo 0 (off), 2, 3. 1->2 como scanlines."""
+    """RGB grille: only 0 (off), 2, 3. 1->2 like scanlines."""
     v = int(value)
     if v in (0, 2, 3):
         return v
@@ -51,7 +51,7 @@ def normalize_grille(value: int) -> int:
 
 
 def normalize_halftone(value: int) -> int:
-    """Halftone: 0 = off, si no celdas 3-12 (1,2 -> 3)."""
+    """Halftone: 0 = off, else 3-12 cells (1,2 -> 3)."""
     v = int(value)
     if v <= 0:
         return 0
@@ -59,7 +59,7 @@ def normalize_halftone(value: int) -> int:
 
 
 def normalize_posterize(value: int) -> int:
-    """Posterize: 0 = off, si no niveles 2-8 (1 -> 2)."""
+    """Posterize: 0 = off, else 2-8 levels (1 -> 2)."""
     v = int(value)
     if v <= 0:
         return 0
@@ -67,7 +67,7 @@ def normalize_posterize(value: int) -> int:
 
 
 def normalize_palette_depth(value: int) -> int:
-    """Depth: 0 = off (full palette), si no 2-16 (1 -> 2)."""
+    """Depth: 0 = off (full palette), else 2-16 (1 -> 2)."""
     v = int(value)
     if v <= 0:
         return 0
@@ -99,11 +99,11 @@ def apply_palette_depth(palette: list | None | str, depth: int) -> list | None |
 
 
 def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
-    """Convierte un Preset a kwargs de `pipeline.render()`.
+    """Converts a Preset to `pipeline.render()` kwargs.
 
-    Acepta duck-typing (no importa Preset para evitar ciclos).
-    Delega en RenderSpec.from_preset: la normalización vive en un
-    solo sitio (batch, UI, GIF y worker producen exactamente lo mismo).
+    Accepts duck-typing (does not import Preset to avoid cycles).
+    Delegates to RenderSpec.from_preset: normalization lives in a
+    single place (batch, UI, GIF and worker produce exactly the same).
     """
     from app.pipeline import RenderSpec
 

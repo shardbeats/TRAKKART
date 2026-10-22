@@ -1,4 +1,4 @@
-"""Palette library: JSON bundle, dirty tracking, BW fast path (fixtures en conftest)."""
+"""Palette library: JSON bundle, dirty tracking, BW fast path (fixtures in conftest)."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ def test_bundled_palettes_created_once(tmp_path: Path):
     created = ensure_bundled_palettes(tmp_path)
     assert set(created) == {"BW", "SLIME", "VAPOR", "EMBER"}
     assert list_palettes(tmp_path) == ["BW", "EMBER", "SLIME", "VAPOR"]
-    assert ensure_bundled_palettes(tmp_path) == []  # nunca sobrescribe
+    assert ensure_bundled_palettes(tmp_path) == []  # never overwrites
 
 
 def test_user_palette_overrides_builtin(tmp_path: Path):
@@ -21,7 +21,7 @@ def test_user_palette_overrides_builtin(tmp_path: Path):
 
     save_palette("SLIME", [(1, 2, 3), (4, 5, 6)], tmp_path)
     assert palette_colors("SLIME", tmp_path) == [(1, 2, 3), (4, 5, 6)]
-    assert palette_colors("VAPOR", tmp_path)[0] == (12, 10, 28)  # builtin intacto
+    assert palette_colors("VAPOR", tmp_path)[0] == (12, 10, 28)  # builtin untouched
 
 
 def test_save_palette_validates(tmp_path: Path):
@@ -41,7 +41,7 @@ def test_is_bw_equivalence():
     from app.palette_library import is_bw
 
     assert is_bw([(0, 0, 0), (255, 255, 255)]) is True
-    assert is_bw([(255, 255, 255), (0, 0, 0)]) is True  # orden da igual
+    assert is_bw([(255, 255, 255), (0, 0, 0)]) is True  # order does not matter
     assert is_bw([(0, 0, 0), (255, 255, 254)]) is False
     assert is_bw([]) is False
     assert is_bw(None) is False
@@ -67,7 +67,7 @@ def test_combo_loads_editable_copy(window, qt_app, monkeypatch, tmp_path: Path):
     assert window.custom_colors[0] == (12, 10, 28)
     assert window._palette_dirty is False
     assert "Custom" not in window.cmb_pal_preset.currentText()
-    # tocar un swatch marca dirty
+    # touching a swatch marks it dirty
     window._set_custom_colors([*window.custom_colors[:3], (1, 1, 1)])
     assert window._palette_dirty is True
     assert window.cmb_pal_preset.currentText() == "(Custom)"
@@ -85,7 +85,7 @@ def test_save_palette_flow(window, qt_app, monkeypatch, tmp_path: Path):
     assert (tmp_path / "pal2" / "Mine.json").exists()
     assert window.cmb_pal_preset.currentText() == "Mine"
     assert window._palette_dirty is False
-    # base no-builtin: current_params usa SLIME pero conserva el custom
+    # non-builtin base: current_params uses SLIME but keeps the custom one
     assert window._palette_base == "Mine"
     assert window.current_params().palette == "SLIME"
     assert window.current_params().custom_palette == [[10, 20, 30], [40, 50, 60]]

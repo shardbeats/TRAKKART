@@ -1,8 +1,8 @@
 """TRAKKART grade pack (MIT, clean-room). Pre/post-dither color grading.
 
-Duotone y posterize van ANTES del dither (sobre tono continuo, como los
-adjustments: el dither trabaja después sobre el grade). Split-tone y fade
-van después (operan bien sobre arte plano). Todo determinista, numpy+Pillow.
+Duotone and posterize run BEFORE the dither (on continuous tone, like the
+adjustments: the dither works over the grade). Split-tone and fade
+run after (they work well on flat art). All deterministic, numpy+Pillow.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ def _rgb(img: Image.Image) -> Image.Image:
 
 
 def _luminance(arr: np.ndarray) -> np.ndarray:
-    """Luminancia Rec.601 en 0-1."""
+    """Rec.601 luminance in 0-1."""
     return (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]) / 255.0
 
 
@@ -36,16 +36,16 @@ def gradient_map(
     color_light: str = "",
     mid: float = 50.0,
 ) -> Image.Image:
-    """Duotone: luminancia -> degradado color_dark..color_light, corte en mid%.
+    """Duotone: luminance -> color_dark..color_light gradient, cut at mid%.
 
-    Vacío en cualquiera = off. El midpoint mueve el corte (GIMP: color stops).
+    Empty in either = off. The midpoint moves the cut (GIMP: color stops).
     """
     c0 = _parse_hex(color_dark)
     c1 = _parse_hex(color_light)
     if c0 is None or c1 is None:
         return img
     t = float(np.clip(mid, 0.0, 100.0)) / 100.0
-    # Transición suave de ±7.5% alrededor del midpoint (menos banding).
+    # Smooth ±7.5% transition around the midpoint (less banding).
     arr = np.asarray(_rgb(img), dtype=np.float32)
     lum = _luminance(arr)
     x = np.clip((lum - (t - 0.075)) / 0.15, 0.0, 1.0)
@@ -56,7 +56,7 @@ def gradient_map(
 
 
 def posterize(img: Image.Image, levels: int = 0) -> Image.Image:
-    """Reduce a `levels` tonos por canal. 0 o <2 = off."""
+    """Reduces to `levels` tones per channel. 0 or <2 = off."""
     lv = int(levels)
     if lv < 2:
         return img
@@ -66,13 +66,13 @@ def posterize(img: Image.Image, levels: int = 0) -> Image.Image:
     return Image.fromarray(np.clip(q, 0, 255).astype(np.uint8))
 
 
-# Par cinematográfico fijo y documentado (el custom fino es el duotone).
+# Fixed cinematic pair, documented (the fine custom one is the duotone).
 _SPLIT_WARM = np.array([255.0, 170.0, 90.0], dtype=np.float32)
 _SPLIT_COOL = np.array([70.0, 100.0, 255.0], dtype=np.float32)
 
 
 def split_tone(img: Image.Image, strength: float = 0.0) -> Image.Image:
-    """Sombras frías + luces cálidas según luminancia. 0 = off."""
+    """Cool shadows + warm highlights by luminance. 0 = off."""
     s = float(strength) / 100.0
     if s <= 0:
         return img
@@ -86,14 +86,14 @@ def split_tone(img: Image.Image, strength: float = 0.0) -> Image.Image:
 
 
 def fade(img: Image.Image, amount: float = 0.0) -> Image.Image:
-    """Look mate: levanta los negros proporcionalmente. 0 = off."""
+    """Matte look: lifts blacks proportionally. 0 = off."""
     s = float(amount) / 100.0
     if s <= 0:
         return img
     s = min(1.0, s)
     arr = np.asarray(_rgb(img), dtype=np.float32)
     lum = _luminance(arr)
-    lift = s * 64.0 * (1.0 - lum) ** 2  # solo sombras, como el film matte
+    lift = s * 64.0 * (1.0 - lum) ** 2  # shadows only, like the film matte
     return Image.fromarray(np.clip(arr + lift[..., None], 0, 255).astype(np.uint8))
 
 

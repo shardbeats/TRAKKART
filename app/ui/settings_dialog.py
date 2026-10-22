@@ -173,15 +173,15 @@ class SettingsDialog(QDialog):
         """Extras group: acceleration + MP4 state, 1-click install on dev."""
         from app import extras as _ex
 
-        box = QGroupBox("Extras (opcionales)")
+        box = QGroupBox("Extras (optional)")
         col = QVBoxLayout(box)
         self.lbl_accel = QLabel()
         self.lbl_accel.setWordWrap(True)
         col.addWidget(self.lbl_accel)
         row_a = QHBoxLayout()
-        row_a.addWidget(QLabel("Aceleración:"))
-        self.btn_accel = QPushButton("Instalar aceleración")
-        self.btn_accel.setToolTip("pip install numba (solo versión de desarrollo)")
+        row_a.addWidget(QLabel("Acceleration:"))
+        self.btn_accel = QPushButton("Install acceleration")
+        self.btn_accel.setToolTip("pip install numba (dev version only)")
         self.btn_accel.clicked.connect(lambda: self._install_extra("accel"))
         row_a.addWidget(self.btn_accel)
         row_a.addStretch()
@@ -190,9 +190,9 @@ class SettingsDialog(QDialog):
         self.lbl_video.setWordWrap(True)
         col.addWidget(self.lbl_video)
         row_v = QHBoxLayout()
-        row_v.addWidget(QLabel("Vídeo MP4:"))
-        self.btn_video = QPushButton("Instalar vídeo")
-        self.btn_video.setToolTip("pip install imageio imageio-ffmpeg (solo desarrollo)")
+        row_v.addWidget(QLabel("MP4 video:"))
+        self.btn_video = QPushButton("Install video")
+        self.btn_video.setToolTip("pip install imageio imageio-ffmpeg (dev only)")
         self.btn_video.clicked.connect(lambda: self._install_extra("video"))
         row_v.addWidget(self.btn_video)
         row_v.addStretch()
@@ -210,27 +210,27 @@ class SettingsDialog(QDialog):
 
         accel_ok, accel_txt = _ex.accel_status()
         video_ok, video_txt = _ex.video_status()
-        self.lbl_accel.setText(f"Aceleración: {accel_txt}")
-        self.lbl_video.setText(f"Vídeo MP4: {video_txt}")
+        self.lbl_accel.setText(f"Acceleration: {accel_txt}")
+        self.lbl_video.setText(f"MP4 video: {video_txt}")
         if self._frozen:
             self.btn_accel.setEnabled(False)
             self.btn_video.setEnabled(False)
             self.lbl_extra_note.setText(
-                "En el .exe los extras no se instalan: usa TRAKKART-full.exe "
-                "(aceleración + MP4 incluidos) o la versión de desarrollo.")
+                "In the .exe extras cannot be installed: use TRAKKART-full.exe "
+                "(acceleration + MP4 included) or the dev version.")
         else:
             self.btn_accel.setEnabled(not accel_ok)
             self.btn_video.setEnabled(not video_ok)
             self.lbl_extra_note.setText(
-                "La instalación tarda minutos (numba) y necesita internet. "
-                "Requiere reiniciar la app.")
+                "Installation takes minutes (numba) and needs internet. "
+                "Restart the app to apply.")
 
     def _install_extra(self, kind: str) -> None:
         if self._frozen:
             return
         for btn in (self.btn_accel, self.btn_video):
             btn.setEnabled(False)
-        self.lbl_extra_note.setText(f"Instalando {kind} con pip… no cierres Settings.")
+        self.lbl_extra_note.setText(f"Installing {kind} with pip… do not close Settings.")
         self._pip_worker = _PipWorker(kind, self)
         self._pip_worker.done.connect(self._on_extra_done)
         self._pip_worker.start()
@@ -239,9 +239,9 @@ class SettingsDialog(QDialog):
         self._refresh_extras()
         if ok:
             self.lbl_extra_note.setText(
-                f"{kind} instalado. Reinicia la app para usarlo.")
+                f"{kind} installed. Restart the app to use it.")
         else:
-            self.lbl_extra_note.setText(f"Falló la instalación de {kind}: {log}")
+            self.lbl_extra_note.setText(f"Failed to install {kind}: {log}")
         try:
             self._pip_worker.deleteLater()
         except Exception:  # noqa: BLE001

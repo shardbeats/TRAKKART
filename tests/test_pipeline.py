@@ -1,4 +1,4 @@
-"""Tests pipeline: render completo + meta_dict."""
+"""Tests pipeline: full render + meta_dict."""
 
 from PIL import Image
 
@@ -71,6 +71,6 @@ def test_render_with_grade_and_texture():
     )
     p.validate()
     out = render(_img(), **p.to_render_kwargs())
-    assert out.size == (64 + 8, 64 + 8)  # borde de 4px por lado
+    assert out.size == (64 + 8, 64 + 8)  # 4px border per side
     plain = render(_img(), method="bayer4", palette_name="SLIME")
     assert list(out.get_flattened_data()) != list(plain.get_flattened_data())

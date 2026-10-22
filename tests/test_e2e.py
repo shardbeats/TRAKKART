@@ -57,8 +57,8 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(p), ""))
     assert _trigger(window, "Ctrl+O")
     assert window.src is not None and window.src.size == (48, 48)
-    assert window.src_name == "shot"  # base por defecto = nombre del source
-    # Ctrl+S es Quick export: con prefs sembradas no pregunta
+    assert window.src_name == "shot"  # default base = source name
+    # Ctrl+S is Quick export: with seeded prefs it does not ask
     from app.export_prefs import ExportPrefs, save_prefs
 
     save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="shot"), window._prefs_path)
@@ -178,7 +178,7 @@ def test_e2e_drop_to_export(window, tmp_path: Path, qt_app):
     mime.setUrls([QUrl.fromLocalFile(str(p))])
     window.dropEvent(QDropEvent(QPoint(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier))
     assert window.src is not None and window.src.size == (40, 40)
-    assert window.src_name == "journey"  # base por defecto = nombre del source
+    assert window.src_name == "journey"  # default base = source name
     window.refresh()
     accept_next_dialog(ExportDialog)
     window.export()

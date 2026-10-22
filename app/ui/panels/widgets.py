@@ -84,7 +84,7 @@ def tight(cmb, chars: int = 12):
 
 
 def labeled_slider(win, parent, label, lo, hi, val, tooltip="", div=None):
-    """Fila [label | slider | valor]. Doble-click resetea (ValueSlider)."""
+    """Row [label | slider | value]. Double-click resets (ValueSlider)."""
     row = QHBoxLayout()
     lab = QLabel(label)
     lab.setMinimumWidth(120)

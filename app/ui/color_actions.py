@@ -98,7 +98,7 @@ def add_custom_color(win) -> None:
 
 
 def gen_palette(win) -> None:
-    """🎲 Sorpresa: genera una paleta armoniosa (ramp/harmony en Oklch)."""
+    """🎲 Surprise: generates a harmonious palette (ramp/harmony in Oklch)."""
     from app.palette_gen import generate_palette
 
     n = max(2, len(win.custom_colors) or 4)
@@ -120,7 +120,7 @@ def edit_custom_palette(win) -> None:
         return
     win._palette_locks = list(getattr(dlg, "locks", [False] * len(dlg.colors)))
     set_custom_colors(win, [tuple(c) for c in dlg.colors])
-    # set_custom_colors resetea locks si cambia longitud: restaura los del diálogo.
+    # set_custom_colors resets locks when length changes: restore dialog ones.
     win._palette_locks = list(getattr(dlg, "locks", [False] * len(dlg.colors)))
     win.refresh()
     win._status(f"Custom palette: {len(win.custom_colors)} colors")
@@ -133,7 +133,7 @@ def remove_custom_color(win, i: int) -> None:
 
 
 def palette_preview_small(win):
-    """Canvas actual reducido (160px) para el % de uso. None sin imagen."""
+    """Small current canvas (160px) for usage %. None without image."""
     if win.src is None:
         return None
     try:
@@ -167,11 +167,11 @@ def clear_custom_colors(win) -> None:
 
 
 def set_custom_colors(win, colors: list, dirty: bool = True) -> None:
-    """Único punto de escritura: actualiza tira + estado dirty."""
+    """Single write point: updates strip + dirty state."""
     from app.palette_library import CUSTOM_SENTINEL
 
     win.custom_colors = [tuple(c) for c in colors]
-    # Locks en paralelo: conserva si misma longitud, si no resetea.
+    # Parallel locks: keep when same length, otherwise reset.
     locks = list(getattr(win, "_palette_locks", []) or [])
     if len(locks) != len(win.custom_colors):
         locks = [False] * len(win.custom_colors)
@@ -210,7 +210,7 @@ def sync_custom_label(win) -> None:
 
 
 def refresh_palette_list(win) -> None:
-    """Combo de la biblioteca (built-ins + usuario + SOURCE + Custom)."""
+    """Library combo (built-ins + user + SOURCE + Custom)."""
     from app.palette_library import CUSTOM_SENTINEL, list_palettes
 
     win.cmb_pal_preset.blockSignals(True)
@@ -228,10 +228,10 @@ def refresh_palette_list(win) -> None:
 
 
 def on_palette_preset_changed(win, name: str) -> None:
-    """Elegir paleta = cargarla como copia editable en la tira.
+    """Choosing a palette = loading it as an editable copy into the strip.
 
-    SOURCE es modo auto (extrae de la imagen en render): no carga swatches,
-    solo fija la base y limpia el dirty.
+    SOURCE is auto mode (extracts from image at render): loads no swatches,
+    only sets the base and clears dirty.
     """
     from app.palette_library import CUSTOM_SENTINEL, palette_colors
 
@@ -255,7 +255,7 @@ def on_palette_preset_changed(win, name: str) -> None:
 
 
 def extract_from_image(win, n: int | None = None) -> None:
-    """Auto-extract (median-cut offline) -> tira custom editable."""
+    """Auto-extract (median-cut offline) -> editable custom strip."""
     from app.palette_extract import extract_palette
 
     if win.src is None:
@@ -274,7 +274,7 @@ def extract_from_image(win, n: int | None = None) -> None:
 
 
 def import_palette_file(win) -> None:
-    """Import .json (TRAKKART/share) o .gpl (GIMP palette) offline."""
+    """Import .json (TRAKKART/share) or .gpl (GIMP palette) offline."""
     from pathlib import Path
 
     from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -308,7 +308,7 @@ def import_palette_file(win) -> None:
 
 
 def export_palette_file(win) -> None:
-    """Exporta la tira actual a .json o .gpl (share offline)."""
+    """Exports the current strip to .json or .gpl (offline share)."""
     from pathlib import Path
 
     from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -362,7 +362,7 @@ def save_palette_preset(win) -> None:
 
 
 def shuffle_custom_colors(win) -> None:
-    """🔀 Shuffle solo los swatches desbloqueados (locks se quedan en su sitio)."""
+    """🔀 Shuffle only unlocked swatches (locks stay in place)."""
     import random
 
     colors = list(win.custom_colors)
@@ -392,7 +392,7 @@ def toggle_palette_lock(win, i: int) -> None:
 
 
 def randomize_adjusts(win) -> None:
-    """🎲 Randomiza solo los adjusts desbloqueados (B/C/S/M/H)."""
+    """🎲 Randomizes only unlocked adjusts (B/C/S/M/H)."""
     import random
 
     locks = dict(getattr(win, "_adjust_locks", {}) or {})

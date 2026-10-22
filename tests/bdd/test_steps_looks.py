@@ -78,7 +78,7 @@ def duotone_order(ctx):
 
 
 def gradient_map_for(ctx, rgb):
-    """Aplica el mismo duotone del step a un color plano (helper, no step)."""
+    """Apply the same duotone as the step to a flat color (helper, not a step)."""
     from PIL import Image as Img
 
     from app.grade import gradient_map

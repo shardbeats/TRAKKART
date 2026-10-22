@@ -18,10 +18,10 @@ from app.ui.panels.widgets import hlab, tight, labeled_slider
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
-    """Único sitio para animar: Mode/Frames/FPS/Ping-pong + resolución de preview.
+    """Single place to animate: Mode/Frames/FPS/Ping-pong + preview resolution.
 
-    Preview = proxy ligero (Draft/HD/Full); el export SIEMPRE sale al
-    documento completo, elija lo que elija el preview."""
+    Preview = light proxy (Draft/HD/Full); export ALWAYS renders the full
+    document, whatever the preview uses."""
     from app.gif import GIF_MODES
 
     win.chk_video = QCheckBox("Video mode (animated preview)")

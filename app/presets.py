@@ -47,10 +47,10 @@ BUNDLED: dict[str, dict] = {
 
 # ---------------------------------------------------------------------------
 # Declarative field schema: single source for validate/to_dict/from_dict.
-# Añadir un campo = 1 línea @dataclass + 1 línea aquí (antes: 5 ediciones).
+# Adding a field = 1 @dataclass line + 1 line here (was: 5 edits).
 # kind: int|float|str|bool|colors. rule: ("range", lo, hi) | ("oneof", values|key)
-#        | ("hex",) | ("hexreq",) | ("palette",) | () = sin check.
-# Claves dinámicas de oneof: METHODS, PALETTES, RATIOS, CROPS, GIFMODES.
+#        | ("hex",) | ("hexreq",) | ("palette",) | () = no check.
+# Dynamic oneof keys: METHODS, PALETTES, RATIOS, CROPS, GIFMODES.
 # ---------------------------------------------------------------------------
 def _canvas_ratios():
     from app.canvas import CUSTOM_RATIO, ratio_names
@@ -89,7 +89,7 @@ class _Field:
             if not lo <= v <= hi:
                 raise ValueError(f"{self.name} out of range {lo:g}-{hi:g}: {value}")
         elif kind == "range0":
-            # 0 = auto (sigue a ratio+export_size); si no, rango normal.
+            # 0 = auto (follows ratio+export_size); else, normal range.
             _, lo, hi = self.rule
             v = float(value)
             if v != 0 and not lo <= v <= hi:
@@ -97,7 +97,7 @@ class _Field:
         elif kind == "oneof":
             vals = self._oneof_values()
             ok = str(value) in [str(x) for x in vals] if self.kind == "str" else value in vals
-            # numéricos con bool: int(True)==1, se evita comparando tipos vía int()
+            # numerics with bool: int(True)==1, avoided by comparing types via int()
             if not ok and self.kind == "int":
                 try:
                     ok = int(value) in [int(x) for x in vals]
@@ -209,7 +209,7 @@ def _coerce(kind: str, value):
         return str(value)
     if kind == "bool":
         return bool(value)
-    return value  # colors/stack: passthrough (valida, no transforma)
+    return value  # colors/stack: passthrough (validates, no transform)
 
 
 def _field_default(name: str):
@@ -230,7 +230,7 @@ class Preset:
     highlights: float = 0.0
     palette_depth: int = 0
     ratio: str = "1:1"
-    canvas_w: int = 0  # 0 = auto desde ratio+export_size; UI y from_dict dejan valores concretos
+    canvas_w: int = 0  # 0 = auto from ratio+export_size; UI and from_dict keep concrete values
     canvas_h: int = 0
     crop_mode: str = "cover"
     focus_x: float = 50.0
@@ -250,7 +250,7 @@ class Preset:
     custom_palette: list | None = None
     vector_export: bool = False
     vector_cell: int = 8
-    vector_black: bool = False  # v1.3: solo tinta negra sobre transparente (print)
+    vector_black: bool = False  # v1.3: black ink only over transparent (print)
     glitch_chroma: int = 0
     glitch_slice_bands: int = 0
     glitch_slice_max: int = 24
@@ -258,30 +258,30 @@ class Preset:
     gif_frames: int = 6
     gif_mode: str = "both"
     gif_fps: int = 8
-    gif_size: int = 1200  # anim único: lo usan el preview VIDEO y el GIF exportado
+    gif_size: int = 1200  # single anim: used by the VIDEO preview and the exported GIF
     gif_pingpong: bool = False
     motion_amount: float = 1.0  # animation intensity: 0 = freeze, 1 = legacy, up to 3
-    export_size: int = 3000  # lado largo px de la imagen principal
+    export_size: int = 3000  # long side px of the main image
     export_format: str = "png"  # png | jpg | webp
-    export_quality: int = 90  # solo jpg/webp, 1-100
+    export_quality: int = 90  # jpg/webp only, 1-100
     # -- grade (pack A) --
-    duotone_dark: str = ""  # #RRGGBB o "" = off (requiere duotone_light)
+    duotone_dark: str = ""  # #RRGGBB or "" = off (needs duotone_light)
     duotone_light: str = ""
-    duotone_mid: float = 50.0  # corte 0-100
-    posterize: int = 0  # 0 = off, 2-8 niveles
+    duotone_mid: float = 50.0  # cut 0-100
+    posterize: int = 0  # 0 = off, 2-8 levels
     split_tone: float = 0.0  # 0-100
     fade: float = 0.0  # 0-100
-    glow_threshold: int = 0  # 0-255, 0 = todo brilla
+    glow_threshold: int = 0  # 0-255, 0 = everything glows
     # -- texture/decay (pack B) --
-    halftone: int = 0  # 0 = off, si no 3-12 px por celda
+    halftone: int = 0  # 0 = off, else 3-12 px per cell
     halftone_shape: str = "dots"  # dots | lines
     dust: float = 0.0  # 0-100
     border: int = 0  # 0-64 px, 0 = off
     border_color: str = "#000000"
-    letterbox: int = 0  # 0-25 % por lado, 0 = off
-    # -- glitch extra (pack C) --
-    pixelsort: int = 0  # umbral luminancia 0-255, 0 = off
-    wave: int = 0  # amplitud px 0-30, 0 = off
+    letterbox: int = 0  # 0-25 % per side, 0 = off
+    # -- extra glitch (pack C) --
+    pixelsort: int = 0  # luminance threshold 0-255, 0 = off
+    wave: int = 0  # px amplitude 0-30, 0 = off
     mosh: float = 0.0  # 0-100
     mosh_mode: str = "blocks"  # datamosh flavor (app/mosh.py)
     mosh_seed: int = 0  # variation 0-99 (re-rolls the damage)
@@ -289,9 +289,9 @@ class Preset:
     grille: int = 0  # 0 = off, 2 | 3
     # -- v1.2 stackable FX --
     jpeg: float = 0.0  # JPEG glitch 0-100, 0 = off
-    post_blur: float = 0.0  # post blur 0.0-5.0 (post-dither, en stack)
-    post_sharpen: int = 0  # post sharpen 0-3 (post-dither, en stack)
-    fx_stack: list | None = None  # None = orden legacy; si no [{id, enabled}]
+    post_blur: float = 0.0  # post blur 0.0-5.0 (post-dither, in stack)
+    post_sharpen: int = 0  # post sharpen 0-3 (post-dither, in stack)
+    fx_stack: list | None = None  # None = legacy order; else [{id, enabled}]
     # -- v1.3 motif --
     motif: dict | None = None  # None = default_config(); {"bands": [{shape, size}x4]}
     # -- v1.4 signal drift + paste-up --
@@ -324,7 +324,7 @@ class Preset:
     def from_dict(d: dict) -> "Preset":
         data = dict(d)
         if "canvas_w" not in data or "canvas_h" not in data:
-            # Migración: presets viejos (ratio + export_size) -> W/H concretos.
+            # Migration: old presets (ratio + export_size) -> concrete W/H.
             from app.canvas import doc_dimensions
 
             try:
@@ -356,7 +356,7 @@ class Preset:
         )
 
     def to_render_kwargs(self, phase: int = 0) -> dict:
-        """Kwargs de pipeline.render(). Única conversión (ver render_params)."""
+        """pipeline.render() kwargs. Single conversion (see render_params)."""
         from app.render_params import preset_to_render_kwargs
 
         return preset_to_render_kwargs(self, phase=phase)
@@ -431,9 +431,9 @@ def _safe_name(name: str) -> str:
     return safe_stem(name, "preset")
 
 
-# Guardia fail-fast: el schema cubre exactamente los campos del dataclass.
+# Fail-fast guard: the schema covers exactly the dataclass fields.
 assert {f.name for f in FIELDS} == set(Preset.__dataclass_fields__), (
-    "FIELDS desincronizado de Preset"
+    "FIELDS out of sync with Preset"
 )
 
 

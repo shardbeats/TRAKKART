@@ -50,7 +50,7 @@ def test_ratio_controls_apply(window, isolated_presets):
 
 
 def test_video_proxy_tiers(window):
-    # El proxy solo afecta al preview: el export sigue al documento.
+    # The proxy only affects the preview: export follows the document.
     from app.ui import video_controller as vc
 
     assert window.cmb_video_proxy.currentText() == "Draft 720p"
@@ -60,24 +60,24 @@ def test_video_proxy_tiers(window):
     assert vc.proxy_size(window) == 1080
     window.cmb_video_proxy.setCurrentText("Full (doc)")
     assert vc.proxy_size(window) == 0
-    # Full = documento completo (3000x3000 por defecto).
+    # Full = full document (3000x3000 by default).
     assert vc.preview_size(window) == 3000
-    # El export no se entera del proxy.
+    # export stays unaware of the proxy.
     assert window.current_params().gif_size == 3000
-    # Cambiar de proxy no revienta y re-renderiza sin bloquear (debounce).
+    # Switching proxies does not crash and re-renders without blocking (debounce).
     window.cmb_video_proxy.setCurrentText("Draft 720p")
     window._on_video_proxy_changed()
     assert vc.preview_size(window) == 720
 
 
 def test_custom_canvas_free_wh(window, isolated_presets):
-    # Photoshop-style: preset rellena W/H; editar W/H salta a Custom.
+    # Photoshop-style: preset fills in W/H; editing W/H jumps to Custom.
     window.cmb_ratio.setCurrentText("1:1")
-    window._on_ratio_preset()  # gesto de usuario: rellena a escala actual
+    window._on_ratio_preset()  # user gesture: fills at current scale
     assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (3000, 3000)
     assert window.current_params().ratio == "1:1"
-    window.spn_canvas_w.setValue(1920)  # teclear W...
-    window.spn_canvas_h.setValue(800)   # ...y H salta a Custom
+    window.spn_canvas_w.setValue(1920)  # type W...
+    window.spn_canvas_h.setValue(800)   # ...and H jumps to Custom
     assert window.cmb_ratio.currentText() == "Custom"
     p = window.current_params()
     assert (p.ratio, p.canvas_w, p.canvas_h) == ("custom", 1920, 800)
@@ -133,7 +133,7 @@ def test_fx_controls_apply(window, isolated_presets, monkeypatch):
 
 
 def test_vector_preset_roundtrip(window, isolated_presets, monkeypatch):
-    """Los flags vector/GIF viven en el preset (receta), no en un panel."""
+    """The vector/GIF flags live in the preset (recipe), not in a panel."""
     from PySide6.QtWidgets import QInputDialog
 
     from app.presets import load_preset
@@ -182,11 +182,11 @@ def test_gif_preset_roundtrip(window, isolated_presets, monkeypatch):
 
 
 def test_vector_export_via_dialog(window, qt_app):
-    """El diálogo Export es la autoridad por operación."""
+    """The Export dialog is the authority per operation."""
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import accept_next_dialog
 
-    window._vector_export = True  # default del preset en el diálogo
+    window._vector_export = True  # preset default in the dialog
     window.refresh()
     assert window.result is not None
     accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_vector.setChecked(True))
@@ -221,16 +221,16 @@ def test_fx_pack_roundtrip(window, isolated_presets, monkeypatch):
     window.set_duotone_color("dark", "#112233")
     window.set_duotone_color("light", "#aabbcc")
     assert "(off)" not in window.lbl_duo.text()
-    window.set_duotone_color("dark", "nope")  # inválido: se conserva
+    window.set_duotone_color("dark", "nope")  # invalid: kept
     assert window.duotone_dark == "#112233"
     window.sld_duo_mid.setValue(60)
-    window.spn_poster.setValue(1)  # inválido -> 2 en current_params
-    window.sld_glow.setValue(40)  # sin intensidad no hay radio
+    window.spn_poster.setValue(1)  # invalid -> 2 in current_params
+    window.sld_glow.setValue(40)  # no radius without intensity
     window.spn_glowrad.setValue(12)
     window.sld_split.setValue(30)
     window.sld_fade.setValue(10)
     window.spn_glowthr.setValue(200)
-    window.spn_halftone.setValue(2)  # inválido -> 3
+    window.spn_halftone.setValue(2)  # invalid -> 3
     window.cmb_halftone.setCurrentText("lines")
     window.sld_dust.setValue(20)
     window.spn_border.setValue(8)
@@ -239,8 +239,8 @@ def test_fx_pack_roundtrip(window, isolated_presets, monkeypatch):
     window.spn_pixelsort.setValue(100)
     window.spn_wave.setValue(5)
     window.sld_mosh.setValue(25)
-    window.spn_grille.setValue(1)  # inválido -> 2
-    window.set_border_color("nope")  # inválido: se conserva
+    window.spn_grille.setValue(1)  # invalid -> 2
+    window.set_border_color("nope")  # invalid: kept
     assert window.border_color == "#FF0000"
     p = window.current_params()
     assert (p.duotone_dark, p.duotone_light, p.duotone_mid) == ("#112233", "#AABBCC", 60.0)

@@ -20,7 +20,7 @@ EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
 
 
 def options_from_preset(preset: Preset) -> ExportOptions:
-    """Bundle batch: imagen+thumb+meta siempre, SVG/GIF según preset."""
+    """Batch bundle: image+thumb+meta always, SVG/GIF per preset."""
     return ExportOptions(
         base="batch",
         selection=ExportSelection(
@@ -43,14 +43,14 @@ def _outputs_for(out_dir: Path, base: str, preset) -> list[Path]:
 
 
 def render_single_image(img: Image.Image, preset: Preset) -> Image.Image:
-    """Un solo render (secuencial o multiproceso usan lo mismo)."""
+    """One render (sequential and multiprocess share it)."""
     from app.pipeline import render_preset
 
     return render_preset(img, preset)
 
 
 def build_extras(img: Image.Image, preset: Preset) -> tuple[str | None, list | None]:
-    """SVG + frames GIF opcionales según preset. Retorna (svg, frames)."""
+    """Optional SVG + GIF frames per preset. Returns (svg, frames)."""
     svg = None
     if preset.vector_export:
         svg, _, _ = vector_bundle(img, preset)

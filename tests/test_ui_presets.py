@@ -1,4 +1,4 @@
-"""UI presets: apply/save/roundtrip (fixtures en conftest)."""
+"""UI presets: apply/save/roundtrip (fixtures in conftest)."""
 
 import pytest
 

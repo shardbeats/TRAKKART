@@ -30,7 +30,7 @@ def build_pre_section(win, g: QVBoxLayout) -> None:
 
 
 def build_effects_section(win, g: QVBoxLayout) -> None:
-    """Compat: redirige a los tres grupos (GRADE/TEXTURE/GLITCH)."""
+    """Compat: forwards to the three groups (GRADE/TEXTURE/GLITCH)."""
     build_tint_section(win, g)
     build_grade_section(win, g)
     build_texture_section(win, g)
@@ -39,7 +39,7 @@ def build_effects_section(win, g: QVBoxLayout) -> None:
 
 
 def build_tint_section(win, g: QVBoxLayout) -> None:
-    """Duotone + brand: viven en la página COLOR (extraído de grade)."""
+    """Duotone + brand: live on the COLOR page (extracted from grade)."""
     g.addWidget(QLabel("Duotone:"))
     duo_row = QHBoxLayout()
     duo_row.addWidget(QLabel("Duo:"))

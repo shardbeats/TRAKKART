@@ -150,7 +150,7 @@ def _on_adjust_dice(win) -> None:
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
-    """Canvas Photoshop-style: el ratio rellena W/H; editar W/H salta a Custom."""
+    """Canvas Photoshop-style: ratio fills W/H; editing W/H jumps to Custom."""
     from app.canvas import MAX_DIM, MIN_DIM, MODE_TIPS, canvas_ratios
 
     g.addWidget(QLabel("Ratio / Mode:"))
@@ -159,7 +159,7 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     tight(win.cmb_ratio, 10)
     win.cmb_ratio.addItems(canvas_ratios())
     win.cmb_ratio.setToolTip("Preset aspect, or Custom for free W×H")
-    # activated = solo gesto del usuario: aplica el preset sin pelear con sync.
+    # activated = user gesture only: applies the preset without fighting sync.
     win.cmb_ratio.activated.connect(lambda _: win._on_ratio_preset())
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._sync_docdims())

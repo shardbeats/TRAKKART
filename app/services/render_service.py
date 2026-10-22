@@ -33,7 +33,7 @@ def downscale_for_preview(img: Image.Image, max_side: int = PREVIEW_LONG_SIDE) -
 
 
 def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
-    """Render rápido para preview: downscale + pixel compensado."""
+    """Fast render for preview: downscale + compensated pixel."""
     small, f = downscale_for_preview(img)
     kwargs = preset_to_render_kwargs(preset)
     if f < 1.0:

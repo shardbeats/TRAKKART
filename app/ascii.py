@@ -25,14 +25,14 @@ def ascii_render(img: Image.Image, palette: list | None = None, threshold: float
     small = base.resize((cw, ch), Image.BICUBIC)
     arr = np.asarray(small, dtype=np.float32)
     lum = arr.mean(axis=2)
-    # threshold desplaza la rampa (más/menos tinta).
+    # threshold shifts the ramp (more/less ink).
     shift = (float(threshold) - 128.0) / 128.0 * (len(RAMP) / 2.0)
     idx = np.clip(((lum / 255.0) * (len(RAMP) - 1) + shift).round(), 0, len(RAMP) - 1).astype(int)
     if phase:
         idx = (idx + int(phase)) % len(RAMP)
     try:
         font = ImageFont.load_default(size=cell)
-    except TypeError:  # Pillow < 10 sin size
+    except TypeError:  # Pillow < 10 without size
         font = ImageFont.load_default()
     out_w, out_h = cw * cell, ch * cell
     canvas = Image.new("RGB", (out_w, out_h), (0, 0, 0))

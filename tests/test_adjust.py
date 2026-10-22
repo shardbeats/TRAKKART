@@ -1,4 +1,4 @@
-"""Tests adjust: identidad, cambios reales, validacion."""
+"""Tests adjust: identity, real changes, validation."""
 
 import pytest
 from PIL import Image

@@ -1,9 +1,9 @@
-"""TRAKKART export: tamaño + formato elegidos por el usuario (GIMP/Photoshop style).
+"""TRAKKART export: user-chosen size + format (GIMP/Photoshop style).
 
-Modelo nuevo: UNA imagen principal (lado largo + formato configurables) +
-extras opcionales (thumb 1080p, SVG, GIF, metadata). `export_bundle()` queda
-como motor legacy intacto (lo usa `export_with_options` NO; batch migra al
-nuevo via preset).
+New model: ONE main image (configurable long side + format) +
+optional extras (1080p thumb, SVG, GIF, metadata). `export_bundle()` stays
+as the intact legacy engine (`export_with_options` does NOT use it; batch
+migrates to the new one via preset).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ THUMB_LONG_SIDE = 1920
 THUMB_SHORT_SIDE = 1080
 
 SUFFIXES = {
-    "image": "",  # -> {base}.{ext} según formato
+    "image": "",  # -> {base}.{ext} per format
     "thumb_1080p": "_thumb1080p",  # -> {base}_thumb1080p.{ext}
     "vector": "_vector.svg",
     "anim": "_gif.gif",
@@ -47,10 +47,10 @@ _FORMAT_EXT = {"png": "png", "jpg": "jpg", "webp": "webp"}
 
 
 def sanitize_base(base: str) -> str:
-    """Nombre seguro para ficheros (GIMP deja escribirlo libre; aquí se sanea).
+    """Safe base name for files (GIMP lets you type it freely; here it is sanitized).
 
-    Sin separadores (anti `../`), sin rachas de `_` ni bordes raros, para
-    que los sufijos (`_gif.gif`...) nunca generen `__`.
+    No separators (anti `../`), no `_` runs or odd edges, so
+    suffixes (`_gif.gif`...) never produce `__`.
     """
     from app.names import safe_stem
 
@@ -80,7 +80,7 @@ class ExportSelection:
     vector: bool = False
     anim: bool = False
     metadata: bool = True
-    black_vector: bool = False  # v1.3: modificador (no es fichero)
+    black_vector: bool = False  # v1.3: modifier (not a file)
 
     def keys(self) -> list[str]:
         return [k for k in ("image", "thumb_1080p", "vector", "anim", "metadata")
@@ -92,20 +92,20 @@ class ExportOptions:
     base: str = "trakkart_cover"
     selection: ExportSelection = field(default_factory=ExportSelection)
     overwrite: str = "overwrite"  # overwrite | skip | rename
-    size: int = 3000  # lado largo px de la imagen principal
+    size: int = 3000  # long side px of the main image
     format: str = "png"  # png | jpg | webp
-    quality: int = 90  # solo jpg/webp, 1-100
+    quality: int = 90  # jpg/webp only, 1-100
 
     def __post_init__(self) -> None:
         self.base = sanitize_base(self.base)
         if self.overwrite not in OVERWRITE_MODES:
-            raise ValueError(f"overwrite debe ser {OVERWRITE_MODES}: {self.overwrite!r}")
+            raise ValueError(f"overwrite must be {OVERWRITE_MODES}: {self.overwrite!r}")
         if not MIN_SIDE <= int(self.size) <= MAX_SIDE:
-            raise ValueError(f"size fuera de {MIN_SIDE}-{MAX_SIDE}: {self.size}")
+            raise ValueError(f"size out of {MIN_SIDE}-{MAX_SIDE}: {self.size}")
         if str(self.format) not in EXPORT_FORMATS:
-            raise ValueError(f"format debe ser {EXPORT_FORMATS}: {self.format!r}")
+            raise ValueError(f"format must be {EXPORT_FORMATS}: {self.format!r}")
         if not 1 <= int(self.quality) <= 100:
-            raise ValueError(f"quality fuera de 1-100: {self.quality}")
+            raise ValueError(f"quality out of 1-100: {self.quality}")
         self.size = int(self.size)
         self.quality = int(self.quality)
         self.format = str(self.format)
@@ -116,7 +116,7 @@ def bundle_filenames(
     has_vector: bool = False,
     has_gif: bool = False,
 ) -> dict[str, str]:
-    """{key: filename} del set, sin escribir. Para skip/rename y batch."""
+    """{key: filename} of the set, without writing. For skip/rename and batch."""
     names: dict[str, str] = {}
     for key in options.selection.keys():
         if key == "vector" and not has_vector:
@@ -131,13 +131,13 @@ def bundle_filenames(
 
 
 def _unique_base(out_dir: Path, base: str, filenames: list[str]) -> str:
-    """rename: base -> base_2, _3… hasta set libre (atómico por base)."""
+    """rename: base -> base_2, _3… until the set is free (atomic per base)."""
     if not any((out_dir / f).exists() for f in filenames):
         return base
     i = 2
     while True:
         cand = f"{base}_{i}"
-        # Los nombres derivan de la base: re-sufijar con el candidato.
+        # Names derive from the base: re-suffix with the candidate.
         remapped = [f.replace(base, cand, 1) for f in filenames]
         if not any((out_dir / f).exists() for f in remapped):
             return cand
@@ -145,7 +145,7 @@ def _unique_base(out_dir: Path, base: str, filenames: list[str]) -> str:
 
 
 def _estimate_bytes(key: str, w: int, h: int, fmt: str, quality: int, extra: dict | None = None) -> int:
-    """Estimación grosera (~) para la vista previa del diálogo."""
+    """Rough estimate (~) for the dialog preview."""
     extra = extra or {}
     if key in _raster_keys():
         bpp = {"png": 0.35, "jpg": 0.05 + 0.002 * quality, "webp": 0.04 + 0.001 * quality}[fmt]
@@ -173,7 +173,7 @@ def _main_dims(meta: dict | None, size: int) -> tuple[int, int]:
             w, h = 0, 0
         if MIN_DIM <= w <= MAX_DIM and MIN_DIM <= h <= MAX_DIM:
             return (w, h)
-        s = max(MIN_DIM, min(MAX_DIM, int(size)))  # degenerado: cuadrado long side
+        s = max(MIN_DIM, min(MAX_DIM, int(size)))  # degenerate: square long side
         return (s, s)
     ratio = meta.get("ratio", "1:1")
     try:
@@ -190,7 +190,7 @@ def plan_export(
     has_gif: bool = False,
     extra: dict | None = None,
 ) -> list[tuple[str, str, int]]:
-    """[(key, filename, ~bytes)] sin escribir nada. Lo que ves es lo que sale."""
+    """[(key, filename, ~bytes)] without writing anything. What you see is what ships."""
     rgb = img.convert("RGB")
     main_w, main_h = _main_dims(meta, options.size)
     gside = max(240, min(1920, int((extra or {}).get("gif_size", 1200))))
@@ -214,7 +214,7 @@ def _save_raster(img: Image.Image, path: Path, fmt: str, quality: int) -> None:
     elif fmt == "webp":
         img.convert("RGB").save(str(path), "WebP", quality=int(quality))
     else:  # pragma: no cover - validado en ExportOptions
-        raise ValueError(f"formato no soportado: {fmt}")
+        raise ValueError(f"unsupported format: {fmt}")
 
 
 def export_with_options(
@@ -226,7 +226,7 @@ def export_with_options(
     gif_frames: list[Image.Image] | None = None,
     gif_fps: int = 8,
 ) -> tuple[dict[str, Path], list[str]]:
-    """Exporta según opciones. Retorna (paths escritos, keys omitidas por skip)."""
+    """Exports per options. Returns (written paths, keys skipped by skip)."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     names = bundle_filenames(options, has_vector=bool(vector_svg), has_gif=bool(gif_frames))
@@ -238,17 +238,17 @@ def export_with_options(
                                  has_vector=bool(vector_svg), has_gif=bool(gif_frames))
         keys = list(names)
     if options.overwrite == "skip" and keys and all((out_dir / f).exists() for f in names.values()):
-        return {}, keys  # nada que hacer: todo existe
+        return {}, keys  # nothing to do: everything exists
     return _write_bundle(img, out_dir, base, keys, options, meta, vector_svg, gif_frames, gif_fps), []
 
 
 # ---------------------------------------------------------------------------
-# Escritores compartidos: el esquema nuevo y el legacy usan el mismo arte.
-# Cada writer es una receta fina (nombres + dimensiones); el cómo se escribe
-# vive aquí una sola vez. Salida byte-idéntica a la versión anterior.
+# Shared writers: the new scheme and the legacy one use the same art.
+# Each writer is a thin recipe (names + dimensions); how it is written
+# lives here exactly once. Byte-identical output to the previous version.
 # ---------------------------------------------------------------------------
 def _thumb_image(rgb: Image.Image, w: int, h: int) -> Image.Image:
-    """Cover encajado sobre fondo blur (compartido: mismo algoritmo, mismos bytes)."""
+    """Cover fitted over a blur background (shared: same algorithm, same bytes)."""
     bg_src = rgb.resize((w, h)).filter(ImageFilter.GaussianBlur(40))
     dim = Image.new("RGB", (w, h), (0, 0, 0))
     bg = Image.blend(bg_src, dim, 0.25)
@@ -292,7 +292,7 @@ def _attach_anim(result: dict, info: dict, out_dir: Path, base: str,
 
     panim = out_dir / f"{base}{suffix}"
     if fps is None:
-        save_gif(gif_frames, panim)  # legacy: default del motor
+        save_gif(gif_frames, panim)  # legacy: engine default
     else:
         save_gif(gif_frames, panim, fps=int(fps))
     info["files"].append(panim.name)
@@ -320,7 +320,7 @@ def _write_bundle(
     gif_frames: list[Image.Image] | None,
     gif_fps: int = 8,
 ) -> dict[str, Path]:
-    """Escritura real del set (todas las variantes pasan por aquí)."""
+    """Real writing of the set (every variant goes through here)."""
     main_w, main_h = _main_dims(meta, options.size)
     rgb = img.convert("RGB")
     result: dict[str, Path] = {}
@@ -352,7 +352,7 @@ def _write_bundle(
     return result
 
 
-# -- motor legacy: comportamiento byte-idéntico (tests + compat) --
+# -- legacy engine: byte-identical behavior (tests + compat) --
 _LEGACY_SUFFIXES = {
     "cover": "_cover.png",
     "small": "_small.png",

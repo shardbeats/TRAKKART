@@ -1,11 +1,11 @@
-"""Generador aleatorio de paletas (MIT, clean-room).
+"""Random palette generator (MIT, clean-room).
 
-NO es random RGB (sale barro + grises indistinguibles que el dither no puede
-usar) ni ML (filosofía offline). Reglas tomadas de la literatura pixel-art:
-rampas con luminosidad monótona, joroba de saturación, hue-shift medido
-(fresco en sombras, cálido en luces) y distancia perceptual mínima con
-re-muestreo. Todo se calcula en Oklch (uniforme) y se recorta por chroma
-para no salir de sRGB.
+NOT random RGB (that yields mud + indistinguishable grays the dither cannot
+use) nor ML (offline philosophy). Rules taken from the pixel-art literature:
+ramps with monotonic lightness, saturation hump, measured hue-shift
+(cool in shadows, warm in lights) and minimum perceptual distance with
+re-sampling. Everything is computed in Oklch (uniform) and chroma-clipped
+to stay inside sRGB.
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ import numpy as np
 MIN_COLORS = 2
 MAX_COLORS = 16
 
-# Distancia mínima Oklch euclídea (~ΔE simplificado). Por debajo, dos
-# colores son el mismo para el ojo (y para el dither).
+# Minimum euclidean Oklch distance (~simplified ΔE). Below it, two
+# colors are the same to the eye (and to the dither).
 MIN_DIST = 0.045
 
-# Matrices de Björn Ottosson (dominio público, matemática estándar).
+# Björn Ottosson's matrices (public domain, standard math).
 _M1 = np.array(
     [
         [0.4122214708, 0.5363325363, 0.0514459929],
@@ -60,7 +60,7 @@ def rgb_to_oklch(rgb: np.ndarray) -> np.ndarray:
 
 
 def _oklch_to_linear(lch: np.ndarray) -> np.ndarray:
-    """Oklch -> RGB lineal SIN recortar (para detectar fuera de gama)."""
+    """Oklch -> linear RGB WITHOUT clipping (to detect out-of-gamut)."""
     lch = np.asarray(lch, dtype=np.float64).reshape(-1, 3)
     L, C, h = lch[:, 0], lch[:, 1], lch[:, 2]
     a = C * np.cos(np.radians(h))
@@ -79,7 +79,7 @@ def _oklch_to_linear(lch: np.ndarray) -> np.ndarray:
 
 
 def oklch_to_rgb(lch: np.ndarray) -> np.ndarray:
-    """(N,3) Oklch -> (N,3) uint8 (recorta si queda fuera de sRGB)."""
+    """(N,3) Oklch -> (N,3) uint8 (clips when out of sRGB)."""
     lin = _oklch_to_linear(lch)
     srgb = _linear_to_srgb(lin)
     return np.clip(np.round(srgb * 255.0), 0, 255).astype(np.uint8)
@@ -91,7 +91,7 @@ def _in_gamut(L: float, C: float, h: float) -> bool:
 
 
 def _fit_srgb(L: float, C: float, h: float) -> tuple[int, int, int]:
-    """Baja chroma hasta entrar en sRGB (nunca recorta canales = no cambia el tono)."""
+    """Lowers chroma until inside sRGB (never clips channels = hue is kept)."""
     C = max(0.0, float(C))
     for _ in range(24):
         if _in_gamut(L, C, h):
@@ -105,7 +105,7 @@ def _fit_srgb(L: float, C: float, h: float) -> tuple[int, int, int]:
 
 
 def _min_pairwise_dist(colors: np.ndarray) -> float:
-    """Distancia Oklch mínima entre pares (aprox. perceptual)."""
+    """Minimum pairwise Oklch distance (approx. perceptual)."""
     lch = rgb_to_oklch(colors)
     lab = np.stack([lch[:, 0], lch[:, 1] * np.cos(np.radians(lch[:, 2])),
                     lch[:, 1] * np.sin(np.radians(lch[:, 2]))], axis=1)
@@ -122,26 +122,26 @@ def _luminance_spread(colors: np.ndarray) -> float:
 
 
 def _ramp(n: int, rng: np.random.Generator) -> list[tuple[int, int, int]]:
-    """Una rampa hue-shifted: L uniforme, joroba de saturación, giro medido."""
+    """A hue-shifted ramp: uniform L, saturation hump, measured turn."""
     h0 = float(rng.uniform(0.0, 360.0))
-    # Dirección del giro: cálidos suben hacia el amarillo, fríos bajan
-    # hacia teal/índigo en las sombras (tabla medida de rampas publicadas).
+    # Turn direction: warms rise toward yellow, cools drop
+    # toward teal/indigo in the shadows (measured table of published ramps).
     hh = h0 % 360.0
     direction = 1.0 if (hh >= 290.0 or hh < 60.0) else -1.0
-    travel = min(100.0, 20.0 + 12.0 * n)  # 3 tonos ≤~56°, 7-9 pasos ≤100°
+    travel = min(100.0, 20.0 + 12.0 * n)  # 3 tones ≤~56°, 7-9 steps ≤100°
     t = np.linspace(0.0, 1.0, n)
     L = 0.28 + 0.64 * t + rng.uniform(-0.015, 0.015, n)
     L = np.clip(L, 0.12, 0.95)
     h = (h0 + direction * travel * (t - 0.5)) % 360.0
-    # Joroba de saturación: pico en medios, puntas apagadas (no quema ojos).
+    # Saturation hump: peak in the mids, muted tips (no eye burn).
     hump = np.sin(np.pi * np.clip((t * 0.85 + 0.075), 0.0, 1.0)) ** 0.8
     C = float(rng.uniform(0.08, 0.15)) * (0.35 + 0.65 * hump)
-    C = C * (1.0 - 0.35 * t)  # luces un poco más limpias
+    C = C * (1.0 - 0.35 * t)  # slightly cleaner lights
     return [_fit_srgb(float(L[i]), float(C[i]), float(h[i])) for i in range(n)]
 
 
 def _harmony(n: int, rng: np.random.Generator) -> list[tuple[int, int, int]]:
-    """Análoga / complementaria / triádica, cada tono en su banda de luz."""
+    """Analogous / complementary / triadic, each hue in its light band."""
     templates = {
         "analogous": [0.0, 28.0, -28.0, 55.0, -55.0],
         "complementary": [0.0, 180.0, 25.0, 205.0, -25.0],
@@ -159,7 +159,7 @@ def _harmony(n: int, rng: np.random.Generator) -> list[tuple[int, int, int]]:
         rng.shuffle(L)
         C = rng.uniform(0.07, 0.15, n)
         cand = [_fit_srgb(float(L[i]), float(C[i]), float(hues[i])) for i in range(n)]
-        # Sin duplicados tras cuantizar.
+        # No duplicates after quantizing.
         if len(set(cand)) < n:
             continue
         d = _min_pairwise_dist(np.array(cand))
@@ -167,9 +167,9 @@ def _harmony(n: int, rng: np.random.Generator) -> list[tuple[int, int, int]]:
             best_d, best = d, cand
         if d >= MIN_DIST:
             break
-    if best is None:  # pragma: no cover - extremadamente improbable
+    if best is None:  # pragma: no cover - extremely unlikely
         best = _ramp(n, rng)
-    # Ordenar de oscuro a claro: la tira se lee como rampa.
+    # Sort dark to light: the strip reads as a ramp.
     lab_l = rgb_to_oklch(np.array(best))[:, 0]
     return [best[i] for i in np.argsort(lab_l)]
 
@@ -179,14 +179,14 @@ def generate_palette(
     style: str = "ramp",
     seed: int | None = None,
 ) -> list[tuple[int, int, int]]:
-    """N colores buenos para dither. style: ramp | harmony."""
+    """N good colors for dither. style: ramp | harmony."""
     n = max(MIN_COLORS, min(MAX_COLORS, int(n)))
     rng = np.random.default_rng(seed)
     if str(style).lower().startswith("harm"):
         colors = _harmony(n, rng)
     else:
         colors = _ramp(n, rng)
-    # Unicidad garantizada tras cuantizar (micro-ajuste de luz si choca).
+    # Uniqueness guaranteed after quantizing (light micro-tweak on clash).
     out: list[tuple[int, int, int]] = []
     for c in colors:
         cc = c

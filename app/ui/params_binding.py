@@ -105,7 +105,7 @@ def _scan_set(win, v):
 
 
 def _glow_radius_get(win):
-    # Radio 0 si el glow está apagado (el spin conserva su último valor).
+    # Radius 0 when glow is off (spin keeps its last value).
     if win.sld_glow.value() <= 0:
         return 0.0
     return float(win.spn_glowrad.value())
@@ -116,7 +116,7 @@ def _glow_radius_set(win, v):
 
 
 def anim_combo_int(cmb, default: int, lo: int, hi: int) -> int:
-    """Lee un combo editable (lista sugerida + valor libre)."""
+    """Reads an editable combo (suggested list + free value)."""
     try:
         return max(lo, min(hi, int(str(cmb.currentText()).strip())))
     except Exception:  # noqa: BLE001
@@ -124,7 +124,7 @@ def anim_combo_int(cmb, default: int, lo: int, hi: int) -> int:
 
 
 def set_anim_combo(cmb, value: int) -> None:
-    """Fija un combo editable conservando valores custom fuera de la lista."""
+    """Sets an editable combo keeping custom values outside the list."""
     txt = str(int(value))
     try:
         if cmb.findText(txt) < 0:

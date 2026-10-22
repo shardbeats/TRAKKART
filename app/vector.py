@@ -140,7 +140,7 @@ def raster_to_svg(
             while x + run < w and px[x + run, y] == color:
                 run += 1
             if ink_only and min(color) >= 250:
-                x += run  # papel: transparente, sin rect
+                x += run  # paper: transparent, no rect
                 continue
             r, g, b = color
             if ink_only:

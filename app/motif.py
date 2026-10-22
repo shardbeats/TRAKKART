@@ -46,16 +46,16 @@ def normalize_config(raw: dict | None) -> dict:
 
 
 def _shape_tile(shape: str, size: int, n: int = 8) -> np.ndarray:
-    """8x8 tile 0-255 para una forma (size 1-4 = grosor/densidad)."""
+    """8x8 tile 0-255 for one shape (size 1-4 = thickness/density)."""
     t = np.zeros((n, n), dtype=np.float32)
     s = max(1, min(4, int(size)))
     if shape == "dot":
-        r = s  # radio en celdas
+        r = s  # radius in cells
         c = n // 2
         ys, xs = np.mgrid[0:n, 0:n]
         t = ((xs - c + 0.5) ** 2 + (ys - c + 0.5) ** 2 <= r * r).astype(np.float32) * 255.0
     elif shape == "line":
-        t[::max(1, 5 - s), :] = 255.0  # horizontales cada 4..1 filas
+        t[::max(1, 5 - s), :] = 255.0  # horizontals every 4..1 rows
     elif shape == "cross":
         t[n // 2 - s + 1:n // 2 + s, :] = 200.0
         t[:, n // 2 - s + 1:n // 2 + s] = 255.0
@@ -75,7 +75,7 @@ def _shape_tile(shape: str, size: int, n: int = 8) -> np.ndarray:
 
 
 def build_matrix(config: dict | None, n: int = 32) -> np.ndarray:
-    """32x32 matrix: cada cuadrante 16x16 = una banda (orden oscuridad)."""
+    """32x32 matrix: each 16x16 quadrant = one band (darkness order)."""
     cfg = normalize_config(config)
     mat = np.zeros((n, n), dtype=np.float32)
     half = n // 2
@@ -83,7 +83,7 @@ def build_matrix(config: dict | None, n: int = 32) -> np.ndarray:
         tile = _shape_tile(band["shape"], band["size"], 8)
         reps = (half + 7) // 8
         big = np.tile(tile, (reps, reps))[:half, :half]
-        # Nivel base por banda (sombras = umbral bajo ... brillos = alto).
+        # Base level per band (shadows = low threshold ... brights = high).
         level = (i + 1) / 4.0 * 160.0 + 40.0  # 80, 120, 160, 200
         quad = np.clip(big * 0.35 + level, 0, 255)
         y0, x0 = (i // 2) * half, (i % 2) * half

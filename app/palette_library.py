@@ -1,8 +1,8 @@
 """Palette library: named palettes as JSON, editable presets.
 
-Builtins (BW/SLIME/VAPOR/EMBER) se crean si faltan (nunca se sobrescriben,
-mismo patrón que presets). Elegir una la carga como copia editable en
-CUSTOM PALETTE; guardar crea un JSON que aparece en el combo.
+Builtins (BW/SLIME/VAPOR/EMBER) are created when missing (never overwritten,
+same pattern as presets). Picking one loads it as an editable copy in
+CUSTOM PALETTE; saving creates a JSON that shows up in the combo.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def _safe_name(name: str) -> str:
 
 
 def ensure_bundled_palettes(palettes_dir: Path | None = None) -> list[str]:
-    """Crea los JSON built-in que falten. Retorna los creados."""
+    """Creates the missing built-in JSONs. Returns the created ones."""
     from app.palettes import PALETTES
 
     d = Path(palettes_dir) if palettes_dir else _default_dir()
@@ -72,7 +72,7 @@ def list_palettes(palettes_dir: Path | None = None) -> list[str]:
 
 
 def palette_colors(name: str, palettes_dir: Path | None = None) -> list[tuple[int, int, int]]:
-    """Colores de la paleta: librería primero, builtin después. Validados."""
+    """Palette colors: library first, builtin after. Validated."""
     from app.palettes import get_palette
 
     if name == "SOURCE":
@@ -97,17 +97,17 @@ def palette_colors(name: str, palettes_dir: Path | None = None) -> list[tuple[in
                 pass
             break  # file exists but invalid: fall through to builtin, not next dir
     pal = get_palette(name)
-    if pal is None:  # BW: 2 celdas, el motor usa la ruta rápida solo
+    if pal is None:  # BW: 2 cells, the engine only uses the fast path
         from app.palettes import PALETTES
 
         return [tuple(c) for c in PALETTES["BW"]]
-    if isinstance(pal, str):  # SOURCE sentinel: nunca lista
+    if isinstance(pal, str):  # SOURCE sentinel: never a list
         raise ValueError("SOURCE is auto-extracted at render time")
     return [tuple(c) for c in pal]
 
 
 def parse_gpl(text: str) -> tuple[str, list[tuple[int, int, int]]]:
-    """Parse GIMP .gpl (offline, sin deps). Retorna (name, colors)."""
+    """Parse GIMP .gpl (offline, no deps). Returns (name, colors)."""
     name = ""
     colors: list[tuple[int, int, int]] = []
     for line in text.splitlines():
@@ -136,7 +136,7 @@ def parse_gpl(text: str) -> tuple[str, list[tuple[int, int, int]]]:
 
 
 def to_gpl(name: str, colors: list) -> str:
-    """Swatches -> texto .gpl (para share offline con GIMP/otros)."""
+    """Swatches -> .gpl text (for offline sharing with GIMP/others)."""
     valid = normalize_custom_palette([list(c) for c in colors])
     if valid is None:
         raise ValueError("palette needs 2-16 colors")
@@ -147,7 +147,7 @@ def to_gpl(name: str, colors: list) -> str:
 
 
 def save_palette(name: str, colors: list, palettes_dir: Path | None = None) -> Path:
-    """Guarda (o actualiza) una paleta de usuario. Valida 2-16 colores."""
+    """Saves (or updates) a user palette. Validates 2-16 colors."""
     valid = normalize_custom_palette(colors)
     if valid is None:
         raise ValueError("palette needs 2-16 colors")
@@ -164,7 +164,7 @@ def save_palette(name: str, colors: list, palettes_dir: Path | None = None) -> P
 
 
 def is_bw(cells: list | None) -> bool:
-    """¿Esta selección equivale al B&W puro? → el motor usa la ruta rápida."""
+    """Does this selection equal pure B&W? → the engine uses the fast path."""
     if not cells:
         return False
     try:

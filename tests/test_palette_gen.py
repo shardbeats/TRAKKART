@@ -1,4 +1,4 @@
-"""Generador de paletas: determinismo, validez y calidad perceptual."""
+"""Palette generator: determinism, validity and perceptual quality."""
 
 import time
 
@@ -23,7 +23,7 @@ def test_valid_and_clamped():
     for style in ("ramp", "harmony", "weird"):
         pal = generate_palette(8, style, seed=3)
         assert len(pal) == 8
-        assert len(set(pal)) == 8  # sin duplicados
+        assert len(set(pal)) == 8  # no duplicates
         for c in pal:
             assert len(c) == 3 and all(isinstance(v, int) and 0 <= v <= 255 for v in c)
 
@@ -34,9 +34,9 @@ def test_ramp_spread_and_order():
     from app.palette_gen import _luminance_spread, generate_palette, rgb_to_oklch
 
     pal = generate_palette(6, "ramp", seed=11)
-    assert _luminance_spread(np.array(pal)) > 0.35  # el dither necesita rango
+    assert _luminance_spread(np.array(pal)) > 0.35  # dithering needs range
     lum = rgb_to_oklch(np.array(pal))[:, 0]
-    assert bool((np.diff(lum) >= -0.02).all())  # oscuro -> claro
+    assert bool((np.diff(lum) >= -0.02).all())  # dark -> light
 
 
 def test_harmony_separation_and_hues():
@@ -47,7 +47,7 @@ def test_harmony_separation_and_hues():
     pal = generate_palette(6, "harmony", seed=5)
     assert _min_pairwise_dist(np.array(pal)) >= MIN_DIST
     hues = rgb_to_oklch(np.array(pal))[:, 2]
-    assert float(hues.std()) > 10.0  # más de una familia de tono
+    assert float(hues.std()) > 10.0  # more than one hue family
 
 
 def test_oklch_roundtrip_stable():
@@ -78,7 +78,7 @@ def test_gen_button_fills_and_marks_dirty(window, qt_app):
     assert len(set(window.custom_colors)) == 2
     assert window.cmb_pal_preset.currentText() == "(Custom)"
     assert window.lbl_custom.text() == "2/16"
-    # con tira vacía genera 4
+    # an empty strip still yields 4
     window._set_custom_colors([], dirty=False)
     window.gen_palette()
     assert len(window.custom_colors) == 4

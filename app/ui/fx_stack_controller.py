@@ -1,7 +1,7 @@
-"""FX stack controller: orden + on/off de la lista (params viven en sliders).
+"""FX stack controller: list order + on/off (params live in sliders).
 
-Single source: win.fx_stack_data = [{id, enabled}]. La lista QCheckable
-refleja el dato; cualquier cambio re-renderiza (debounce 350ms).
+Single source: win.fx_stack_data = [{id, enabled}]. The checkable Qlist
+mirrors the data; any change re-renders (350ms debounce).
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def move_selected(win, delta: int) -> None:
     data[idx], data[j] = data[j], data[idx]
     win.fx_stack_data = data
     sync_list(win, refresh_add=False)
-    # Reselecciona el movido.
+    # Reselect the moved one.
     for i in range(win.fx_list.count()):
         if win.fx_list.item(i).data(256) == fid:
             win.fx_list.setCurrentRow(i)

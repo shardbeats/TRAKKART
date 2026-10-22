@@ -60,7 +60,7 @@ def test_ascii_palette_and_phase():
     pal = get_palette("SLIME")
     c = ascii_render(im, palette=pal)
     assert c.size == a.size
-    # La paleta cambia el tinte (antialias mezcla con el fondo: no es subset exacto).
+    # The palette changes the tint (antialias blends with the background: not an exact subset).
     assert list(c.get_flattened_data()) != list(a.get_flattened_data())
 
 
@@ -101,7 +101,7 @@ def test_black_vector_ink_only():
             px[x, y] = (0, 0, 0)
     svg = raster_to_svg(im, 8, ink_only=True)
     assert "#000000" in svg
-    assert svg.count("<rect") == 4  # solo tinta, sin papel
+    assert svg.count("<rect") == 4  # ink only, no paper
     svg2 = raster_to_svg(im, 8, ink_only=False)
     assert svg2.count("<rect") == 8
 

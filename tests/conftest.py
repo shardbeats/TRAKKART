@@ -71,9 +71,9 @@ def isolated_presets(window, tmp_path, monkeypatch):
 
 
 def accept_next_dialog(cls, setup=None):
-    """Acepta el próximo diálogo modal de tipo cls (E2E: el diálogo sí se abre).
+    """Accept the next modal dialog of type cls (E2E: the dialog does open).
 
-    `setup(dlg)` opcional para marcar checkboxes antes de aceptar.
+    `setup(dlg)` is optional, for ticking checkboxes before accepting.
     """
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
@@ -90,13 +90,13 @@ def accept_next_dialog(cls, setup=None):
             if setup is not None:
                 setup(target)
         finally:
-            target.accept()  # aceptar siempre: un setup roto no cuelga la suite
+            target.accept()  # always accept: a broken setup must not hang the suite
 
     QTimer.singleShot(400, _close)
 
 
 def close_dialog(dlg):
-    """Cierre determinista: evita C++ huérfano que revienta el teardown."""
+    """Deterministic close: avoids orphaned C++ objects breaking teardown."""
     from PySide6.QtWidgets import QApplication
 
     try:

@@ -1,7 +1,7 @@
-"""TRAKKART texture/decay pack (MIT, clean-room). Post-dither, determinista.
+"""TRAKKART texture/decay pack (MIT, clean-room). Post-dither, deterministic.
 
-Halftone de puntos/lineas (estilo imprenta, distinto del dither del motor),
-dust & scratches con seed fija, borde solido y letterbox cinematografico.
+Dot/line print halftone (print style, different from the engine dither),
+dust & scratches with fixed seed, solid border and cinematic letterbox.
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ def _rgb(img: Image.Image) -> Image.Image:
 
 
 def halftone(img: Image.Image, cell: int = 0, shape: str = "dots") -> Image.Image:
-    """Trama de imprenta sobre la imagen. 0 = off; cell 3-12px.
+    """Print screen over the image. 0 = off; cell 3-12px.
 
-    Dots: umbral radial por celda. Lines: umbral por columnas (rayado).
+    Dots: radial threshold per cell. Lines: threshold by columns (striped).
     """
     c = int(cell)
     if c < 3:
@@ -27,24 +27,24 @@ def halftone(img: Image.Image, cell: int = 0, shape: str = "dots") -> Image.Imag
     h, w = arr.shape[:2]
     lum = (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]) / 255.0
     if shape == "lines":
-        phase = (np.arange(w, dtype=np.float32) % c) / c  # 0..1 por columna
+        phase = (np.arange(w, dtype=np.float32) % c) / c  # 0..1 per column
         mask = (phase[None, :] < lum).astype(np.float32)
-    else:  # dots: distancia al centro de cada celda
+    else:  # dots: distance to each cell center
         yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
         dx = (xx % c) / c - 0.5
         dy = (yy % c) / c - 0.5
-        r = np.sqrt(dx * dx + dy * dy) * np.sqrt(2.0)  # 0 centro .. 1 esquina
+        r = np.sqrt(dx * dx + dy * dy) * np.sqrt(2.0)  # 0 center .. 1 corner
         mask = (r < lum * 1.05).astype(np.float32)
     out = np.where(mask[..., None] > 0, arr, 0.0)
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
 
 def dust(img: Image.Image, amount: float = 0.0, seed: int = 0xD57) -> Image.Image:
-    """Polvo y arañazos: motas claras/oscuras aleatorias. 0 = off."""
+    """Dust and scratches: random light/dark specks. 0 = off."""
     a = float(amount)
     if a <= 0:
         return img
-    p = min(0.02, a / 100.0 * 0.02)  # hasta 2% de píxeles
+    p = min(0.02, a / 100.0 * 0.02)  # up to 2% of pixels
     rng = np.random.default_rng(int(seed))
     arr = np.array(_rgb(img))
     h, w = arr.shape[:2]
@@ -56,7 +56,7 @@ def dust(img: Image.Image, amount: float = 0.0, seed: int = 0xD57) -> Image.Imag
     vals = np.where(rng.random(n) < 0.5, 0, 255).astype(np.uint8)
     out = arr.copy()
     out[ys, xs] = vals[:, None]
-    # Arañazos: un puñado de rayas verticales tenues.
+    # Scratches: a handful of faint vertical streaks.
     for _ in range(int(a // 20)):
         x = int(rng.integers(0, w))
         y0 = int(rng.integers(0, h))
@@ -77,7 +77,7 @@ def _parse_hex(color: str) -> tuple[int, int, int]:
 
 
 def border(img: Image.Image, px: int = 0, color: str = "#000000") -> Image.Image:
-    """Marco sólido alrededor (estilo póster). 0 = off."""
+    """Solid frame around (poster style). 0 = off."""
     b = int(px)
     if b <= 0:
         return img
@@ -89,7 +89,7 @@ def border(img: Image.Image, px: int = 0, color: str = "#000000") -> Image.Image
 
 
 def letterbox(img: Image.Image, pct: int = 0) -> Image.Image:
-    """Barras negras de cine arriba/abajo. pct 0 = off, % de alto por lado."""
+    """Cinematic black bars top/bottom. pct 0 = off, % of height per side."""
     p = int(pct)
     if p <= 0:
         return img

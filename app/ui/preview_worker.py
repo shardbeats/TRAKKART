@@ -48,10 +48,10 @@ class PreviewWorker(WorkerBase):
 
 
 class VideoWorker(WorkerBase):
-    """Video preview a canvas completo: N frames en hilo, sin congelar.
+    """Full-canvas video preview: N frames in thread, no freeze.
 
-    Usa gif_frames() con max_side=video_size (default 1200). Solo el
-    último token se aplica; renders viejos se descartan.
+    Uses gif_frames() with max_side=video_size (default 1200). Only the
+    latest token is applied; old renders are discarded.
     """
 
     finished_ok = Signal(object, int)  # list[PIL], token
@@ -83,7 +83,7 @@ class VideoWorker(WorkerBase):
 
     @staticmethod
     def current_params_snapshot(preset) -> dict:
-        """Convert a Preset to pipeline.render() kwargs (sin duplicar)."""
+        """Convert a Preset to pipeline.render() kwargs (no duplication)."""
         from app.render_params import preset_to_render_kwargs
 
         d = preset_to_render_kwargs(preset)
