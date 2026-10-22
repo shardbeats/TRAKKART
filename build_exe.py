@@ -104,7 +104,7 @@ def main() -> int:
             "--exclude-module", "imageio-ffmpeg",
         ]
     # Bundled at runtime via app.paths.bundle_path (frozen _MEIPASS / dev root).
-    for name in ("MANUAL.md", "icon.png", "icon.ico"):
+    for name in ("MANUAL.md", "icon.png", "icon.ico", "app/ui/theme.qss"):
         p = ROOT / name
         if p.exists():
             cmd[cmd.index("main.py"):cmd.index("main.py")] = ["--add-data", f"{p}{os.pathsep}."]

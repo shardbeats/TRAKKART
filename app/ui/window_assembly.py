@@ -34,9 +34,15 @@ def setup_ui(win) -> None:
 
         win.setWindowIcon(QIcon(str(icon)))
     try:
+        import sys
+
         from PySide6.QtWidgets import QApplication
 
-        qss_path = Path(__file__).with_name("theme.qss")
+        if getattr(sys, "frozen", False):
+            # PyInstaller onefile: theme.qss ships at the bundle root (--add-data).
+            qss_path = bundle_path("theme.qss")
+        else:
+            qss_path = Path(__file__).with_name("theme.qss")
         qss = qss_path.read_text(encoding="utf-8") if qss_path.exists() else ""
         if qss:
             try:
