@@ -6,12 +6,6 @@
 #ifndef MyVersion
   #define MyVersion "0.18.0"
 #endif
-#ifndef MySuffix
-  #define MySuffix ""
-#endif
-#ifndef MyExe
-  #define MyExe "TRAKKART.exe"
-#endif
 
 [Setup]
 AppName=TRAKKART
@@ -24,7 +18,7 @@ DefaultGroupName=TRAKKART
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=..\dist
-OutputBaseFilename=TRAKKART-Setup{#MySuffix}-{#MyVersion}
+OutputBaseFilename=TRAKKART-Setup-{#MyVersion}
 Compression=lzma2/max
 SolidCompression=yes
 PrivilegesRequired=lowest
@@ -41,7 +35,7 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\dist\{#MyExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\TRAKKART.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\MANUAL.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 

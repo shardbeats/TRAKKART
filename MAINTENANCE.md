@@ -50,7 +50,7 @@ app/names.py             :: filename sanitizers (single home)
 app/recent.py            :: recent files (capped, prefs-backed)
 app/vector.py            :: grid re-render + RLE + SVG
 app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
-app/video_io.py          :: opt-in MP4 backend (imageio-ffmpeg, never in base exe)
+app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
 app/viewport.py          :: Full/Live/Still modes + fast/slow debounce
 app/tutorial.py          :: tour steps + offline sample pack
 app/paths.py             :: portable data (env/frozen/APPDATA)

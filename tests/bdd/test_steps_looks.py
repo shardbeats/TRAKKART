@@ -355,4 +355,4 @@ def backend_error_ok(ctx):
     from app.video_io import VideoBackendMissing
 
     assert isinstance(ctx["err"], VideoBackendMissing)
-    assert "requirements-video.txt" in str(ctx["err"])
+    assert "requirements.txt" in str(ctx["err"])

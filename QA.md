@@ -74,7 +74,7 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
-5b. Release extras: `build_installer.py` builds the Inno Setup installer (needs `dist/TRAKKART.exe` + ISCC; `--full` for the full flavor); session smoke = open image → close → reopen restores it; Edit → Redo (Ctrl+Y) after Undo; Settings Export…/Import… round-trips the JSON; Settings → Extras shows accel/MP4 state; F1 opens MANUAL.md; Help → Show logs folder reveals data dir.
+5b. Release extras: `build_installer.py` builds the Inno Setup installer (needs `dist/TRAKKART.exe` + ISCC); session smoke = open image → close → reopen restores it; Edit → Redo (Ctrl+Y) after Undo; Settings Export…/Import… round-trips the JSON; Settings → Extras shows accel/MP4 state (all included in the exe); F1 opens MANUAL.md; Help → Show logs folder reveals data dir.
 
 ## Perf (manual, before release)
 

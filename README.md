@@ -55,7 +55,7 @@ app/pipeline.py          :: RenderSpec (single ~40-param dataclass) + render_spe
 app/render_params.py     :: shared normalizers (delegates to RenderSpec.from_preset)
 app/vector.py            :: SVG renderer (gridded re-render + RLE)
 app/gif.py               :: animated GIF modes (phase/hue/both/glitch/mix, Pillow only)
-app/video_io.py          :: opt-in MP4 backend (imageio-ffmpeg, never in base exe)
+app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
 app/viewport.py          :: Full/Live/Still modes + fast/slow debounce
 app/tutorial.py          :: tour steps + offline sample pack
 app/paths.py             :: portable data dir (env / frozen data/ / APPDATA)

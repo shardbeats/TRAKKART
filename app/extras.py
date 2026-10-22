@@ -1,8 +1,8 @@
-"""Optional extras: numba acceleration + MP4 video (pure logic, no Qt).
+"""Acceleration + video status (pure logic, no Qt).
 
-The base bundle excludes both (light exe, numpy fallback). This module
-answers "what is installed?" and, on a dev machine, installs it with pip.
-Inside a frozen exe there is no pip target: the answer is TRAKKART-full.exe.
+The shipped bundle includes both (numba + imageio-ffmpeg). On a dev
+machine without them this module answers "what is installed?" and,
+via Settings → Extras, pip-installs the missing pieces.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def video_status() -> tuple[bool, str]:
             return True, "MP4 available (imageio + ffmpeg)"
     except ImportError:
         pass
-    return False, "MP4 disabled (opt-in extra not installed)"
+    return False, "MP4 disabled (extra not installed)"
 
 
 def missing_packages(kind: str) -> tuple[str, ...]:

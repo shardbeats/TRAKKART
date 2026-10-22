@@ -45,13 +45,7 @@ python build_installer.py
 It reads the version from `app.__version__`, checks `dist/TRAKKART.exe`
 exists, and calls `ISCC /DMyVersion=<v> installer/trakkart.iss`.
 Sign the setup too: `signtool sign ... dist\TRAKKART-Setup-*.exe`.
-
-Full flavor (numba + video included, ~+100MB):
-
-```bat
-python build_exe.py --full
-python build_installer.py --full
-```
+The exe ships everything (numba + video, ~146MB portable).
 
 ## Checklist per release
 

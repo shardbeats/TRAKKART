@@ -1,8 +1,8 @@
-"""TRAKKART video I/O (OPT-IN extra, never in the base exe).
+"""TRAKKART video I/O (ships in the bundle since v1).
 
 MP4 export of still-based animation via imageio + imageio-ffmpeg.
-Base install (Pillow + numpy + PySide6) has neither: every entry point
-checks `has_video()` first and raises `VideoBackendMissing` with install
+A dev install without them still works: every entry point checks
+`has_video()` first and raises `VideoBackendMissing` with install
 instructions instead of an ImportError traceback.
 """
 
@@ -17,12 +17,12 @@ MAX_MP4_FPS = 60
 
 
 class VideoBackendMissing(RuntimeError):
-    """Raised when video I/O is requested without the opt-in extra."""
+    """Raised when video I/O is requested without the video backend."""
 
     def __init__(self) -> None:
         super().__init__(
-            "Video support needs the opt-in extra (never bundled): "
-            "pip install -r requirements-video.txt (imageio + imageio-ffmpeg)"
+            "Video support needs imageio + imageio-ffmpeg: "
+            "pip install -r requirements.txt"
         )
 
 

@@ -52,7 +52,7 @@ def test_settings_extras_group_frozen(qt_app, monkeypatch):
     dlg = SettingsDialog(ExportPrefs(), data_dir="/tmp", recent_count=0)
     try:
         assert not dlg.btn_accel.isEnabled() and not dlg.btn_video.isEnabled()
-        assert "TRAKKART-full.exe" in dlg.lbl_extra_note.text()
+        assert "included" in dlg.lbl_extra_note.text() or "official" in dlg.lbl_extra_note.text()
     finally:
         from tests.conftest import close_dialog
 

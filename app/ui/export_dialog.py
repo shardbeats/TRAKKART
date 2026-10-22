@@ -151,7 +151,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setToolTip("H.264 clip at canvas size (opt-in video extra present)")
         else:
             self.chk_mp4.setEnabled(False)
-            self.chk_mp4.setToolTip("Settings → Extras → Install video (or TRAKKART-full.exe)")
+            self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
                     self.chk_vector, self.chk_anim, self.chk_meta,
                     self.chk_black, self.chk_mp4):

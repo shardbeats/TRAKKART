@@ -215,9 +215,13 @@ class SettingsDialog(QDialog):
         if self._frozen:
             self.btn_accel.setEnabled(False)
             self.btn_video.setEnabled(False)
-            self.lbl_extra_note.setText(
-                "In the .exe extras cannot be installed: use TRAKKART-full.exe "
-                "(acceleration + MP4 included) or the dev version.")
+            if accel_ok and video_ok:
+                self.lbl_extra_note.setText(
+                    "All extras included in this build (acceleration + MP4).")
+            else:
+                self.lbl_extra_note.setText(
+                    "Extras missing from this build. Use the official "
+                    "TRAKKART.exe or the dev version with pip packages.")
         else:
             self.btn_accel.setEnabled(not accel_ok)
             self.btn_video.setEnabled(not video_ok)

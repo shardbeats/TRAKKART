@@ -70,18 +70,14 @@ directamente si procesarla.
 - **Sesión:** por defecto reabre tu última imagen y preset al arrancar
   (se desactiva en Settings).
 
-## Extras opcionales (aceleración + MP4)
+## Aceleración y vídeo (incluidos)
 
-El `.exe` ligero no los trae (más lento en Floyd grande, sin MP4):
+El `.exe` trae todo: aceleración numba (10-50x en Floyd grande) y MP4.
+Nada que instalar, nada que elegir.
 
-- **Aceleración numba (10-50x):** Settings → Extras → Instalar aceleración.
-- **Vídeo MP4:** Settings → Extras → Instalar vídeo.
-- En versión de desarrollo se instalan con pip desde la propia app
-  (tarda minutos, necesita internet y reiniciar).
-- En el `.exe` no se pueden instalar: descarga **TRAKKART-full.exe**
-  (los trae incluidos) o usa el instalador correspondiente.
-- Tus presets y paletas viven en la carpeta de datos (`data/presets`,
-  `data/palettes`): copia esa carpeta y viajan contigo a otro equipo.
+- En versión de desarrollo, si falta algo: Settings → Extras lo muestra
+  e instala con pip (tarda minutos, necesita internet y reiniciar).
+- En el `.exe` el grupo Extras es solo informativo: todo viene dentro.
 
 ## Editar imagen
 
@@ -109,7 +105,9 @@ Ver lista completa: Help → Keyboard shortcuts.
   URL de imagen, a petición tuya).
 - Cero rastreo: sin telemetría ni cuentas.
 - Dónde está todo: Help → Show logs folder (prefs, base de datos,
-  `trakkart.log`). Borrar esa carpeta restablece la app a fábrica.
+  `trakkart.log`). Tus presets y paletas viven en `data/presets` y
+  `data/palettes`: copia la carpeta de datos y viajan contigo a otro
+  equipo. Borrar esa carpeta restablece la app a fábrica.
 
 ## Problemas comunes
 

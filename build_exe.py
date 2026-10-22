@@ -1,7 +1,8 @@
-"""Build portable TRAKKART.exe (PyInstaller windowed one-file).
+"""Build portable TRAKKART.exe (PyInstaller windowed one-file, all included).
 
-Extras: embeds version metadata + MANUAL/icons, optional Authenticode
-signing via env (TRAKKART_PFX path to .pfx, TRAKKART_PFX_PASSWORD,
+Single flavor since v1: numba acceleration + MP4 video ship inside.
+Embeds version metadata + MANUAL/icons, optional Authenticode signing
+via env (TRAKKART_PFX path to .pfx, TRAKKART_PFX_PASSWORD,
 optional TRAKKART_TIMESTAMP_URL). See installer/SIGNING.md.
 """
 import os
@@ -75,34 +76,22 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-tests", action="store_true")
     ap.add_argument("--console", action="store_true")
-    ap.add_argument("--full", action="store_true",
-                    help="include numba + video extras (TRAKKART-full.exe, ~+100MB)")
     args = ap.parse_args()
 
     py = sys.executable
     if not args.skip_tests:
         run([py, "-m", "pytest", "tests", "-q"])
     run([py, "-m", "pip", "install", "pyinstaller"])
-    exe_name = "TRAKKART-full" if args.full else "TRAKKART"
-    if args.full:
-        # Full flavor: acceleration + MP4 inside the bundle (offline users).
-        run([py, "-m", "pip", "install", "numba", "-r", "requirements-video.txt"])
+    exe_name = "TRAKKART"
+    run([py, "-m", "pip", "install", "-r", "requirements.txt"])
     cmd = [
         py, "-m", "PyInstaller",
         "--noconfirm", "--name", exe_name, "--onefile",
         *(["--console"] if args.console else ["--windowed"]),
-        # Base exe stays light: numba is an optional accelerator with numpy
-        # fallback, imageio-ffmpeg an opt-in extra. --full keeps them in.
+        # Everything ships inside (numba + imageio-ffmpeg included).
         "--version-file", str(write_version_info(app_version(), f"{exe_name}.exe")),
         "main.py",
     ]
-    if not args.full:
-        cmd[cmd.index("main.py"):cmd.index("main.py")] = [
-            "--exclude-module", "numba",
-            "--exclude-module", "llvmlite",
-            "--exclude-module", "imageio",
-            "--exclude-module", "imageio-ffmpeg",
-        ]
     # Bundled at runtime via app.paths.bundle_path (frozen _MEIPASS / dev root).
     for name in ("MANUAL.md", "icon.png", "icon.ico", "app/ui/theme.qss"):
         p = ROOT / name
