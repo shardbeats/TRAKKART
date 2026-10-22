@@ -88,7 +88,14 @@ def main() -> int:
         py, "-m", "PyInstaller",
         "--noconfirm", "--name", exe_name, "--onefile",
         *(["--console"] if args.console else ["--windowed"]),
-        # Everything ships inside (numba + imageio-ffmpeg included).
+        # Everything ships inside (numba + imageio-ffmpeg).
+        # copy-metadata: imageio reads its own version via importlib.metadata
+        # AT IMPORT TIME; without dist-info the frozen import raises
+        # PackageNotFoundError (an ImportError) and has_video() goes False.
+        "--copy-metadata", "imageio",
+        "--copy-metadata", "imageio-ffmpeg",
+        "--copy-metadata", "numba",
+        "--copy-metadata", "llvmlite",
         "--version-file", str(write_version_info(app_version(), f"{exe_name}.exe")),
         "main.py",
     ]
