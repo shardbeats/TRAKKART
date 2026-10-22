@@ -9,7 +9,8 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 
 - Runtime: `requirements.txt` (PySide6, Pillow, numpy). No OpenCV/GPU. Numba only as an optional accelerator (`pip install numba`), with automatic fallback.
 - Dev: `requirements-dev.txt` (pytest, pytest-bdd, pytest-cov, coverage).
-- Install dev: `.venv\Scripts\python -m pip install -r requirements-dev.txt`
+- Install dev: `<venv>\Scripts\python -m pip install -r requirements-dev.txt`
+  (`<venv>` = central `C:\venvs\dev` or local `.venv`).
 
 ## Layout
 

@@ -12,8 +12,8 @@ Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)
 ## Quick start
 
 ```
-start.bat      :: creates .venv, installs deps, launches
-run.bat        :: launches with existing .venv
+start.bat      :: setup (central C:\venvs\dev if present, else local .venv) + launch
+run.bat        :: launches with central venv, falls back to local .venv
 py -m pytest tests -q
 ```
 

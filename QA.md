@@ -4,6 +4,10 @@ Verification procedures (TRAKK standard).
 
 ## Fast loop (dev)
 
+Venv: central `C:\venvs\dev` if present (override with `CENTRAL_VENV`),
+else local `.venv`. The commands below use `.venv`; swap the python path
+when using the central one.
+
 ```
 .venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow"
 ```
