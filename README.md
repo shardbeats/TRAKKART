@@ -14,7 +14,7 @@ Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)
 ```
 start.bat      :: setup (central C:\venvs\dev if present, else local .venv) + launch
 run.bat        :: launches with central venv, falls back to local .venv
-py -m pytest tests -q
+py -m pytest tests -q -n auto -m "not slow"   :: fast loop (~35 s with xdist)
 ```
 
 ## Layout

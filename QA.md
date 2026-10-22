@@ -9,14 +9,17 @@ else local `.venv`. The commands below use `.venv`; swap the python path
 when using the central one.
 
 ```
-.venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow"
+.venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow" -n auto
 ```
+
+`-n auto` (pytest-xdist) is the big lever: ~11x faster locally
+(6.4 min → ~35 s). Without it, use `-n 4` or nothing.
 
 ## Full suite + coverage
 
 ```
-.venv\Scripts\python -m pytest tests -q
-.venv\Scripts\python -m coverage run -m pytest tests -q
+.venv\Scripts\python -m pytest tests -q -n auto
+.venv\Scripts\python -m coverage run -m pytest tests -q -n auto
 .venv\Scripts\python -m coverage report
 .venv\Scripts\python -m coverage html   :: data/quality_html
 .venv\Scripts\python -m flake8 app tests tools main.py build_exe.py build_installer.py

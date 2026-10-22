@@ -3,6 +3,9 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- Test speed: pytest-xdist in dev deps; fast loop is now `-n auto`
+  (~11x: 6.4 min → ~35 s locally). CI split: fast suite + lint per push,
+  full suite nightly + on demand. CI actions bumped off deprecated Node 20.
 - CI fixes: MP4 export test skips without the video extra (was a hard
   VideoBackendMissing on runners without imageio); thread-storm test is now
   deterministic (gate-held worker instead of a wall-clock race).
