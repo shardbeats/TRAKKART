@@ -5,7 +5,7 @@ from pathlib import Path
 THEME_FILE = Path(__file__).resolve().parent.parent / "app" / "ui" / "theme.qss"
 
 
-def test_stylesheet_loads_with_family_tokens():
+def test_stylesheet_loads_with_suite_tokens():
     assert THEME_FILE.exists()
     css = THEME_FILE.read_text(encoding="utf-8")
     assert css

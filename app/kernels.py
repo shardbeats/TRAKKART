@@ -54,7 +54,7 @@ COEFFS: dict[str, list[tuple[int, int, float]]] = {
     "filterlite": [(0, 1, 7 / 8), (1, 0, 1 / 8)],
     # Sierra Lite: the classic 2-row minimum (divisor 4).
     "sierralite": [(0, 1, 2 / 4), (1, -1, 1 / 4), (1, 0, 1 / 4)],
-    # Full 3-row Sierra-3 (divisor 32), the smoothest of the family.
+    # Full 3-row Sierra-3 (divisor 32), the smoothest of the line.
     "sierra3": [
         (0, 1, 5 / 32), (0, 2, 3 / 32),
         (1, -2, 2 / 32), (1, -1, 4 / 32), (1, 0, 5 / 32), (1, 1, 4 / 32), (1, 2, 2 / 32),
