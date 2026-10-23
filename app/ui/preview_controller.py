@@ -35,9 +35,14 @@ def show(win, orig, res) -> None:
 def start_async(win) -> None:
     from app.ui.preview_worker import PreviewWorker
 
+    # Guard real: si ya hay un worker vivo, encolar. Si ya hay uno encolado,
+    # no spawnear otro. No depender solo de isRunning(), que no es visible
+    # de inmediato tras start() y abre ventana de carrera.
     if win._preview_worker is not None and win._preview_worker.isRunning():
         win._preview_pending = True
         win._status("Rendering heavy preview in the background...")
+        return
+    if win._preview_pending:
         return
     win._preview_token += 1
     win._preview_worker = PreviewWorker(
@@ -65,6 +70,18 @@ def on_done(win, qimg, pil_img, token: int) -> None:
         win.lbl_res.setPixmap(QPixmap.fromImage(qimg))
         win.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
     win._status("Preview ready")
+    w = win._preview_worker
+    if w is not None:
+        try:
+            w.wait(5000)
+        except Exception:  # noqa: BLE001
+            pass
+        if w.isRunning():
+            # Todavía vivo de verdad (o fake busy en tests): reencolar sin
+            # spawnear ni loopear. El próximo on_done/on_error lo drena.
+            win._preview_pending = True
+            return
+    win._preview_worker = None
     if win._preview_pending:
         win._preview_pending = False
         start_async(win)
@@ -73,6 +90,18 @@ def on_done(win, qimg, pil_img, token: int) -> None:
 def on_error(win, msg: str, token: int) -> None:
     if token != win._preview_token:
         return
+    w = win._preview_worker
+    if w is not None:
+        try:
+            w.wait(5000)
+        except Exception:  # noqa: BLE001
+            pass
+        if w.isRunning():
+            # Worker aún vivo (o fake busy en tests): reencolar sin spawnear
+            # y sin loopear. No se toca el slot.
+            win._preview_pending = True
+            return
+    win._preview_worker = None
     if win._preview_pending:
         win._preview_pending = False
         start_async(win)
