@@ -1,4 +1,4 @@
-"""Portable TRAKKART paths (family standard: env > frozen data/ > APPDATA > home)."""
+"""Portable TRAKKART paths (SUITE standard: env > frozen data/ > APPDATA > home)."""
 
 from __future__ import annotations
 

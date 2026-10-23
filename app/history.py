@@ -1,4 +1,4 @@
-"""Minimal SQLite history — export log (TRAKK family pattern)."""
+"""Minimal SQLite history — export log (TRAKK SUITE pattern)."""
 
 from __future__ import annotations
 

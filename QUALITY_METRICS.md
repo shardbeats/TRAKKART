@@ -1,6 +1,6 @@
 # QUALITY_METRICS — TRAKKART
 
-Gates (TRAKK family standard). All must be PASS for release.
+Gates (TRAKK SUITE standard). All must be PASS for release.
 
 | Gate | What it measures | Threshold | Where |
 |---|---|---|---|

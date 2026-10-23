@@ -313,7 +313,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _status(self, msg: str) -> None:
-        """Single status point: label + status bar (family pattern)."""
+        """Single status point: label + status bar (SUITE pattern)."""
         self.lbl_status.setText(msg)
         try:
             self.statusBar().showMessage(msg)

@@ -1,4 +1,4 @@
-"""TRAKKART quality gates (family standard).
+"""TRAKKART quality gates (SUITE standard).
 
 Runs: pytest + coverage + Gherkin count + export smoke + no-leak scan.
 Writes data/quality_report.json and exits 0 if everything passes, 1 if not.

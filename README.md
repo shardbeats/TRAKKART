@@ -1,6 +1,6 @@
 # TRAKKART
 
-Part of the ShardBeats **TRAKK** family. Offline cover art studio (own MIT code, no GPL copied).
+Part of the ShardBeats **TRAKK SUITE**. Offline cover art studio (own MIT code, no GPL copied).
 
 ```
 Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)

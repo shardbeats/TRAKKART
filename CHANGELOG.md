@@ -85,7 +85,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## v0.14.0 — v0.11.0
 - Text layer removed. Numba optional accelerator (bit-identical).
-- Multiprocess batch, animated GIF (Pillow only), TRAKK family theme.
+- Multiprocess batch, animated GIF (Pillow only), TRAKK SUITE theme.
 
 ## v0.10.0 — v0.7.0
 - Image ops + undo, randomize, zoom, drag&drop, clipboard, glitch pack.

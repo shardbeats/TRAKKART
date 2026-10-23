@@ -4,10 +4,10 @@
 
 ## 1. Vision
 
-TRAKKART = offline cover art studio for beatmakers, part of the ShardBeats TRAKK family.
+TRAKKART = offline cover art studio for beatmakers, part of the ShardBeats TRAKK SUITE.
 Flow: `Image → method + palette + pixel + threshold → preview → bundle → TRAKKOUT`.
 
-Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).
+SUITE style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).
 
 ## 2. Current state — v0.18.0 (done)
 
@@ -53,7 +53,7 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 ### v0.4 — Quality + portable (done)
 - [x] Vectorized Floyd by rows (B&W 2x, color 4.4x). API intact, valid output.
 - [x] `TRAKKART_DATA_DIR` + portable `data/` + `%APPDATA%/TRAKKART` (`app/paths.py`).
-- [x] SQLite export history (`app/history.py`, family pattern).
+- [x] SQLite export history (`app/history.py`, SUITE pattern).
 - [x] Custom icon + `build_exe.py --icon` verified (`dist/TRAKKART.exe` 65.7 MB, windowed one-file). Clean `flake8`.
 - [x] QA: manual perf (B&W 3000px ~8s, color 1080px ~5s).
 
@@ -101,8 +101,8 @@ Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 
 - [x] 480px long-side cap, 2-8 frames, flag in preset + UI checkbox. Batch includes it.
 - [x] Gherkin 26/26.
 
-### v0.13 — TRAKK family UI (done)
-- [x] Custom `app/ui/theme.qss` with family tokens (bg #151617, amber accent #F5A623, Segoe UI).
+### v0.13 — TRAKK SUITE UI (done)
+- [x] Custom `app/ui/theme.qss` with SUITE tokens (bg #151617, amber accent #F5A623, Segoe UI).
 - [x] Panel reorganized into QGroupBox sections with scroll + header + primary button + statusbar + preview with titles and dims.
 - [x] Quick-ops row (rotate/flip/invert/undo/random) instead of hiding them in menus only.
 
@@ -113,7 +113,7 @@ Text layer removed (not pulling its weight): out of pipeline (`app/text.py` dele
 ### v0.15 — Anti-freeze hardening (done)
 Security/stability audit: blocking renders, decompression bomb, giant SVG, batch without cancel, unbounded history.
 - [x] Size guard (`app/safety.py`: max 8000px / 50MP, header-first without decoding) in UI and batch.
-- [x] 350ms preview debounce (family style): sliders no longer freeze the UI.
+- [x] 350ms preview debounce (SUITE style): sliders no longer freeze the UI.
 - [x] Batch cancel (flag + button) in sequential and multiprocess; fallback to sequential if the pool fails to start.
 - [x] Vector cap (160k cells) before rendering + history prune (cap 500). Gherkin 28/28, gates 5/5.
 - [x] Layout fix v0.15.1: fixed action bar outside the scroll (export always visible), no horizontal scroll, minimum widths.
