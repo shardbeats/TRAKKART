@@ -35,9 +35,9 @@ def show(win, orig, res) -> None:
 def start_async(win) -> None:
     from app.ui.preview_worker import PreviewWorker
 
-    # Guard real: si ya hay un worker vivo, encolar. Si ya hay uno encolado,
-    # no spawnear otro. No depender solo de isRunning(), que no es visible
-    # de inmediato tras start() y abre ventana de carrera.
+    # Real guard: if a worker is alive, queue. If one is already queued,
+    # don't spawn another. Don't rely on isRunning() alone: it isn't
+    # visible right after start() and that opens a race window.
     if win._preview_worker is not None and win._preview_worker.isRunning():
         win._preview_pending = True
         win._status("Rendering heavy preview in the background...")
@@ -77,8 +77,8 @@ def on_done(win, qimg, pil_img, token: int) -> None:
         except Exception:  # noqa: BLE001
             pass
         if w.isRunning():
-            # Todavía vivo de verdad (o fake busy en tests): reencolar sin
-            # spawnear ni loopear. El próximo on_done/on_error lo drena.
+            # Still truly alive (or fake-busy in tests): re-queue without
+            # spawning or looping. The next on_done/on_error drains it.
             win._preview_pending = True
             return
     win._preview_worker = None
@@ -97,8 +97,8 @@ def on_error(win, msg: str, token: int) -> None:
         except Exception:  # noqa: BLE001
             pass
         if w.isRunning():
-            # Worker aún vivo (o fake busy en tests): reencolar sin spawnear
-            # y sin loopear. No se toca el slot.
+            # Worker still alive (or fake-busy in tests): re-queue without
+            # spawning or looping. Slot untouched.
             win._preview_pending = True
             return
     win._preview_worker = None

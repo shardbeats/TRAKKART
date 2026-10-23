@@ -140,7 +140,7 @@ Root cause of the WhatsApp bug: `Path("")` == `Path(".")` -> `is_dir()` True + u
 - [x] Video mode: full-canvas animated preview (QThread worker + tokens) with play/pause/scrub, Draft 720p / HD 1080p / Full proxy tiers — export always full-doc. FPS changes retime only (no re-render).
 - [x] Single canvas + hold-to-compare (button or Space shows ORIGINAL); export GIF preview removed from the dialog (lives in VIDEO mode).
 - [x] Free Custom canvas (Photoshop-style): `Custom` ratio + free W×H (presets refill W/H, typing flips to Custom); `cover/contain/stretch/blur` honor free aspect; old presets migrate via `ratio+export_size`.
-- [x] Doc único + anim único: CANVAS owns size, VIDEO owns animation (no duplicated size/GIF controls in dialogs).
+- [x] Single doc + single anim: CANVAS owns size, VIDEO owns animation (no duplicated size/GIF controls in dialogs).
 - [x] Grille `every=2` crash fixed (mixed bool+list fancy index).
 - [x] Refactor: `main_window` 1686→~700 lines (8 controllers + assembly + menus); `FIELDS` preset schema; `BINDINGS` widget table; `RenderSpec` single ~40-param dataclass; unified exporter writer (legacy kept byte-identical). 281 tests, 38/38 Gherkin, gates 5/5.
 
@@ -154,21 +154,21 @@ Gap: auto-extracted palettes, depth control, lock/shuffle per swatch, Source cat
 - [x] `Source` palette mode: retiene color original como punto de partida editable (no re-mapea a BW/SLIME).
 - [x] Depth slider: nº de niveles/steps usados de la paleta (mapeo previo al dither, vive en `RenderSpec` + `FIELDS`).
 - [x] Per-swatch lock + shuffle + per-adjust lock/randomize (UI en palette dialog + Adjust row).
-- [x] Midtones/highlights adjust (además de brightness/contrast/saturation) en `app/adjust.py` + UI.
+- [x] Midtones/highlights adjust (in addition to brightness/contrast/saturation) in `app/adjust.py` + UI.
 - [x] Palette import/export/share `.json`/`.gpl` offline (misma UX que preset share). Gherkin 40/40.
 
 ### v1.2 — Stackable FX (done)
 Gap: fixed pipeline `canvas→pre→grade→dither→brand→post`; goal is add-with-`+` and reorder.
-- [x] FX stack model: lista ordenada `[{id, enabled}]` en `Preset` + `RenderSpec.fx_stack` (migración: presets viejos → stack equivalente, render idéntico).
+- [x] FX stack model: ordered list `[{id, enabled}]` in `Preset` + `RenderSpec.fx_stack` (migration: old presets → equivalent stack, identical render).
 - [x] UI: ADD effect (`+` combo), reorder up/down, enable/disable, granular sliders per effect (halo glow, jpeg-glitch, chroma, blur/sharpen as post).
-- [x] JPEG Glitch effect (`app/fx_jpeg.py`: recompresión Pillow quality/blocks/chroma-subsampling, numpy-only, determinista con seed).
+- [x] JPEG Glitch effect (`app/fx_jpeg.py`: Pillow recompress quality/blocks/chroma-subsampling, numpy-only, deterministic with seed).
 - [x] Halo glow designed for dither (threshold + screen blend already existed → promoted to a stack effect).
-- [x] `render_spec` ejecuta stack en orden (tests de conmutatividad: reorder cambia output). Gherkin 42/42.
+- [x] `render_spec` runs the stack in order (commutativity tests: reorder changes output). Gherkin 42/42.
 
 ### v1.3 — Engines III + print (done: 23→36 + CMYK/vector-pro)
 Gap: grow the roster (glitch + special + pattern/ordered extras + CMYK + ASCII + custom Motif builder).
 - [x] 13 new engines: granular `bayer32/lines/columns/diag/grid` + glitch-dither `white_noise/blocks/scan_bayer/wave_map` + special `cmyk/ascii/edges` + `motif`. 36 methods.
-- [x] ASCII mode (`app/ascii.py`: charset ramp, Pillow-only, animable por `phase`, vector-compatible vía rects).
+- [x] ASCII mode (`app/ascii.py`: charset ramp, Pillow-only, animatable via `phase`, vector-compatible via rects).
 - [x] Motif: custom pattern builder (`app/motif.py`: 4 bands -> shape/size, 6 shapes, stored in preset as dict). Simple MOTIF panel.
 - [x] Vector Pro: black-vector print (`vector_black` + `ink_only`, sin rects de papel) + lossless toggle (force PNG en export/batch) + estimate calibrado (~58B/celda). Embroidery OUT.
 - [x] Arrow-stepping (botones + Alt+Left/Right, `step_method` ciclico) + Gherkin 45/45.

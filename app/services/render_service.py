@@ -1,7 +1,7 @@
 """Render service: full-res + lightweight preview orchestration.
 
-La UI solo pasa (imagen, preset); el servicio decide downscale para
-preview y delega en pipeline.render / vector / gif.
+The UI only passes (image, preset); the service decides preview
+downscale and delegates to pipeline.render / vector / gif.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ PREVIEW_LONG_SIDE = 640
 
 
 def downscale_for_preview(img: Image.Image, max_side: int = PREVIEW_LONG_SIDE) -> tuple[Image.Image, float]:
-    """Devuelve (imagen reducida, factor) manteniendo aspecto."""
+    """Return (downscaled image, factor) keeping aspect ratio."""
     long_side = max(img.width, img.height)
     if long_side <= max_side:
         return img, 1.0
@@ -42,12 +42,12 @@ def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
 
 
 def render_full(img: Image.Image, preset: Preset) -> Image.Image:
-    """Render full-res para export (sin downscale)."""
+    """Full-res render for export (no downscale)."""
     return render(img, **preset_to_render_kwargs(preset))
 
 
 def should_render_async(img: Image.Image) -> bool:
-    """True si conviene hilo de fondo (sin numba e imagen grande)."""
+    """True when a background thread pays off (no numba and large image)."""
     from app.accelerate import has_numba
 
     return (not has_numba()) and (img.width * img.height > 480 * 480)
