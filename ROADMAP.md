@@ -7,7 +7,7 @@
 TRAKKART = offline cover art studio for beatmakers, part of the ShardBeats TRAKK SUITE.
 Flow: `Image → method + palette + pixel + threshold → preview → bundle → TRAKKOUT`.
 
-SUITE style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).
+SUITE style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT licensed, original code.
 
 ## 2. Current state — v0.18.0 (done)
 
@@ -192,7 +192,7 @@ they added a model + locks + file pipeline far from the core job
 
 ## 4. Decisions made (do not reopen without reason)
 
-- 100% original MIT code: public-domain math only, third-party files are never copied.
+- Original MIT-licensed code based on public-domain math.
 - Market references never ship: no competitor names, copy, or assets in code, UI, features, or docs (oct-2026 originality pass: Motif/Halo/Signal Drift/Paste-Up).
 - No OpenCV / GPU in the core. Numba only as an OPTIONAL accelerator with numpy fallback (the base exe does not include it).
 - Pillow + numpy is enough and keeps the `.exe` light. `imageio-ffmpeg` (v1.4 video) is OPT-IN extra only, never in base exe/requirements.

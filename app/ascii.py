@@ -1,4 +1,4 @@
-"""TRAKKART ASCII mode (MIT, clean-room). Pillow only.
+"""TRAKKART ASCII mode (MIT). Pillow only.
 
 Luminance blocks -> charset ramp chars drawn with the default bitmap
 font, recolored by cell mean color (or palette-nearest when a palette

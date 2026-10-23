@@ -1,4 +1,4 @@
-"""Random palette generator (MIT, clean-room).
+"""Random palette generator (MIT).
 
 NOT random RGB (that yields mud + indistinguishable grays the dither cannot
 use) nor ML (offline philosophy). Rules taken from the pixel-art literature:

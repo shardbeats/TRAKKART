@@ -1,4 +1,4 @@
-"""TRAKKART glitch pack (MIT, clean-room). Pure numpy, deterministic.
+"""TRAKKART glitch pack (MIT). Pure numpy, deterministic.
 
 chromatic_aberration: shifts R right and B left (wrap).
 slice_shift: splits into N horizontal bands and shifts each (fixed seed).

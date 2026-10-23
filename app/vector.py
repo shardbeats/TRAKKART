@@ -1,4 +1,4 @@
-"""TRAKKART SVG vector (MIT, clean-room). Logos and merch.
+"""TRAKKART SVG vector (MIT). Logos and merch.
 
 Re-render the pipeline to a cell grid WITHOUT post-fx (glow/grain/vignette
 would generate thousands of tones) + brand. Each cell -> one <rect>,

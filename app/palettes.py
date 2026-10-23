@@ -1,7 +1,7 @@
 """Original TRAKKART palettes (MIT).
 
-Designed from scratch for type-beat covers. Do not copy exact values
-from GPL projects; these RGB values are original to the TRAKK SUITE.
+Designed from scratch for type-beat covers; these RGB values are
+original to the TRAKK SUITE.
 """
 
 PALETTES: dict[str, list[tuple[int, int, int]]] = {

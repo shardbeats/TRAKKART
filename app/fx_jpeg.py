@@ -1,4 +1,4 @@
-"""TRAKKART JPEG glitch (MIT, clean-room). Pillow-only, deterministic.
+"""TRAKKART JPEG glitch (MIT). Pillow-only, deterministic.
 
 Recompresses the dithered image through JPEG bytes (quality driven by
 amount) and reloads it: blockiness + chroma-subsampling + ringing, the

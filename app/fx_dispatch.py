@@ -1,4 +1,4 @@
-"""Post-dither FX dispatch (MIT, clean-room). One function per stack effect.
+"""Post-dither FX dispatch (MIT). One function per stack effect.
 
 Split out of app/pipeline.py (mechanical move, no logic change):
 `apply_fx(spec, img, fid)` runs a single STACK effect with RenderSpec

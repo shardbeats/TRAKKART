@@ -1,4 +1,4 @@
-"""TRAKKART viewport modes (MIT, clean-room). No Qt, pure logic.
+"""TRAKKART viewport modes (MIT). No Qt, pure logic.
 
 Full / Live / Still (Dither-Boy-style iteration control without copying it):
 - full:  debounce 0ms, every change re-renders immediately (fast machines).

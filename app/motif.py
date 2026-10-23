@@ -1,4 +1,4 @@
-"""TRAKKART Motif engine (MIT, clean-room). Numpy only.
+"""TRAKKART Motif engine (MIT). Numpy only.
 
 Custom pattern builder: 4 luminance bands (shadows / mids / lights / brights)
 each map to a shape + size. Builds a 32x32 threshold matrix tiled by

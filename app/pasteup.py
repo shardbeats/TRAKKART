@@ -1,4 +1,4 @@
-"""TRAKKART Paste-Up overlays (MIT, clean-room). Numpy + Pillow only.
+"""TRAKKART Paste-Up overlays (MIT). Numpy + Pillow only.
 
 Procedural paper/texture overlays generated in-app (no image files, so
 presets stay portable and offline): paper grain, riso tooth, fiber

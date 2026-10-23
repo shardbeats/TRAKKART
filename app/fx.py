@@ -1,4 +1,4 @@
-"""TRAKKART effects (MIT, clean-room). Pillow + numpy pre/post processing.
+"""TRAKKART effects (MIT). Pillow + numpy pre/post processing.
 
 All original work. No opencv, no numba.
 """

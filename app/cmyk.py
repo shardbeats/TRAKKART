@@ -1,4 +1,4 @@
-"""TRAKKART CMYK halftone (MIT, clean-room). Numpy + Pillow only.
+"""TRAKKART CMYK halftone (MIT). Numpy + Pillow only.
 
 Simplified print-style halftone: RGB -> CMY + K, each channel screened
 with an angled Bayer threshold (C 15°, M 75°, Y 0°, K 45° simulated by

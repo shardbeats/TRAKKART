@@ -1,4 +1,4 @@
-"""File/display-name sanitizers (MIT, clean-room). Single home for the three
+"""File/display-name sanitizers (MIT). Single home for the three
 use sites that grew the same regex by hand: presets, palette library and
 the exporter (which adds no-spaces + collapse + edge-trim on top).
 """

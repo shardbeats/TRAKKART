@@ -1,4 +1,4 @@
-"""Ordered threshold maps (MIT, clean-room). Public-domain math + original masks.
+"""Ordered threshold maps (MIT). Public-domain math + original masks.
 
 Split out of app/dither.py (mechanical move, one rename:
 `_threshold_bias` -> `threshold_bias`). dither.py keeps the dispatch

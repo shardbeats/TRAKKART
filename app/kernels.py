@@ -1,4 +1,4 @@
-"""TRAKKART error-diffusion kernels (MIT, clean-room).
+"""TRAKKART error-diffusion kernels (MIT).
 
 Standard coefficient tables (public error-diffusion math).
 The `_diffuse` engine is original work, row-vectorized like the v0.4 Floyd.

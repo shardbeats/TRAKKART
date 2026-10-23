@@ -1,6 +1,6 @@
 # TRAKKART
 
-Part of the ShardBeats **TRAKK SUITE**. Offline cover art studio (own MIT code, no GPL copied).
+Part of the ShardBeats **TRAKK SUITE**. Offline cover art studio (MIT licensed).
 
 ```
 Image → canvas (ratio preset or free Custom W×H + cover/contain/stretch/blur)
@@ -100,13 +100,8 @@ tools/quality_metrics.py :: 5 quality gates -> data/quality_report.json
 ## Quality gates
 
 100% tests passing, >=80% branch coverage, Gherkin scenarios green,
-export smoke (>500B per PNG), no-leak scan (no GPL code, no personal data).
+export smoke (>500B per PNG), no-leak scan (no personal data).
 
 ```
 .venv\Scripts\python tools\quality_metrics.py
 ```
-
-## Legal note
-
-100% original implementation (MIT, clean-room): algorithms reimplemented
-from public-domain math. No third-party GPL code is used or copied.

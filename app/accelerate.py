@@ -1,4 +1,4 @@
-"""Optional TRAKKART accelerator (MIT, clean-room).
+"""Optional TRAKKART accelerator (MIT).
 
 If numba is installed, ED kernels use @njit (10-50x). Otherwise,
 automatic fallback to pure numpy. The base exe does NOT bundle numba.
