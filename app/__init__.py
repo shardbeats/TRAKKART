@@ -1,4 +1,4 @@
-"""TRAKKART — offline dither cover generator (ShardBeats TRAKK family)."""
+"""TRAKKART — offline cover art studio (ShardBeats TRAKK family)."""
 
-__version__ = "0.18.0"
+__version__ = "1.0.0"
 __app_name__ = "TRAKKART"

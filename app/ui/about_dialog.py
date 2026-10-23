@@ -8,7 +8,7 @@ def about_text() -> str:
 
     return (
         f"TRAKKART v{__version__}\n"
-        "Offline dither cover generator · ShardBeats TRAKK family\n"
+        "Offline cover art studio · ShardBeats TRAKK family\n"
         "\n"
         "100% original MIT code (clean-room, no third-party GPL).\n"
         "Portable and offline: settings live next to the app.\n"

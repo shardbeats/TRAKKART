@@ -2,7 +2,9 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## Unreleased
+## v1.0.0
+- First stable: single flavor with numba + MP4 bundled, portable + installer.
+- Minimal identity: window title and header without taglines.
 - Test speed: pytest-xdist in dev deps; fast loop is now `-n auto`
   (~11x: 6.4 min → ~35 s locally). CI split: fast suite + lint per push,
   full suite nightly + on demand. CI actions bumped off deprecated Node 20.

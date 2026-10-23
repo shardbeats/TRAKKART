@@ -4,7 +4,7 @@
 
 ## 1. Vision
 
-TRAKKART = offline dither cover generator for beatmakers, part of the ShardBeats TRAKK family.
+TRAKKART = offline cover art studio for beatmakers, part of the ShardBeats TRAKK family.
 Flow: `Image → method + palette + pixel + threshold → preview → bundle → TRAKKOUT`.
 
 Family style: offline-first, portable `.exe` (`data/` next to the exe), PySide6 + Pillow + numpy, MIT with original code (no third-party GPL code).

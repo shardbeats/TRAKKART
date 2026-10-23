@@ -23,7 +23,7 @@ def setup_ui(win) -> None:
 
     from app import __version__
 
-    win.setWindowTitle(f"TRAKKART v{__version__} — dither covers")
+    win.setWindowTitle(f"TRAKKART {__version__}")
     win.resize(1280, 780)
     win.setMinimumSize(1060, 640)
     from app.paths import bundle_path
@@ -64,9 +64,6 @@ def setup_ui(win) -> None:
     title = QLabel("TRAKKART")
     title.setObjectName("titleLabel")
     header.addWidget(title)
-    subtitle = QLabel(f"v{__version__} · offline dither covers")
-    subtitle.setObjectName("subtitleLabel")
-    header.addWidget(subtitle)
     header.addStretch()
     col.addLayout(header)
 
@@ -97,7 +94,7 @@ def setup_ui(win) -> None:
     setup_previews(win, root)
 
     win.statusBar().showMessage("TRAKKART ready")
-    ver = QLabel(f"v{__version__} offline")
+    ver = QLabel(f"v{__version__}")
     ver.setObjectName("subtitleLabel")
     win.statusBar().addPermanentWidget(ver)
     win._sync_crop_label()

@@ -37,7 +37,7 @@ def write_version_info(version: str, exe_name: str = "TRAKKART.exe") -> Path:
         "    mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),\n"
         "  kids=[StringFileInfo([StringTable('040904B0', [\n"
         "    StringStruct('CompanyName', 'ShardBeats'),\n"
-        "    StringStruct('FileDescription', 'TRAKKART - offline dither covers'),\n"
+        "    StringStruct('FileDescription', 'TRAKKART - offline cover art studio'),\n"
         "    StringStruct('FileVersion', '%s'),\n"
         "    StringStruct('InternalName', '%s'),\n"
         "    StringStruct('LegalCopyright', 'MIT'),\n"
