@@ -228,7 +228,7 @@ def load_path(win, path) -> None:
 
     try:
         load_pil(win, _load(path))
-        win.src_name = Path(path).stem  # default export base (GIMP style)
+        win.src_name = Path(path).stem  # default export base (editor-style)
         win._status(f"Loaded: {Path(path).name}")
         try:
             from app.recent import remember_recent

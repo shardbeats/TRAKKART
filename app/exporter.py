@@ -1,4 +1,4 @@
-"""TRAKKART export: user-chosen size + format (GIMP/Photoshop style).
+"""TRAKKART export: user-chosen size + format (classic editor style).
 
 New model: ONE main image (configurable long side + format) +
 optional extras (1080p thumb, SVG, GIF, metadata). `export_bundle()` stays
@@ -47,7 +47,7 @@ _FORMAT_EXT = {"png": "png", "jpg": "jpg", "webp": "webp"}
 
 
 def sanitize_base(base: str) -> str:
-    """Safe base name for files (GIMP lets you type it freely; here it is sanitized).
+    """Safe base name for files (other editors let you type it freely; here it is sanitized).
 
     No separators (anti `../`), no `_` runs or odd edges, so
     suffixes (`_gif.gif`...) never produce `__`.

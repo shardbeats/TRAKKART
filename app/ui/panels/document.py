@@ -150,7 +150,7 @@ def _on_adjust_dice(win) -> None:
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
-    """Canvas Photoshop-style: ratio fills W/H; editing W/H jumps to Custom."""
+    """Canvas editor-style: ratio fills W/H; editing W/H jumps to Custom."""
     from app.canvas import MAX_DIM, MIN_DIM, MODE_TIPS, canvas_ratios
 
     g.addWidget(QLabel("Ratio / Mode:"))

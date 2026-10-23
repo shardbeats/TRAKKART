@@ -38,7 +38,7 @@ def gradient_map(
 ) -> Image.Image:
     """Duotone: luminance -> color_dark..color_light gradient, cut at mid%.
 
-    Empty in either = off. The midpoint moves the cut (GIMP: color stops).
+    Empty in either = off. The midpoint moves the cut (classic color stops).
     """
     c0 = _parse_hex(color_dark)
     c1 = _parse_hex(color_light)

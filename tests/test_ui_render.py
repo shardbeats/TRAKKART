@@ -71,7 +71,7 @@ def test_video_proxy_tiers(window):
 
 
 def test_custom_canvas_free_wh(window, isolated_presets):
-    # Photoshop-style: preset fills in W/H; editing W/H jumps to Custom.
+    # editor-style: preset fills in W/H; editing W/H jumps to Custom.
     window.cmb_ratio.setCurrentText("1:1")
     window._on_ratio_preset()  # user gesture: fills at current scale
     assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (3000, 3000)

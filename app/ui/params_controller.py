@@ -87,7 +87,7 @@ def _pingpong_set(win, v):
 
 
 def doc_dims(win) -> tuple[int, int]:
-    """Document W/H (Photoshop-style: spins rule)."""
+    """Document W/H (editor-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
 
     try:
@@ -186,7 +186,7 @@ def valid_slice_bands(win) -> int:
 
 
 def on_ratio_preset(win) -> None:
-    """User picked a ratio: fills W/H at current scale (Photoshop)."""
+    """User picked a ratio: fills W/H at current scale (classic editors)."""
     from app.canvas import canvas_size_for, ratio_value
 
     try:
@@ -213,7 +213,7 @@ def on_ratio_preset(win) -> None:
 
 
 def on_canvas_wh_changed(win) -> None:
-    """Editing W/H jumps to Custom only (Photoshop). No loops: activated never re-flips."""
+    """Editing W/H jumps to Custom only (classic editors). No loops: activated never re-flips."""
     from app.canvas import CUSTOM_LABEL
 
     try:

@@ -1,6 +1,6 @@
 """TRAKKART viewport modes (MIT). No Qt, pure logic.
 
-Full / Live / Still (Dither-Boy-style iteration control without copying it):
+Full / Live / Still (debounced live-iteration control):
 - full:  debounce 0ms, every change re-renders immediately (fast machines).
 - live:  debounced preview; core-adjust sliders refresh sooner (120ms)
           than heavy ones (350ms). Default.

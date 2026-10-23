@@ -5,7 +5,7 @@ contain = fit the whole image, black bars (no crop).
 stretch = distort to the exact ratio (no crop, no bars).
 blur    = fit the whole image over a blurred fill (no crop, no black bars).
 
-Custom mode (Photoshop-style): ratio presets lock the aspect, "custom"
+Custom mode (editor-style): ratio presets lock the aspect, "custom"
 frees W/H entirely (W/H spins are the size; typing them flips to custom).
 """
 

@@ -1,7 +1,7 @@
 """Random palette generator (MIT).
 
 NOT random RGB (that yields mud + indistinguishable grays the dither cannot
-use) nor ML (offline philosophy). Rules taken from the pixel-art literature:
+use) nor ML (offline philosophy). Rules follow standard pixel-art practice:
 ramps with monotonic lightness, saturation hump, measured hue-shift
 (cool in shadows, warm in lights) and minimum perceptual distance with
 re-sampling. Everything is computed in Oklch (uniform) and chroma-clipped

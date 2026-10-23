@@ -2,7 +2,7 @@
 
 Validates folders and counts images BEFORE launching (no two blind
 dialogs in a row). Vector/GIF outputs are chosen here per operation
-(photoshop-style); the preset provides the defaults. Progress with fps/ETA
+(editor-style); the preset provides the defaults. Progress with fps/ETA
 lives in the main window.
 """
 

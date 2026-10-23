@@ -94,7 +94,7 @@ def test_crop_zoom_tighter_same_ratio():
 
 
 def test_custom_ratio_free_dimensions():
-    # Photoshop-style: custom = free W/H, no forced 1:1.
+    # editor-style: custom = free W/H, no forced 1:1.
     assert CUSTOM_RATIO not in ratio_names()
     assert canvas_ratios() == ratio_names() + ["Custom"]
     assert ratio_label("custom") == "Custom"

@@ -1,6 +1,6 @@
 """Export flow: dialog orchestration + full-res render + bundle + history.
 
-GIMP-style: Quick export reuses the last config; the first run (no prefs)
+Classic behavior: Quick export reuses the last config; the first run (no prefs)
 always opens the dialog. State and widgets stay on MainWindow; this module
 holds the behavior. The window keeps `export()` / `_run_export()` /
 `_estimate_vector_cells()` by delegation.

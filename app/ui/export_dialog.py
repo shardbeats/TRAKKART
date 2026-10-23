@@ -1,4 +1,4 @@
-"""Export dialog — Photoshop/GIMP style: name, destination, outputs, collision.
+"""Export dialog — classic editor style: name, destination, outputs, collision.
 
 The engine (`export_bundle`/`export_with_options`) never asks;
 this dialog asks everything and previews what will be written.
@@ -108,7 +108,7 @@ class ExportDialog(QDialog):
         self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
         doc_row.addWidget(self.lbl_dims, 1)
         col.addLayout(doc_row)
-        # -- format (GIMP: extension rules; here the combo) --
+        # -- format (extension rules like classic editors; here the combo) --
         fmt_row = QHBoxLayout()
         fmt_row.addWidget(QLabel("Format:"))
         self.cmb_format, self.spn_quality = build_format_quality(format, quality)
@@ -170,7 +170,7 @@ class ExportDialog(QDialog):
         self.lbl_policy.setWordWrap(True)
         self.lbl_policy.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_policy)
-        # -- plan (GIMP shows estimated size: here the list + ~weight) --
+        # -- plan (classic editors show estimated size: here the list + ~weight) --
         col.addWidget(QLabel("Files to write:"))
         self.list_files = QListWidget()
         self.list_files.setMinimumHeight(110)
