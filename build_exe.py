@@ -4,6 +4,15 @@ Single flavor since v1: numba acceleration + MP4 video ship inside.
 Embeds version metadata + MANUAL/icons, optional Authenticode signing
 via env (TRAKKART_PFX path to .pfx, TRAKKART_PFX_PASSWORD,
 optional TRAKKART_TIMESTAMP_URL). See installer/SIGNING.md.
+
+Test gate (industry standard: test job blocks the build, but the gate must
+stay fast or developers bypass it):
+  default          fast gate: pytest -q -n auto -m "not slow" (parallel,
+                   excludes slow; ~2-4 min). Requires pytest-xdist
+                   (requirements-dev.txt); falls back to serial fast gate.
+  --full-tests     full serial suite gate (final release; 30-60+ min).
+  --skip-tests     skip gate (only if HEAD was already validated green,
+                   e.g. same commit passed full suite in CI/dev).
 """
 import os
 import subprocess
@@ -70,17 +79,44 @@ def maybe_sign(exe: Path) -> None:
         print(f"[TRAKKART] WARNING: signing failed ({e}). Ship unsigned or fix signtool/PFX.")
 
 
+def _has_xdist(py: str) -> bool:
+    """True if the build interpreter can run pytest -n auto."""
+    import subprocess
+
+    try:
+        r = subprocess.run([py, "-c", "import xdist"],
+                           capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 def main() -> int:
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--skip-tests", action="store_true")
+    gate = ap.add_mutually_exclusive_group()
+    gate.add_argument("--skip-tests", action="store_true",
+                      help="skip test gate (only if this HEAD already validated green)")
+    gate.add_argument("--full-tests", action="store_true",
+                      help="full serial suite gate for final release (slow, 30-60+ min)")
     ap.add_argument("--console", action="store_true")
     args = ap.parse_args()
 
     py = sys.executable
-    if not args.skip_tests:
+    if args.full_tests:
         run([py, "-m", "pytest", "tests", "-q"])
+    elif not args.skip_tests:
+        cmd = [py, "-m", "pytest", "tests", "-q", "-m", "not slow"]
+        if _has_xdist(py):
+            cmd += ["-n", "auto"]
+        else:
+            print("[TRAKKART] pytest-xdist missing: fast gate runs serial "
+                  "(pip install -r requirements-dev.txt for parallel).")
+        run(cmd)
+    else:
+        print("[TRAKKART] test gate skipped (--skip-tests). "
+              "Only safe if this HEAD already passed the suite.")
     run([py, "-m", "pip", "install", "pyinstaller"])
     exe_name = "TRAKKART"
     run([py, "-m", "pip", "install", "-r", "requirements.txt"])
