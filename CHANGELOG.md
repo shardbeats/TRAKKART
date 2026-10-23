@@ -2,6 +2,13 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## v1.0.1
+- New icon: 05_bayer_dots (TRAKK SUITE dark + amber).
+- Fixed flaky thread-storm test (pending guard + slot release in preview controller).
+- Build gate: fast parallel `-n auto -m "not slow"` by default, `--full-tests` for release.
+- Copy cleanup: no GPL/clean-room disclaimers, no competitor names; MANUAL fully in English.
+- MANUAL.md bundled in English.
+
 ## v1.0.0
 - First stable: single flavor with numba + MP4 bundled, portable + installer.
 - Minimal identity: window title and header without taglines.

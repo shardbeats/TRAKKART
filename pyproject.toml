@@ -1,6 +1,6 @@
 [project]
 name = "trakkart"
-version = "1.0.0"
+version = "1.0.1"
 description = "TRAKKART — offline cover art studio (ShardBeats TRAKK SUITE)"
 requires-python = ">=3.11"
 dependencies = [
