@@ -155,7 +155,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("glitch_slice_bands", "int", ("oneof", (0, 2, 3, 4, 6, 8, 12, 16))),
     _Field("glitch_slice_max", "int", ("range", 0, 64)),
     _Field("gif_export", "bool"),
-    _Field("gif_frames", "int", ("range", 2, 24)),
+    _Field("gif_frames", "int", ("range", 2, 64)),
     _Field("gif_mode", "str", ("oneof", "GIFMODES")),
     _Field("gif_fps", "int", ("range", 2, 60)),
     _Field("gif_size", "int", ("range", 64, 8000)),

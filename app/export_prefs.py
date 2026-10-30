@@ -83,7 +83,7 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
     from app.gif import GIF_MODES
 
     prefs.jobs = _clamp_int(getattr(prefs, "jobs", 1), 1, 8, 1)
-    prefs.gif_frames = _clamp_int(getattr(prefs, "gif_frames", 6), 2, 24, 6)
+    prefs.gif_frames = _clamp_int(getattr(prefs, "gif_frames", 6), 2, 64, 6)
     prefs.gif_fps = _clamp_int(getattr(prefs, "gif_fps", 8), 2, 60, 8)
     prefs.gif_size = _clamp_int(getattr(prefs, "gif_size", 1200), 64, 8000, 1200)
     prefs.quality = _clamp_int(getattr(prefs, "quality", 90), 1, 100, 90)

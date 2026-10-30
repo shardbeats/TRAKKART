@@ -197,10 +197,10 @@ def test_duration_label_follows_frames_and_fps(window):
     assert vc.duration_seconds(window) >= 0.0
     window.cmb_video_frames.setCurrentText("8")
     window.cmb_video_fps.setCurrentText("24")
-    assert window.lbl_duration.text() == "= 0.3s loop"
+    assert window.lbl_duration.text().startswith("= 0.3s loop")
     window.cmb_video_fps.setCurrentText("12")
     assert window.cmb_video_frames.currentText() == "8"
-    assert window.lbl_duration.text() == "= 0.7s loop"
+    assert window.lbl_duration.text().startswith("= 0.7s loop")
 
 
 def test_anim_combo_inserts_sorted_without_dupes(window):
@@ -218,6 +218,6 @@ def test_anim_combo_inserts_sorted_without_dupes(window):
 
 def test_preset_apply_syncs_duration(window):
     window._apply_preset("SLIME_FS")
-    frames = window._anim_combo_int(window.cmb_video_frames, 6, 2, 24)
+    frames = window._anim_combo_int(window.cmb_video_frames, 6, 2, 64)
     fps = window._anim_combo_int(window.cmb_video_fps, 8, 2, 60)
-    assert window.lbl_duration.text() == f"= {frames / max(1, fps):.1f}s loop"
+    assert window.lbl_duration.text().startswith(f"= {frames / max(1, fps):.1f}s loop")

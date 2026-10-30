@@ -451,6 +451,11 @@ class MainWindow(QMainWindow):
 
         _vc.sync_duration_ui(self)
 
+    def _on_duration_changed(self) -> None:
+        from app.ui import video_controller as _vc
+
+        _vc.duration_changed(self)
+
     def _on_video_proxy_changed(self) -> None:
         from app.ui import video_controller as _vc
 

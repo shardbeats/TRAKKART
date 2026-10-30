@@ -104,6 +104,64 @@ def wave(img: Image.Image, amplitude: int = 0, seed: int = 0x9A9E) -> Image.Imag
     return Image.fromarray(out)
 
 
+def slice_shift_loop(
+    img: Image.Image, bands: int = 0, max_offset: int = 24,
+    seed: int = 0x6A17, progress: float = 0.0,
+) -> Image.Image:
+    """Loop-perfect slice shift: offsets breathe with sin(2*pi*progress).
+
+    Same base pattern every frame (fixed seed), amplitude envelope
+    sin(t) closes the loop (progress 0 == 1, clean at the loop point).
+    """
+    import math
+
+    bands = int(bands)
+    if bands < 2:
+        return img
+    max_offset = int(max_offset)
+    if max_offset <= 0:
+        return img
+    arr = np.array(img.convert("RGB"))
+    h = arr.shape[0]
+    rng = np.random.default_rng(int(seed))
+    base = rng.integers(-max_offset, max_offset + 1, size=bands).astype(np.float32)
+    env = math.sin(2.0 * math.pi * float(progress))
+    offsets = (base * env).astype(int)
+    if not bool((offsets != 0).any()):
+        return img
+    edges = np.linspace(0, h, bands + 1).astype(int)
+    out = arr.copy()
+    for i in range(bands):
+        y0, y1 = int(edges[i]), int(edges[i + 1])
+        if y1 > y0 and int(offsets[i]) != 0:
+            out[y0:y1] = np.roll(arr[y0:y1], int(offsets[i]), axis=1)
+    return Image.fromarray(out)
+
+
+def wave_loop(
+    img: Image.Image, amplitude: int = 0, seed: int = 0x9A9E,
+    progress: float = 0.0,
+) -> Image.Image:
+    """Loop-perfect CRT wobble: phase marches 2*pi per loop."""
+    import math
+
+    a = int(amplitude)
+    if a <= 0:
+        return img
+    a = min(30, a)
+    arr = np.array(img.convert("RGB"))
+    h, w = arr.shape[:2]
+    rng = np.random.default_rng(int(seed))
+    base_phase = float(rng.uniform(0.0, 6.2831853))
+    phase = base_phase + 2.0 * math.pi * float(progress)
+    wave_len = max(32.0, w / 6.0)
+    offsets = (np.sin(np.arange(h, dtype=np.float32) / wave_len * 6.2831853 + phase) * a).astype(int)
+    out = np.empty_like(arr)
+    for y in range(h):
+        out[y] = np.roll(arr[y], int(offsets[y]), axis=0)
+    return Image.fromarray(out)
+
+
 def datamosh(img: Image.Image, amount: float = 0.0, seed: int = 0x405) -> Image.Image:
     """Randomly shifted blocks (datamosh). 0 = off.
 

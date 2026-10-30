@@ -145,7 +145,7 @@ def doc_size(win) -> int:
 
 def gif_anim_frames(win) -> int:
     try:
-        return anim_combo_int(win.cmb_video_frames, 6, 2, 24)
+        return anim_combo_int(win.cmb_video_frames, 6, 2, 64)
     except Exception:  # noqa: BLE001
         return int(getattr(win, "_gif_frames", 6))
 
@@ -272,7 +272,7 @@ BINDINGS: tuple = (
     ("vignette",) + _slider("sld_vig"),
     ("scanlines", _scan_get, _scan_set),
     ("replace_color", _brand_get, _brand_set),
-    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 24, 6),
+    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 64, 6),
     ("gif_mode", _video_mode_get, _video_mode_set),
     ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
     ("gif_pingpong", _pingpong_get, _pingpong_set),

@@ -72,17 +72,85 @@ def fps_changed(win) -> None:
 def duration_seconds(win) -> float:
     """Current loop length = frames / fps (derived, never stored)."""
     try:
-        frames = win._anim_combo_int(win.cmb_video_frames, 6, 2, 24)
+        frames = win._anim_combo_int(win.cmb_video_frames, 6, 2, 64)
         fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
         return frames / max(1, fps)
     except Exception:  # noqa: BLE001
         return 0.0
 
 
-def sync_duration_ui(win) -> None:
-    """Refresh the read-only loop label from frames ÷ fps."""
+def effective_frames(win) -> int:
+    """Playback length accounting ping-pong expansion (6 -> 10)."""
     try:
-        win.lbl_duration.setText(f"= {duration_seconds(win):.1f}s loop")
+        n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
+        pp = bool(win.chk_video_pingpong.isChecked())
+    except Exception:  # noqa: BLE001
+        return 6
+    if pp and n > 2:
+        return n + (n - 2)
+    return n
+
+
+def set_duration(win, seconds: float) -> None:
+    """Length edit -> frames (fps stays): seconds * fps, clamped 2-64."""
+    try:
+        from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
+        want = int(round(float(seconds) * max(1, fps)))
+        want = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, want))
+        win._set_anim_combo(win.cmb_video_frames, want)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def duration_changed(win) -> None:
+    """Length spin edited: push to frames and re-render (frame count changed)."""
+    try:
+        set_duration(win, float(win.spn_duration.value()))
+    except Exception:  # noqa: BLE001
+        pass
+    sync_duration_ui(win)
+    try:
+        win._schedule_refresh()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def sync_duration_ui(win) -> None:
+    """Refresh length controls from frames / fps + weight hint."""
+    try:
+        secs = duration_seconds(win)
+        n_eff = effective_frames(win)
+        # Keep the spin in sync without signal loops.
+        try:
+            spn = win.spn_duration
+            spn.blockSignals(True)
+            if abs(float(spn.value()) - secs) > 0.05:
+                spn.setValue(round(secs, 1))
+        finally:
+            try:
+                win.spn_duration.blockSignals(False)
+            except Exception:  # noqa: BLE001
+                pass
+        text = f"= {secs:.1f}s loop"
+        # Weight estimate at document size (export cost, not proxy).
+        try:
+            from app.gif import estimate_gif
+            from app.ui import params_controller as _par
+
+            w, h = _par.doc_dims(win)
+            weight_mb = estimate_gif(n_eff, w, h) / 1_000_000.0
+            if secs > 4.0 or weight_mb > 25.0:
+                text += f" · ~{weight_mb:.0f}MB GIF est. · prefer MP4"
+            elif weight_mb > 10.0:
+                text += f" · ~{weight_mb:.0f}MB GIF est."
+        except Exception:  # noqa: BLE001
+            if secs > 4.0:
+                text += " · prefer MP4"
+        win.lbl_duration.setText(text)
     except Exception:  # noqa: BLE001
         pass
 

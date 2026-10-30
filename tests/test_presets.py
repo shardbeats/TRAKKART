@@ -182,7 +182,7 @@ def test_validation_rejects_extended():
         Preset(name="x", gif_fps=61).validate()
     with pytest.raises(ValueError):
         Preset(name="x", gif_mode="nope").validate()
-    Preset(name="x", gif_frames=24, gif_fps=60).validate()  # new caps
+    Preset(name="x", gif_frames=64, gif_fps=60).validate()  # new caps
     with pytest.raises(ValueError):
         Preset(name="x", replace_color="red").validate()
     with pytest.raises(ValueError):

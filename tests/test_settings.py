@@ -74,11 +74,11 @@ def test_dialog_fields_normalize_and_summary():
     from app.ui.dialog_fields import gif_summary, normalize_gif_spec
 
     assert normalize_gif_spec(99, "nope", 0, True) == {
-        "frames": 24, "mode": "both", "fps": 2, "pingpong": True}
+        "frames": 64, "mode": "both", "fps": 2, "pingpong": True}
     assert normalize_gif_spec("abc", "hue", None, False)["frames"] == 6
     spec = normalize_gif_spec(6, "phase", 8, True)
-    assert gif_summary(spec, "canvas px") == "6f · phase · 8fps · ping-pong · canvas px"
-    assert gif_summary(spec) == "6f · phase · 8fps · ping-pong"
+    assert gif_summary(spec, "canvas px") == "6f · phase · 8fps · 0.8s · ping-pong · canvas px"
+    assert gif_summary(spec) == "6f · phase · 8fps · 0.8s · ping-pong"
 
 
 def test_dialog_fields_widgets(qt_app):
