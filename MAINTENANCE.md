@@ -12,6 +12,21 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 - Install dev: `<venv>\Scripts\python -m pip install -r requirements-dev.txt`
   (`<venv>` = central `C:\venvs\dev` or local `.venv`).
 
+## CI pins (known incident 2026-10-30)
+
+- `requirements-dev.txt` pins `pytest>=8.0,<9.2` on purpose.
+- Incident: scheduled `CI` runs `41036412295` (2026-10-30), `40852105381` (2026-10-29),
+  `40664875487` (2026-10-28) failed in both `fast` and `full` jobs with:
+  `AttributeError: 'FixtureManager' object has no attribute '_arg2fixturedefs'`
+  at `pytest_bdd/scenario.py:65` in `find_fixturedefs_for_step`.
+- Root cause: upstream `pytest 9.2.0` removed/renamed the private `_arg2fixturedefs`
+  API used by `pytest-bdd 9.0.0`. Last green scheduled run `40476374579` (2026-10-27)
+  used `pytest 9.1.1 + pytest-bdd 9.0.0`. Not an app regression.
+- Fix commit: `fix(ci): pin pytest below 9.2 for pytest-bdd compat`.
+  Verified by push run `41093063744` (`fast` green in 3m27s, installs `pytest 9.1.1`).
+- To lift the pin: upgrade `pytest-bdd` to a release that supports `pytest>=9.2`,
+  then remove the `<9.2` upper bound and watch one `schedule` + one `workflow_dispatch` run.
+
 ## Layout
 
 ```
