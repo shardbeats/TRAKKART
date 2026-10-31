@@ -83,4 +83,74 @@ def apply_drift(img: Image.Image, pattern: str = "off", amount: float = 0.0,
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
 
-__all__ = ["DRIFT_PATTERNS", "DRIFT_SEED", "apply_drift", "drift_mask"]
+def drift_mask_loop(h: int, w: int, pattern: str, progress: float = 0.0,
+                    seed: int = DRIFT_SEED, loops: float = 1.0) -> np.ndarray | None:
+    """Loop-perfect drift mask: full traverse per clip, start == end.
+
+    progress in [0, 1): frame / n_frames. loops = traversals per clip.
+    sweep/hum_bar travel -margin -> +margin (off-screen ends are invisible,
+    so the wrap has no pop). Cyclic patterns use sin(2*pi*loops*progress)
+    so they close exactly. snow/crawl sample deterministic per-step fields;
+    the loop joint equals one normal inter-frame step (noise hides it).
+    """
+    import math
+
+    if pattern not in DRIFT_PATTERNS:
+        return None
+    loops = max(0.25, min(4.0, float(loops or 1.0)))
+    q = float(progress) * float(loops)
+    frac = q - math.floor(q)
+    ys = np.arange(h, dtype=np.float32)[:, None] * np.ones((1, w), dtype=np.float32)
+    xs = np.arange(w, dtype=np.float32)[None, :] * np.ones((h, 1), dtype=np.float32)
+    # Cyclic channels use frac so progress 0 == 1 exactly (float-exact loop).
+    two_pi = 2.0 * math.pi * frac
+    if pattern == "hum_bar":
+        pos = -20.0 + (float(h) + 40.0) * frac
+        return np.exp(-((ys - pos) ** 2) / (2.0 * 18.0 ** 2)).clip(0.0, 1.0)
+    if pattern == "roll":
+        return (0.5 + 0.5 * np.sin(ys * 0.08 - two_pi)).astype(np.float32)
+    if pattern == "crawl":
+        shift = int(math.floor(frac * 16.0)) % 2
+        return ((((xs + ys).astype(int) + shift) % 2) == 0).astype(np.float32)
+    if pattern == "snow":
+        idx = int(math.floor(frac * 32.0))
+        rng = _rng(int(seed) + idx * 7919)
+        return rng.random((h, w), dtype=np.float32)
+    if pattern == "weave":
+        off = math.sin(two_pi) * 2.0
+        return ((((ys + off).astype(int)) % 2) == 0).astype(np.float32) * 0.5 + 0.25
+    if pattern == "flicker":
+        v = 0.5 + 0.28 * math.sin(two_pi) + 0.12 * math.sin(2.0 * two_pi + 1.3)
+        return np.full((h, w), np.clip(v, 0.0, 1.0), dtype=np.float32)
+    if pattern == "moire":
+        return (0.5 + 0.5 * np.sin((xs + ys) * 0.11 + two_pi)
+                * np.sin((xs - ys) * 0.07 - two_pi)).astype(np.float32)
+    if pattern == "sweep":
+        pos = -40.0 + (float(w) + 80.0) * frac
+        return np.exp(-((xs - pos) ** 2) / (2.0 * 30.0 ** 2)).clip(0.0, 1.0)
+    if pattern == "jitter":
+        return (0.5 + 0.5 * np.sin(ys * 0.5 + np.sin(two_pi + ys * 0.02) * 3.0)).astype(np.float32)
+    return None  # pragma: no cover
+
+
+def apply_drift_loop(img: Image.Image, pattern: str = "off", amount: float = 0.0,
+                     progress: float = 0.0, seed: int = DRIFT_SEED,
+                     loops: float = 1.0) -> Image.Image:
+    """Loop-perfect drift blend (see drift_mask_loop). 0/off = no-op."""
+    amt = float(amount or 0.0)
+    if amt <= 0 or pattern not in DRIFT_PATTERNS:
+        return img
+    amt = min(100.0, max(0.0, amt))
+    base = img.convert("RGB")
+    h, w = base.height, base.width
+    mask = drift_mask_loop(h, w, pattern, progress=float(progress),
+                           seed=int(seed), loops=float(loops))
+    if mask is None:
+        return img
+    arr = np.asarray(base, dtype=np.float32)
+    out = arr + (mask - 0.5)[..., None] * (2.0 * amt)
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+__all__ = ["DRIFT_PATTERNS", "DRIFT_SEED", "apply_drift", "apply_drift_loop",
+           "drift_mask", "drift_mask_loop"]

@@ -139,9 +139,12 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
                             "weave", "flicker", "moire", "sweep", "jitter"])
     tight(win.cmb_drift, 10)
-    win.cmb_drift.setToolTip("Retro-screen noise, marches with phase")
+    win.cmb_drift.setToolTip("Retro-screen noise, full traverse per clip (loop-perfect)")
     win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
     drow.addWidget(win.cmb_drift, 1)
     g.addLayout(drow)
     win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
+    win.sld_drift_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100,
+                                            "Drift traversals per clip 0.25-4.0x (1 = full sweep)",
+                                            div=100.0)
     win._sync_duration_ui()

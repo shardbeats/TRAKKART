@@ -103,12 +103,14 @@ class RenderSpec:
     motif: dict | None = None
     drift_pattern: str = "off"
     drift_amount: float = 0.0
+    drift_progress: float | None = None
+    drift_loops: float = 1.0
     paste_mode: str = "off"
     paste_opacity: float = 0.0
     paste_blend: str = "overlay"
 
     @staticmethod
-    def from_preset(preset, phase: int = 0) -> "RenderSpec":
+    def from_preset(preset, phase: int = 0, drift_progress: float | None = None) -> "RenderSpec":
         """Preset -> normalized spec. Single conversion (see render_params)."""
         from app.render_params import (
             normalize_grille,
@@ -178,6 +180,8 @@ class RenderSpec:
                    if getattr(preset, "motif", None) is not None else None),
             drift_pattern=str(getattr(preset, "drift_pattern", "off") or "off"),
             drift_amount=float(getattr(preset, "drift_amount", 0.0) or 0.0),
+            drift_progress=(None if drift_progress is None else float(drift_progress)),
+            drift_loops=float(getattr(preset, "drift_speed", 1.0) or 1.0),
             paste_mode=str(getattr(preset, "paste_mode", "off") or "off"),
             paste_opacity=float(getattr(preset, "paste_opacity", 0.0) or 0.0),
             paste_blend=str(getattr(preset, "paste_blend", "overlay") or "overlay"),
@@ -247,10 +251,16 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
                        zoom=s.crop_zoom, canvas_w=s.canvas_w, canvas_h=s.canvas_h)
     if str(getattr(s, "drift_pattern", "off") or "off") != "off" \
             and float(getattr(s, "drift_amount", 0.0) or 0.0) > 0:
-        from app.drift import apply_drift
+        from app.drift import apply_drift, apply_drift_loop
 
-        canvas = apply_drift(canvas, pattern=str(s.drift_pattern),
-                             amount=float(s.drift_amount), phase=int(s.phase))
+        if getattr(s, "drift_progress", None) is not None:
+            canvas = apply_drift_loop(canvas, pattern=str(s.drift_pattern),
+                                      amount=float(s.drift_amount),
+                                      progress=float(s.drift_progress),
+                                      loops=float(getattr(s, "drift_loops", 1.0) or 1.0))
+        else:
+            canvas = apply_drift(canvas, pattern=str(s.drift_pattern),
+                                 amount=float(s.drift_amount), phase=int(s.phase))
     if s.pre_blur or s.pre_sharpen or s.pre_hue or s.pre_denoise or s.pre_smooth:
         canvas = apply_pre(canvas, blur=s.pre_blur, sharpen=s.pre_sharpen, hue=s.pre_hue,
                            denoise=s.pre_denoise, smooth=s.pre_smooth)

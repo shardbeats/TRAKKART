@@ -89,6 +89,43 @@ def test_gif_drift_animates_frames():
     assert len({tuple(f.get_flattened_data()) for f in frames}) > 1
 
 
+def test_drift_loop_covers_full_sweep():
+    from app.drift import drift_mask_loop
+
+    h, w = 64, 240
+    first = drift_mask_loop(h, w, "sweep", 0.0)
+    mid = drift_mask_loop(h, w, "sweep", 0.5)
+    last = drift_mask_loop(h, w, "sweep", 0.999)
+    assert float(mid.max()) > 0.9  # centered: full strength mid-clip
+    assert float(first.mean()) < 0.1  # off-screen start: faint edge only
+    assert float(last.mean()) < 0.1  # off-screen end: faint edge only
+    assert len({tuple(f.tobytes()) for f in (first, mid, last)}) == 3
+
+
+def test_drift_loop_closes_all_patterns():
+    from app.drift import drift_mask_loop
+
+    h, w = 48, 64
+    for pattern in ("hum_bar", "roll", "crawl", "snow", "weave",
+                    "flicker", "moire", "sweep", "jitter"):
+        a = drift_mask_loop(h, w, pattern, 0.0)
+        b = drift_mask_loop(h, w, pattern, 1.0)
+        assert (a == b).all(), pattern
+
+
+def test_gif_drift_sweep_traverses_independent_of_method():
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    im = _img(96)
+    for method in ("bayer4", "floyd"):
+        p = Preset(name="t", method=method, palette="SLIME",
+                   drift_pattern="sweep", drift_amount=80.0, drift_speed=1.0)
+        frames = gif_frames(im, p, frames=8, mode="phase")
+        flats = {tuple(f.get_flattened_data()) for f in frames}
+        assert len(flats) > 4  # full traverse: most frames differ
+
+
 def test_march_closes_the_loop():
     from app.dither import apply_method
     from app.ordered_maps import _ORDERED_DEFS as DEFS, march_offset

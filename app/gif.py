@@ -143,6 +143,8 @@ def gif_frames(
     for i in range(n):
         kwargs = dict(base_kwargs)
         kwargs["phase"] = march_offset(march_method, i, n, amt) if want_phase else 0
+        # Drift owns its timeline: full traverse per clip, not dither march.
+        kwargs["drift_progress"] = float(i) / float(n)
         if want_hue:
             kwargs["pre_hue"] = base_hue + round(14.0 * amt * math.sin(2.0 * math.pi * i / n), 2)
         frame = render(small, **kwargs)
