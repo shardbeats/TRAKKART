@@ -279,6 +279,56 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     return out
 
 
+def gif_morph_frames(img_a: Image.Image, img_b: Image.Image, preset=None,
+                     frames: int = 8, max_side: int | None = None,
+                     pingpong: bool | None = None, seed: int | None = None,
+                     wind: tuple[float, float] | None = None,
+                     mode: str | None = None,
+                     amount: float | None = None) -> list[Image.Image]:
+    """One-shot swap A -> B through a shared particle cloud (Fase 5).
+
+    Same dither engine for both images (preset method/threshold/pixel).
+    First half disperses A, second half reassembles B. Deterministic.
+    For a seamless GIF loop use pingpong=True (A->B->A).
+    """
+    from app.disintegrate import DISINTEGRATE_MODES, morph_frames
+
+    n = _clamp_frames(frames)
+    if preset is None:
+        side = int(max_side or GIF_MAX_SIDE)
+        pp = bool(pingpong or False)
+        method, threshold, pixel = "bayer8", 128.0, 1
+    else:
+        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
+        pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
+        method = str(getattr(preset, "method", "bayer8") or "bayer8")
+        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
+        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
+    seed_v = 0xD15C if seed is None else int(seed)
+    if preset is not None and seed is None:
+        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
+    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    if preset is not None and wind is None:
+        wx = getattr(preset, "dissolve_wind_x", None)
+        wy = getattr(preset, "dissolve_wind_y", None)
+        if wx is not None and wy is not None:
+            wind_v = (float(wx), float(wy))
+    mode_v = "wind" if mode is None else str(mode)
+    if preset is not None and mode is None:
+        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
+    if mode_v not in DISINTEGRATE_MODES:
+        mode_v = "wind"
+    amount_v = 1.0 if amount is None else float(amount)
+    if preset is not None and amount is None:
+        amount_v = float(getattr(preset, "dissolve_amount", amount_v))
+    out = morph_frames(img_a.convert("RGB"), img_b.convert("RGB"), method=method,
+                       threshold=threshold, pixel_size=pixel, frames=n, seed=seed_v,
+                       wind=wind_v, mode=mode_v, amount=amount_v, max_side=side)
+    if pp:
+        out = _pingpong(out)
+    return out
+
+
 def save_gif(
     frames: list[Image.Image],
     path: str | Path,

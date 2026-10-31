@@ -134,6 +134,47 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     return out
 
 
+def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
+                 threshold: float = 128.0, pixel_size: int = 1,
+                 frames: int = 8, seed: int = 0xD15C,
+                 wind: tuple[float, float] = (120.0, -40.0),
+                 mode: str = "wind", amount: float = 1.0,
+                 max_side: int = 480) -> list[Image.Image]:
+    """One-shot swap A -> B through a shared particle cloud (Fase 5).
+
+    Both images are fitted to the same HxW (B resized to A), dithered
+    with the same engine, then: progress<0.5 renders dispersed A,
+    progress>=0.5 renders dispersed B, envelope sin(pi*progress) so both
+    ends are assembled and the middle is a full cloud. amount 0 returns
+    A copies then B copies (hard cut, strict 0=off).
+    """
+    from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
+
+    n = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
+    side = max(64, min(8000, int(max_side or 480)))
+    a = img_a.convert("RGB")
+    r = side / max(a.width, a.height)
+    if r < 1.0:
+        a = a.resize((max(1, round(a.width * r)),
+                      max(1, round(a.height * r))), Image.BICUBIC)
+    b = img_b.convert("RGB").resize((a.width, a.height), Image.BICUBIC)
+    da = dither_bw(a, method=method, threshold=threshold, pixel_size=pixel_size)
+    db = dither_bw(b, method=method, threshold=threshold, pixel_size=pixel_size)
+    ca, h, w = points_from_dither(da)
+    cb, _, _ = points_from_dither(db)
+    out: list[Image.Image] = []
+    for i in range(n):
+        progress = float(i) / float(n)
+        if progress < 0.5:
+            pos = disperse_positions(ca, h, w, progress=progress, seed=seed,
+                                     wind=wind, mode=mode, loops=1.0, amount=amount)
+        else:
+            pos = disperse_positions(cb, h, w, progress=progress, seed=seed + 1,
+                                     wind=wind, mode=mode, loops=1.0, amount=amount)
+        out.append(render_points(pos, h, w))
+    return out
+
+
 __all__ = ["DISINTEGRATE_MODES", "MAX_POINTS", "dither_bw",
            "points_from_dither", "disperse_positions", "render_points",
-           "dissolve_frames"]
+           "dissolve_frames", "morph_frames"]

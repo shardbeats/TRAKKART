@@ -201,8 +201,8 @@ Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfec
 
 ### v1.7 — Morph A->B + UI dissolve (in progress)
 Scope: swap between two images via shared particle cloud + MOTION controls.
-- [ ] Fase 5 (en curso): `morph_frames()` + `gif_morph_frames()` + tests.
-- [ ] Fase 6: UI MOTION (modo dissolve/morph, segunda imagen) + export + docs.
+- [x] Fase 5 (done): `morph_frames()` + `gif_morph_frames()` + tests.
+- [ ] Fase 6 (en curso): UI MOTION (modo dissolve/morph, segunda imagen) + export + docs.
 
 ## 4. Decisions made (do not reopen without reason)
 

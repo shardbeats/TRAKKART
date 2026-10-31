@@ -66,3 +66,29 @@ def test_gif_dissolve_uses_dissolve_preset():
     wind = gif_dissolve_frames(_img(), Preset(**base, dissolve_mode="wind"), frames=4)
     rnd = gif_dissolve_frames(_img(), Preset(**base, dissolve_mode="random"), frames=4)
     assert [tuple(f.get_flattened_data()) for f in wind] != [tuple(f.get_flattened_data()) for f in rnd]
+
+
+def test_morph_swaps_images():
+    from app.disintegrate import dither_bw, morph_frames
+
+    a = _img(48)
+    b = Image.new("RGB", (48, 48), (10, 200, 90))
+    frames = morph_frames(a, b, frames=6, max_side=64)
+    assert len(frames) == 6
+    first = tuple(frames[0].get_flattened_data())
+    last = tuple(frames[-1].get_flattened_data())
+    assert first == tuple(dither_bw(a).convert("RGB").get_flattened_data())
+    assert first != last
+    again = morph_frames(a, b, frames=6, max_side=64)
+    assert [tuple(f.get_flattened_data()) for f in frames] == [tuple(f.get_flattened_data()) for f in again]
+
+
+def test_gif_morph_frames_and_pingpong(tmp_path):
+    from app.gif import gif_morph_frames, save_gif
+
+    a, b = _img(), Image.new("RGB", (64, 64), (200, 40, 90))
+    f = gif_morph_frames(a, b, frames=4, max_side=64)
+    assert len(f) == 4
+    assert len({tuple(x.get_flattened_data()) for x in f}) > 1
+    assert save_gif(f, tmp_path / "m.gif", fps=8).exists()
+    assert len(gif_morph_frames(a, b, frames=4, max_side=64, pingpong=True)) == 6
