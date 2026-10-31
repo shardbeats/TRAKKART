@@ -372,9 +372,16 @@ def sync_anim_ui(win) -> None:
                 n = int(win.cmb_video_frames.currentText())
             except (TypeError, ValueError):
                 n = 6
+            try:
+                fps = max(1, int(win.cmb_video_fps.currentText()))
+            except (TypeError, ValueError):
+                fps = 8
             segs = max(1, len(chain)) if chain else 1
-            if chain and n // segs < 8:
-                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f per form — raise Frames for fuller bursts)")
+            import math as _math
+
+            floor = segs * max(8, int(_math.ceil(0.8 * fps)))
+            if chain and n < floor:
+                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f / {n / segs / fps:.1f}s per form — raise Frames for slower morphs)")
         except Exception:  # noqa: BLE001
             pass
 
@@ -812,6 +819,7 @@ def pick_morph_image(win) -> bool:
         win.morph_list_widget.setCurrentRow(len(items) - 1)
     except Exception:  # noqa: BLE001
         pass
+    ensure_morph_budget(win)
     try:
         mode = str(win.cmb_video_mode.currentText())
     except Exception:  # noqa: BLE001
@@ -865,3 +873,41 @@ def clear_morph_image(win) -> None:
     win.morph_list = []
     _sync_morph_list_ui(win)
     win._schedule_refresh()
+
+
+def ensure_morph_budget(win) -> bool:
+    """Grow total Frames so every chain segment keeps watchable time.
+
+    Per-segment floor: 8 frames AND ~0.8s at current fps. Only grows
+    (never shrinks the user's Length), capped at 64. Returns True when
+    Frames were bumped. Call on chain growth and on switch to morph mode.
+    """
+    try:
+        from app.gif import GIF_MAX_FRAMES
+
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        return False
+    if mode != "morph":
+        return False
+    chain = morph_chain_data(win)
+    if not chain:
+        return False
+    try:
+        segs = len(chain)
+        fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
+        n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
+    except Exception:  # noqa: BLE001
+        return False
+    import math
+
+    floor = segs * max(8, int(math.ceil(0.8 * fps)))
+    want = min(int(GIF_MAX_FRAMES), max(n, floor))
+    if want <= n:
+        return False
+    try:
+        win._set_anim_combo(win.cmb_video_frames, want)
+        win._status(f"Chain x{segs}: frames {n}->{want} to keep transitions readable")
+    except Exception:  # noqa: BLE001
+        pass
+    return True

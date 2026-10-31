@@ -460,6 +460,12 @@ class MainWindow(QMainWindow):
 
         _vc.duration_changed(self)
 
+    def _on_video_mode_changed(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.sync_anim_ui(self)
+        _par.ensure_morph_budget(self)
+
     def _on_video_proxy_changed(self) -> None:
         from app.ui import video_controller as _vc
 

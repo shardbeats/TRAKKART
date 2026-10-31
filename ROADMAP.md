@@ -230,6 +230,20 @@ Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
 (mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
 Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
 
+### v1.11 — Morph timing: presupuesto por tramo + holds de lectura (done)
+Research: ImageMagick `-set delay "%[fx:(t==0||t==n-1) ? 150 : 8]"`,
+ComfyUI `transition_frames` + `still_image_delay_ms`, Pillow per-frame
+`duration=[...]` list.
+- Total fijo repartido = tramos cada vez más rápidos (6f/5 tramos: 3 tramos
+  de 1 frame no muestran nada). Regla nueva: más imágenes = más tiempo.
+- Joints `q=j/(nk-1)` (cada tramo termina ensamblado, sin pop) + holds de
+  `dissolve_hold`s por extremo (duplicados: vale para GIF, MP4 y scrub).
+- Presupuesto: mín 2/tramo (correctitud) + auto-crecer a 8f y ~0.8s/tramo
+  solo hacia arriba (tope 64; las transiciones mandan sobre los holds).
+  Alargue avisado en status; hint con f/s por forma si queda corto.
+- UI: Hold slider (MORPH), duration con "+ hold", hint de tramo.
+  Suite 463 -> 464.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.

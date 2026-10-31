@@ -202,6 +202,36 @@ def test_morph_playlist_chain_reorders_and_caps(window, tmp_path, monkeypatch):
     assert window._on_morph_pick() is False
 
 
+def test_morph_budget_grows_with_chain(window, tmp_path, monkeypatch):
+    from PIL import Image
+    from PySide6.QtWidgets import QFileDialog
+
+    from app.ui import params_controller as _par
+
+    paths = []
+    for i in range(3):
+        p = tmp_path / f"g{i}.png"
+        Image.new("RGB", (16, 16), (i * 40, 100, 90)).save(p)
+        paths.append(str(p))
+    picks = iter(paths)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (next(picks), ""))
+    window.cmb_video_fps.setCurrentText("12")
+    window.cmb_video_frames.setCurrentText("6")
+    window.cmb_video_mode.setCurrentText("morph")
+    assert window._on_morph_pick() is True  # 1 seg -> max(6, 10) = 10
+    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 10
+    assert window._on_morph_pick() is True  # 2 segs -> max(10, 20) = 20
+    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 20
+    assert _par.ensure_morph_budget(window) is False  # already enough
+    window.cmb_video_mode.setCurrentText("mix")
+    window.cmb_video_mode.setCurrentText("morph")  # switch back re-checks
+    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 20
+    # Short budget warns with per-form time.
+    window.cmb_video_frames.setCurrentText("8")
+    window._sync_anim_ui()
+    assert "per form" in window.lbl_compat.text()
+
+
 def test_tutorial_dialog_walks_all_steps(qt_app):
     from app.tutorial import STEPS
     from app.ui.tutorial_dialog import TutorialDialog
