@@ -199,12 +199,19 @@ Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfec
 - [x] Fase 4 (done): docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
   Note: gates stay at 52 Gherkin (no new scenarios; unit-covered); suite 438 -> 450.
 
-### v1.7 — Morph A->B + UI dissolve (in progress)
+### v1.7 — Morph A->B + UI dissolve (done)
 Scope: swap between two images via shared particle cloud + MOTION controls.
 - [x] Fase 5 (done): `morph_frames()` + `gif_morph_frames()` + tests.
 - [x] Fase 6 (done): UI MOTION (modo dissolve/morph, segunda imagen) + export + docs.
   Modes `dissolve`/`morph` in `GIF_MODES`; `gif_frames(img_b=...)` dispatch;
   preview/export/batch share the path; strict 0=off holds.
+
+### v1.8 — Morph cadena (hasta 6) + página MORPH (in progress)
+Scope: playlist A->B->C... (A = src + hasta 5) con lista Add/Remove/Up/Down;
+controles dissolve+morph mudados de MOTION a página MORPH propia.
+- [ ] Fase 1 (en curso): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
+- [ ] Fase 2: página MORPH + playlist UI (mover controles de MOTION).
+- [ ] Fase 3: preview/export wiring + docs + cierre.
 
 ## 4. Decisions made (do not reopen without reason)
 
