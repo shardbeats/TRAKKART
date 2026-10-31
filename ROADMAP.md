@@ -194,8 +194,8 @@ they added a model + locks + file pipeline far from the core job
 Scope frozen: single-image disperse/reassemble loop (no morph A->B yet).
 Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfect.
 - [x] Fase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
-- [ ] Fase 2 (en curso): `gif_dissolve_frames()` + export GIF/MP4 manual.
-- [ ] Fase 3: preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
+- [x] Fase 2 (done): `gif_dissolve_frames()` + export GIF/MP4 manual.
+- [ ] Fase 3 (en curso): preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
 - [ ] Fase 4: docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
 
 ## 4. Decisions made (do not reopen without reason)

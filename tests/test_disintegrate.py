@@ -44,3 +44,15 @@ def test_loop_assembles_and_mid_disperses():
     assert list(f0.get_flattened_data()) == list(d.convert("RGB").get_flattened_data())
     pmid = disperse_positions(coords, h, w, progress=0.5, seed=11)
     assert not (pmid == p0).all()
+
+
+def test_gif_dissolve_frames_loop_and_export(tmp_path):
+    from app.gif import gif_dissolve_frames, save_gif
+
+    f = gif_dissolve_frames(_img(), frames=4, max_side=64)
+    assert len(f) == 4
+    assert len({tuple(x.get_flattened_data()) for x in f}) > 1
+    out = save_gif(f, tmp_path / "d.gif", fps=8)
+    assert out.exists()
+    f_pp = gif_dissolve_frames(_img(), frames=4, max_side=64, pingpong=True)
+    assert len(f_pp) == 6

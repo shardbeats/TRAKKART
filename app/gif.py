@@ -223,6 +223,62 @@ def gif_frames(
     return out
 
 
+def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
+                        max_side: int | None = None,
+                        pingpong: bool | None = None, seed: int | None = None,
+                        wind: tuple[float, float] | None = None,
+                        mode: str | None = None, loops: float | None = None,
+                        amount: float | None = None) -> list[Image.Image]:
+    """Particle disperse loop for one image (Fase 2, solo dispersion).
+
+    Dithers once (preset method/threshold/pixel_size) then marches
+    progress=i/n with a breathe envelope (assembled -> dispersed ->
+    assembled, loop-perfect). Deterministic by seed. amount 0 returns
+    n copies of the dithered still (strict 0=off). Reuses save_gif()
+    and video_io.write_mp4() for export (same stem _gif.gif / _vid.mp4).
+    """
+    from app.disintegrate import DISINTEGRATE_MODES, dissolve_frames
+
+    n = _clamp_frames(frames)
+    if preset is None:
+        side = int(max_side or GIF_MAX_SIDE)
+        pp = bool(pingpong or False)
+        method, threshold, pixel = "bayer8", 128.0, 1
+    else:
+        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
+        pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
+        method = str(getattr(preset, "method", "bayer8") or "bayer8")
+        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
+        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
+    seed_v = 0xD15C if seed is None else int(seed)
+    if preset is not None and seed is None:
+        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
+    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    if preset is not None and wind is None:
+        wx = getattr(preset, "dissolve_wind_x", None)
+        wy = getattr(preset, "dissolve_wind_y", None)
+        if wx is not None and wy is not None:
+            wind_v = (float(wx), float(wy))
+    mode_v = "wind" if mode is None else str(mode)
+    if preset is not None and mode is None:
+        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
+    if mode_v not in DISINTEGRATE_MODES:
+        mode_v = "wind"
+    loops_v = 1.0 if loops is None else float(loops)
+    if preset is not None and loops is None:
+        loops_v = float(getattr(preset, "dissolve_speed", getattr(preset, "drift_speed", loops_v)) or loops_v)
+    amount_v = 1.0 if amount is None else float(amount)
+    if preset is not None and amount is None:
+        amount_v = float(getattr(preset, "dissolve_amount", amount_v))
+    out = dissolve_frames(img.convert("RGB"), method=method, threshold=threshold,
+                          pixel_size=pixel, frames=n, seed=seed_v, wind=wind_v,
+                          mode=mode_v, loops=loops_v, amount=amount_v,
+                          max_side=side)
+    if pp:
+        out = _pingpong(out)
+    return out
+
+
 def save_gif(
     frames: list[Image.Image],
     path: str | Path,
