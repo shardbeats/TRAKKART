@@ -38,7 +38,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.cmb_video_mode.setCurrentText("mix")
     win.cmb_video_mode.setToolTip("March needs an ordered method · others move on any method")
     win.cmb_video_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    win.cmb_video_mode.currentTextChanged.connect(lambda _: win._sync_anim_ui())
+    win.cmb_video_mode.currentTextChanged.connect(lambda _: win._on_video_mode_changed())
     row.addWidget(win.cmb_video_mode, 1)
     g.addLayout(row)
     win.lbl_mode_desc = QLabel("")
