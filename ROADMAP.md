@@ -229,20 +229,47 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
 (mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
 Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
+### v1.11 — Morph timing: auto-presupuesto al alargar cadena (done)
+Research v1.9 confirmada por el uso: con total fijo, añadir imágenes acelera
+cada tramo (6f/5 tramos = tramos de 1f que no muestran nada). Regla nueva:
+más imágenes = más tiempo.
+- Auto-crecer Frames solo hacia arriba al pick/morph-mode: `max(n, tramos*max(8, ~0.8s))`,
+  tope 64, avisado en status; al encoger la cadena no se toca nada.
+- Hint con f/s por forma cuando un tramo queda bajo 8f o 0.8s.
+- Suite 463 -> 464.
 
-### v1.11 — Morph timing: presupuesto por tramo + holds de lectura (done)
-Research: ImageMagick `-set delay "%[fx:(t==0||t==n-1) ? 150 : 8]"`,
-ComfyUI `transition_frames` + `still_image_delay_ms`, Pillow per-frame
-`duration=[...]` list.
-- Total fijo repartido = tramos cada vez más rápidos (6f/5 tramos: 3 tramos
-  de 1 frame no muestran nada). Regla nueva: más imágenes = más tiempo.
-- Joints `q=j/(nk-1)` (cada tramo termina ensamblado, sin pop) + holds de
-  `dissolve_hold`s por extremo (duplicados: vale para GIF, MP4 y scrub).
-- Presupuesto: mín 2/tramo (correctitud) + auto-crecer a 8f y ~0.8s/tramo
-  solo hacia arriba (tope 64; las transiciones mandan sobre los holds).
-  Alargue avisado en status; hint con f/s por forma si queda corto.
-- UI: Hold slider (MORPH), duration con "+ hold", hint de tramo.
-  Suite 463 -> 464.
+### v1.12 — Techo de 64 frames: ¿subirlo? (investigación, sin implementar)
+
+Pregunta: el tope actual es 64. ¿Qué costaría 96/128 para animaciones más
+largas o más fluidas? Medido en este repo (720p proxy, 3000px doc):
+
+- RAM (frames vivos en lista): 720p = 2.8MB/f → 64f = 177MB, 128f = 354MB.
+  Export full-doc 3000px = 27MB/f → 64f = 1.7GB (ya peligroso hoy), 128f = 3.4GB.
+- CPU (exe portable SIN numba, peor caso): preview 720p ED ~1-2s/f
+  (64f = 1-2 min en hilo, tolerable); export full-doc ED ~10-45s/f
+  (64f = 10-48 min; 128f = 20-96 min, inutilizable).
+- GIF: estimado 29MB @64f/720p, 59MB @128f; browsers recortan a ~50fps
+  reales y sufren >25MB (ya avisamos en UI). MP4 aguanta 60fps sin problema.
+- Código: GIF_MAX_FRAMES + ~8 clamps (gif.py, presets, export_prefs,
+  dialog_fields, video_controller, params BINDINGS, dialogs) + tests
+  que afirman 64 + estimate + spin Length (32s).
+
+Hallazgo clave: fluidez = fps, no frames (60fps ya permitido). Largo =
+segundos, no frames. Subir el techo global empeora RAM/export sin dar
+fluidez por sí solo. Lo que otros hacen: ComfyUI capa transition_frames
+en 60; ImageMagick no capa porque escribe a disco en streaming (nosotros
+retenemos la lista entera en RAM para `save_gif`).
+
+Recomendación (no implementada):
+1. NO subir el techo global. GIF se queda en 64 (formato + RAM + 50fps).
+2. MP4 largo por streaming: `write_mp4` acepta generador y renderiza
+   perezoso (RAM plana); el límite pasa a ser CPU/tiempo, decisión del
+   usuario con aviso de peso. Habilitaría hasta ~128f solo-MP4.
+3. Largo barato sin frames extra: pingpong (duplica duración efectiva),
+   drift loops (repite movimiento) y holds (ya implementados) — cero RAM.
+4. Si se pide suavidad: 30-60fps ya existen; educar vía Hold/duration UI
+   en vez de más frames.
+
 
 ## 4. Decisions made (do not reopen without reason)
 
