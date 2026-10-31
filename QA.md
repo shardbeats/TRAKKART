@@ -60,7 +60,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 453 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, morph swap, GIF export/dispatch). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 457 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, GIF export/dispatch; `tests/test_ux.py`: morph live pick + playlist). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -81,6 +81,16 @@ Second image: `Morph image...` button in MOTION (session-only, `win.morph_src`).
 Without B, `morph` falls back to a dissolve of A (hint in `lbl_compat`).
 `gif_frames(..., img_b=...)` dispatches both; preview (`VideoWorker`), export
 (`export_full(morph_src=...)`) and batch share the path. Strict 0=off holds.
+
+## Morph chain + MORPH page (v1.8)
+
+`morph_chain_frames([A,B,C...])` splits frames per segment (cap 6 total: A + 5);
+`gif_morph_frames`/`gif_frames(img_b=list)` accept lists. Batch without chain
+images falls back to dissolve.
+MORPH accordion page owns dissolve params + playlist (Add/Remove/Up/Down/Clear,
+`win.morph_list` + `morph_src` alias); MOTION keeps Mode/Frames/FPS/Length.
+Morph needs chain images (hint); live preview auto-enables video on pick, and
+the video bar scrubs A->B->... without exporting.
 
 ## Manual GUI checklist (before each release)
 

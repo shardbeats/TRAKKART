@@ -212,7 +212,10 @@ controles dissolve+morph mudados de MOTION a página MORPH propia.
 - [x] Fase 1 (done): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
 - [x] Fase 2 (done): página MORPH + playlist UI (mover controles de MOTION).
   `MORPH` page (panels/morph.py) con dissolve params + lista Add/Remove/Up/Down/Clear (tope 6: A + 5); `win.morph_list` + alias `morph_src` compat.
-- [ ] Fase 3 (en curso): preview/export wiring + docs + cierre.
+- [x] Fase 3 (done): preview/export wiring + docs + cierre.
+  Chain flows through `gif_frames(img_b=list)`; preview (`VideoWorker`),
+  export (`export_full`) and batch (dissolve fallback) share the path;
+  suite 453 -> 457.
 
 ## 4. Decisions made (do not reopen without reason)
 
