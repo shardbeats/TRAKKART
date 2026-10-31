@@ -54,6 +54,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.morph_list_widget.setMinimumHeight(90)
     win.morph_list_widget.setMaximumHeight(150)
     win.morph_list_widget.setToolTip("Play order after A. Add up to 5 (chain of 6 max).")
+    win.morph_list_widget.itemSelectionChanged.connect(lambda: win._on_morph_selected())
     g.addWidget(win.morph_list_widget)
     brow = QHBoxLayout()
     win.btn_morph_pick = QPushButton("Add...")
@@ -85,3 +86,16 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.lbl_morph.setWordWrap(True)
     win.lbl_morph.setObjectName("subtitleLabel")
     g.addWidget(win.lbl_morph)
+    win.lbl_morph_crop = QLabel("Crop: select a chain image")
+    win.lbl_morph_crop.setWordWrap(True)
+    win.lbl_morph_crop.setObjectName("subtitleLabel")
+    g.addWidget(win.lbl_morph_crop)
+    win.sld_morph_fx, _ = labeled_slider(win, g, "Crop X:", 0, 100, 50, "Chain image focus X 0-100 (cover crop)")
+    win.sld_morph_fy, _ = labeled_slider(win, g, "Crop Y:", 0, 100, 50, "Chain image focus Y 0-100 (cover crop)")
+    win.sld_morph_zoom, _ = labeled_slider(win, g, "Crop zoom:", 100, 400, 100, "Chain image zoom 1.0-4.0x (cover crop)", div=100.0)
+    try:
+        win.sld_morph_fx.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
+        win.sld_morph_fy.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
+        win.sld_morph_zoom.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
+    except Exception:  # noqa: BLE001
+        pass

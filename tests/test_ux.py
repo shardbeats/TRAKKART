@@ -141,6 +141,29 @@ def test_morph_live_pick_enables_video(window, tmp_path, monkeypatch):
     assert "dissolve" in window.lbl_compat.text().lower()
 
 
+def test_morph_per_image_crop_sliders(window, tmp_path, monkeypatch):
+    from PIL import Image
+    from PySide6.QtWidgets import QFileDialog
+
+    from app.ui import params_controller as _par
+
+    b = tmp_path / "wide.png"
+    Image.new("RGB", (64, 32), (10, 200, 90)).save(b)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(b), ""))
+    assert window._on_morph_pick() is True
+    assert window.morph_list[0]["fx"] == 50.0
+    window.morph_list_widget.setCurrentRow(0)
+    window._on_morph_selected()
+    assert "wide.png" in window.lbl_morph_crop.text()
+    window.sld_morph_fx.setValue(0)
+    window._on_morph_crop_changed()
+    window.sld_morph_zoom.setValue(200)
+    window._on_morph_crop_changed()
+    chain = _par.morph_chain_data(window)
+    assert (chain[0]["fx"], chain[0]["zoom"]) == (0.0, 2.0)
+    assert chain[0]["fy"] == 50.0
+
+
 def test_morph_playlist_chain_reorders_and_caps(window, tmp_path, monkeypatch):
     from PIL import Image
     from PySide6.QtWidgets import QFileDialog

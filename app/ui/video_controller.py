@@ -44,12 +44,15 @@ def proxy_changed(win) -> None:
 
 
 def _morph_imgs(win) -> list | None:
-    """Playlist images for morph preview (None = dissolve fallback)."""
+    """Chain entries (with per-image crop) for morph preview (None = dissolve)."""
     try:
         from app.ui import params_controller as _par
 
-        imgs = _par.morph_images(win)
-        return list(imgs) or None
+        chain = _par.morph_chain_data(win)
+        if chain:
+            return chain
+        single = getattr(win, "morph_src", None)
+        return [single] if single is not None else None
     except Exception:  # noqa: BLE001
         return None
 

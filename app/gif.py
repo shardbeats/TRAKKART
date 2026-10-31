@@ -266,6 +266,63 @@ def _fit_hold_budget(n_trans: int, hs: int, he: int) -> tuple[int, int]:
     return hs, min(he, room - hs)
 
 
+def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:
+    """A image for dissolve/morph: pipeline canvas when preset, else raw fit.
+
+    Honors the IMAGE section framing (ratio/crop/focus/zoom) so A matches
+    the still preview instead of the raw source.
+    """
+    small = img.convert("RGB")
+    if preset is None:
+        r = side / max(small.width, small.height)
+        if r < 1.0:
+            small = small.resize((max(1, round(small.width * r)),
+                                  max(1, round(small.height * r))), Image.BICUBIC)
+        return small
+    from app.canvas import to_canvas
+
+    a = to_canvas(small, ratio=str(getattr(preset, "ratio", "1:1") or "1:1"),
+                  mode=str(getattr(preset, "crop_mode", "cover") or "cover"),
+                  fx=float(getattr(preset, "focus_x", 50.0) or 50.0),
+                  fy=float(getattr(preset, "focus_y", 50.0) or 50.0),
+                  zoom=float(getattr(preset, "crop_zoom", 1.0) or 1.0),
+                  canvas_w=int(getattr(preset, "canvas_w", 0) or 0),
+                  canvas_h=int(getattr(preset, "canvas_h", 0) or 0))
+    r = side / max(a.width, a.height)
+    if r < 1.0:
+        a = a.resize((max(1, round(a.width * r)),
+                      max(1, round(a.height * r))), Image.BICUBIC)
+    return a
+
+
+def _split_chain_entries(img_b) -> tuple[list, list]:
+    """Normalize chain input to (images, per-image crop dicts).
+
+    Accepts PIL images or {"img": PIL, "fx":.., "fy":.., "zoom":..} dicts
+    (MORPH playlist entries). Crops default to center/no-zoom.
+    """
+    if img_b is None:
+        return [], []
+    items = list(img_b) if isinstance(img_b, list) else [img_b]
+    imgs, crops = [], []
+    for it in items:
+        if isinstance(it, dict):
+            img = it.get("img")
+            if img is None:
+                continue
+            crops.append({"fx": it.get("fx", 50.0), "fy": it.get("fy", 50.0),
+                          "zoom": it.get("zoom", 1.0)})
+        else:
+            img = it
+            crops.append({})
+        try:
+            imgs.append(img.convert("RGB"))
+        except Exception:  # noqa: BLE001
+            if crops:
+                crops.pop()
+    return imgs, crops
+
+
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                         max_side: int | None = None,
                         pingpong: bool | None = None, seed: int | None = None,
@@ -316,7 +373,8 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
     hs, he = _fit_hold_budget(n, *_dissolve_hold_split(preset, fps))
-    out = dissolve_frames(img.convert("RGB"), method=method, threshold=threshold,
+    a = _canvas_a(img, preset, side)
+    out = dissolve_frames(a, method=method, threshold=threshold,
                           pixel_size=pixel, frames=n, seed=seed_v, wind=wind_v,
                           mode=mode_v, loops=loops_v, amount=amount_v,
                           max_side=side, hold_start=hs, hold_end=he)
@@ -371,12 +429,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
-    if isinstance(img_b, list):
-        others = [im.convert("RGB") for im in img_b if im is not None]
-    elif img_b is None:
-        others = []
-    else:
-        others = [img_b.convert("RGB")]
+    others, other_crops = _split_chain_entries(img_b)
     if not others:
         return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                    pingpong=pp, seed=seed_v, wind=wind_v,
@@ -384,11 +437,13 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     # 2 transition frames per segment minimum: every form appears assembled.
     n_trans = min(GIF_MAX_FRAMES, max(2 * len(others), n))
     hs, he = _fit_hold_budget(n_trans, *_dissolve_hold_split(preset, fps))
-    out = morph_chain_frames([img_a.convert("RGB")] + others, method=method,
+    a = _canvas_a(img_a, preset, side)
+    crops = [{}] + other_crops
+    out = morph_chain_frames([a] + others, method=method,
                              threshold=threshold, pixel_size=pixel, frames=n_trans,
                              seed=seed_v, wind=wind_v, mode=mode_v,
                              amount=amount_v, max_side=side,
-                             hold_start=hs, hold_end=he)
+                             hold_start=hs, hold_end=he, crops=crops)
     if pp:
         out = _pingpong(out)
     return out

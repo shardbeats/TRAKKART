@@ -217,13 +217,13 @@ controles dissolve+morph mudados de MOTION a página MORPH propia.
   export (`export_full`) and batch (dissolve fallback) share the path;
   suite 453 -> 457.
 
-### v1.9 — Morph timing: holds + presupuesto por tramo (in progress)
+### v1.9 — Morph timing: holds + presupuesto por tramo (done)
 Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 `still_image_delay_ms`, Pillow per-frame duration list.
 - [x] Fase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` en engine + tests.
 - [x] Fase 2 (done): presupuesto (mín 2/tramo, holds caben en 64) + `fps`
   threading + `dissolve_hold` preset + Hold slider + duration con holds + hint <8f.
-- [ ] Fase 3 (done): suite + docs + cierre.
+- [x] Fase 3 (done): suite + docs + cierre. Suite 457 -> 460.
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -262,3 +262,8 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
 - Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (opt-in `requirements-video.txt` only; MP4 single-export only, batch stays GIF, no clip import by design).
 - Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).
+
+### v1.10 — Morph aspect fit + recorte por imagen (done)
+Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
+(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
+Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.

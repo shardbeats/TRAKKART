@@ -13,6 +13,30 @@ from app.ui.base_worker import WorkerBase
 PREVIEW_LONG_SIDE = 640
 
 
+def _copy_morph(morph_src):
+    """Deep-ish copy of morph extras (PIL images or {img,...} entries)."""
+    if isinstance(morph_src, list):
+        out = []
+        for m in morph_src:
+            if isinstance(m, dict):
+                img = m.get("img")
+                if img is None:
+                    continue
+                out.append({**m, "img": img.copy()})
+            elif m is not None:
+                try:
+                    out.append(m.copy())
+                except Exception:  # noqa: BLE001
+                    pass
+        return out or None
+    if morph_src is None:
+        return None
+    try:
+        return morph_src.copy()
+    except Exception:  # noqa: BLE001
+        return morph_src
+
+
 def preview_params(img: Image.Image, params: dict, max_side: int = PREVIEW_LONG_SIDE) -> tuple[Image.Image, int]:
     """Return (downscaled image, effective pixel) keeping relative size."""
     from app.services.render_service import downscale_for_preview
@@ -70,12 +94,7 @@ class VideoWorker(WorkerBase):
         self.pingpong = bool(pingpong)
         self.token = int(token)
         self.fps = None if fps is None else int(fps)
-        if isinstance(morph_src, list):
-            self.morph_src = [m.copy() for m in morph_src if m is not None]
-        elif morph_src is not None:
-            self.morph_src = morph_src.copy()
-        else:
-            self.morph_src = None
+        self.morph_src = _copy_morph(morph_src)
 
     def work(self) -> None:
         from app.gif import gif_frames as _gif_frames

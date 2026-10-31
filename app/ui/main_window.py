@@ -964,6 +964,16 @@ class MainWindow(QMainWindow):
 
         return bool(_par.pick_morph_image(self))
 
+    def _on_morph_selected(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.on_morph_selected(self)
+
+    def _on_morph_crop_changed(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.on_morph_crop_changed(self)
+
     def _on_morph_remove(self) -> None:
         from app.ui import params_controller as _par
 

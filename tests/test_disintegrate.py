@@ -190,3 +190,37 @@ def test_morph_chain_odd_canvas_uneven_pixel():
     p = Preset(name="t", method="bayer4", palette="BW", pixel_size=4, gif_size=720,
                dissolve_hold=0.0)
     assert len(gif_frames(a, p, frames=4, mode="morph", max_side=720, img_b=[b])) == 4
+
+
+def test_morph_cover_fit_no_stretch():
+    from app.disintegrate import morph_chain_frames
+
+    a = Image.new("RGB", (64, 64), (10, 10, 10))
+    b = Image.new("RGB", (128, 64), (200, 40, 40))
+    px = b.load()
+    for y in range(64):
+        for x in range(64):
+            px[x, y] = (10, 10, 200)  # left half blue, right half red-ish
+    f = morph_chain_frames([a, b], frames=4, max_side=64,
+                           crops=[{}, {"fx": 50.0, "fy": 50.0, "zoom": 1.0}])
+    assert len(f) == 4
+    assert f[0].size == (64, 64)
+    # Center cover of the 128-wide B keeps both colors (no stretch smear).
+    mid = morph_chain_frames([a, b], frames=8, max_side=64,
+                             crops=[{}, {"fx": 0.0, "fy": 50.0, "zoom": 1.0}])
+    assert tuple(mid[-1].get_flattened_data()) != tuple(f[-1].get_flattened_data())
+
+
+def test_morph_a_uses_canvas_framing():
+    from app.disintegrate import dissolve_frames
+    from app.gif import gif_dissolve_frames
+    from app.presets import Preset
+
+    wide = Image.new("RGB", (128, 64), (90, 60, 140))
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               ratio="1:1", crop_mode="cover", dissolve_hold=0.0)
+    f = gif_dissolve_frames(wide, p, frames=2)
+    assert f[0].size == (64, 64)  # canvas 1:1, not raw 128x64 stretched
+    raw = dissolve_frames(wide, frames=2, max_side=64)
+    assert raw[0].size == (64, 32)  # raw fit keeps aspect
+    assert tuple(f[0].get_flattened_data()) != tuple(raw[0].convert("RGB").get_flattened_data())

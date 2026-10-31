@@ -52,6 +52,21 @@ def points_from_dither(dithered: Image.Image) -> tuple[np.ndarray, int, int]:
     return coords, int(h), int(w)
 
 
+def _fit_cover(im: Image.Image, w: int, h: int, fx: float = 50.0,
+               fy: float = 50.0, zoom: float = 1.0) -> Image.Image:
+    """Cover-fit to exact WxH (IMAGE-section semantics, no distortion).
+
+    Same crop_cover the pipeline uses (focus 0-100 + zoom >= 1).
+    """
+    from app.canvas import CUSTOM_RATIO, crop_cover
+
+    box = crop_cover(im.convert("RGB"), CUSTOM_RATIO, float(fx), float(fy),
+                     max(1.0, float(zoom)), canvas_w=int(w), canvas_h=int(h))
+    if box.size != (int(w), int(h)):
+        box = box.resize((max(1, int(w)), max(1, int(h))), Image.BICUBIC)
+    return box
+
+
 def _refit_coords(coords: np.ndarray, hh: int, ww: int, h: int, w: int) -> np.ndarray:
     """Clip out-of-range points (defensive: same dither op => same shape)."""
     if len(coords) == 0:
@@ -155,7 +170,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  wind: tuple[float, float] = (120.0, -40.0),
                  mode: str = "wind", amount: float = 1.0,
                  max_side: int = 480,
-                 hold_start: int = 0, hold_end: int = 0) -> list[Image.Image]:
+                 hold_start: int = 0, hold_end: int = 0,
+                 crops: list[dict] | None = None) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -167,7 +183,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
     chained = morph_chain_frames([img_a, img_b], method=method, threshold=threshold,
                                  pixel_size=pixel_size, frames=frames, seed=seed,
                                  wind=wind, mode=mode, amount=amount, max_side=max_side,
-                                 hold_start=hold_start, hold_end=hold_end)
+                                 hold_start=hold_start, hold_end=hold_end,
+                                 crops=crops)
     return chained
 
 
@@ -181,7 +198,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        wind: tuple[float, float] = (120.0, -40.0),
                        mode: str = "wind", amount: float = 1.0,
                        max_side: int = 480,
-                       hold_start: int = 0, hold_end: int = 0) -> list[Image.Image]:
+                       hold_start: int = 0, hold_end: int = 0,
+                       crops: list[dict] | None = None) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest resized to A), dithered with
@@ -203,8 +221,16 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     if r < 1.0:
         a = a.resize((max(1, round(a.width * r)),
                       max(1, round(a.height * r))), Image.BICUBIC)
-    fitted = [a] + [im.convert("RGB").resize((a.width, a.height), Image.BICUBIC)
-                    for im in imgs[1:]]
+    fitted = [a]
+    for k, im in enumerate(imgs[1:]):
+        crop = (crops[k + 1] if crops and k + 1 < len(crops) else None) or {}
+        try:
+            fx = float(crop.get("fx", 50.0))
+            fy = float(crop.get("fy", 50.0))
+            zm = max(1.0, float(crop.get("zoom", 1.0)))
+        except (TypeError, ValueError):
+            fx, fy, zm = 50.0, 50.0, 1.0
+        fitted.append(_fit_cover(im, a.width, a.height, fx, fy, zm))
     coord_list: list[np.ndarray] = []
     h = w = 0
     for im in fitted:

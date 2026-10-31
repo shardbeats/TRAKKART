@@ -646,21 +646,86 @@ def import_metadata(win, path=None) -> bool:
 
 
 def morph_images(win) -> list:
-    """Chain extras B..F as PIL images (playlist first, legacy single second)."""
-    items = list(getattr(win, "morph_list", []) or [])
-    imgs = []
-    for entry in items:
-        try:
-            img = (entry or {}).get("img")
-            if img is not None:
-                imgs.append(img)
-        except Exception:  # noqa: BLE001
-            pass
+    """Chain extras B.. as PIL images (playlist first, legacy single second)."""
+    chain = morph_chain_data(win)
+    imgs = [e["img"] for e in chain if e.get("img") is not None]
     if not imgs:
         single = getattr(win, "morph_src", None)
         if single is not None:
             imgs = [single]
     return imgs
+
+
+def morph_chain_data(win) -> list:
+    """Full chain entries [{img, name, fx, fy, zoom}] for cover-fit morph."""
+    items = list(getattr(win, "morph_list", []) or [])
+    out = []
+    for entry in items:
+        if not isinstance(entry, dict) or entry.get("img") is None:
+            continue
+        try:
+            fx = max(0.0, min(100.0, float(entry.get("fx", 50.0))))
+            fy = max(0.0, min(100.0, float(entry.get("fy", 50.0))))
+            zm = max(1.0, min(4.0, float(entry.get("zoom", 1.0))))
+            entry["fx"], entry["fy"], entry["zoom"] = fx, fy, zm
+        except (TypeError, ValueError):
+            entry["fx"], entry["fy"], entry["zoom"] = 50.0, 50.0, 1.0
+        out.append({"img": entry["img"], "name": str(entry.get("name", "?")),
+                    "fx": fx, "fy": fy, "zoom": zm})
+    return out
+
+
+def on_morph_selected(win) -> None:
+    """Load the selected chain entry into the crop sliders."""
+    try:
+        items = list(getattr(win, "morph_list", []) or [])
+        row = int(win.morph_list_widget.currentRow())
+    except Exception:  # noqa: BLE001
+        return
+    if not 0 <= row < len(items):
+        try:
+            win.lbl_morph_crop.setText("Crop: select a chain image")
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    entry = items[row]
+    if not isinstance(entry, dict):
+        return
+    try:
+        win.lbl_morph_crop.setText(f"Crop {row + 2}: {entry.get('name', '?')}")
+    except Exception:  # noqa: BLE001
+        pass
+    for attr, key, div in (("sld_morph_fx", "fx", 1.0), ("sld_morph_fy", "fy", 1.0),
+                           ("sld_morph_zoom", "zoom", 100.0)):
+        try:
+            w = getattr(win, attr)
+            w.blockSignals(True)
+            w.setValue(int(round(float(entry.get(key, 50.0 if div == 1.0 else 1.0)) * div)))
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            try:
+                getattr(win, attr).blockSignals(False)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def on_morph_crop_changed(win) -> None:
+    """Push the crop sliders into the selected chain entry."""
+    try:
+        row = int(win.morph_list_widget.currentRow())
+        items = list(getattr(win, "morph_list", []) or [])
+        entry = items[row]
+    except Exception:  # noqa: BLE001
+        return
+    if not isinstance(entry, dict):
+        return
+    try:
+        entry["fx"] = max(0.0, min(100.0, float(win.sld_morph_fx.value())))
+        entry["fy"] = max(0.0, min(100.0, float(win.sld_morph_fy.value())))
+        entry["zoom"] = max(1.0, min(4.0, float(win.sld_morph_zoom.value()) / 100.0))
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _sync_morph_list_ui(win) -> None:
@@ -682,6 +747,7 @@ def _sync_morph_list_ui(win) -> None:
             win.morph_list_widget.blockSignals(False)
         except Exception:  # noqa: BLE001
             pass
+    on_morph_selected(win)
     # Legacy single-image alias: first extra = B (old preview/export paths).
     try:
         if items:
@@ -738,9 +804,14 @@ def pick_morph_image(win) -> bool:
         except Exception:  # noqa: BLE001
             pass
         return False
-    items.append({"img": img.copy(), "name": str(Path(path).name)})
+    items.append({"img": img.copy(), "name": str(Path(path).name),
+                  "fx": 50.0, "fy": 50.0, "zoom": 1.0})
     win.morph_list = items
     _sync_morph_list_ui(win)
+    try:
+        win.morph_list_widget.setCurrentRow(len(items) - 1)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         mode = str(win.cmb_video_mode.currentText())
     except Exception:  # noqa: BLE001
