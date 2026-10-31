@@ -196,7 +196,8 @@ Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfec
 - [x] Fase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
 - [x] Fase 2 (done): `gif_dissolve_frames()` + export GIF/MP4 manual.
 - [x] Fase 3 (done): preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
-- [ ] Fase 4 (en curso): docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
+- [x] Fase 4 (done): docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
+  Note: gates stay at 52 Gherkin (no new scenarios; unit-covered); suite 438 -> 450.
 
 ## 4. Decisions made (do not reopen without reason)
 
