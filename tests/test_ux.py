@@ -118,6 +118,26 @@ def test_anim_compat_hint(window, qt_app):
     assert abs(window.sld_motion.value() / 100.0 - 1.0) < 1e-9
 
 
+def test_morph_live_pick_enables_video(window, tmp_path, monkeypatch):
+    from PIL import Image
+    from PySide6.QtWidgets import QFileDialog
+
+    assert window.morph_src is None
+    b = tmp_path / "b.png"
+    Image.new("RGB", (32, 32), (10, 200, 90)).save(b)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(b), ""))
+    window.cmb_video_mode.setCurrentText("morph")
+    assert window._video_on is False
+    assert window._on_morph_pick() is True
+    assert window.morph_src is not None
+    assert "b.png" in window.lbl_morph.text()
+    assert window._video_on is True  # live preview turns on by itself
+    assert "scrub" in window.lbl_compat.text().lower()
+    window._on_morph_clear()
+    assert window.morph_src is None
+    assert "dissolve" in window.lbl_compat.text().lower()
+
+
 def test_tutorial_dialog_walks_all_steps(qt_app):
     from app.tutorial import STEPS
     from app.ui.tutorial_dialog import TutorialDialog

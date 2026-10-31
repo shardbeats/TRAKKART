@@ -363,6 +363,8 @@ def sync_anim_ui(win) -> None:
             has_b = getattr(win, "morph_src", None) is not None
             if not has_b:
                 win.lbl_compat.setText("Morph needs a B image (button below) — meanwhile showing dissolve.")
+            else:
+                win.lbl_compat.setText("Morph A->B ready — play or scrub the video bar frame by frame.")
         except Exception:  # noqa: BLE001
             pass
 
@@ -661,7 +663,22 @@ def pick_morph_image(win) -> bool:
         win.lbl_morph.setText(f"B: {Path(path).name}")
     except Exception:  # noqa: BLE001
         pass
-    win._schedule_refresh()
+    try:
+        win._sync_anim_ui()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        mode = ""
+    if mode == "morph" and not bool(getattr(win, "_video_on", False)):
+        try:
+            win.chk_video.setChecked(True)  # toggle re-renders video live
+            win._status(f"B loaded: {Path(path).name} — video preview on")
+        except Exception:  # noqa: BLE001
+            win._schedule_refresh()
+    else:
+        win._schedule_refresh()
     return True
 
 
@@ -671,6 +688,10 @@ def clear_morph_image(win) -> None:
     win.morph_path = ""
     try:
         win.lbl_morph.setText("B: (none — morph falls back to dissolve)")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._sync_anim_ui()
     except Exception:  # noqa: BLE001
         pass
     win._schedule_refresh()
