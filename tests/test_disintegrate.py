@@ -129,7 +129,7 @@ def test_gif_frames_dispatches_dissolve_and_morph():
     from app.gif import gif_frames
     from app.presets import Preset
 
-    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64)
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0)
     d = gif_frames(_img(), p, frames=3, mode="dissolve")
     assert len(d) == 3
     assert len({tuple(x.get_flattened_data()) for x in d}) > 1
@@ -137,6 +137,42 @@ def test_gif_frames_dispatches_dissolve_and_morph():
     m = gif_frames(_img(), p, frames=4, mode="morph", img_b=b)
     assert len(m) == 4
     assert tuple(m[0].get_flattened_data()) != tuple(m[-1].get_flattened_data())
+
+
+def test_morph_joints_meet_assembled():
+    from app.disintegrate import dither_bw, morph_chain_frames
+
+    a, b = _img(48), Image.new("RGB", (48, 48), (10, 200, 90))
+    f = morph_chain_frames([a, b], frames=8, max_side=64)
+    assert len(f) == 8
+    # last transition frame is the assembled end image (no pop at the joint)
+    assert (tuple(f[-1].get_flattened_data())
+            == tuple(dither_bw(b.resize((48, 48))).convert("RGB").get_flattened_data()))
+
+
+def test_holds_freeze_assembled_ends():
+    from app.disintegrate import dither_bw, dissolve_frames, morph_chain_frames
+    from app.gif import gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset
+
+    a = _img(48)
+    still = dither_bw(a).convert("RGB")
+    f = dissolve_frames(a, frames=4, max_side=64, hold_start=2, hold_end=3)
+    assert len(f) == 9
+    assert tuple(f[0].get_flattened_data()) == tuple(still.get_flattened_data())
+    assert tuple(f[-1].get_flattened_data()) == tuple(still.get_flattened_data())
+    b = Image.new("RGB", (48, 48), (10, 200, 90))
+    m = morph_chain_frames([a, b], frames=4, max_side=64, hold_start=2, hold_end=2)
+    assert len(m) == 8
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               dissolve_hold=1.0, gif_fps=8)
+    g = gif_dissolve_frames(_img(), p, frames=4)
+    assert len(g) == 4 + 16  # 1s + 1s holds at 8fps
+    assert tuple(g[0].get_flattened_data()) == tuple(g[-1].get_flattened_data())
+    h = gif_morph_frames(_img(), b, p, frames=4)
+    assert len(h) == 4 + 16  # single pair: floor is segs*2 = 2
+    q = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0)
+    assert len(gif_dissolve_frames(_img(), q, frames=4)) == 4
 
 
 def test_morph_chain_odd_canvas_uneven_pixel():
@@ -151,5 +187,6 @@ def test_morph_chain_odd_canvas_uneven_pixel():
     frames = morph_chain_frames([a, b], method="bayer4", pixel_size=4,
                                 frames=6, max_side=720)
     assert len(frames) == 6
-    p = Preset(name="t", method="bayer4", palette="BW", pixel_size=4, gif_size=720)
+    p = Preset(name="t", method="bayer4", palette="BW", pixel_size=4, gif_size=720,
+               dissolve_hold=0.0)
     assert len(gif_frames(a, p, frames=4, mode="morph", max_side=720, img_b=[b])) == 4

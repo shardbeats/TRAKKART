@@ -91,7 +91,8 @@ def gif_frames(
     mode: str = "both",
     max_side: int | None = None,
     pingpong: bool | None = None,
-    img_b: Image.Image | None = None,
+    img_b: Image.Image | list | None = None,
+    fps: int | None = None,
 ) -> list[Image.Image]:
     """Build frames from the still image using pipeline render() + post anim.
 
@@ -102,6 +103,8 @@ def gif_frames(
     every frame is deterministic (seed + frame index, no random).
     dissolve/morph dispatch to the particle engine (morph without img_b
     falls back to a dissolve of img so strict 0=off still holds).
+    `fps` only sets end-hold durations for dissolve/morph (uniform fps
+    playback); transition frames ignore it.
     """
     from app.ordered_maps import march_offset
     from app.render_params import normalize_slice_bands
@@ -110,13 +113,13 @@ def gif_frames(
         mode = "both"
     if mode == "dissolve":
         return gif_dissolve_frames(img, preset, frames=frames,
-                                   max_side=max_side, pingpong=pingpong)
+                                   max_side=max_side, pingpong=pingpong, fps=fps)
     if mode == "morph":
         if img_b is None:
             return gif_dissolve_frames(img, preset, frames=frames,
-                                       max_side=max_side, pingpong=pingpong)
+                                       max_side=max_side, pingpong=pingpong, fps=fps)
         return gif_morph_frames(img, img_b, preset, frames=frames,
-                                max_side=max_side, pingpong=pingpong)
+                                max_side=max_side, pingpong=pingpong, fps=fps)
     n = _clamp_frames(frames)
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
     pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
@@ -239,18 +242,44 @@ def gif_frames(
     return out
 
 
+def _dissolve_hold_split(preset, fps: int | None) -> tuple[int, int]:
+    """End holds (assembled duplicates) from dissolve_hold seconds per end.
+
+    fps explicit wins, else preset gif_fps, else 8. Returns (start, end).
+    """
+    if preset is None:
+        return 0, 0
+    hold_s = max(0.0, min(3.0, float(getattr(preset, "dissolve_hold", 0.0) or 0.0)))
+    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) or 8))
+    per_end = int(round(hold_s * fps_v))
+    return per_end, per_end
+
+
+def _fit_hold_budget(n_trans: int, hs: int, he: int) -> tuple[int, int]:
+    """Shrink holds (never transitions) so transitions + holds fit the cap."""
+    room = GIF_MAX_FRAMES - max(0, int(n_trans))
+    if hs + he <= room:
+        return hs, he
+    if room <= 0:
+        return 0, 0
+    hs = min(hs, room // 2)
+    return hs, min(he, room - hs)
+
+
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                         max_side: int | None = None,
                         pingpong: bool | None = None, seed: int | None = None,
                         wind: tuple[float, float] | None = None,
                         mode: str | None = None, loops: float | None = None,
-                        amount: float | None = None) -> list[Image.Image]:
+                        amount: float | None = None,
+                        fps: int | None = None) -> list[Image.Image]:
     """Particle disperse loop for one image (Fase 2, solo dispersion).
 
     Dithers once (preset method/threshold/pixel_size) then marches
     progress=i/n with a breathe envelope (assembled -> dispersed ->
     assembled, loop-perfect). Deterministic by seed. amount 0 returns
-    n copies of the dithered still (strict 0=off). Reuses save_gif()
+    n copies of the dithered still (strict 0=off). `fps` only sets end
+    hold durations from dissolve_hold seconds. Reuses save_gif()
     and video_io.write_mp4() for export (same stem _gif.gif / _vid.mp4).
     """
     from app.disintegrate import DISINTEGRATE_MODES, dissolve_frames
@@ -286,10 +315,11 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
+    hs, he = _fit_hold_budget(n, *_dissolve_hold_split(preset, fps))
     out = dissolve_frames(img.convert("RGB"), method=method, threshold=threshold,
                           pixel_size=pixel, frames=n, seed=seed_v, wind=wind_v,
                           mode=mode_v, loops=loops_v, amount=amount_v,
-                          max_side=side)
+                          max_side=side, hold_start=hs, hold_end=he)
     if pp:
         out = _pingpong(out)
     return out
@@ -300,13 +330,16 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                      pingpong: bool | None = None, seed: int | None = None,
                      wind: tuple[float, float] | None = None,
                      mode: str | None = None,
-                     amount: float | None = None) -> list[Image.Image]:
+                     amount: float | None = None,
+                     fps: int | None = None) -> list[Image.Image]:
     """Swap A -> B (-> C ...) through particle clouds (Fase 5 + v1.8 chain).
 
     img_b may be a single image or a list (chain A -> B -> C ..., capped
     at MAX_MORPH_IMAGES). Same dither engine for all images (preset
-    method/threshold/pixel). Deterministic. For a seamless GIF loop use
-    pingpong=True (A->B->A).
+    method/threshold/pixel). Transition frames get a 2-per-segment floor
+    so every form appears at least assembled (strict correctness); `fps`
+    only sets end hold durations. Deterministic. For a seamless GIF loop
+    use pingpong=True (A->B->A).
     """
     from app.disintegrate import DISINTEGRATE_MODES, morph_chain_frames
 
@@ -347,11 +380,15 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     if not others:
         return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                    pingpong=pp, seed=seed_v, wind=wind_v,
-                                   mode=mode_v, amount=amount_v)
+                                   mode=mode_v, amount=amount_v, fps=fps)
+    # 2 transition frames per segment minimum: every form appears assembled.
+    n_trans = min(GIF_MAX_FRAMES, max(2 * len(others), n))
+    hs, he = _fit_hold_budget(n_trans, *_dissolve_hold_split(preset, fps))
     out = morph_chain_frames([img_a.convert("RGB")] + others, method=method,
-                             threshold=threshold, pixel_size=pixel, frames=n,
+                             threshold=threshold, pixel_size=pixel, frames=n_trans,
                              seed=seed_v, wind=wind_v, mode=mode_v,
-                             amount=amount_v, max_side=side)
+                             amount=amount_v, max_side=side,
+                             hold_start=hs, hold_end=he)
     if pp:
         out = _pingpong(out)
     return out

@@ -60,7 +60,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 458 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, GIF export/dispatch; `tests/test_ux.py`: morph live pick + playlist). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 460 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, GIF export/dispatch; `tests/test_ux.py`: morph live pick + playlist). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -91,6 +91,18 @@ MORPH accordion page owns dissolve params + playlist (Add/Remove/Up/Down/Clear,
 `win.morph_list` + `morph_src` alias); MOTION keeps Mode/Frames/FPS/Length.
 Morph needs chain images (hint); live preview auto-enables video on pick, and
 the video bar scrubs A->B->... without exporting.
+
+## Morph timing: holds + per-segment budget (v1.9)
+
+Research: ImageMagick `-set delay "%[fx:(t==0||t==n-1) ? 150 : 8]"` (pause only
+assembled ends), ComfyUI `still_image_delay_ms` (default 2500ms per end),
+Pillow per-frame `duration=[...]` list.
+Here: `dissolve_hold` seconds per end (MORPH Hold slider 0-3s, default 1.0)
+-> duplicated assembled frames (GIF uniform fps + MP4 + preview scrub all work,
+no duration-list quirks). Transition budget: morph reserves 2 frames minimum per
+segment so every form appears assembled; joints sample `q=j/(nk-1)` (no pop);
+holds shrink to fit the 64-frame cap (transitions win). Duration label shows
+loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
 
 ## Manual GUI checklist (before each release)
 

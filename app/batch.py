@@ -60,7 +60,8 @@ def build_extras(img: Image.Image, preset: Preset) -> tuple[str | None, list | N
 
         frames = gif_frames(img, preset, frames=int(preset.gif_frames), mode=preset.gif_mode,
                             max_side=int(getattr(preset, "gif_size", 480)),
-                            pingpong=bool(getattr(preset, "gif_pingpong", False)))
+                            pingpong=bool(getattr(preset, "gif_pingpong", False)),
+                            fps=int(getattr(preset, "gif_fps", 8)))
     return svg, frames
 
 

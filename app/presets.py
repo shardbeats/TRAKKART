@@ -208,6 +208,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_wind_y", "float", ("range", -500.0, 500.0)),
     _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
+    _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -320,6 +321,7 @@ class Preset:
     dissolve_wind_y: float = -40.0  # px at full disperse
     dissolve_mode: str = "wind"  # wind | random
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
+    dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen

@@ -309,6 +309,7 @@ BINDINGS: tuple = (
     ("dissolve_wind_y",) + _slider("sld_dissolve_wind_y"),
     ("dissolve_mode",) + _combo("cmb_dissolve_mode"),
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
+    ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
     ("paste_mode",) + _combo("cmb_paste"),
     ("paste_opacity",) + _slider("sld_paste_op"),
     ("paste_blend",) + _combo("cmb_paste_blend"),
@@ -367,6 +368,13 @@ def sync_anim_ui(win) -> None:
                 win.lbl_compat.setText("Morph A->B ready — play or scrub the video bar frame by frame.")
             else:
                 win.lbl_compat.setText(f"Morph chain A + {len(chain)} ready — play or scrub frame by frame.")
+            try:
+                n = int(win.cmb_video_frames.currentText())
+            except (TypeError, ValueError):
+                n = 6
+            segs = max(1, len(chain)) if chain else 1
+            if chain and n // segs < 8:
+                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f per form — raise Frames for fuller bursts)")
         except Exception:  # noqa: BLE001
             pass
 

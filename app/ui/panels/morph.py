@@ -46,6 +46,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     seed_row.addWidget(win.spn_dissolve_seed)
     seed_row.addStretch()
     g.addLayout(seed_row)
+    win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per end 0-3.0s (each form reads)", div=10.0)
     hlab(g, "Morph chain A->B->C... (A = canvas):")
     from PySide6.QtWidgets import QListWidget
 

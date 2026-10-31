@@ -59,7 +59,7 @@ class VideoWorker(WorkerBase):
 
     def __init__(self, src: Image.Image, preset, video_size: int,
                  frames: int, mode: str, pingpong: bool, token: int,
-                 morph_src=None,
+                 morph_src=None, fps: int | None = None,
                  parent=None) -> None:
         super().__init__(parent)
         self.src = src
@@ -69,6 +69,7 @@ class VideoWorker(WorkerBase):
         self.mode = str(mode)
         self.pingpong = bool(pingpong)
         self.token = int(token)
+        self.fps = None if fps is None else int(fps)
         if isinstance(morph_src, list):
             self.morph_src = [m.copy() for m in morph_src if m is not None]
         elif morph_src is not None:
@@ -82,7 +83,7 @@ class VideoWorker(WorkerBase):
         out = _gif_frames(
             self.src, self.preset, frames=self.frames, mode=self.mode,
             max_side=self.video_size, pingpong=self.pingpong,
-            img_b=self.morph_src,
+            img_b=self.morph_src, fps=self.fps,
         )
         self.finished_ok.emit(out, self.token)
 

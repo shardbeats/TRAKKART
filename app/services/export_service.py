@@ -90,6 +90,7 @@ def export_full(
             pingpong=bool(gif_pingpong if gif_pingpong is not None
                           else getattr(preset, "gif_pingpong", False)),
             img_b=morph_src,
+            fps=int(fps),
         )
 
     options = ExportOptions(

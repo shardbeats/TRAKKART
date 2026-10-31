@@ -90,13 +90,37 @@ def duration_seconds(win) -> float:
         return 0.0
 
 
+def _dissolve_hold_frames(win, fps: int) -> tuple[int, int]:
+    """End holds from the MORPH Hold slider (0 if mode is not particle)."""
+    try:
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        return 0, 0
+    if mode not in ("dissolve", "morph"):
+        return 0, 0
+    try:
+        hold_s = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
+    except Exception:  # noqa: BLE001
+        return 0, 0
+    total = int(round(hold_s * max(1, int(fps))))
+    hs = total // 2
+    return hs, total - hs
+
+
 def effective_frames(win) -> int:
-    """Playback length accounting ping-pong expansion (6 -> 10)."""
+    """Playback length accounting ping-pong expansion (6 -> 10) + holds."""
     try:
         n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
         pp = bool(win.chk_video_pingpong.isChecked())
+        fps = int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60))
     except Exception:  # noqa: BLE001
         return 6
+    hs, he = _dissolve_hold_frames(win, fps)
+    room = 64 - n
+    if hs + he > room and room >= 0:
+        hs = min(hs, room // 2)
+        he = min(he, room - hs)
+    n += hs + he
     if pp and n > 2:
         return n + (n - 2)
     return n
@@ -147,6 +171,14 @@ def sync_duration_ui(win) -> None:
             except Exception:  # noqa: BLE001
                 pass
         text = f"= {secs:.1f}s loop"
+        try:
+            fps = int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60))
+            hs, he = _dissolve_hold_frames(win, fps)
+            if hs + he > 0:
+                hold_s = (hs + he) / max(1, fps)
+                text += f" + {hold_s:.1f}s hold"
+        except Exception:  # noqa: BLE001
+            pass
         # Strict-mode hint: mix/glitch with every FX/DATAMOSH channel at 0
         # only does march+hue (no forced slices).
         try:
@@ -230,7 +262,7 @@ def start_async(win) -> None:
     win._video_worker = VideoWorker(
         win.src.copy(), win.current_params(), s["size"],
         s["frames"], s["mode"], s["pingpong"], win._video_token,
-        morph_src=_morph_imgs(win),
+        morph_src=_morph_imgs(win), fps=int(s.get("fps", 8)),
     )
     win._video_worker.finished_ok.connect(win._on_video_done)
     win._video_worker.finished_err.connect(win._on_video_error)

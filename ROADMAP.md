@@ -206,7 +206,7 @@ Scope: swap between two images via shared particle cloud + MOTION controls.
   Modes `dissolve`/`morph` in `GIF_MODES`; `gif_frames(img_b=...)` dispatch;
   preview/export/batch share the path; strict 0=off holds.
 
-### v1.8 — Morph cadena (hasta 6) + página MORPH (in progress)
+### v1.8 — Morph cadena (hasta 6) + página MORPH (done)
 Scope: playlist A->B->C... (A = src + hasta 5) con lista Add/Remove/Up/Down;
 controles dissolve+morph mudados de MOTION a página MORPH propia.
 - [x] Fase 1 (done): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
@@ -216,6 +216,14 @@ controles dissolve+morph mudados de MOTION a página MORPH propia.
   Chain flows through `gif_frames(img_b=list)`; preview (`VideoWorker`),
   export (`export_full`) and batch (dissolve fallback) share the path;
   suite 453 -> 457.
+
+### v1.9 — Morph timing: holds + presupuesto por tramo (in progress)
+Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
+`still_image_delay_ms`, Pillow per-frame duration list.
+- [x] Fase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` en engine + tests.
+- [x] Fase 2 (done): presupuesto (mín 2/tramo, holds caben en 64) + `fps`
+  threading + `dissolve_hold` preset + Hold slider + duration con holds + hint <8f.
+- [ ] Fase 3 (en curso): suite + docs + cierre.
 
 ## 4. Decisions made (do not reopen without reason)
 
