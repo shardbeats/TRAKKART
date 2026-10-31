@@ -193,8 +193,8 @@ they added a model + locks + file pipeline far from the core job
 ### v1.6 — Dither-boy particle disperse, solo dispersión (in progress)
 Scope frozen: single-image disperse/reassemble loop (no morph A->B yet).
 Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfect.
-- [ ] Fase 1 (en curso): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
-- [ ] Fase 2: `gif_dissolve_frames()` + export GIF/MP4 manual.
+- [x] Fase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
+- [ ] Fase 2 (en curso): `gif_dissolve_frames()` + export GIF/MP4 manual.
 - [ ] Fase 3: preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
 - [ ] Fase 4: docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
 
