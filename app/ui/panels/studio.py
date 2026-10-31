@@ -146,6 +146,31 @@ def build_mosh_section(win, g: QVBoxLayout) -> None:
     g.addLayout(seed_row)
 
 
+def build_drift_section(win, g: QVBoxLayout) -> None:
+    """Signal Drift in DATAMOSH: same Preset fields as MOTION had.
+
+    Single source (Preset drift_*): pattern/amount/speed shared with
+    animation, position freezes the still (50 = mid-traverse, visible).
+    Animation ignores position and sweeps 0->1 with speed.
+    """
+    hlab(g, "Signal Drift (pre-dither noise):")
+    drow = QHBoxLayout()
+    win.cmb_drift = QComboBox()
+    win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
+                            "weave", "flicker", "moire", "sweep", "jitter"])
+    tight(win.cmb_drift, 10)
+    win.cmb_drift.setToolTip("Retro-screen noise, full traverse per clip (loop-perfect)")
+    win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    drow.addWidget(win.cmb_drift, 1)
+    g.addLayout(drow)
+    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
+    win.sld_drift_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100,
+                                            "Drift traversals per clip 0.25-4.0x (1 = full sweep)",
+                                            div=100.0)
+    win.sld_drift_position, _ = labeled_slider(win, g, "Position:", 0, 100, 50,
+                                               "Still freeze 0-100 (50 = mid-traverse, visible)")
+
+
 def _roll_mosh_seed(win) -> None:
     import random
 

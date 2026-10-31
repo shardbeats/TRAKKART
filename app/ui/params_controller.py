@@ -302,6 +302,7 @@ BINDINGS: tuple = (
     ("drift_pattern",) + _combo("cmb_drift"),
     ("drift_amount",) + _slider("sld_drift"),
     ("drift_speed",) + _slider("sld_drift_speed", 100.0),
+    ("drift_position",) + _slider("sld_drift_position"),
     ("paste_mode",) + _combo("cmb_paste"),
     ("paste_opacity",) + _slider("sld_paste_op"),
     ("paste_blend",) + _combo("cmb_paste_blend"),

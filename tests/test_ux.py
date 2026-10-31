@@ -70,7 +70,7 @@ def test_still_mode_skips_auto_refresh(window, qt_app):
 
 
 def test_no_timeline_leftovers(window):
-    """Trim guard: no layer/clip widgets, drift lives in VIDEO."""
+    """Trim guard: no layer/clip widgets, drift lives in DATAMOSH."""
     for attr in ("anim_list", "btn_anim_add", "btn_anim_remove", "cmb_anim_prop",
                  "spn_anim_from", "spn_anim_to", "spn_anim_start", "spn_anim_end",
                  "btn_clip_open", "btn_clip_browse", "lbl_clip",
@@ -78,6 +78,8 @@ def test_no_timeline_leftovers(window):
         assert not hasattr(window, attr), attr
     assert window.cmb_drift.count() == 10  # off + 9 Signal Drift patterns
     assert window.sld_drift.value() == 0
+    assert window.sld_drift_speed.value() == 100  # 1.0x
+    assert window.sld_drift_position.value() == 50  # mid-traverse
     from app.presets import Preset
 
     assert not hasattr(Preset(name="t"), "anim_layers")

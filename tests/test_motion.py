@@ -179,8 +179,28 @@ def test_preset_motion_roundtrip():
 
     p = Preset.from_dict({"name": "old", "method": "bayer4", "palette": "SLIME"})
     assert p.drift_pattern == "off" and p.paste_mode == "off"
+    assert p.drift_speed == 1.0 and p.drift_position == 50.0
     p2 = Preset.from_dict(p.to_dict())
     assert p2.drift_amount == 0.0 and p2.paste_blend == "overlay"
+    assert p2.drift_speed == 1.0 and p2.drift_position == 50.0
+
+
+def test_still_drift_freezes_at_position():
+    from app.pipeline import render_spec, RenderSpec
+
+    im = _img(96)
+    left = render_spec(im, RenderSpec(method="bayer4", palette_name="SLIME",
+                                      drift_pattern="sweep", drift_amount=80.0,
+                                      drift_position=0.0))
+    mid = render_spec(im, RenderSpec(method="bayer4", palette_name="SLIME",
+                                     drift_pattern="sweep", drift_amount=80.0,
+                                     drift_position=50.0))
+    right = render_spec(im, RenderSpec(method="bayer4", palette_name="SLIME",
+                                       drift_pattern="sweep", drift_amount=80.0,
+                                       drift_position=100.0))
+    # Loop ends meet off-screen: 0 == 100, mid-traverse differs.
+    assert tuple(left.get_flattened_data()) == tuple(right.get_flattened_data())
+    assert tuple(left.get_flattened_data()) != tuple(mid.get_flattened_data())
 
 
 def test_default_stack_includes_pasteup_neutral():

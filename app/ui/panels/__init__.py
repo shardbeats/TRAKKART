@@ -23,6 +23,7 @@ from app.ui.panels.grade import (
 )
 from app.ui.panels.studio import (
     build_custom_palette_section,
+    build_drift_section,
     build_fx_stack_section,
     build_mosh_section,
     build_motif_section,
@@ -53,6 +54,7 @@ __all__ = [
     "build_motif_section",
     "build_fx_stack_section",
     "build_mosh_section",
+    "build_drift_section",
     "build_grade_section",
     "build_tint_section",
     "build_texture_section",

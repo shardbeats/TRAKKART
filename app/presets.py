@@ -195,6 +195,7 @@ FIELDS: tuple[_Field, ...] = (
         "weave", "flicker", "moire", "sweep", "jitter"))),
     _Field("drift_amount", "float", ("range", 0.0, 100.0)),
     _Field("drift_speed", "float", ("range", 0.25, 4.0)),
+    _Field("drift_position", "float", ("range", 0.0, 100.0)),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -299,6 +300,7 @@ class Preset:
     drift_pattern: str = "off"  # Signal Drift pattern pre-dither
     drift_amount: float = 0.0  # 0-100, 0 = off
     drift_speed: float = 1.0  # traversals per clip 0.25-4.0
+    drift_position: float = 50.0  # still freeze 0-100 (50 = mid-traverse)
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen

@@ -106,8 +106,9 @@ def setup_control_panel(win, panel) -> None:
     IMAGE = open/ops + canvas/crop · DITHER = preset/method/pixel/motif ·
     COLOR = adjusts + duotone/brand + palette library · FX = pre/grade/
     texture/glitch params next to the stack that orders them · DATAMOSH =
-    flavor + amount + size + seed · MOTION = video preview + Signal Drift. Widget attribute names are unchanged,
-    so controllers, presets and tests keep working.
+    flavor + amount + size + seed + Signal Drift (still position + anim speed) ·
+    MOTION = video preview (mode/frames/fps/length). Widget attribute names
+    are unchanged, so controllers, presets and tests keep working.
     """
     from app.ui import panels as P
     from app.canvas import CROP_MODES, ratio_names
@@ -139,6 +140,7 @@ def setup_control_panel(win, panel) -> None:
 
     mosh = add_page("DATAMOSH")
     P.build_mosh_section(win, mosh)
+    P.build_drift_section(win, mosh)
 
     motion = add_page("MOTION")
     P.build_video_section(win, motion)

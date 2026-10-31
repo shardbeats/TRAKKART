@@ -1,8 +1,9 @@
-"""Animation section: video preview + Signal Drift.
+"""Animation section: video preview.
 
 Split out of app/ui/panels.py (mechanical move, no logic change).
 Timeline layers and clip import were cut in the v1.4 trim: animation
 runs from the still image only (GIF modes + drift + phase).
+Signal Drift lives in DATAMOSH (still position + anim speed).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider
+from app.ui.panels.widgets import tight, labeled_slider
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
@@ -133,18 +134,4 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.chk_video_pingpong.stateChanged.connect(lambda _: win._sync_duration_ui())
     play_row.addWidget(win.chk_video_pingpong, 1)
     g.addLayout(play_row)
-    hlab(g, "Signal Drift (animated pre-dither noise):")
-    drow = QHBoxLayout()
-    win.cmb_drift = QComboBox()
-    win.cmb_drift.addItems(["off", "hum_bar", "roll", "crawl", "snow",
-                            "weave", "flicker", "moire", "sweep", "jitter"])
-    tight(win.cmb_drift, 10)
-    win.cmb_drift.setToolTip("Retro-screen noise, full traverse per clip (loop-perfect)")
-    win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    drow.addWidget(win.cmb_drift, 1)
-    g.addLayout(drow)
-    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
-    win.sld_drift_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100,
-                                            "Drift traversals per clip 0.25-4.0x (1 = full sweep)",
-                                            div=100.0)
     win._sync_duration_ui()

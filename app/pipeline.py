@@ -105,6 +105,7 @@ class RenderSpec:
     drift_amount: float = 0.0
     drift_progress: float | None = None
     drift_loops: float = 1.0
+    drift_position: float = 50.0
     paste_mode: str = "off"
     paste_opacity: float = 0.0
     paste_blend: str = "overlay"
@@ -182,6 +183,7 @@ class RenderSpec:
             drift_amount=float(getattr(preset, "drift_amount", 0.0) or 0.0),
             drift_progress=(None if drift_progress is None else float(drift_progress)),
             drift_loops=float(getattr(preset, "drift_speed", 1.0) or 1.0),
+            drift_position=float(getattr(preset, "drift_position", 50.0)),
             paste_mode=str(getattr(preset, "paste_mode", "off") or "off"),
             paste_opacity=float(getattr(preset, "paste_opacity", 0.0) or 0.0),
             paste_blend=str(getattr(preset, "paste_blend", "overlay") or "overlay"),
@@ -251,7 +253,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
                        zoom=s.crop_zoom, canvas_w=s.canvas_w, canvas_h=s.canvas_h)
     if str(getattr(s, "drift_pattern", "off") or "off") != "off" \
             and float(getattr(s, "drift_amount", 0.0) or 0.0) > 0:
-        from app.drift import apply_drift, apply_drift_loop
+        from app.drift import apply_drift_loop
 
         if getattr(s, "drift_progress", None) is not None:
             canvas = apply_drift_loop(canvas, pattern=str(s.drift_pattern),
@@ -259,8 +261,14 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
                                       progress=float(s.drift_progress),
                                       loops=float(getattr(s, "drift_loops", 1.0) or 1.0))
         else:
-            canvas = apply_drift(canvas, pattern=str(s.drift_pattern),
-                                 amount=float(s.drift_amount), phase=int(s.phase))
+            # Still: frozen traverse at drift_position (50 = mid, visible).
+            try:
+                pos = max(0.0, min(100.0, float(getattr(s, "drift_position", 50.0)))) / 100.0
+            except (TypeError, ValueError):
+                pos = 0.5
+            canvas = apply_drift_loop(canvas, pattern=str(s.drift_pattern),
+                                      amount=float(s.drift_amount), progress=pos,
+                                      loops=1.0)
     if s.pre_blur or s.pre_sharpen or s.pre_hue or s.pre_denoise or s.pre_smooth:
         canvas = apply_pre(canvas, blur=s.pre_blur, sharpen=s.pre_sharpen, hue=s.pre_hue,
                            denoise=s.pre_denoise, smooth=s.pre_smooth)
