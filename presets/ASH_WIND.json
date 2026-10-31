@@ -1,0 +1,13 @@
+{
+  "name": "ASH_WIND",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "dissolve_mode": "wind",
+  "dissolve_amount": 1.0,
+  "dissolve_seed": 53596,
+  "dissolve_wind_x": 140.0,
+  "dissolve_wind_y": -50.0,
+  "dissolve_speed": 1.0
+}

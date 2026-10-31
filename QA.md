@@ -60,7 +60,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 450 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, GIF export). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
+Current suite: 453 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, morph swap, GIF export/dispatch). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

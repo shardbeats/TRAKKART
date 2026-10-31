@@ -1,12 +1,12 @@
-"""TRAKKART particle disperse (dither-boy style, MIT). Numpy + Pillow only.
+"""TRAKKART particle disperse + morph (dither-boy style, MIT). Numpy + Pillow only.
 
-Single-image loop (no morph yet): BW dither -> active points -> per-frame
-positions with a breathe envelope (assembled -> dispersed -> assembled).
+Single-image loop (dissolve_frames: assembled -> dispersed -> assembled)
+plus one-shot swap (morph_frames: A -> B through one shared particle cloud).
 
-Loop-perfect: the turbulence pattern is fixed per clip (seeded once) and
-only its amplitude breathes with sin(pi*frac), so progress 0 == 1.
+Loop-perfect dissolve: the turbulence pattern is fixed per clip (seeded
+once) and only its amplitude breathes with sin(pi*frac), so progress 0 == 1.
 Deterministic: same inputs + frame = same pixels (default_rng(seed)).
-Strict 0=off: amount 0 returns the dithered still for every frame.
+Strict 0=off: amount 0 returns the still (identity; hard cut for morph).
 """
 
 from __future__ import annotations
