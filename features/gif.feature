@@ -9,7 +9,7 @@ Feature: Animated GIF
     When I generate 4 frames in phase mode
     Then there are 4 frames and none exceeds 480px per side
 
-  Scenario: Glitch mode animates even with static diffusion
+  Scenario: Glitch mode animates when FX values are set
     Given a 128x128 test image
     When I generate 4 frames in glitch mode
     Then the glitch frames differ from each other

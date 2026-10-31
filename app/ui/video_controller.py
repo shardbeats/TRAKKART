@@ -136,6 +136,39 @@ def sync_duration_ui(win) -> None:
             except Exception:  # noqa: BLE001
                 pass
         text = f"= {secs:.1f}s loop"
+        # Strict-mode hint: mix/glitch with every FX/DATAMOSH channel at 0
+        # only does march+hue (no forced slices).
+        try:
+            mode = str(win.cmb_video_mode.currentText())
+            if mode in ("glitch", "mix"):
+                from app.ui import params_controller as _par
+
+                cur = _par.build_params(win) if hasattr(_par, "build_params") else None
+
+                def _val(name, default=0):
+                    try:
+                        if isinstance(cur, dict):
+                            return cur.get(name, default)
+                        return getattr(cur, name, default)
+                    except Exception:  # noqa: BLE001
+                        return default
+
+                try:
+                    bands = int(_val("glitch_slice_bands", 0) or 0)
+                except (TypeError, ValueError):
+                    bands = 0
+                glitch_on = any([
+                    float(_val("glitch_chroma", 0) or 0) > 0,
+                    bands >= 2 and float(_val("glitch_slice_max", 0) or 0) > 0,
+                    float(_val("wave", 0) or 0) > 0,
+                    float(_val("mosh", 0.0) or 0.0) > 0,
+                    float(_val("grain", 0.0) or 0.0) > 0,
+                    float(_val("dust", 0.0) or 0.0) > 0,
+                ])
+                if not glitch_on:
+                    text += " · mix sin FX/DATAMOSH: sube valores"
+        except Exception:  # noqa: BLE001
+            pass
         # Weight estimate at document size (export cost, not proxy).
         try:
             from app.gif import estimate_gif

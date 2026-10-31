@@ -209,7 +209,7 @@ def gen_glitch(ctx):
     from app.gif import gif_frames
     from app.presets import Preset
 
-    ctx["frames"] = gif_frames(ctx["img"], Preset(name="g", method="floyd"),
+    ctx["frames"] = gif_frames(ctx["img"], Preset(name="g", method="floyd", glitch_chroma=8),
                                frames=4, mode="glitch")
 
 

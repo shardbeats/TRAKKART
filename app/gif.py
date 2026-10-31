@@ -115,8 +115,8 @@ def gif_frames(
     base_kwargs = preset_to_render_kwargs(preset)
     base_hue = float(preset.pre_hue)
 
-    # Animated post-fx baselines (0 = subtle default for glitch/mix so
-    # even a clean preset still moves).
+    # Animated post-fx baselines: strict 0=off (MOTION never forces
+    # slices/chroma/wave/grain; FX and DATAMOSH panels rule).
     base_chroma = int(getattr(preset, "glitch_chroma", 0) or 0)
     base_bands = normalize_slice_bands(int(getattr(preset, "glitch_slice_bands", 0) or 0))
     base_max = int(getattr(preset, "glitch_slice_max", 24) or 0)
@@ -154,20 +154,25 @@ def gif_frames(
             from app.glitch import slice_shift_loop, wave_loop
             from app.mosh import MOSH_MODES, apply_mosh
 
-            # Chroma: preset amplitude, or subtle 3px wobble if preset is clean.
-            amp_c = base_chroma if base_chroma > 0 else 3
-            dx = int(round(amp_c * amt * math.sin(t)))
-            if dx:
-                frame = chromatic_aberration(frame, dx=dx)
-            # Slices: preset bands, or 4 light bands if clean.
+            # Strict 0=off: every channel below only runs when its
+            # FX/DATAMOSH value is >0. No forced wobble on clean presets.
+            if base_chroma > 0:
+                amp_c = int(base_chroma)
+                dx = int(round(amp_c * amt * math.sin(t)))
+                if dx:
+                    frame = chromatic_aberration(frame, dx=dx)
+            # Slices: needs bands (>=2) and max offset (>0) from FX.
             # Loop-perfect: fixed seed + sin envelope (progress 0 == 1).
-            bands = base_bands if base_bands >= 2 else 4
-            maxoff = int(round((base_max if base_max > 0 else 8) * amt))
-            frame = slice_shift_loop(frame, bands=bands, max_offset=maxoff,
-                                     seed=0x6A17, progress=progress)
-            # Wave: preset amplitude, or gentle 2px CRT wobble if clean.
-            amp_w = int(round((base_wave if base_wave > 0 else 2) * amt))
-            frame = wave_loop(frame, amplitude=amp_w, seed=0x9A9E, progress=progress)
+            if base_bands >= 2 and base_max > 0:
+                maxoff = int(round(float(base_max) * amt))
+                if maxoff > 0:
+                    frame = slice_shift_loop(frame, bands=int(base_bands), max_offset=maxoff,
+                                             seed=0x6A17, progress=progress)
+            # Wave: only when FX wave >0.
+            if base_wave > 0:
+                amp_w = int(round(float(base_wave) * amt))
+                if amp_w > 0:
+                    frame = wave_loop(frame, amplitude=amp_w, seed=0x9A9E, progress=progress)
             # Mosh: only if the preset asks for it (too chaotic as default).
             # Loop-perfect: fixed seed, periodic amount envelope.
             if base_mosh > 0:
@@ -181,15 +186,14 @@ def gif_frames(
                                    amount=max(0.0, mosh_amt),
                                    seed=mosh_seed, size=mosh_size)
 
-        # Grain shimmer: loop-perfect breathing (fixed pattern, periodic
-        # amount) so the loop point has no jump cut. Static pattern keeps
-        # the dither readable; the envelope keeps it alive.
+        # Grain shimmer in mix: strict 0=off (no forced grain on clean
+        # presets). Loop-perfect breathing so the loop point has no jump.
         if mode == "mix":
             from app.fx import apply_grain
 
-            g = (base_grain if base_grain > 0 else 4.0) * amt
-            g_eff = float(g) * (0.7 + 0.3 * math.sin(t))
-            frame = apply_grain(frame, amount=max(0.0, g_eff), seed=0x7A4B)
+            if base_grain > 0:
+                g_eff = float(base_grain) * amt * (0.7 + 0.3 * math.sin(t))
+                frame = apply_grain(frame, amount=max(0.0, g_eff), seed=0x7A4B)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 

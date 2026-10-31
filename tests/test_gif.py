@@ -52,8 +52,9 @@ def test_modes_differ_and_invalid_falls_back():
 
 
 def test_glitch_and_mix_animate_ed_static():
-    # Floyd ignores phase: glitch/mix must move equally via post-fx.
-    p = _preset(method="floyd")
+    # Floyd ignores phase: glitch/mix move via FX/DATAMOSH post-fx.
+    # Strict 0=off: motion needs explicit values (no forced slices).
+    p = _preset(method="floyd", glitch_chroma=8, mosh=30.0)
     a = gif_frames(_img(), p, frames=3, mode="glitch")
     b = gif_frames(_img(), p, frames=3, mode="mix")
     assert any(
@@ -63,6 +64,16 @@ def test_glitch_and_mix_animate_ed_static():
     assert any(
         list(x.get_flattened_data()) != list(y.get_flattened_data())
         for x, y in zip(b[1:], b[:-1])
+    )
+
+
+def test_mix_strict_respects_zero():
+    # Clean preset + glitch mode on ED still: no forced slices/chroma.
+    p = _preset(method="floyd")
+    frames = gif_frames(_img(), p, frames=3, mode="glitch")
+    assert all(
+        list(x.get_flattened_data()) == list(y.get_flattened_data())
+        for x, y in zip(frames[1:], frames[:-1])
     )
 
 
