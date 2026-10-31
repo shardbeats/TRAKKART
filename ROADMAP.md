@@ -223,7 +223,7 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 - [x] Fase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` en engine + tests.
 - [x] Fase 2 (done): presupuesto (mín 2/tramo, holds caben en 64) + `fps`
   threading + `dissolve_hold` preset + Hold slider + duration con holds + hint <8f.
-- [ ] Fase 3 (en curso): suite + docs + cierre.
+- [ ] Fase 3 (done): suite + docs + cierre.
 
 ## 4. Decisions made (do not reopen without reason)
 
