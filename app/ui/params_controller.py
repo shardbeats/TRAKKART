@@ -685,7 +685,7 @@ def morph_chain_data(win) -> list:
 
 
 def on_morph_selected(win) -> None:
-    """Load the selected chain entry into the crop sliders."""
+    """Show which chain image the crop button will edit."""
     try:
         items = list(getattr(win, "morph_list", []) or [])
         row = int(win.morph_list_widget.currentRow())
@@ -701,40 +701,74 @@ def on_morph_selected(win) -> None:
     if not isinstance(entry, dict):
         return
     try:
-        win.lbl_morph_crop.setText(f"Crop {row + 2}: {entry.get('name', '?')}")
+        fx = float(entry.get("fx", 50.0))
+        fy = float(entry.get("fy", 50.0))
+        zm = float(entry.get("zoom", 1.0))
+        win.lbl_morph_crop.setText(
+            f"Crop {row + 2}: {entry.get('name', '?')} "
+            f"({fx:.0f}, {fy:.0f} · {zm:.1f}x) — Adjust crop...")
     except Exception:  # noqa: BLE001
         pass
-    for attr, key, div in (("sld_morph_fx", "fx", 1.0), ("sld_morph_fy", "fy", 1.0),
-                           ("sld_morph_zoom", "zoom", 100.0)):
+
+
+def open_morph_crop(win) -> bool:
+    """Visual crop of the selected chain image (frame locked to A).
+
+    Same CropEditorDialog as IMAGE, with ratio/mode/W/H locked: only
+    fx/fy/zoom (and optional rotation) come back into the entry.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    try:
+        items = list(getattr(win, "morph_list", []) or [])
+        row = int(win.morph_list_widget.currentRow())
+    except Exception:  # noqa: BLE001
+        return False
+    if not 0 <= row < len(items) or not isinstance(items[row], dict):
         try:
-            w = getattr(win, attr)
-            w.blockSignals(True)
-            w.setValue(int(round(float(entry.get(key, 50.0 if div == 1.0 else 1.0)) * div)))
+            QMessageBox.information(win, "TRAKKART", "Select a chain image first.")
         except Exception:  # noqa: BLE001
             pass
-        finally:
-            try:
-                getattr(win, attr).blockSignals(False)
-            except Exception:  # noqa: BLE001
-                pass
-
-
-def on_morph_crop_changed(win) -> None:
-    """Push the crop sliders into the selected chain entry."""
+        return False
+    entry = items[row]
     try:
-        row = int(win.morph_list_widget.currentRow())
-        items = list(getattr(win, "morph_list", []) or [])
-        entry = items[row]
-    except Exception:  # noqa: BLE001
-        return
-    if not isinstance(entry, dict):
-        return
-    try:
-        entry["fx"] = max(0.0, min(100.0, float(win.sld_morph_fx.value())))
-        entry["fy"] = max(0.0, min(100.0, float(win.sld_morph_fy.value())))
-        entry["zoom"] = max(1.0, min(4.0, float(win.sld_morph_zoom.value()) / 100.0))
-    except Exception:  # noqa: BLE001
-        pass
+        from app.canvas import CUSTOM_RATIO
+        from app.ui.crop_editor import CropEditorDialog
+
+        if getattr(win, "src", None) is not None:
+            from app.ui import params_controller as _par
+
+            aw, ah = _par.doc_dims(win)
+        else:
+            aw, ah = 1200, 1200
+        dlg = CropEditorDialog(
+            entry["img"].copy(),
+            ratio=CUSTOM_RATIO, mode="cover",
+            fx=float(entry.get("fx", 50.0)), fy=float(entry.get("fy", 50.0)),
+            zoom=float(entry.get("zoom", 1.0)),
+            canvas_w=int(aw), canvas_h=int(ah),
+            fixed_frame=True, parent=win,
+        )
+        ok = dlg.exec() == dlg.DialogCode.Accepted
+        if ok:
+            entry["fx"] = max(0.0, min(100.0, float(dlg.fx)))
+            entry["fy"] = max(0.0, min(100.0, float(dlg.fy)))
+            entry["zoom"] = max(1.0, min(4.0, float(dlg.zoom)))
+            if int(getattr(dlg, "turns", 0) or 0):
+                entry["img"] = dlg.image.copy()
+            win.morph_list = items
+            on_morph_selected(win)
+            win._schedule_refresh()
+            win._status(f"Crop set for {entry.get('name', '?')}: "
+                        f"({entry['fx']:.0f}, {entry['fy']:.0f} · {entry['zoom']:.1f}x)")
+        dlg.deleteLater()
+        return bool(ok)
+    except Exception as e:  # noqa: BLE001
+        try:
+            QMessageBox.warning(win, "TRAKKART", f"Could not crop:\n{e}")
+        except Exception:  # noqa: BLE001
+            pass
+        return False
 
 
 def _sync_morph_list_ui(win) -> None:

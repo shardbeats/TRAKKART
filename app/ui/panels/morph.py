@@ -90,12 +90,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.lbl_morph_crop.setWordWrap(True)
     win.lbl_morph_crop.setObjectName("subtitleLabel")
     g.addWidget(win.lbl_morph_crop)
-    win.sld_morph_fx, _ = labeled_slider(win, g, "Crop X:", 0, 100, 50, "Chain image focus X 0-100 (cover crop)")
-    win.sld_morph_fy, _ = labeled_slider(win, g, "Crop Y:", 0, 100, 50, "Chain image focus Y 0-100 (cover crop)")
-    win.sld_morph_zoom, _ = labeled_slider(win, g, "Crop zoom:", 100, 400, 100, "Chain image zoom 1.0-4.0x (cover crop)", div=100.0)
-    try:
-        win.sld_morph_fx.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
-        win.sld_morph_fy.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
-        win.sld_morph_zoom.valueChanged.connect(lambda _v: win._on_morph_crop_changed())
-    except Exception:  # noqa: BLE001
-        pass
+    win.btn_morph_crop = QPushButton("Adjust crop...")
+    win.btn_morph_crop.setToolTip("Visual crop of the selected chain image (frame locked to A)")
+    win.btn_morph_crop.clicked.connect(win._on_morph_crop)
+    g.addWidget(win.btn_morph_crop)

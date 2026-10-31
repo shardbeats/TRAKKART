@@ -229,6 +229,14 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
 (mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
 Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
+
+### v1.14 — MORPH visual crop editor (done)
+Recorte como IMAGE, no sliders: mismo CropEditorDialog con marco bloqueado
+a A (ratio/modo/W/H deshabilitados) + Rotate/Reset; escribe fx/fy/zoom
+(giro opcional) en la entrada seleccionada. Suite 465.
+Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
+(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
+Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
 ### v1.11 — Morph timing: auto-presupuesto al alargar cadena (done)
 Research v1.9 confirmada por el uso: con total fijo, añadir imágenes acelera
 cada tramo (6f/5 tramos = tramos de 1f que no muestran nada). Regla nueva:

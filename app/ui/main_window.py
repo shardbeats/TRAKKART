@@ -975,10 +975,10 @@ class MainWindow(QMainWindow):
 
         _par.on_morph_selected(self)
 
-    def _on_morph_crop_changed(self) -> None:
+    def _on_morph_crop(self) -> bool:
         from app.ui import params_controller as _par
 
-        _par.on_morph_crop_changed(self)
+        return bool(_par.open_morph_crop(self))
 
     def _on_morph_remove(self) -> None:
         from app.ui import params_controller as _par

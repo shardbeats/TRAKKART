@@ -250,11 +250,17 @@ class CropView(QWidget):
 
 
 class CropEditorDialog(QDialog):
-    """Modal crop editor: Cancel/Done on top, view, Rotate/Reset/ratio/mode."""
+    """Modal crop editor: Cancel/Done on top, view, Rotate/Reset/ratio/mode.
+
+    With fixed_frame=True the frame is locked (ratio/mode/W/H disabled):
+    for callers that fit the crop into a pre-set canvas (e.g. the MORPH
+    chain, where every image covers A's box).
+    """
 
     def __init__(self, img: Image.Image, ratio: str = "1:1", mode: str = "cover",
                  fx: float = 50.0, fy: float = 50.0, zoom: float = 1.0,
                  canvas_w: int = 0, canvas_h: int = 0,
+                 fixed_frame: bool = False,
                  parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Adjust crop")
@@ -336,6 +342,13 @@ class CropEditorDialog(QDialog):
         self.view.cropChanged.connect(self._sync_summary)
         self._sync_wh_enabled()
         self._sync_summary()
+        if fixed_frame:
+            for w in (self.cmb_ratio, self.cmb_mode, self.spn_w, self.spn_h):
+                try:
+                    w.setEnabled(False)
+                except Exception:  # noqa: BLE001
+                    pass
+            self.lbl_hint.setText("Frame locked to chain canvas (A) — drag to move, wheel to zoom")
 
     def _sync_wh_enabled(self) -> None:
         custom = self.view.ratio == CUSTOM_RATIO

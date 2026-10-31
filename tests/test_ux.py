@@ -141,27 +141,51 @@ def test_morph_live_pick_enables_video(window, tmp_path, monkeypatch):
     assert "dissolve" in window.lbl_compat.text().lower()
 
 
-def test_morph_per_image_crop_sliders(window, tmp_path, monkeypatch):
+def test_morph_visual_crop_dialog(window, tmp_path, monkeypatch):
     from PIL import Image
-    from PySide6.QtWidgets import QFileDialog
+    from PySide6.QtWidgets import QDialog, QFileDialog
 
+    from app.canvas import CUSTOM_RATIO
     from app.ui import params_controller as _par
+    from app.ui.crop_editor import CropEditorDialog
 
     b = tmp_path / "wide.png"
     Image.new("RGB", (64, 32), (10, 200, 90)).save(b)
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(b), ""))
     assert window._on_morph_pick() is True
     assert window.morph_list[0]["fx"] == 50.0
+    # Fixed-frame dialog: controls locked, values pass through untouched.
+    dlg = CropEditorDialog(
+        Image.new("RGB", (64, 32)), ratio=CUSTOM_RATIO,
+        canvas_w=64, canvas_h=64, fixed_frame=True, parent=None)
+    assert dlg.fx == 50.0 and dlg.zoom == 1.0
+    assert not dlg.cmb_ratio.isEnabled() and not dlg.cmb_mode.isEnabled()
+    assert not dlg.spn_w.isEnabled() and not dlg.spn_h.isEnabled()
+    dlg.deleteLater()
+    # Accept path: canned user drag writes back to the entry.
+    accepted = {"v": False}
+
+    class FakeDlg:
+        DialogCode = QDialog.DialogCode
+        fx, fy, zoom, turns = 10.0, 80.0, 2.0, 0
+
+        def __init__(self, *a, **k):
+            pass
+
+        def exec(self):
+            accepted["v"] = True
+            return QDialog.DialogCode.Accepted
+
+        def deleteLater(self):
+            pass
+
+    monkeypatch.setattr("app.ui.crop_editor.CropEditorDialog", FakeDlg)
     window.morph_list_widget.setCurrentRow(0)
-    window._on_morph_selected()
-    assert "wide.png" in window.lbl_morph_crop.text()
-    window.sld_morph_fx.setValue(0)
-    window._on_morph_crop_changed()
-    window.sld_morph_zoom.setValue(200)
-    window._on_morph_crop_changed()
+    assert window._on_morph_crop() is True
+    assert accepted["v"] is True
     chain = _par.morph_chain_data(window)
-    assert (chain[0]["fx"], chain[0]["zoom"]) == (0.0, 2.0)
-    assert chain[0]["fy"] == 50.0
+    assert (chain[0]["fx"], chain[0]["fy"], chain[0]["zoom"]) == (10.0, 80.0, 2.0)
+    assert "wide.png" in window.lbl_morph_crop.text()
 
 
 def test_morph_playlist_chain_reorders_and_caps(window, tmp_path, monkeypatch):
