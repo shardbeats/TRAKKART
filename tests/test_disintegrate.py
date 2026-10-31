@@ -94,6 +94,37 @@ def test_gif_morph_frames_and_pingpong(tmp_path):
     assert len(gif_morph_frames(a, b, frames=4, max_side=64, pingpong=True)) == 6
 
 
+def test_morph_chain_up_to_six():
+    from app.disintegrate import MAX_MORPH_IMAGES, morph_chain_frames
+
+    assert MAX_MORPH_IMAGES == 6
+    a = _img(48)
+    b = Image.new("RGB", (48, 48), (10, 200, 90))
+    c = Image.new("RGB", (48, 48), (200, 200, 10))
+    f = morph_chain_frames([a, b, c], frames=6, max_side=64)
+    assert len(f) == 6
+    assert tuple(f[0].get_flattened_data()) != tuple(f[-1].get_flattened_data())
+    again = morph_chain_frames([a, b, c], frames=6, max_side=64)
+    assert [tuple(x.get_flattened_data()) for x in f] == [tuple(x.get_flattened_data()) for x in again]
+    many = [a, b, c, a, b, c, a, b]
+    assert len(morph_chain_frames(many, frames=8, max_side=64)) == 8
+    import pytest
+
+    with pytest.raises(ValueError):
+        morph_chain_frames([a], frames=4, max_side=64)
+
+
+def test_gif_morph_accepts_list():
+    from app.gif import gif_morph_frames
+
+    a = _img()
+    b = Image.new("RGB", (64, 64), (10, 200, 90))
+    c = Image.new("RGB", (64, 64), (200, 200, 10))
+    f = gif_morph_frames(a, [b, c], frames=6, max_side=64)
+    assert len(f) == 6
+    assert len({tuple(x.get_flattened_data()) for x in f}) > 2
+
+
 def test_gif_frames_dispatches_dissolve_and_morph():
     from app.gif import gif_frames
     from app.presets import Preset

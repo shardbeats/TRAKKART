@@ -112,8 +112,10 @@ def gif_frames(
         return gif_dissolve_frames(img, preset, frames=frames,
                                    max_side=max_side, pingpong=pingpong)
     if mode == "morph":
-        second = img_b if img_b is not None else img
-        return gif_morph_frames(img, second, preset, frames=frames,
+        if img_b is None:
+            return gif_dissolve_frames(img, preset, frames=frames,
+                                       max_side=max_side, pingpong=pingpong)
+        return gif_morph_frames(img, img_b, preset, frames=frames,
                                 max_side=max_side, pingpong=pingpong)
     n = _clamp_frames(frames)
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
@@ -293,19 +295,20 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     return out
 
 
-def gif_morph_frames(img_a: Image.Image, img_b: Image.Image, preset=None,
+def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                      frames: int = 8, max_side: int | None = None,
                      pingpong: bool | None = None, seed: int | None = None,
                      wind: tuple[float, float] | None = None,
                      mode: str | None = None,
                      amount: float | None = None) -> list[Image.Image]:
-    """One-shot swap A -> B through a shared particle cloud (Fase 5).
+    """Swap A -> B (-> C ...) through particle clouds (Fase 5 + v1.8 chain).
 
-    Same dither engine for both images (preset method/threshold/pixel).
-    First half disperses A, second half reassembles B. Deterministic.
-    For a seamless GIF loop use pingpong=True (A->B->A).
+    img_b may be a single image or a list (chain A -> B -> C ..., capped
+    at MAX_MORPH_IMAGES). Same dither engine for all images (preset
+    method/threshold/pixel). Deterministic. For a seamless GIF loop use
+    pingpong=True (A->B->A).
     """
-    from app.disintegrate import DISINTEGRATE_MODES, morph_frames
+    from app.disintegrate import DISINTEGRATE_MODES, morph_chain_frames
 
     n = _clamp_frames(frames)
     if preset is None:
@@ -335,9 +338,20 @@ def gif_morph_frames(img_a: Image.Image, img_b: Image.Image, preset=None,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
-    out = morph_frames(img_a.convert("RGB"), img_b.convert("RGB"), method=method,
-                       threshold=threshold, pixel_size=pixel, frames=n, seed=seed_v,
-                       wind=wind_v, mode=mode_v, amount=amount_v, max_side=side)
+    if isinstance(img_b, list):
+        others = [im.convert("RGB") for im in img_b if im is not None]
+    elif img_b is None:
+        others = []
+    else:
+        others = [img_b.convert("RGB")]
+    if not others:
+        return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
+                                   pingpong=pp, seed=seed_v, wind=wind_v,
+                                   mode=mode_v, amount=amount_v)
+    out = morph_chain_frames([img_a.convert("RGB")] + others, method=method,
+                             threshold=threshold, pixel_size=pixel, frames=n,
+                             seed=seed_v, wind=wind_v, mode=mode_v,
+                             amount=amount_v, max_side=side)
     if pp:
         out = _pingpong(out)
     return out

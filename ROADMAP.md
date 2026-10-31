@@ -209,8 +209,8 @@ Scope: swap between two images via shared particle cloud + MOTION controls.
 ### v1.8 — Morph cadena (hasta 6) + página MORPH (in progress)
 Scope: playlist A->B->C... (A = src + hasta 5) con lista Add/Remove/Up/Down;
 controles dissolve+morph mudados de MOTION a página MORPH propia.
-- [ ] Fase 1 (en curso): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
-- [ ] Fase 2: página MORPH + playlist UI (mover controles de MOTION).
+- [x] Fase 1 (done): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
+- [ ] Fase 2 (en curso): página MORPH + playlist UI (mover controles de MOTION).
 - [ ] Fase 3: preview/export wiring + docs + cierre.
 
 ## 4. Decisions made (do not reopen without reason)

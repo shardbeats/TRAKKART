@@ -148,33 +148,71 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
     ends are assembled and the middle is a full cloud. amount 0 returns
     A copies then B copies (hard cut, strict 0=off).
     """
+    chained = morph_chain_frames([img_a, img_b], method=method, threshold=threshold,
+                                 pixel_size=pixel_size, frames=frames, seed=seed,
+                                 wind=wind, mode=mode, amount=amount, max_side=max_side)
+    return chained
+
+
+#: Hard cap on chain length (A + up to 5 more).
+MAX_MORPH_IMAGES = 6
+
+
+def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
+                       threshold: float = 128.0, pixel_size: int = 1,
+                       frames: int = 8, seed: int = 0xD15C,
+                       wind: tuple[float, float] = (120.0, -40.0),
+                       mode: str = "wind", amount: float = 1.0,
+                       max_side: int = 480) -> list[Image.Image]:
+    """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
+
+    All images fitted to the same HxW (rest resized to A), dithered with
+    the same engine. Frames split per segment; each segment marches a
+    local sin(pi*q) envelope (assembled -> cloud -> assembled) so joints
+    meet assembled (one shared frame per joint). amount 0 gives hard
+    cuts (strict 0=off). Deterministic per segment seed (seed + k).
+    """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
+    if len(imgs) < 2:
+        raise ValueError("chain needs at least 2 images")
+    imgs = list(imgs[:MAX_MORPH_IMAGES])
     n = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
     side = max(64, min(8000, int(max_side or 480)))
-    a = img_a.convert("RGB")
+    a = imgs[0].convert("RGB")
     r = side / max(a.width, a.height)
     if r < 1.0:
         a = a.resize((max(1, round(a.width * r)),
                       max(1, round(a.height * r))), Image.BICUBIC)
-    b = img_b.convert("RGB").resize((a.width, a.height), Image.BICUBIC)
-    da = dither_bw(a, method=method, threshold=threshold, pixel_size=pixel_size)
-    db = dither_bw(b, method=method, threshold=threshold, pixel_size=pixel_size)
-    ca, h, w = points_from_dither(da)
-    cb, _, _ = points_from_dither(db)
+    fitted = [a] + [im.convert("RGB").resize((a.width, a.height), Image.BICUBIC)
+                    for im in imgs[1:]]
+    h, w = a.height, a.width
+    coord_list: list[np.ndarray] = []
+    for im in fitted:
+        d = dither_bw(im, method=method, threshold=threshold, pixel_size=pixel_size)
+        coords, hh, ww = points_from_dither(d)
+        assert (hh, ww) == (h, w)
+        coord_list.append(coords)
+    segs = len(fitted) - 1
+    base, rem = divmod(n, segs)
     out: list[Image.Image] = []
-    for i in range(n):
-        progress = float(i) / float(n)
-        if progress < 0.5:
-            pos = disperse_positions(ca, h, w, progress=progress, seed=seed,
-                                     wind=wind, mode=mode, loops=1.0, amount=amount)
-        else:
-            pos = disperse_positions(cb, h, w, progress=progress, seed=seed + 1,
-                                     wind=wind, mode=mode, loops=1.0, amount=amount)
-        out.append(render_points(pos, h, w))
+    for k in range(segs):
+        nk = base + (1 if k < rem else 0)
+        if nk <= 0:
+            continue
+        ca, cb = coord_list[k], coord_list[k + 1]
+        for j in range(nk):
+            q = float(j) / float(nk)
+            if q < 0.5:
+                pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
+                                         wind=wind, mode=mode, loops=1.0, amount=amount)
+            else:
+                pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
+                                         wind=wind, mode=mode, loops=1.0, amount=amount)
+            out.append(render_points(pos, h, w))
     return out
 
 
-__all__ = ["DISINTEGRATE_MODES", "MAX_POINTS", "dither_bw",
+__all__ = ["DISINTEGRATE_MODES", "MAX_POINTS", "MAX_MORPH_IMAGES", "dither_bw",
            "points_from_dither", "disperse_positions", "render_points",
-           "dissolve_frames", "morph_frames"]
+           "dissolve_frames", "morph_frames", "morph_chain_frames"]
