@@ -137,3 +137,19 @@ def test_gif_frames_dispatches_dissolve_and_morph():
     m = gif_frames(_img(), p, frames=4, mode="morph", img_b=b)
     assert len(m) == 4
     assert tuple(m[0].get_flattened_data()) != tuple(m[-1].get_flattened_data())
+
+
+def test_morph_chain_odd_canvas_uneven_pixel():
+    # Regression: 546px wide canvas with pixel_size=4 (546 % 4 != 0) used
+    # to raise a bare AssertionError (surfaced as empty "Video error:").
+    from app.disintegrate import morph_chain_frames
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    a = Image.new("RGB", (546, 720), (90, 60, 140))
+    b = Image.new("RGB", (300, 900), (200, 40, 90))
+    frames = morph_chain_frames([a, b], method="bayer4", pixel_size=4,
+                                frames=6, max_side=720)
+    assert len(frames) == 6
+    p = Preset(name="t", method="bayer4", palette="BW", pixel_size=4, gif_size=720)
+    assert len(gif_frames(a, p, frames=4, mode="morph", max_side=720, img_b=[b])) == 4

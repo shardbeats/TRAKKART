@@ -44,7 +44,7 @@ class PreviewWorker(WorkerBase):
         self.finished_ok.emit(pil_to_qimage(rgb), rgb.copy(), self.token)
 
     def _report_error(self, exc: Exception) -> None:
-        self.finished_err.emit(str(exc), self.token)
+        self.finished_err.emit(str(exc) or type(exc).__name__, self.token)
 
 
 class VideoWorker(WorkerBase):
@@ -87,7 +87,7 @@ class VideoWorker(WorkerBase):
         self.finished_ok.emit(out, self.token)
 
     def _report_error(self, exc: Exception) -> None:
-        self.finished_err.emit(str(exc), self.token)
+        self.finished_err.emit(str(exc) or type(exc).__name__, self.token)
 
     @staticmethod
     def current_params_snapshot(preset) -> dict:

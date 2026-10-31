@@ -52,6 +52,16 @@ def points_from_dither(dithered: Image.Image) -> tuple[np.ndarray, int, int]:
     return coords, int(h), int(w)
 
 
+def _refit_coords(coords: np.ndarray, hh: int, ww: int, h: int, w: int) -> np.ndarray:
+    """Clip out-of-range points (defensive: same dither op => same shape)."""
+    if len(coords) == 0:
+        return coords
+    out = coords.copy()
+    out[:, 0] = np.clip(out[:, 0], 0, h - 1)
+    out[:, 1] = np.clip(out[:, 1], 0, w - 1)
+    return out
+
+
 def disperse_positions(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
                        seed: int = 0xD15C, wind: tuple[float, float] = (120.0, -40.0),
                        mode: str = "wind", loops: float = 1.0,
@@ -186,13 +196,14 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                       max(1, round(a.height * r))), Image.BICUBIC)
     fitted = [a] + [im.convert("RGB").resize((a.width, a.height), Image.BICUBIC)
                     for im in imgs[1:]]
-    h, w = a.height, a.width
     coord_list: list[np.ndarray] = []
+    h = w = 0
     for im in fitted:
         d = dither_bw(im, method=method, threshold=threshold, pixel_size=pixel_size)
         coords, hh, ww = points_from_dither(d)
-        assert (hh, ww) == (h, w)
-        coord_list.append(coords)
+        if not coord_list:
+            h, w = hh, ww  # dithered size rules (pixel_size floors odd sides)
+        coord_list.append(coords if (hh, ww) == (h, w) else _refit_coords(coords, hh, ww, h, w))
     segs = len(fitted) - 1
     base, rem = divmod(n, segs)
     out: list[Image.Image] = []
