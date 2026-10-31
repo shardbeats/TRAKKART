@@ -360,11 +360,13 @@ def sync_anim_ui(win) -> None:
         pass
     if mode == "morph":
         try:
-            has_b = getattr(win, "morph_src", None) is not None
-            if not has_b:
-                win.lbl_compat.setText("Morph needs a B image (button below) — meanwhile showing dissolve.")
-            else:
+            chain = morph_images(win)
+            if not chain:
+                win.lbl_compat.setText("Morph needs images (MORPH page, Add...) — meanwhile showing dissolve.")
+            elif len(chain) == 1:
                 win.lbl_compat.setText("Morph A->B ready — play or scrub the video bar frame by frame.")
+            else:
+                win.lbl_compat.setText(f"Morph chain A + {len(chain)} ready — play or scrub frame by frame.")
         except Exception:  # noqa: BLE001
             pass
 
@@ -635,16 +637,87 @@ def import_metadata(win, path=None) -> bool:
         return False
 
 
+def morph_images(win) -> list:
+    """Chain extras B..F as PIL images (playlist first, legacy single second)."""
+    items = list(getattr(win, "morph_list", []) or [])
+    imgs = []
+    for entry in items:
+        try:
+            img = (entry or {}).get("img")
+            if img is not None:
+                imgs.append(img)
+        except Exception:  # noqa: BLE001
+            pass
+    if not imgs:
+        single = getattr(win, "morph_src", None)
+        if single is not None:
+            imgs = [single]
+    return imgs
+
+
+def _sync_morph_list_ui(win) -> None:
+    """Refresh playlist widget + compat single-image aliases + hints."""
+    from app.disintegrate import MAX_MORPH_IMAGES
+
+    items = list(getattr(win, "morph_list", []) or [])
+    try:
+        lst = win.morph_list_widget
+        lst.blockSignals(True)
+        lst.clear()
+        for i, entry in enumerate(items):
+            name = str((entry or {}).get("name", f"img{i + 2}"))
+            lst.addItem(f"{i + 2}: {name}")
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        try:
+            win.morph_list_widget.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
+    # Legacy single-image alias: first extra = B (old preview/export paths).
+    try:
+        if items:
+            win.morph_src = items[0]["img"].copy()
+            win.morph_path = str(items[0].get("name", ""))
+        else:
+            win.morph_src = None
+            win.morph_path = ""
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if items:
+            win.lbl_morph.setText(f"Chain: A + {len(items)} ({MAX_MORPH_IMAGES - 1 - len(items)} slots free)")
+        else:
+            win.lbl_morph.setText("B: (none — morph falls back to dissolve)")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._sync_anim_ui()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def pick_morph_image(win) -> bool:
-    """Choose the B image for morph mode (stored on win, not in the preset)."""
+    """Append an image to the morph chain (B, C, ... up to 5 extras)."""
     from pathlib import Path
 
     from PySide6.QtWidgets import QFileDialog
 
+    from app.disintegrate import MAX_MORPH_IMAGES
     from app.services.image_io import load_path as _load
 
+    items = list(getattr(win, "morph_list", []) or [])
+    if len(items) >= MAX_MORPH_IMAGES - 1:
+        try:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(win, "TRAKKART",
+                                    f"Chain is full ({MAX_MORPH_IMAGES} images max: A + {MAX_MORPH_IMAGES - 1}).")
+        except Exception:  # noqa: BLE001
+            pass
+        return False
     path, _ = QFileDialog.getOpenFileName(
-        win, "Morph image (B)", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
+        win, f"Morph image ({chr(66 + len(items))})", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
     if not path:
         return False
     try:
@@ -657,16 +730,9 @@ def pick_morph_image(win) -> bool:
         except Exception:  # noqa: BLE001
             pass
         return False
-    win.morph_src = img.copy()
-    win.morph_path = str(Path(path).name)
-    try:
-        win.lbl_morph.setText(f"B: {Path(path).name}")
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        win._sync_anim_ui()
-    except Exception:  # noqa: BLE001
-        pass
+    items.append({"img": img.copy(), "name": str(Path(path).name)})
+    win.morph_list = items
+    _sync_morph_list_ui(win)
     try:
         mode = str(win.cmb_video_mode.currentText())
     except Exception:  # noqa: BLE001
@@ -674,7 +740,7 @@ def pick_morph_image(win) -> bool:
     if mode == "morph" and not bool(getattr(win, "_video_on", False)):
         try:
             win.chk_video.setChecked(True)  # toggle re-renders video live
-            win._status(f"B loaded: {Path(path).name} — video preview on")
+            win._status(f"Chain +1: {Path(path).name} — video preview on")
         except Exception:  # noqa: BLE001
             win._schedule_refresh()
     else:
@@ -682,16 +748,41 @@ def pick_morph_image(win) -> bool:
     return True
 
 
+def remove_morph_selected(win) -> None:
+    """Remove the selected chain image."""
+    items = list(getattr(win, "morph_list", []) or [])
+    try:
+        row = int(win.morph_list_widget.currentRow())
+    except Exception:  # noqa: BLE001
+        return
+    if 0 <= row < len(items):
+        items.pop(row)
+        win.morph_list = items
+        _sync_morph_list_ui(win)
+        win._schedule_refresh()
+
+
+def move_morph_selected(win, delta: int) -> None:
+    """Reorder the selected chain image (-1 earlier, +1 later)."""
+    items = list(getattr(win, "morph_list", []) or [])
+    try:
+        row = int(win.morph_list_widget.currentRow())
+    except Exception:  # noqa: BLE001
+        return
+    nxt = row + int(delta)
+    if 0 <= row < len(items) and 0 <= nxt < len(items):
+        items[row], items[nxt] = items[nxt], items[row]
+        win.morph_list = items
+        _sync_morph_list_ui(win)
+        try:
+            win.morph_list_widget.setCurrentRow(nxt)
+        except Exception:  # noqa: BLE001
+            pass
+        win._schedule_refresh()
+
+
 def clear_morph_image(win) -> None:
-    """Forget the B image (morph falls back to dissolve)."""
-    win.morph_src = None
-    win.morph_path = ""
-    try:
-        win.lbl_morph.setText("B: (none — morph falls back to dissolve)")
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        win._sync_anim_ui()
-    except Exception:  # noqa: BLE001
-        pass
+    """Forget the whole chain (morph falls back to dissolve)."""
+    win.morph_list = []
+    _sync_morph_list_ui(win)
     win._schedule_refresh()

@@ -130,12 +130,53 @@ def test_morph_live_pick_enables_video(window, tmp_path, monkeypatch):
     assert window._video_on is False
     assert window._on_morph_pick() is True
     assert window.morph_src is not None
-    assert "b.png" in window.lbl_morph.text()
+    assert len(window.morph_list) == 1
+    assert window.morph_list_widget.item(0).text() == "2: b.png"
+    assert "1" in window.lbl_morph.text()
     assert window._video_on is True  # live preview turns on by itself
     assert "scrub" in window.lbl_compat.text().lower()
     window._on_morph_clear()
     assert window.morph_src is None
+    assert window.morph_list == []
     assert "dissolve" in window.lbl_compat.text().lower()
+
+
+def test_morph_playlist_chain_reorders_and_caps(window, tmp_path, monkeypatch):
+    from PIL import Image
+    from PySide6.QtWidgets import QFileDialog
+
+    from app.disintegrate import MAX_MORPH_IMAGES
+
+    paths = []
+    for i, color in enumerate([(10, 200, 90), (200, 40, 90), (90, 90, 200)]):
+        p = tmp_path / f"c{i}.png"
+        Image.new("RGB", (16, 16), color).save(p)
+        paths.append(str(p))
+    picks = iter(paths)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (next(picks), ""))
+    assert window._on_morph_pick() is True
+    assert window._on_morph_pick() is True
+    assert window._on_morph_pick() is True
+    assert [e["name"] for e in window.morph_list] == ["c0.png", "c1.png", "c2.png"]
+    window.morph_list_widget.setCurrentRow(0)
+    window._on_morph_down()
+    assert [e["name"] for e in window.morph_list] == ["c1.png", "c0.png", "c2.png"]
+    window._on_morph_up()
+    assert [e["name"] for e in window.morph_list] == ["c0.png", "c1.png", "c2.png"]
+    window.morph_list_widget.setCurrentRow(1)
+    window._on_morph_remove()
+    assert [e["name"] for e in window.morph_list] == ["c0.png", "c2.png"]
+    # Fill to the cap: further picks are refused.
+    from PIL import Image as _Img
+
+    full = [f"f{i}.png" for i in range(MAX_MORPH_IMAGES)]
+    for i, name in enumerate(full):
+        _Img.new("RGB", (8, 8), (i * 10, 20, 30)).save(tmp_path / name)
+    picks = iter([str(tmp_path / n) for n in full])
+    window._on_morph_clear()
+    added = sum(1 for _ in full if window._on_morph_pick() is True)
+    assert added == MAX_MORPH_IMAGES - 1
+    assert window._on_morph_pick() is False
 
 
 def test_tutorial_dialog_walks_all_steps(qt_app):

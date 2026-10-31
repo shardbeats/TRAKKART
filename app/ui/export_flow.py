@@ -200,6 +200,17 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
         return None
 
 
+def _morph_imgs(win) -> list | None:
+    """Playlist images for morph export (None = dissolve fallback)."""
+    try:
+        from app.ui import params_controller as _par
+
+        imgs = _par.morph_images(win)
+        return list(imgs) or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
                quality: int, mp4: bool = False) -> None:
@@ -227,7 +238,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
             size=int(size), format=str(format), quality=int(quality),
             mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
-            morph_src=getattr(win, "morph_src", None),
+            morph_src=_morph_imgs(win),
         )
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))

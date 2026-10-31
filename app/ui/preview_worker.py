@@ -59,7 +59,7 @@ class VideoWorker(WorkerBase):
 
     def __init__(self, src: Image.Image, preset, video_size: int,
                  frames: int, mode: str, pingpong: bool, token: int,
-                 morph_src: Image.Image | None = None,
+                 morph_src=None,
                  parent=None) -> None:
         super().__init__(parent)
         self.src = src
@@ -69,7 +69,12 @@ class VideoWorker(WorkerBase):
         self.mode = str(mode)
         self.pingpong = bool(pingpong)
         self.token = int(token)
-        self.morph_src = morph_src.copy() if morph_src is not None else None
+        if isinstance(morph_src, list):
+            self.morph_src = [m.copy() for m in morph_src if m is not None]
+        elif morph_src is not None:
+            self.morph_src = morph_src.copy()
+        else:
+            self.morph_src = None
 
     def work(self) -> None:
         from app.gif import gif_frames as _gif_frames

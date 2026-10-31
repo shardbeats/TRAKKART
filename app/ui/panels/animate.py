@@ -1,9 +1,7 @@
-"""Animation section: video preview.
+"""Animation section: video preview (mode/frames/fps/length/proxy/play).
 
 Split out of app/ui/panels.py (mechanical move, no logic change).
-Timeline layers and clip import were cut in the v1.4 trim: animation
-runs from the still image only (GIF modes + drift + phase).
-Signal Drift lives in DATAMOSH (still position + anim speed).
+Dissolve params + morph chain live in the MORPH page (panels/morph.py).
 """
 
 from __future__ import annotations
@@ -15,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider
+from app.ui.panels.widgets import tight, labeled_slider
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
@@ -134,47 +132,4 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.chk_video_pingpong.stateChanged.connect(lambda _: win._sync_duration_ui())
     play_row.addWidget(win.chk_video_pingpong, 1)
     g.addLayout(play_row)
-    hlab(g, "Dissolve (particle disperse):")
-    win.cmb_dissolve_mode = QComboBox()
-    win.cmb_dissolve_mode.addItems(["wind", "random"])
-    tight(win.cmb_dissolve_mode, 8)
-    win.cmb_dissolve_mode.setToolTip("Particle drift: wind = directional + turbulence · random = all directions")
-    win.cmb_dissolve_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
-    mrow = QHBoxLayout()
-    mrow.addWidget(QLabel("Drift:"))
-    mrow.addWidget(win.cmb_dissolve_mode, 1)
-    g.addLayout(mrow)
-    win.sld_dissolve_amount, _ = labeled_slider(win, g, "Amount:", 0, 200, 100, "Disperse strength 0=still · 100=classic · up to 200", div=100.0)
-    win.sld_dissolve_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100, "Traversals per clip 0.25-4.0x (1 = full sweep)", div=100.0)
-    win.sld_dissolve_wind_x, _ = labeled_slider(win, g, "Wind X:", -500, 500, 120, "Horizontal wind px at full disperse")
-    win.sld_dissolve_wind_y, _ = labeled_slider(win, g, "Wind Y:", -500, 500, -40, "Vertical wind px at full disperse")
-    seed_row = QHBoxLayout()
-    seed_row.addWidget(QLabel("Seed:"))
-    from PySide6.QtWidgets import QSpinBox as _Spn
-
-    win.spn_dissolve_seed = _Spn()
-    win.spn_dissolve_seed.setRange(0, 999999)
-    win.spn_dissolve_seed.setValue(53596)
-    win.spn_dissolve_seed.setFixedWidth(80)
-    win.spn_dissolve_seed.setToolTip("Deterministic pattern seed (same seed = same particles)")
-    win.spn_dissolve_seed.valueChanged.connect(lambda _: win._schedule_refresh())
-    seed_row.addWidget(win.spn_dissolve_seed)
-    seed_row.addStretch()
-    g.addLayout(seed_row)
-    hlab(g, "Morph A->B (second image):")
-    morph_row = QHBoxLayout()
-    win.btn_morph_pick = QPushButton("Morph image...")
-    win.btn_morph_pick.setToolTip("Second image for morph mode (B). Empty = dissolve fallback.")
-    win.btn_morph_pick.clicked.connect(win._on_morph_pick)
-    morph_row.addWidget(win.btn_morph_pick)
-    win.btn_morph_clear = QPushButton("Clear")
-    win.btn_morph_clear.setFixedWidth(56)
-    win.btn_morph_clear.setToolTip("Forget the second image")
-    win.btn_morph_clear.clicked.connect(win._on_morph_clear)
-    morph_row.addWidget(win.btn_morph_clear)
-    g.addLayout(morph_row)
-    win.lbl_morph = QLabel("B: (none — morph falls back to dissolve)")
-    win.lbl_morph.setWordWrap(True)
-    win.lbl_morph.setObjectName("subtitleLabel")
-    g.addWidget(win.lbl_morph)
     win._sync_duration_ui()

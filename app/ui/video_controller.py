@@ -43,6 +43,17 @@ def proxy_changed(win) -> None:
     win._schedule_refresh()
 
 
+def _morph_imgs(win) -> list | None:
+    """Playlist images for morph preview (None = dissolve fallback)."""
+    try:
+        from app.ui import params_controller as _par
+
+        imgs = _par.morph_images(win)
+        return list(imgs) or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def toggle(win) -> None:
     win._video_on = bool(win.chk_video.isChecked())
     win._video_bar_widget.setVisible(win._video_on)
@@ -219,7 +230,7 @@ def start_async(win) -> None:
     win._video_worker = VideoWorker(
         win.src.copy(), win.current_params(), s["size"],
         s["frames"], s["mode"], s["pingpong"], win._video_token,
-        morph_src=getattr(win, "morph_src", None),
+        morph_src=_morph_imgs(win),
     )
     win._video_worker.finished_ok.connect(win._on_video_done)
     win._video_worker.finished_err.connect(win._on_video_error)

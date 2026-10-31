@@ -29,6 +29,7 @@ from app.ui.panels.studio import (
     build_motif_section,
 )
 from app.ui.panels.animate import build_video_section
+from app.ui.panels.morph import build_morph_section
 from app.ui.panels.widgets import (
     labeled_slider,
     make_accordion,
@@ -55,6 +56,7 @@ __all__ = [
     "build_fx_stack_section",
     "build_mosh_section",
     "build_drift_section",
+    "build_morph_section",
     "build_grade_section",
     "build_tint_section",
     "build_texture_section",
