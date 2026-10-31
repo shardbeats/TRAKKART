@@ -279,7 +279,7 @@ frames/fps son calidad.
   hasta el total, tope 256) + fps threading en gif/export/batch/video.
 - [x] Fase 2 (done): dissolve_length preset + meta/import roundtrip, spin
   Length ligado, fps re-render solo en dissolve/morph, label honesto con
-  hold y hint por tramo, cap 256 con aviso. Suite 465 -> 466.
+  hold y hint por tramo, cap 256 con aviso. Suite 464 -> 465.
 
 ## 4. Decisions made (do not reopen without reason)
 
