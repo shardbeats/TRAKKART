@@ -72,84 +72,74 @@ def toggle(win) -> None:
 
 
 def fps_changed(win) -> None:
-    """FPS only retimes the player: no re-render (canvas renders are costly)."""
+    """FPS retimes the player; particle modes also re-render (pad depends on fps)."""
     try:
         fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
         win._video_timer.setInterval(max(1, 1000 // fps))
     except Exception:  # noqa: BLE001
         pass
-    sync_duration_ui(win)
-    # NOTE: intentionally no _schedule_refresh() here (was a full re-render
-    # of N canvas-size frames on every fps tick).
-
-
-def duration_seconds(win) -> float:
-    """Current loop length = frames / fps (derived, never stored)."""
-    try:
-        frames = win._anim_combo_int(win.cmb_video_frames, 6, 2, 64)
-        fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
-        return frames / max(1, fps)
-    except Exception:  # noqa: BLE001
-        return 0.0
-
-
-def _dissolve_hold_frames(win, fps: int) -> tuple[int, int]:
-    """End holds from the MORPH Hold slider (0 if mode is not particle)."""
     try:
         mode = str(win.cmb_video_mode.currentText())
     except Exception:  # noqa: BLE001
-        return 0, 0
+        mode = ""
+    if mode in ("dissolve", "morph"):
+        # Holds/pads are baked per fps: re-render to keep the sacred total.
+        try:
+            win._schedule_refresh()
+            return
+        except Exception:  # noqa: BLE001
+            pass
+    sync_duration_ui(win)
+    # NOTE: non-particle modes intentionally skip re-render here (was a full
+    # re-render of N canvas-size frames on every fps tick).
+
+
+def duration_seconds(win) -> float:
+    """Sacred total clip length (Length spin, seconds)."""
+    try:
+        return max(0.5, min(32.0, float(win.spn_duration.value())))
+    except Exception:  # noqa: BLE001
+        return 5.0
+
+
+def planned_total(win) -> dict:
+    """Mirror of gif.plan_dissolve for honest UI (no render).
+
+    Returns dict(n_trans, hs, he, pad, total, capped, actual_s, target_s,
+    fps, segs, particle). Non-particle modes report plain frames/fps.
+    """
+    from app.gif import plan_dissolve
+
+    try:
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        mode = "both"
+    try:
+        n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
+        fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
+        hold = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
+        target = max(0.5, min(32.0, float(win.spn_duration.value())))
+    except Exception:  # noqa: BLE001
+        return {"n_trans": 6, "hs": 0, "he": 0, "pad": 0, "total": 6,
+                "capped": False, "actual_s": 1.0, "target_s": 5.0,
+                "fps": 8, "segs": 1, "particle": False}
     if mode not in ("dissolve", "morph"):
-        return 0, 0
+        return {"n_trans": n_req, "hs": 0, "he": 0, "pad": 0, "total": n_req,
+                "capped": False, "actual_s": n_req / fps,
+                "target_s": n_req / fps, "fps": fps, "segs": 1, "particle": False}
     try:
-        hold_s = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
-    except Exception:  # noqa: BLE001
-        return 0, 0
-    total = int(round(hold_s * max(1, int(fps))))
-    hs = total // 2
-    return hs, total - hs
+        from app.ui import params_controller as _par
 
-
-def effective_frames(win) -> int:
-    """Playback length accounting ping-pong expansion (6 -> 10) + holds."""
-    try:
-        n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
-        pp = bool(win.chk_video_pingpong.isChecked())
-        fps = int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60))
+        segs = max(1, len(_par.morph_chain_data(win))) if mode == "morph" else 1
     except Exception:  # noqa: BLE001
-        return 6
-    hs, he = _dissolve_hold_frames(win, fps)
-    room = 64 - n
-    if hs + he > room and room >= 0:
-        hs = min(hs, room // 2)
-        he = min(he, room - hs)
-    n += hs + he
-    if pp and n > 2:
-        return n + (n - 2)
-    return n
-
-
-def set_duration(win, seconds: float) -> None:
-    """Length edit -> frames (fps stays): seconds * fps, clamped 2-64."""
-    try:
-        from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
-    except Exception:  # noqa: BLE001
-        return
-    try:
-        fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
-        want = int(round(float(seconds) * max(1, fps)))
-        want = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, want))
-        win._set_anim_combo(win.cmb_video_frames, want)
-    except Exception:  # noqa: BLE001
-        pass
+        segs = 1
+    plan = plan_dissolve(n_req, segs, fps, hold, target)
+    plan.update({"target_s": target, "fps": fps, "segs": segs, "particle": True})
+    return plan
 
 
 def duration_changed(win) -> None:
-    """Length spin edited: push to frames and re-render (frame count changed)."""
-    try:
-        set_duration(win, float(win.spn_duration.value()))
-    except Exception:  # noqa: BLE001
-        pass
+    """Length spin edited: target total changed, just re-render."""
     sync_duration_ui(win)
     try:
         win._schedule_refresh()
@@ -158,30 +148,28 @@ def duration_changed(win) -> None:
 
 
 def sync_duration_ui(win) -> None:
-    """Refresh length controls from frames / fps + weight hint."""
+    """Refresh the duration label: sacred target vs actual built total."""
     try:
-        secs = duration_seconds(win)
-        n_eff = effective_frames(win)
-        # Keep the spin in sync without signal loops.
-        try:
-            spn = win.spn_duration
-            spn.blockSignals(True)
-            if abs(float(spn.value()) - secs) > 0.05:
-                spn.setValue(round(secs, 1))
-        finally:
-            try:
-                win.spn_duration.blockSignals(False)
-            except Exception:  # noqa: BLE001
-                pass
-        text = f"= {secs:.1f}s loop"
-        try:
-            fps = int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60))
-            hs, he = _dissolve_hold_frames(win, fps)
-            if hs + he > 0:
-                hold_s = (hs + he) / max(1, fps)
-                text += f" + {hold_s:.1f}s hold"
-        except Exception:  # noqa: BLE001
-            pass
+        plan = planned_total(win)
+        n_eff = plan["total"]
+        pp = bool(win.chk_video_pingpong.isChecked())
+        if pp and n_eff > 2:
+            n_eff = n_eff + (n_eff - 2)
+        fps = plan["fps"]
+        if plan["particle"]:
+            actual = n_eff / max(1, fps)
+            target = plan["target_s"]
+            if abs(actual - target) < 0.05 and not plan["capped"]:
+                text = f"= {actual:.1f}s total"
+            elif plan["capped"]:
+                text = f"= {actual:.1f}s total (target {target:.1f}s — capped)"
+            else:
+                text = f"= {actual:.1f}s total (target {target:.1f}s — content overflows, raise Length)"
+            if plan["hs"] + plan["he"] > 0:
+                text += f" · {(plan['hs'] + plan['he']) / max(1, fps):.1f}s hold"
+        else:
+            secs = plan["actual_s"]
+            text = f"= {secs:.1f}s loop"
         # Strict-mode hint: mix/glitch with every FX/DATAMOSH channel at 0
         # only does march+hue (no forced slices).
         try:
@@ -215,6 +203,14 @@ def sync_duration_ui(win) -> None:
                     text += " · mix sin FX/DATAMOSH: sube valores"
         except Exception:  # noqa: BLE001
             pass
+        if plan.get("particle"):
+            try:
+                per_seg = plan["n_trans"] / max(1, plan["segs"])
+                if per_seg < 8 or per_seg / max(1, plan["fps"]) < 0.8:
+                    text += (f" · {per_seg:.0f}f/{per_seg / max(1, plan['fps']):.1f}s per form"
+                             " — raise Length for slower morphs")
+            except Exception:  # noqa: BLE001
+                pass
         # Weight estimate at document size (export cost, not proxy).
         try:
             from app.gif import estimate_gif
@@ -222,12 +218,12 @@ def sync_duration_ui(win) -> None:
 
             w, h = _par.doc_dims(win)
             weight_mb = estimate_gif(n_eff, w, h) / 1_000_000.0
-            if secs > 4.0 or weight_mb > 25.0:
+            if plan.get("actual_s", 0) > 4.0 or weight_mb > 25.0:
                 text += f" · ~{weight_mb:.0f}MB GIF est. · prefer MP4"
             elif weight_mb > 10.0:
                 text += f" · ~{weight_mb:.0f}MB GIF est."
         except Exception:  # noqa: BLE001
-            if secs > 4.0:
+            if plan.get("actual_s", 0) > 4.0:
                 text += " · prefer MP4"
         win.lbl_duration.setText(text)
     except Exception:  # noqa: BLE001

@@ -236,7 +236,7 @@ más imágenes = más tiempo.
 - Auto-crecer Frames solo hacia arriba al pick/morph-mode: `max(n, tramos*max(8, ~0.8s))`,
   tope 64, avisado en status; al encoger la cadena no se toca nada.
 - Hint con f/s por forma cuando un tramo queda bajo 8f o 0.8s.
-- Suite 463 -> 464.
+- Suite 464 -> 465.
 
 ### v1.12 — Techo de 64 frames: ¿subirlo? (investigación, sin implementar)
 
@@ -270,6 +270,16 @@ Recomendación (no implementada):
 4. Si se pide suavidad: 30-60fps ya existen; educar vía Hold/duration UI
    en vez de más frames.
 
+
+### v1.13 — Duración total sagrada (done)
+Frames/fps dejaban de mandar: la duración pedida se recortaba en silencio
+(8s @ 24fps → 2.7s por el tope 64). Regla nueva: Length (s) es sagrado,
+frames/fps son calidad.
+- [x] Fase 1 (done): plan_dissolve (mín 2/tramo, holds caben en 64, pad
+  hasta el total, tope 256) + fps threading en gif/export/batch/video.
+- [x] Fase 2 (done): dissolve_length preset + meta/import roundtrip, spin
+  Length ligado, fps re-render solo en dissolve/morph, label honesto con
+  hold y hint por tramo, cap 256 con aviso. Suite 465 -> 466.
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -348,6 +358,7 @@ form appears at least assembled), joints meet assembled (q=j/(nk-1)).
 - dissolve_speed 0.25-4.0 (1): traversals per clip.
 - dissolve_wind_x/y -500..500 px (120, -40): displacement at full disperse.
 - dissolve_hold 0-3s (1.0): still pause per end (assembled duplicates).
+- dissolve_length 0.5-32s (default 5.0): sacred total; plan_dissolve pads with end duplicates to honor it (cap 256 frames).
 - Chain: playlist order = play order; per-image Crop X/Y 0-100 + Zoom 1-4x
   (session-only, covers B..F; A comes from the canvas).
 

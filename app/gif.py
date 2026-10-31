@@ -242,28 +242,49 @@ def gif_frames(
     return out
 
 
-def _dissolve_hold_split(preset, fps: int | None) -> tuple[int, int]:
-    """End holds (assembled duplicates) from dissolve_hold seconds per end.
+#: Hard cap on total built frames (transitions + holds + pads).
+MAX_TOTAL_FRAMES = 256
 
-    fps explicit wins, else preset gif_fps, else 8. Returns (start, end).
+
+def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
+                  target_s: float | None) -> dict:
+    """Frame budget honoring a sacred total duration (v1.13).
+
+    n_trans covers transitions (min 2 per segment so every form appears
+    assembled); holds duplicate assembled ends; pad fills up to the target
+    seconds so exports never come out short. Transitions always win over
+    holds/pad; the total never exceeds MAX_TOTAL_FRAMES.
+    Returns dict(n_trans, hs, he, pad, total, capped, actual_s).
     """
-    if preset is None:
-        return 0, 0
-    hold_s = max(0.0, min(3.0, float(getattr(preset, "dissolve_hold", 0.0) or 0.0)))
-    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) or 8))
-    per_end = int(round(hold_s * fps_v))
-    return per_end, per_end
-
-
-def _fit_hold_budget(n_trans: int, hs: int, he: int) -> tuple[int, int]:
-    """Shrink holds (never transitions) so transitions + holds fit the cap."""
-    room = GIF_MAX_FRAMES - max(0, int(n_trans))
-    if hs + he <= room:
-        return hs, he
-    if room <= 0:
-        return 0, 0
-    hs = min(hs, room // 2)
-    return hs, min(he, room - hs)
+    fps_v = max(1, int(fps or 8))
+    segs_v = max(1, int(segs or 1))
+    n_trans = min(GIF_MAX_FRAMES, max(2 * segs_v, max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(n_req)))))
+    hold_n = int(round(max(0.0, min(3.0, float(hold_s or 0.0))) * fps_v))
+    # Fit holds in the 64-frame transition budget (transitions always win).
+    room64 = GIF_MAX_FRAMES - n_trans
+    if hold_n * 2 <= room64:
+        hs, he = hold_n, hold_n
+    elif room64 <= 0:
+        hs, he = 0, 0
+    else:
+        hs, he = room64 // 2, room64 - room64 // 2
+    if target_s is None:
+        want_total = n_trans + hs + he
+    else:
+        want_total = max(n_trans + hs + he, int(round(max(0.0, float(target_s)) * fps_v)))
+    if want_total <= MAX_TOTAL_FRAMES:
+        pad = want_total - (n_trans + hs + he)
+        return {"n_trans": n_trans, "hs": hs, "he": he, "pad": pad,
+                "total": n_trans + hs + he + pad,
+                "capped": False, "actual_s": (n_trans + hs + he + pad) / fps_v}
+    room = MAX_TOTAL_FRAMES - n_trans
+    hs2, he2 = (0, 0) if room <= 0 else (min(hs, room // 2), 0)
+    if room > 0:
+        he2 = min(he, room - hs2)
+    pad = max(0, MAX_TOTAL_FRAMES - (n_trans + hs2 + he2))
+    total = n_trans + hs2 + he2 + pad
+    return {"n_trans": n_trans, "hs": hs2, "he": he2, "pad": pad,
+            "total": total, "capped": True, "actual_s": total / fps_v}
 
 
 def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:
@@ -372,12 +393,16 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
-    hs, he = _fit_hold_budget(n, *_dissolve_hold_split(preset, fps))
+    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) if preset is not None else 8))
+    target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
+    plan = plan_dissolve(n, 1, fps_v,
+                         float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
+                         target_s if target_s > 0 else None)
     a = _canvas_a(img, preset, side)
     out = dissolve_frames(a, method=method, threshold=threshold,
-                          pixel_size=pixel, frames=n, seed=seed_v, wind=wind_v,
+                          pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
                           mode=mode_v, loops=loops_v, amount=amount_v,
-                          max_side=side, hold_start=hs, hold_end=he)
+                          max_side=side, hold_start=plan["hs"], hold_end=plan["he"] + plan["pad"])
     if pp:
         out = _pingpong(out)
     return out
@@ -434,16 +459,19 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                    pingpong=pp, seed=seed_v, wind=wind_v,
                                    mode=mode_v, amount=amount_v, fps=fps)
-    # 2 transition frames per segment minimum: every form appears assembled.
-    n_trans = min(GIF_MAX_FRAMES, max(2 * len(others), n))
-    hs, he = _fit_hold_budget(n_trans, *_dissolve_hold_split(preset, fps))
+    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) if preset is not None else 8))
+    target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
+    plan = plan_dissolve(n, len(others), fps_v,
+                         float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
+                         target_s if target_s > 0 else None)
+    n_trans, hs, he, pad = plan["n_trans"], plan["hs"], plan["he"], plan["pad"]
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
     out = morph_chain_frames([a] + others, method=method,
                              threshold=threshold, pixel_size=pixel, frames=n_trans,
                              seed=seed_v, wind=wind_v, mode=mode_v,
                              amount=amount_v, max_side=side,
-                             hold_start=hs, hold_end=he, crops=crops)
+                             hold_start=hs, hold_end=he + pad, crops=crops)
     if pp:
         out = _pingpong(out)
     return out

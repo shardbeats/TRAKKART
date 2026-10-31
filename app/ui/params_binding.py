@@ -72,6 +72,25 @@ def _anim_combo(attr: str, lo: int, hi: int, default: int):
     return get, set
 
 
+def _dspin(attr: str):
+    """QDoubleSpinBox <-> float (no scaling; keeps decimals)."""
+    def get(win):
+        try:
+            return float(getattr(win, attr).value())
+        except (TypeError, ValueError):
+            return 0.0
+
+    def set(win, v):
+        w = getattr(win, attr)
+        try:
+            w.blockSignals(True)
+            w.setValue(float(v))
+        finally:
+            w.blockSignals(False)
+
+    return get, set
+
+
 def _brand_get(win):
     return win.brand_color
 

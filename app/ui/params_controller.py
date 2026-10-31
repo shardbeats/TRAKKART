@@ -22,6 +22,7 @@ from app.ui.params_binding import (  # noqa: F401 (set_anim_combo re-exported fo
     _spin,
     _combo,
     _anim_combo,
+    _dspin,
     _brand_get,
     _brand_set,
     _duo_mid_get,
@@ -310,6 +311,7 @@ BINDINGS: tuple = (
     ("dissolve_mode",) + _combo("cmb_dissolve_mode"),
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
+    ("dissolve_length",) + _dspin("spn_duration"),
     ("paste_mode",) + _combo("cmb_paste"),
     ("paste_opacity",) + _slider("sld_paste_op"),
     ("paste_blend",) + _combo("cmb_paste_blend"),
@@ -381,7 +383,7 @@ def sync_anim_ui(win) -> None:
 
             floor = segs * max(8, int(_math.ceil(0.8 * fps)))
             if chain and n < floor:
-                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f / {n / segs / fps:.1f}s per form — raise Frames for slower morphs)")
+                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f / {n / segs / fps:.1f}s per form — raise Length for slower morphs)")
         except Exception:  # noqa: BLE001
             pass
 

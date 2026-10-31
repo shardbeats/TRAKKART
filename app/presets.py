@@ -209,6 +209,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
+    _Field("dissolve_length", "float", ("range", 0.5, 32.0)),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -322,6 +323,7 @@ class Preset:
     dissolve_mode: str = "wind"  # wind | random
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
+    dissolve_length: float = 5.0  # sacred total clip length, seconds
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen
@@ -445,6 +447,16 @@ class Preset:
             "sharpen": int(getattr(self, "post_sharpen", 0) or 0),
         }
         m["gif"]["motion_amount"] = float(getattr(self, "motion_amount", 1.0))
+        m["dissolve"] = {
+            "amount": float(getattr(self, "dissolve_amount", 1.0)),
+            "seed": int(getattr(self, "dissolve_seed", 53596) or 0),
+            "mode": str(getattr(self, "dissolve_mode", "wind") or "wind"),
+            "speed": float(getattr(self, "dissolve_speed", 1.0) or 1.0),
+            "wind_x": float(getattr(self, "dissolve_wind_x", 120.0) or 0.0),
+            "wind_y": float(getattr(self, "dissolve_wind_y", -40.0) or 0.0),
+            "hold": float(getattr(self, "dissolve_hold", 1.0) or 0.0),
+            "length": float(getattr(self, "dissolve_length", 5.0) or 5.0),
+        }
         m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
         m["motif"] = copy.deepcopy(getattr(self, "motif", None))
         return m
@@ -571,6 +583,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
     grade = _get(params, "grade", {}) or {}
     texture = _get(params, "texture", {}) or {}
     fx = _get(params, "fx", {}) or {}
+    dissolve = _get(params, "dissolve", {}) or {}
     duotone = _get(grade, "duotone", ["", "", 50.0]) or ["", "", 50.0]
 
     raw_palette = str(_get(params, "palette", "SLIME") or "SLIME")
@@ -626,6 +639,14 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "gif_size": _get(gif, "size", 1200),
         "gif_pingpong": bool(_get(gif, "pingpong", False)),
         "motion_amount": _get(gif, "motion_amount", 1.0),
+        "dissolve_amount": _get(dissolve, "amount", 1.0),
+        "dissolve_seed": _get(dissolve, "seed", 53596),
+        "dissolve_mode": str(_get(dissolve, "mode", "wind") or "wind"),
+        "dissolve_speed": _get(dissolve, "speed", 1.0),
+        "dissolve_wind_x": _get(dissolve, "wind_x", 120.0),
+        "dissolve_wind_y": _get(dissolve, "wind_y", -40.0),
+        "dissolve_hold": _get(dissolve, "hold", 1.0),
+        "dissolve_length": _get(dissolve, "length", 5.0),
         "export_size": _get(export, "size", 3000),
         "export_format": str(_get(export, "format", "png") or "png"),
         "export_quality": _get(export, "quality", 90),

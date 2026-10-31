@@ -129,7 +129,8 @@ def test_gif_frames_dispatches_dissolve_and_morph():
     from app.gif import gif_frames
     from app.presets import Preset
 
-    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0)
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0,
+               dissolve_length=0.0)
     d = gif_frames(_img(), p, frames=3, mode="dissolve")
     assert len(d) == 3
     assert len({tuple(x.get_flattened_data()) for x in d}) > 1
@@ -165,14 +166,33 @@ def test_holds_freeze_assembled_ends():
     m = morph_chain_frames([a, b], frames=4, max_side=64, hold_start=2, hold_end=2)
     assert len(m) == 8
     p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
-               dissolve_hold=1.0, gif_fps=8)
+               dissolve_hold=1.0, gif_fps=8, dissolve_length=0.0)
     g = gif_dissolve_frames(_img(), p, frames=4)
-    assert len(g) == 4 + 16  # 1s + 1s holds at 8fps
+    assert len(g) == 4 + 16  # 1s + 1s holds at 8fps, no pad without target
     assert tuple(g[0].get_flattened_data()) == tuple(g[-1].get_flattened_data())
     h = gif_morph_frames(_img(), b, p, frames=4)
     assert len(h) == 4 + 16  # single pair: floor is segs*2 = 2
-    q = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0)
+    q = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0,
+               dissolve_length=0.0)
     assert len(gif_dissolve_frames(_img(), q, frames=4)) == 4
+
+
+def test_pad_honors_sacred_total():
+    from app.gif import gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset
+
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               dissolve_hold=1.0, gif_fps=8, dissolve_length=5.0)
+    g = gif_dissolve_frames(_img(), p, frames=4)
+    assert len(g) == 40  # 5s @ 8fps padded with assembled end frames
+    assert tuple(g[0].get_flattened_data()) == tuple(g[-1].get_flattened_data())
+    b = Image.new("RGB", (64, 64), (10, 200, 90))
+    m = gif_morph_frames(_img(), b, p, frames=4)
+    assert len(m) == 40
+    # Pad capped at 256 even for absurd targets.
+    big = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+                 dissolve_hold=0.0, gif_fps=60, dissolve_length=32.0)
+    assert len(gif_dissolve_frames(_img(), big, frames=4)) == 256
 
 
 def test_morph_chain_odd_canvas_uneven_pixel():
@@ -188,7 +208,7 @@ def test_morph_chain_odd_canvas_uneven_pixel():
                                 frames=6, max_side=720)
     assert len(frames) == 6
     p = Preset(name="t", method="bayer4", palette="BW", pixel_size=4, gif_size=720,
-               dissolve_hold=0.0)
+               dissolve_hold=0.0, dissolve_length=0.0)
     assert len(gif_frames(a, p, frames=4, mode="morph", max_side=720, img_b=[b])) == 4
 
 
