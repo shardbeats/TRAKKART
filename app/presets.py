@@ -42,6 +42,12 @@ BUNDLED: dict[str, dict] = {
     "VAPOR_BAYER8": {"method": "bayer8", "palette": "VAPOR", "pixel_size": 3, "threshold": 128},
     "EMBER_BW": {"method": "floyd", "palette": "BW", "pixel_size": 2, "threshold": 128},
     "CRT_HARD": {"method": "bayer4", "palette": "BW", "pixel_size": 4, "threshold": 160},
+    "ASH_WIND": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                 "dissolve_mode": "wind", "dissolve_amount": 1.0, "dissolve_seed": 53596,
+                 "dissolve_wind_x": 140.0, "dissolve_wind_y": -50.0, "dissolve_speed": 1.0},
+    "DUST_RANDOM": {"method": "floyd", "palette": "BW", "pixel_size": 2, "threshold": 128,
+                    "dissolve_mode": "random", "dissolve_amount": 1.0, "dissolve_seed": 12345,
+                    "dissolve_speed": 1.0},
 }
 
 
@@ -196,6 +202,12 @@ FIELDS: tuple[_Field, ...] = (
     _Field("drift_amount", "float", ("range", 0.0, 100.0)),
     _Field("drift_speed", "float", ("range", 0.25, 4.0)),
     _Field("drift_position", "float", ("range", 0.0, 100.0)),
+    _Field("dissolve_amount", "float", ("range", 0.0, 2.0)),
+    _Field("dissolve_seed", "int", ("range", 0, 999999)),
+    _Field("dissolve_wind_x", "float", ("range", -500.0, 500.0)),
+    _Field("dissolve_wind_y", "float", ("range", -500.0, 500.0)),
+    _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
+    _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -301,6 +313,13 @@ class Preset:
     drift_amount: float = 0.0  # 0-100, 0 = off
     drift_speed: float = 1.0  # traversals per clip 0.25-4.0
     drift_position: float = 50.0  # still freeze 0-100 (50 = mid-traverse)
+    # -- v1.6 particle disperse (solo dispersion) --
+    dissolve_amount: float = 1.0  # 0-2, 0 = off (identity)
+    dissolve_seed: int = 53596  # deterministic pattern
+    dissolve_wind_x: float = 120.0  # px at full disperse
+    dissolve_wind_y: float = -40.0  # px at full disperse
+    dissolve_mode: str = "wind"  # wind | random
+    dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen

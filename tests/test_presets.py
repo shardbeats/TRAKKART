@@ -67,6 +67,24 @@ def test_bundled_all_valid():
         Preset(name=name, **params).validate()
 
 
+def test_bundled_dissolve_presets():
+    from app.presets import load_preset
+
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as d:
+        from app.presets import ensure_bundled
+
+        ensure_bundled(Path(d))
+        ash = load_preset("ASH_WIND", Path(d))
+        dust = load_preset("DUST_RANDOM", Path(d))
+        assert (ash.dissolve_mode, ash.dissolve_amount) == ("wind", 1.0)
+        assert dust.dissolve_mode == "random"
+        ash.validate()
+        dust.validate()
+
+
 def test_roundtrip_extended_fields(pdir: Path):
     p = Preset(name="Full", method="bayer8", palette="EMBER", pixel_size=3, threshold=150,
                brightness=1.2, contrast=0.9, saturation=1.3,

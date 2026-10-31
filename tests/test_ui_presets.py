@@ -30,9 +30,11 @@ def test_save_preset(window, isolated_presets, monkeypatch):
 def test_save_preset_cancel(window, isolated_presets, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
 
+    from app.presets import BUNDLED
+
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("", False))
     window.save_current_preset()  # cancel: creates nothing
-    assert len(list(isolated_presets.glob("*.json"))) == 4
+    assert len(list(isolated_presets.glob("*.json"))) == len(BUNDLED)
 
 
 def test_adjust_roundtrip_ui(window, isolated_presets, monkeypatch):

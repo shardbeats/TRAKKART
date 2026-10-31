@@ -56,3 +56,13 @@ def test_gif_dissolve_frames_loop_and_export(tmp_path):
     assert out.exists()
     f_pp = gif_dissolve_frames(_img(), frames=4, max_side=64, pingpong=True)
     assert len(f_pp) == 6
+
+
+def test_gif_dissolve_uses_dissolve_preset():
+    from app.gif import gif_dissolve_frames
+    from app.presets import Preset
+
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64)
+    wind = gif_dissolve_frames(_img(), Preset(**base, dissolve_mode="wind"), frames=4)
+    rnd = gif_dissolve_frames(_img(), Preset(**base, dissolve_mode="random"), frames=4)
+    assert [tuple(f.get_flattened_data()) for f in wind] != [tuple(f.get_flattened_data()) for f in rnd]
