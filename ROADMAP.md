@@ -225,6 +225,11 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
   threading + `dissolve_hold` preset + Hold slider + duration con holds + hint <8f.
 - [x] Fase 3 (done): suite + docs + cierre. Suite 457 -> 460.
 
+### v1.10 — Morph aspect fit + recorte por imagen (done)
+Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
+(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
+Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
@@ -263,7 +268,107 @@ Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 - Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (opt-in `requirements-video.txt` only; MP4 single-export only, batch stays GIF, no clip import by design).
 - Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).
 
-### v1.10 — Morph aspect fit + recorte por imagen (done)
-Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
-(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
-Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
+## 7. MORPH engine — dither-boy particle system (reference)
+
+Single source of truth for how dissolve/morph works, what it is good for
+beyond the 2 bundled presets, and where it goes next. Researched against
+ImageMagick -morph/-set delay, ComfyUI morph nodes, TesseraUI pour,
+typexperiments (Morph/Explode/Pour/Wave), dither_app (Pace/Scatter + gravity
+profiles), GodUI/halftone-fx (color dots), Heckel halftone shading.
+
+### 7.1 Pipeline (5 stages, all offline, Pillow + numpy only)
+
+1. Fit: A honors the preset canvas (ratio/crop/focus/zoom via to_canvas);
+   B..F cover-fit to A with per-image fx/fy/zoom (same crop_cover as IMAGE,
+   no stretch, no bars). Chain cap: A + 5 (MAX_MORPH_IMAGES = 6).
+2. Dither: one BW pass per image (Bayer/Floyd family, app/dither.py,
+   palette=None). Active set = black dots (MAX_POINTS cap with stride).
+3. Move: disperse_positions = origin + (wind + seeded turbulence) * env,
+   env = sin(pi*frac), frac = (progress*loops) % 1. Loop-perfect by
+   construction (frac 0 == 1); deterministic (default_rng(seed + frame)).
+4. Rasterize: 1px dots on white canvas, clipped, vectorized (no per-dot loop).
+5. Assemble: GIF via shared 128-color palette (no flicker), MP4 via
+   imageio-ffmpeg. Holds = duplicated assembled ends (uniform fps, no
+   per-frame duration quirks; preview scrub walks them like any frame).
+
+Files: app/disintegrate.py (engine), app/gif.py (gif_dissolve_frames /
+gif_morph_frames / gif_frames dispatch), presets dissolve_* (+ ASH_WIND,
+DUST_RANDOM), MORPH page (panels/morph.py, win.morph_list + morph_src alias).
+
+Invariants (do not break): strict 0=off (amount 0 = still / hard cut),
+64-frame cap (transitions win over holds), min 2 frames per segment (every
+form appears at least assembled), joints meet assembled (q=j/(nk-1)).
+
+### 7.2 Parameters
+
+- dissolve_amount 0-2 (0 = off): disperse strength. Still reads first.
+- dissolve_seed 0-999999 (53596): same seed = same particles.
+- dissolve_mode wind | random: directional + turbulence vs all directions.
+- dissolve_speed 0.25-4.0 (1): traversals per clip.
+- dissolve_wind_x/y -500..500 px (120, -40): displacement at full disperse.
+- dissolve_hold 0-3s (1.0): still pause per end (assembled duplicates).
+- Chain: playlist order = play order; per-image Crop X/Y 0-100 + Zoom 1-4x
+  (session-only, covers B..F; A comes from the canvas).
+
+### 7.3 Current presets (2)
+
+- ASH_WIND (bayer8/BW/3px, wind 140,-50): lateral ash drift, general covers.
+- DUST_RANDOM (floyd/BW/2px, random): grain-storm rebuild, dark covers.
+
+### 7.4 Proposed preset pack (works today, no engine change)
+
+- EMBER_RISE: wind (0,-160) upward drift, floyd/BW, for fiery covers.
+- GRAVITY_DROP: wind (0,+160) falling ash, bayer8/BW.
+- POUR_FAKE: wind down + low amount (0.5) + tight seed — approximates a pour
+  until true destination matching lands (see 7.6).
+- TEXT_CARD: any mode with a pasted title card as B (manual path of the
+  kinetic-typography use below; in-app text render is future work).
+- VJ_LOOP: dissolve, speed 2.0, holds 0.5, pingpong on — seamless club loop.
+
+### 7.5 Uses beyond the 2 presets (researched)
+
+- Logo stings / cover intros: dithered logo assembles from dust
+  (Componentry Dithered Logo pattern; Framer Dither Reveal waves).
+- Kinetic typography: beat titles / track intros that explode and reassemble
+  (typexperiments Morph/Explode/Pour; Word Morph physics; Letter Cascade).
+- VJ loops / hero backgrounds: living halftone + ripple backdrops
+  (halftone-fx live component; Dither Reveal cursor flashlight).
+- Beat-synced drops: amount/speed ridden by a beat grid (dither_app Pulse
+  double-beat; our motion_amount already scales intensity) — natural fit
+  for a beatmaker audience.
+- Social stickers / GIF reactions: 2-6f micro-morphs (cheap at 64px).
+- E-ink / RISO print aesthetic transitions; split-flap arrivals-board
+  (per-dot flip = stagger variant, see 7.6).
+- Interactive preview: cursor repel scatter/reassemble in the canvas
+  (text-practice.js, Particle Typography, Particle Image cursor field).
+
+### 7.6 Improvement roadmap (researched, not scheduled)
+
+Short term (engine-only, no UI migration):
+- Easing select: Cubic / Elastic / Bounce / Quad / Linear envelope instead
+  of fixed sin (typexperiments easing panel).
+- Per-particle stagger: delay by distance-from-center or seed rank, so the
+  cloud pours in waves instead of breathing all at once (typexperiments
+  stagger; ComfyUI transition_frames granularity).
+- Gravity + bounce modes: Drizzle / Cascade / Flutter / Collapse profiles
+  (dither_app) map directly onto wind + a floor bounce.
+
+Mid term (visible leap, needs UI + tests):
+- Destination matching (pour, not scatter): nearest-neighbor / angle-paired
+  assignment A->B so dots TRAVEL to their target instead of cloud-reform
+  (TesseraUI pour; typexperiments glyph mapping). Keep seeded-greedy for
+  determinism. Biggest single visual upgrade on this list.
+- Color particles: tint each dot with its source pixel/palette color
+  (GodUI color=source; halftone-fx multicolor). Huge for SLIME/VAPOR covers;
+  watch export size + readability gates.
+- Dot-size attenuation by envelope/luminance (Heckel halftone shading)
+  instead of fixed 1px dots.
+- Trails / motion-blur accumulation (Word Morph trails; Particle Image).
+
+Long term (new surfaces):
+- Interactive cursor repel in the preview canvas via Qt mouse events
+  (Componentry magnetic field; Particle Typography springs).
+- Beat-grid sync: amount/speed keyed to BPM markers.
+- Animated WebP export (smaller than GIF; Pillow supports per-frame
+  duration lists too) + PNG-sequence zip (dither_app ships both).
+- In-app text-to-image source so TEXT_CARD presets need no paste step.
