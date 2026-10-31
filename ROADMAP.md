@@ -244,7 +244,7 @@ más imágenes = más tiempo.
 - Auto-crecer Frames solo hacia arriba al pick/morph-mode: `max(n, tramos*max(8, ~0.8s))`,
   tope 64, avisado en status; al encoger la cadena no se toca nada.
 - Hint con f/s por forma cuando un tramo queda bajo 8f o 0.8s.
-- Suite 464 -> 465.
+- Suite 464 -> 465, holds en cada junta, Length hasta 60s.
 
 ### v1.12 — Techo de 64 frames: ¿subirlo? (investigación, sin implementar)
 
@@ -287,7 +287,7 @@ frames/fps son calidad.
   hasta el total, tope 256) + fps threading en gif/export/batch/video.
 - [x] Fase 2 (done): dissolve_length preset + meta/import roundtrip, spin
   Length ligado, fps re-render solo en dissolve/morph, label honesto con
-  hold y hint por tramo, cap 256 con aviso. Suite 464 -> 465.
+  hold y hint por tramo, cap 256 con aviso. Suite 464 -> 465. Follow-up: holds en cada junta interior (cada forma se lee), Length 0.5-60s, cap total 256.
 
 ## 4. Decisions made (do not reopen without reason)
 

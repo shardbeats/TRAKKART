@@ -171,6 +171,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  mode: str = "wind", amount: float = 1.0,
                  max_side: int = 480,
                  hold_start: int = 0, hold_end: int = 0,
+                 hold_joint: int = 0,
                  crops: list[dict] | None = None) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
@@ -184,7 +185,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  pixel_size=pixel_size, frames=frames, seed=seed,
                                  wind=wind, mode=mode, amount=amount, max_side=max_side,
                                  hold_start=hold_start, hold_end=hold_end,
-                                 crops=crops)
+                                 hold_joint=hold_joint, crops=crops)
     return chained
 
 
@@ -199,15 +200,17 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        mode: str = "wind", amount: float = 1.0,
                        max_side: int = 480,
                        hold_start: int = 0, hold_end: int = 0,
+                       hold_joint: int = 0,
                        crops: list[dict] | None = None) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
-    All images fitted to the same HxW (rest resized to A), dithered with
+    All images fitted to the same HxW (rest cover-fit to A), dithered with
     the same engine. Frames split per segment; each segment marches q over
     [0, 1] inclusive (assembled -> cloud -> assembled) so joints meet
     assembled with no pop. hold_start / hold_end freeze the first / last
-    form so it reads before the burst. amount 0 gives hard cuts
-    (strict 0=off). Deterministic per segment seed (seed + k).
+    form; hold_joint freezes every interior form so each one reads.
+    amount 0 gives hard cuts (strict 0=off). Deterministic per segment
+    seed (seed + k).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -241,11 +244,11 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
         coord_list.append(coords if (hh, ww) == (h, w) else _refit_coords(coords, hh, ww, h, w))
     segs = len(fitted) - 1
     base, rem = divmod(n, segs)
-    dithered_first = dither_bw(fitted[0], method=method, threshold=threshold,
-                               pixel_size=pixel_size).convert("RGB")
-    dithered_last = dither_bw(fitted[-1], method=method, threshold=threshold,
+    dithered_all = [dither_bw(im, method=method, threshold=threshold,
                               pixel_size=pixel_size).convert("RGB")
-    out: list[Image.Image] = [dithered_first.copy() for _ in range(max(0, int(hold_start)))]
+                    for im in fitted]
+    out: list[Image.Image] = [dithered_all[0].copy() for _ in range(max(0, int(hold_start)))]
+    hj = max(0, int(hold_joint))
     for k in range(segs):
         nk = base + (1 if k < rem else 0)
         if nk <= 0:
@@ -260,7 +263,9 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
                                          wind=wind, mode=mode, loops=1.0, amount=amount)
             out.append(render_points(pos, h, w))
-    out.extend(dithered_last.copy() for _ in range(max(0, int(hold_end))))
+        if k < segs - 1:
+            out.extend(dithered_all[k + 1].copy() for _ in range(hj))
+    out.extend(dithered_all[-1].copy() for _ in range(max(0, int(hold_end))))
     return out
 
 

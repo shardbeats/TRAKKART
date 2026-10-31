@@ -168,13 +168,27 @@ def test_holds_freeze_assembled_ends():
     p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
                dissolve_hold=1.0, gif_fps=8, dissolve_length=0.0)
     g = gif_dissolve_frames(_img(), p, frames=4)
-    assert len(g) == 4 + 16  # 1s + 1s holds at 8fps, no pad without target
+    assert len(g) == 4 + 16  # 1s + 1s holds at 8fps, no pad without Length
     assert tuple(g[0].get_flattened_data()) == tuple(g[-1].get_flattened_data())
     h = gif_morph_frames(_img(), b, p, frames=4)
     assert len(h) == 4 + 16  # single pair: floor is segs*2 = 2
     q = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0,
                dissolve_length=0.0)
     assert len(gif_dissolve_frames(_img(), q, frames=4)) == 4
+
+
+def test_hold_freezes_every_chain_form():
+    from app.disintegrate import dither_bw, morph_chain_frames
+
+    a, b, c = _img(48), Image.new("RGB", (48, 48), (10, 200, 90)), Image.new("RGB", (48, 48), (200, 200, 10))
+    db = dither_bw(b).convert("RGB")
+    flat_b = tuple(db.get_flattened_data())
+    f = morph_chain_frames([a, b, c], frames=8, max_side=64,
+                           hold_start=1, hold_end=1, hold_joint=2)
+    # 8 trans + 1 + 2 + 1 holds = 12; B assembled appears 4x in a row.
+    assert len(f) == 12
+    runs = sum(1 for x in f if tuple(x.get_flattened_data()) == flat_b)
+    assert runs == 1 + 2 + 1
 
 
 def test_pad_honors_sacred_total():

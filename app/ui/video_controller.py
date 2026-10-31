@@ -97,7 +97,7 @@ def fps_changed(win) -> None:
 def duration_seconds(win) -> float:
     """Sacred total clip length (Length spin, seconds)."""
     try:
-        return max(0.5, min(32.0, float(win.spn_duration.value())))
+        return max(0.5, min(60.0, float(win.spn_duration.value())))
     except Exception:  # noqa: BLE001
         return 5.0
 
@@ -118,7 +118,7 @@ def planned_total(win) -> dict:
         n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
         fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
         hold = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
-        target = max(0.5, min(32.0, float(win.spn_duration.value())))
+        target = max(0.5, min(60.0, float(win.spn_duration.value())))
     except Exception:  # noqa: BLE001
         return {"n_trans": 6, "hs": 0, "he": 0, "pad": 0, "total": 6,
                 "capped": False, "actual_s": 1.0, "target_s": 5.0,

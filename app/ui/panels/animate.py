@@ -86,7 +86,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     from PySide6.QtWidgets import QDoubleSpinBox as _DSpin
 
     win.spn_duration = _DSpin()
-    win.spn_duration.setRange(0.5, 32.0)
+    win.spn_duration.setRange(0.5, 60.0)
     win.spn_duration.setSingleStep(0.5)
     win.spn_duration.setDecimals(1)
     win.spn_duration.setValue(5.0)

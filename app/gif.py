@@ -248,43 +248,43 @@ MAX_TOTAL_FRAMES = 256
 
 def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
                   target_s: float | None) -> dict:
-    """Frame budget honoring a sacred total duration (v1.13).
+    """Frame budget honoring a sacred total duration.
 
     n_trans covers transitions (min 2 per segment so every form appears
-    assembled); holds duplicate assembled ends; pad fills up to the target
-    seconds so exports never come out short. Transitions always win over
-    holds/pad; the total never exceeds MAX_TOTAL_FRAMES.
-    Returns dict(n_trans, hs, he, pad, total, capped, actual_s).
+    assembled). Holds duplicate assembled forms: start + end + one per
+    interior joint (v1.14: every form reads, not just the last one).
+    Pad fills up to the target seconds so exports never come out short.
+    Transitions always win over holds/pad; the total never exceeds
+    MAX_TOTAL_FRAMES. Returns dict(n_trans, hs, he, hj, pad, total,
+    capped, actual_s).
     """
     fps_v = max(1, int(fps or 8))
     segs_v = max(1, int(segs or 1))
+    joints = max(0, segs_v - 1)
     n_trans = min(GIF_MAX_FRAMES, max(2 * segs_v, max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(n_req)))))
-    hold_n = int(round(max(0.0, min(3.0, float(hold_s or 0.0))) * fps_v))
-    # Fit holds in the 64-frame transition budget (transitions always win).
-    room64 = GIF_MAX_FRAMES - n_trans
-    if hold_n * 2 <= room64:
-        hs, he = hold_n, hold_n
-    elif room64 <= 0:
-        hs, he = 0, 0
-    else:
-        hs, he = room64 // 2, room64 - room64 // 2
+    per = int(round(max(0.0, min(3.0, float(hold_s or 0.0))) * fps_v))
+    # Fit holds in the 64-frame transition budget (transitions always win,
+    # joints first so every interior form still reads a little).
+    room = max(0, GIF_MAX_FRAMES - n_trans)
+    hj = min(per, room // max(1, 2 + joints)) if joints else 0
+    room -= hj * joints
+    hs = min(per, room // 2) if room > 0 else 0
+    he = min(per, room - hs) if room > 0 else 0
+    base = n_trans + hs + he + hj * joints
     if target_s is None:
-        want_total = n_trans + hs + he
+        want_total = base
     else:
-        want_total = max(n_trans + hs + he, int(round(max(0.0, float(target_s)) * fps_v)))
+        want_total = max(base, int(round(max(0.0, float(target_s)) * fps_v)))
     if want_total <= MAX_TOTAL_FRAMES:
-        pad = want_total - (n_trans + hs + he)
-        return {"n_trans": n_trans, "hs": hs, "he": he, "pad": pad,
-                "total": n_trans + hs + he + pad,
-                "capped": False, "actual_s": (n_trans + hs + he + pad) / fps_v}
-    room = MAX_TOTAL_FRAMES - n_trans
-    hs2, he2 = (0, 0) if room <= 0 else (min(hs, room // 2), 0)
-    if room > 0:
-        he2 = min(he, room - hs2)
-    pad = max(0, MAX_TOTAL_FRAMES - (n_trans + hs2 + he2))
-    total = n_trans + hs2 + he2 + pad
-    return {"n_trans": n_trans, "hs": hs2, "he": he2, "pad": pad,
-            "total": total, "capped": True, "actual_s": total / fps_v}
+        pad = want_total - base
+        return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "pad": pad,
+                "total": base + pad, "joints": joints,
+                "capped": False, "actual_s": (base + pad) / fps_v}
+    pad = max(0, MAX_TOTAL_FRAMES - base)
+    total = base + pad
+    return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "pad": pad,
+            "total": total, "joints": joints,
+            "capped": True, "actual_s": total / fps_v}
 
 
 def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:
@@ -464,14 +464,15 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     plan = plan_dissolve(n, len(others), fps_v,
                          float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
                          target_s if target_s > 0 else None)
-    n_trans, hs, he, pad = plan["n_trans"], plan["hs"], plan["he"], plan["pad"]
+    n_trans, hs, he, hj, pad = plan["n_trans"], plan["hs"], plan["he"], plan["hj"], plan["pad"]
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
     out = morph_chain_frames([a] + others, method=method,
                              threshold=threshold, pixel_size=pixel, frames=n_trans,
                              seed=seed_v, wind=wind_v, mode=mode_v,
                              amount=amount_v, max_side=side,
-                             hold_start=hs, hold_end=he + pad, crops=crops)
+                             hold_start=hs, hold_end=he + pad, hold_joint=hj,
+                             crops=crops)
     if pp:
         out = _pingpong(out)
     return out

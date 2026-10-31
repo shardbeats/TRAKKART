@@ -209,7 +209,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
-    _Field("dissolve_length", "float", ("range", 0.5, 32.0)),
+    _Field("dissolve_length", "float", ("range", 0.5, 60.0)),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
