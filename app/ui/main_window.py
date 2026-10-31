@@ -950,6 +950,11 @@ class MainWindow(QMainWindow):
 
         _par.share_import(self)
 
+    def import_metadata(self, path=None) -> bool:
+        from app.ui import params_controller as _par
+
+        return bool(_par.import_metadata(self, path))
+
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""
         from app.ui import export_flow as _ef

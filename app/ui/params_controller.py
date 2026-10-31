@@ -553,17 +553,68 @@ def share_import(win) -> None:
 
     from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-    from app.presets import Preset, save_preset
+    from app.presets import Preset, preset_from_metadata, save_preset
 
     path, _ = QFileDialog.getOpenFileName(win, "Import preset", "", "JSON (*.json)")
     if not path:
         return
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
-        p = Preset.from_dict(raw)
+        if isinstance(raw, dict) and isinstance(raw.get("params"), dict):
+            p = preset_from_metadata(raw, Path(path).stem.replace("_metadata", ""))
+        else:
+            p = Preset.from_dict(raw)
         save_preset(p)
         win.refresh_presets()
         win._apply_preset(p.name)
         win._status(f"Preset imported: {p.name}")
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Invalid preset:\n{e}")
+
+
+def import_metadata(win, path=None) -> bool:
+    """Load an export _metadata.json: apply values + sibling image if present.
+
+    Returns True when a preset was applied. Used by File > Import metadata
+    and by drag&drop of *_metadata.json.
+    """
+    import json
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.presets import preset_from_metadata, save_preset
+
+    if path is None:
+        picked, _ = QFileDialog.getOpenFileName(
+            win, "Import metadata", "", "Metadata JSON (*_metadata.json *.json)")
+        if not picked:
+            return False
+        path = picked
+    try:
+        meta_path = Path(str(path))
+        raw = json.loads(meta_path.read_text(encoding="utf-8"))
+        base = meta_path.stem
+        if base.endswith("_metadata"):
+            base = base[: -len("_metadata")]
+        p = preset_from_metadata(raw, base)
+        save_preset(p)
+        win.refresh_presets()
+        win._apply_preset(p.name)
+        # Sibling still: <base>.png/.jpg/.webp next to the metadata.
+        loaded_image = False
+        try:
+            for ext in (".png", ".jpg", ".jpeg", ".webp"):
+                cand = meta_path.parent / f"{base}{ext}"
+                if cand.is_file():
+                    win._load_path(cand)
+                    loaded_image = True
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+        win._status(f"Metadata imported: {p.name}"
+                    + ("" if loaded_image else " (values only, image not found)"))
+        return True
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Invalid metadata:\n{e}")
+        return False

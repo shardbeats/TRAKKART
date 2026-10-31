@@ -517,3 +517,123 @@ def delete_preset(name: str, presets_dir: Path | None = None) -> bool:
             path.unlink()
             return True
     return False
+
+
+def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
+    """Build a Preset from an export _metadata.json dict (nested params).
+
+    Metadata is an export record, not a preset: params are nested
+    (params.glitch.mosh, params.gif.frames...) and palette may be
+    "custom" with a custom_palette list. Missing keys fall back to
+    Preset defaults via from_dict (old exports predate drift fields).
+    """
+    from app.palettes import palette_names
+
+    if not isinstance(data, dict):
+        raise ValueError("metadata must be a JSON object")
+    params = data.get("params")
+    if not isinstance(params, dict):
+        raise ValueError("not a TRAKKART metadata file (missing params)")
+
+    def _get(d: dict, key: str, default=None):
+        v = d.get(key, default) if isinstance(d, dict) else default
+        return default if v is None else v
+
+    adjust = _get(params, "adjust", {}) or {}
+    canvas = _get(params, "canvas", {}) or {}
+    focus = _get(params, "focus", [50.0, 50.0]) or [50.0, 50.0]
+    pre = _get(params, "pre", {}) or {}
+    post = _get(params, "post", {}) or {}
+    glitch = _get(params, "glitch", {}) or {}
+    gif = _get(params, "gif", {}) or {}
+    export = _get(params, "export", {}) or _get(data, "export", {}) or {}
+    grade = _get(params, "grade", {}) or {}
+    texture = _get(params, "texture", {}) or {}
+    fx = _get(params, "fx", {}) or {}
+    duotone = _get(grade, "duotone", ["", "", 50.0]) or ["", "", 50.0]
+
+    raw_palette = str(_get(params, "palette", "SLIME") or "SLIME")
+    names = set(palette_names())
+    palette = raw_palette if raw_palette in names else "SLIME"
+    try:
+        focus_x = float(focus[0])
+    except (TypeError, IndexError, ValueError):
+        focus_x = 50.0
+    try:
+        focus_y = float(focus[1])
+    except (TypeError, IndexError, ValueError):
+        focus_y = 50.0
+    try:
+        duo_dark = str(duotone[0] or "")
+        duo_light = str(duotone[1] or "")
+        duo_mid = float(duotone[2])
+    except (TypeError, IndexError, ValueError):
+        duo_dark, duo_light, duo_mid = "", "", 50.0
+
+    flat: dict = {
+        "name": str(name or data.get("base") or "imported_metadata"),
+        "method": str(_get(params, "method", "bayer4") or "bayer4"),
+        "palette": palette,
+        "pixel_size": _get(params, "pixel_size", 2),
+        "threshold": _get(params, "threshold", 128),
+        "brightness": _get(adjust, "brightness", 1.0),
+        "contrast": _get(adjust, "contrast", 1.0),
+        "saturation": _get(adjust, "saturation", 1.0),
+        "midtones": _get(adjust, "midtones", 1.0),
+        "highlights": _get(adjust, "highlights", 0.0),
+        "palette_depth": _get(params, "palette_depth", 0),
+        "ratio": str(_get(params, "ratio", "1:1") or "1:1"),
+        "canvas_w": _get(canvas, "w", 0),
+        "canvas_h": _get(canvas, "h", 0),
+        "crop_mode": str(_get(params, "crop_mode", "cover") or "cover"),
+        "focus_x": focus_x,
+        "focus_y": focus_y,
+        "crop_zoom": _get(params, "zoom", 1.0),
+        "pre_blur": _get(pre, "blur", 0.0),
+        "pre_sharpen": _get(pre, "sharpen", 0),
+        "pre_hue": _get(pre, "hue", 0.0),
+        "pre_denoise": _get(pre, "denoise", 0),
+        "pre_smooth": _get(pre, "smooth", 0.0),
+        "custom_palette": _get(params, "custom_palette", None),
+        "glitch_chroma": _get(glitch, "chroma", 0),
+        "glitch_slice_bands": _get(glitch, "slice_bands", 0),
+        "glitch_slice_max": _get(glitch, "slice_max", 24),
+        "gif_export": bool(_get(gif, "export", False)),
+        "gif_frames": _get(gif, "frames", 6),
+        "gif_mode": str(_get(gif, "mode", "both") or "both"),
+        "gif_fps": _get(gif, "fps", 8),
+        "gif_size": _get(gif, "size", 1200),
+        "gif_pingpong": bool(_get(gif, "pingpong", False)),
+        "motion_amount": _get(gif, "motion_amount", 1.0),
+        "export_size": _get(export, "size", 3000),
+        "export_format": str(_get(export, "format", "png") or "png"),
+        "export_quality": _get(export, "quality", 90),
+        "duotone_dark": duo_dark,
+        "duotone_light": duo_light,
+        "duotone_mid": duo_mid,
+        "posterize": _get(grade, "posterize", 0),
+        "split_tone": _get(grade, "split_tone", 0.0),
+        "fade": _get(grade, "fade", 0.0),
+        "glow_threshold": _get(grade, "glow_threshold", 0),
+        "halftone": _get(texture, "halftone", 0),
+        "halftone_shape": str(_get(texture, "halftone_shape", "dots") or "dots"),
+        "dust": _get(texture, "dust", 0.0),
+        "border": _get(texture, "border", 0),
+        "border_color": str(_get(texture, "border_color", "#000000") or "#000000"),
+        "letterbox": _get(texture, "letterbox", 0),
+        "pixelsort": _get(glitch, "pixelsort", 0),
+        "wave": _get(glitch, "wave", 0),
+        "mosh": _get(glitch, "mosh", 0.0),
+        "mosh_mode": str(_get(glitch, "mosh_mode", "blocks") or "blocks"),
+        "mosh_seed": _get(glitch, "mosh_seed", 0),
+        "mosh_size": _get(glitch, "mosh_size", 100),
+        "grille": _get(glitch, "grille", 0),
+        "jpeg": _get(glitch, "jpeg", _get(fx, "jpeg", 0.0)),
+        "post_blur": _get(fx, "post_blur", _get(post, "blur", 0.0)),
+        "post_sharpen": _get(fx, "post_sharpen", _get(post, "sharpen", 0)),
+        "fx_stack": _get(params, "fx_stack", None),
+        "motif": _get(params, "motif", None),
+        "vector_export": bool(_get(params, "vector_export", False)),
+        "vector_cell": _get(params, "vector_cell", 8),
+    }
+    return Preset.from_dict(flat)

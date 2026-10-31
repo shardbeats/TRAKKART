@@ -209,6 +209,28 @@ def test_safe_name_fallback(pdir: Path):
     assert path.name == "preset.json"
 
 
+def test_preset_from_metadata_maps_nested_params():
+    import pytest
+
+    from app.presets import preset_from_metadata
+
+    raw = {"params": {"method": "halftone", "palette": "custom",
+                      "custom_palette": [[10, 18, 12], [200, 30, 40]],
+                      "threshold": 254, "pixel_size": 1,
+                      "adjust": {"brightness": 0.98},
+                      "glitch": {"mosh": 36.0, "mosh_mode": "chroma", "mosh_seed": 62},
+                      "gif": {"export": False, "frames": 64, "mode": "mix",
+                              "fps": 12, "pingpong": True, "motion_amount": 0.84}}}
+    p = preset_from_metadata(raw, "pasted_demo")
+    assert (p.method, p.threshold, p.mosh, p.mosh_mode) == ("halftone", 254, 36.0, "chroma")
+    assert (p.gif_frames, p.gif_mode, p.gif_fps) == (64, "mix", 12)
+    assert p.gif_pingpong is True and p.motion_amount == 0.84
+    assert len(p.custom_palette or []) == 2
+    p.validate()
+    with pytest.raises(ValueError):
+        preset_from_metadata({"no": "params"})
+
+
 def test_safe_stem_single_home():
     from app.exporter import sanitize_base
     from app.names import safe_stem

@@ -48,6 +48,8 @@ def build_menus(win) -> None:
          "", "Share the current preset as a .json file (offline)")
     _act(win, m_file, "Import preset...", win.share_preset_import,
          "", "Load a preset from a .json file (offline)")
+    _act(win, m_file, "Import metadata...", win.import_metadata,
+         "", "Restore values + image from an export _metadata.json")
     m_file.addSeparator()
     _act(win, m_file, "Settings...", win.open_settings,
          "Ctrl+,", "Default output folder, export defaults and behavior")
