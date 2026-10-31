@@ -219,6 +219,7 @@ def start_async(win) -> None:
     win._video_worker = VideoWorker(
         win.src.copy(), win.current_params(), s["size"],
         s["frames"], s["mode"], s["pingpong"], win._video_token,
+        morph_src=getattr(win, "morph_src", None),
     )
     win._video_worker.finished_ok.connect(win._on_video_done)
     win._video_worker.finished_err.connect(win._on_video_error)

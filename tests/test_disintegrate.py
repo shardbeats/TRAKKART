@@ -92,3 +92,17 @@ def test_gif_morph_frames_and_pingpong(tmp_path):
     assert len({tuple(x.get_flattened_data()) for x in f}) > 1
     assert save_gif(f, tmp_path / "m.gif", fps=8).exists()
     assert len(gif_morph_frames(a, b, frames=4, max_side=64, pingpong=True)) == 6
+
+
+def test_gif_frames_dispatches_dissolve_and_morph():
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64)
+    d = gif_frames(_img(), p, frames=3, mode="dissolve")
+    assert len(d) == 3
+    assert len({tuple(x.get_flattened_data()) for x in d}) > 1
+    b = Image.new("RGB", (64, 64), (10, 200, 90))
+    m = gif_frames(_img(), p, frames=4, mode="morph", img_b=b)
+    assert len(m) == 4
+    assert tuple(m[0].get_flattened_data()) != tuple(m[-1].get_flattened_data())

@@ -38,6 +38,7 @@ def export_full(
     quality: int | None = None,
     mp4: bool = False,
     mp4_fps: int | None = None,
+    morph_src: Image.Image | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Render, generate SVG/GIF/MP4 on request, write bundle and log.
 
@@ -88,6 +89,7 @@ def export_full(
             max_side=int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480)),
             pingpong=bool(gif_pingpong if gif_pingpong is not None
                           else getattr(preset, "gif_pingpong", False)),
+            img_b=morph_src,
         )
 
     options = ExportOptions(

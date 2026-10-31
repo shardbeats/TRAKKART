@@ -227,6 +227,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
             size=int(size), format=str(format), quality=int(quality),
             mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
+            morph_src=getattr(win, "morph_src", None),
         )
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))

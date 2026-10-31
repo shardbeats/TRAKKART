@@ -74,6 +74,14 @@ Engine: `app/disintegrate.py` (BW dither -> points -> breathe `sin(pi*frac)`, lo
 GIF bridge: `app/gif.py::gif_dissolve_frames` (reuses `save_gif` + `video_io.write_mp4`).
 Presets: `ASH_WIND` (wind) + `DUST_RANDOM` (random) via `dissolve_*` fields.
 
+## Morph A->B + dissolve UI (v1.7)
+
+MOTION modes `dissolve` (one image loop) + `morph` (A->B through one cloud).
+Second image: `Morph image...` button in MOTION (session-only, `win.morph_src`).
+Without B, `morph` falls back to a dissolve of A (hint in `lbl_compat`).
+`gif_frames(..., img_b=...)` dispatches both; preview (`VideoWorker`), export
+(`export_full(morph_src=...)`) and batch share the path. Strict 0=off holds.
+
 ## Manual GUI checklist (before each release)
 
 1. `run.bat` opens without traceback (offscreen in CI: `QT_QPA_PLATFORM=offscreen`).

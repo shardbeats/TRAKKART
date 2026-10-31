@@ -19,7 +19,7 @@ from pathlib import Path
 
 from PIL import Image
 
-GIF_MODES = ("phase", "hue", "both", "glitch", "mix")
+GIF_MODES = ("phase", "hue", "both", "glitch", "mix", "dissolve", "morph")
 
 # Human-facing labels + one-line explanations (ids stay stable for presets).
 GIF_MODE_INFO: dict[str, tuple[str, str]] = {
@@ -34,6 +34,10 @@ GIF_MODE_INFO: dict[str, tuple[str, str]] = {
                "Chroma shift + slice offset + wave. Moves on every method."),
     "mix": ("Full mix",
             "March + hue + wobble + grain shimmer. Maximum motion."),
+    "dissolve": ("Disperse",
+                 "Dither dots burst into particles and reassemble. Loop-perfect."),
+    "morph": ("Morph A->B",
+              "Disperse A, reassemble B through one particle cloud. Needs a second image."),
 }
 
 
@@ -87,6 +91,7 @@ def gif_frames(
     mode: str = "both",
     max_side: int | None = None,
     pingpong: bool | None = None,
+    img_b: Image.Image | None = None,
 ) -> list[Image.Image]:
     """Build frames from the still image using pipeline render() + post anim.
 
@@ -95,12 +100,21 @@ def gif_frames(
     Unknown modes fall back to "both" (legacy compat).
     Animation comes from phase march + hue cycle + glitch wobble + drift;
     every frame is deterministic (seed + frame index, no random).
+    dissolve/morph dispatch to the particle engine (morph without img_b
+    falls back to a dissolve of img so strict 0=off still holds).
     """
     from app.ordered_maps import march_offset
     from app.render_params import normalize_slice_bands
 
     if mode not in GIF_MODES:
         mode = "both"
+    if mode == "dissolve":
+        return gif_dissolve_frames(img, preset, frames=frames,
+                                   max_side=max_side, pingpong=pingpong)
+    if mode == "morph":
+        second = img_b if img_b is not None else img
+        return gif_morph_frames(img, second, preset, frames=frames,
+                                max_side=max_side, pingpong=pingpong)
     n = _clamp_frames(frames)
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
     pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)

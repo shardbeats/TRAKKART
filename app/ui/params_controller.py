@@ -303,6 +303,12 @@ BINDINGS: tuple = (
     ("drift_amount",) + _slider("sld_drift"),
     ("drift_speed",) + _slider("sld_drift_speed", 100.0),
     ("drift_position",) + _slider("sld_drift_position"),
+    ("dissolve_amount",) + _slider("sld_dissolve_amount", 100.0),
+    ("dissolve_seed",) + _spin("spn_dissolve_seed"),
+    ("dissolve_wind_x",) + _slider("sld_dissolve_wind_x"),
+    ("dissolve_wind_y",) + _slider("sld_dissolve_wind_y"),
+    ("dissolve_mode",) + _combo("cmb_dissolve_mode"),
+    ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("paste_mode",) + _combo("cmb_paste"),
     ("paste_opacity",) + _slider("sld_paste_op"),
     ("paste_blend",) + _combo("cmb_paste_blend"),
@@ -352,6 +358,13 @@ def sync_anim_ui(win) -> None:
         win.btn_use_ordered.setVisible(bool(frozen))
     except Exception:  # noqa: BLE001
         pass
+    if mode == "morph":
+        try:
+            has_b = getattr(win, "morph_src", None) is not None
+            if not has_b:
+                win.lbl_compat.setText("Morph needs a B image (button below) — meanwhile showing dissolve.")
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def current_adjust(win):
@@ -618,3 +631,46 @@ def import_metadata(win, path=None) -> bool:
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Invalid metadata:\n{e}")
         return False
+
+
+def pick_morph_image(win) -> bool:
+    """Choose the B image for morph mode (stored on win, not in the preset)."""
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QFileDialog
+
+    from app.services.image_io import load_path as _load
+
+    path, _ = QFileDialog.getOpenFileName(
+        win, "Morph image (B)", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp)")
+    if not path:
+        return False
+    try:
+        img = _load(Path(path))
+    except Exception:  # noqa: BLE001
+        try:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(win, "TRAKKART", f"Could not open:\n{path}")
+        except Exception:  # noqa: BLE001
+            pass
+        return False
+    win.morph_src = img.copy()
+    win.morph_path = str(Path(path).name)
+    try:
+        win.lbl_morph.setText(f"B: {Path(path).name}")
+    except Exception:  # noqa: BLE001
+        pass
+    win._schedule_refresh()
+    return True
+
+
+def clear_morph_image(win) -> None:
+    """Forget the B image (morph falls back to dissolve)."""
+    win.morph_src = None
+    win.morph_path = ""
+    try:
+        win.lbl_morph.setText("B: (none — morph falls back to dissolve)")
+    except Exception:  # noqa: BLE001
+        pass
+    win._schedule_refresh()

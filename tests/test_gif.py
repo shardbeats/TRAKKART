@@ -48,7 +48,7 @@ def test_modes_differ_and_invalid_falls_back():
     )
     fallback = gif_frames(_img(), _preset(), frames=2, mode="nope")
     assert len(fallback) == 2
-    assert set(GIF_MODES) == {"phase", "hue", "both", "glitch", "mix"}
+    assert set(GIF_MODES) == {"phase", "hue", "both", "glitch", "mix", "dissolve", "morph"}
 
 
 def test_glitch_and_mix_animate_ed_static():

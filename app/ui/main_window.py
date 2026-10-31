@@ -98,6 +98,9 @@ class MainWindow(QMainWindow):
         self._video_playing: bool = True
         self._video_worker = None
         self._video_token: int = 0
+        # -- morph B image (second image for morph mode, session-only) --
+        self.morph_src = None
+        self.morph_path = ""
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -954,6 +957,16 @@ class MainWindow(QMainWindow):
         from app.ui import params_controller as _par
 
         return bool(_par.import_metadata(self, path))
+
+    def _on_morph_pick(self) -> bool:
+        from app.ui import params_controller as _par
+
+        return bool(_par.pick_morph_image(self))
+
+    def _on_morph_clear(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.clear_morph_image(self)
 
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""
