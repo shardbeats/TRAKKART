@@ -190,6 +190,14 @@ they added a model + locks + file pipeline far from the core job
 - [x] In-app tutorial (`Help → Quick tour`, 5 steps, first-run once + `data/samples/` pack generated offline) + batch menu entry verified (File → Batch folder Ctrl+B since v0.2, no duplicate menu).
 - [x] App themes (Dark/Light/Handheld green/Pink) via single-source token swap over `theme.qss` + View menu radio. Gherkin 50/50.
 
+### v1.6 — Dither-boy particle disperse, solo dispersión (in progress)
+Scope frozen: single-image disperse/reassemble loop (no morph A->B yet).
+Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfect.
+- [ ] Fase 1 (en curso): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
+- [ ] Fase 2: `gif_dissolve_frames()` + export GIF/MP4 manual.
+- [ ] Fase 3: preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
+- [ ] Fase 4: docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
