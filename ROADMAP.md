@@ -190,7 +190,7 @@ they added a model + locks + file pipeline far from the core job
 - [x] In-app tutorial (`Help → Quick tour`, 5 steps, first-run once + `data/samples/` pack generated offline) + batch menu entry verified (File → Batch folder Ctrl+B since v0.2, no duplicate menu).
 - [x] App themes (Dark/Light/Handheld green/Pink) via single-source token swap over `theme.qss` + View menu radio. Gherkin 50/50.
 
-### v1.6 — Dither-boy particle disperse, solo dispersión (in progress)
+### v1.6 — Dither-boy particle disperse, solo dispersión (done)
 Scope frozen: single-image disperse/reassemble loop (no morph A->B yet).
 Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfect.
 - [x] Fase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
@@ -198,6 +198,11 @@ Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfec
 - [x] Fase 3 (done): preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
 - [x] Fase 4 (done): docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
   Note: gates stay at 52 Gherkin (no new scenarios; unit-covered); suite 438 -> 450.
+
+### v1.7 — Morph A->B + UI dissolve (in progress)
+Scope: swap between two images via shared particle cloud + MOTION controls.
+- [ ] Fase 5 (en curso): `morph_frames()` + `gif_morph_frames()` + tests.
+- [ ] Fase 6: UI MOTION (modo dissolve/morph, segunda imagen) + export + docs.
 
 ## 4. Decisions made (do not reopen without reason)
 
