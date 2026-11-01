@@ -30,6 +30,7 @@ class ExportPrefs:
     gif_fps: int = 8
     gif_size: int = 1200
     gif_pingpong: bool = False
+    mp4_size: str = "1080p"  # Canvas | 1080p | 720p (main image stays canvas)
     overwrite: str = "rename"  # fixed: never lose a file (engine keeps all modes)
     size: int = 3000
     format: str = "png"
@@ -101,6 +102,13 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
             pass
     if str(getattr(prefs, "gif_mode", "")) not in GIF_MODES:
         prefs.gif_mode = "both"
+    try:
+        from app.gif import MP4_SIZES
+
+        if str(getattr(prefs, "mp4_size", "")) not in MP4_SIZES:
+            prefs.mp4_size = "1080p"
+    except Exception:  # noqa: BLE001
+        pass
     if str(getattr(prefs, "viewport", "")).lower() not in ("full", "live", "still"):
         prefs.viewport = "live"
     else:

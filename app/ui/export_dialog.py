@@ -60,6 +60,7 @@ class ExportDialog(QDialog):
         size: int = 3000,
         format: str = "png",
         quality: int = 90,
+        mp4_size: str = "1080p",
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -148,7 +149,7 @@ class ExportDialog(QDialog):
         self.chk_mp4 = QCheckBox("Animation MP4")
         self.chk_mp4.setChecked(False)
         if self._video_ok:
-            self.chk_mp4.setToolTip("H.264 clip at canvas size (video backend present)")
+            self.chk_mp4.setToolTip("H.264 clip at MP4 size below (video backend present)")
         else:
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
@@ -157,6 +158,20 @@ class ExportDialog(QDialog):
                     self.chk_black, self.chk_mp4):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
+        from PySide6.QtWidgets import QComboBox as _Cmb
+
+        from app.gif import MP4_SIZES
+
+        mp4_row = QHBoxLayout()
+        mp4_row.addWidget(QLabel("MP4 size:"))
+        self.cmb_mp4_size = _Cmb()
+        self.cmb_mp4_size.addItems(list(MP4_SIZES))
+        cur_mp4 = str(mp4_size) if str(mp4_size) in MP4_SIZES else "1080p"
+        self.cmb_mp4_size.setCurrentText(cur_mp4)
+        self.cmb_mp4_size.setToolTip("MP4 resolution (main image always stays at canvas size). 1080p is social-ready; Canvas is full-doc and heavy.")
+        self.cmb_mp4_size.currentTextChanged.connect(self._refresh_plan)
+        mp4_row.addWidget(self.cmb_mp4_size, 1)
+        col.addLayout(mp4_row)
         col.addWidget(self.chk_lossless)
         # -- animation: no duplicates (edited only in VIDEO); on/off here --
         self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
@@ -258,15 +273,46 @@ class ExportDialog(QDialog):
             total += est
         n = len(plan)
         mp4_fname = ""
+        mp4_hint = ""
         if self.chk_mp4.isChecked() and self._video_ok:
             try:
-                w, h = self._doc_wh()
-                nf = int(self._gif_opts()["frames"])
-                est = int(w * h * nf * 0.12)
+                dw, dh = self._doc_wh()
+                go = self._gif_opts()
+                nf = int(go["frames"])
+                fps_m = max(2, min(60, int(go.get("fps", 8))))
+                mode_m = str(go.get("mode", "both"))
+                total_m = nf
+                n_trans_m = min(64, max(2, nf))
+                if mode_m in ("dissolve", "morph") and getattr(self, "_preset", None) is not None:
+                    try:
+                        from app.gif import MAX_MP4_FRAMES, plan_dissolve
+
+                        p = getattr(self, "_preset", None)
+                        hold_m = float(getattr(p, "dissolve_hold", 0.0) or 0.0)
+                        target_m = float(getattr(p, "dissolve_length", 0.0) or 0.0)
+                        # Chain length unknown here (session-only); 1 segment
+                        # is the conservative estimate for the plan line.
+                        plan_m = plan_dissolve(nf, 1, fps_m, hold_m,
+                                               target_m if target_m > 0 else None,
+                                               cap=MAX_MP4_FRAMES)
+                        total_m = int(plan_m["total"])
+                        n_trans_m = int(plan_m["n_trans"])
+                    except Exception:  # noqa: BLE001
+                        total_m = nf
+                from app.gif import estimate_mp4, mp4_dims
+
+                mw, mh = mp4_dims(dw, dh, str(go.get("mp4_size", "1080p")))
+                est = estimate_mp4(mw, mh, n_trans_m, max(0, total_m - n_trans_m))
                 mp4_fname = mp4_name(sanitize_base(self.edit_base.text().strip() or "cover"))
-                self.list_files.addItem(f"{mp4_fname}  ({_fmt_size(est)})")
+                self.list_files.addItem(f"{mp4_fname}  ({_fmt_size(est)} · {mw}×{mh})")
                 total += est
                 n += 1
+                if est > 400 * 1024 * 1024:
+                    mp4_hint = (f"⚠ MP4 ~{_fmt_size(est)} — heavy: pick 720p, "
+                                "30fps or shorter Length.")
+                elif est > 100 * 1024 * 1024:
+                    mp4_hint = (f"MP4 ~{_fmt_size(est)} — consider 720p / "
+                                "30fps / shorter Length.")
             except Exception:  # noqa: BLE001
                 pass
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
@@ -278,8 +324,12 @@ class ExportDialog(QDialog):
                 clashing += 1
         except OSError:
             clashing = 0
-        self.lbl_exists.setText(
-            f"⚠ {clashing} already exist — you'll be asked" if clashing else "")
+        notes = []
+        if clashing:
+            notes.append(f"⚠ {clashing} already exist — you'll be asked")
+        if mp4_hint:
+            notes.append(mp4_hint)
+        self.lbl_exists.setText("\n".join(notes))
 
     def _browse(self) -> None:
         d = QFileDialog.getExistingDirectory(self, "Export folder", self.edit_dir.text())
@@ -293,18 +343,30 @@ class ExportDialog(QDialog):
         g = getattr(self, "_gif_spec", {})
         w, h = self._doc_wh()
         m = str(g.get("mode", "both"))
+        extra = ""
+        if m in ("dissolve", "morph") and getattr(self, "_preset", None) is not None:
+            try:
+                target = float(getattr(self._preset, "dissolve_length", 0.0) or 0.0)
+                if target > 0:
+                    extra = f" · Length {target:.1f}s (GIF capped 256f, MP4 full)"
+            except (TypeError, ValueError):
+                extra = ""
         self.lbl_gifspec.setText(
             f"Animation: {g.get('frames', 6)}f · {mode_label(m)} ({m}) · "
             f"{g.get('fps', 8)}fps"
             f"{' · ping-pong' if g.get('pingpong') else ''} "
-            f"· {w}×{h}px (canvas). Edit it in VIDEO."
+            f"· {w}×{h}px (canvas){extra}. Edit it in VIDEO."
         )
 
     def _gif_opts(self) -> dict:
         g = dict(getattr(self, "_gif_spec", {}))
-        g["size"] = self._current_size()  # canvas also rules the anim
+        g["size"] = self._current_size()  # canvas rules the still + GIF
         g["pingpong"] = bool(g.get("pingpong", False))
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
+        try:
+            g["mp4_size"] = str(self.cmb_mp4_size.currentText())
+        except Exception:  # noqa: BLE001
+            g["mp4_size"] = "1080p"
         return g
 
     def _on_export(self) -> None:

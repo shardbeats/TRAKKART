@@ -130,7 +130,7 @@ def test_gif_frames_dispatches_dissolve_and_morph():
     from app.presets import Preset
 
     p = Preset(name="t", method="bayer8", palette="BW", gif_size=64, dissolve_hold=0.0,
-               dissolve_length=0.0)
+               dissolve_length=0.0, dissolve_loop=False)
     d = gif_frames(_img(), p, frames=3, mode="dissolve")
     assert len(d) == 3
     assert len({tuple(x.get_flattened_data()) for x in d}) > 1
@@ -258,3 +258,85 @@ def test_morph_a_uses_canvas_framing():
     raw = dissolve_frames(wide, frames=2, max_side=64)
     assert raw[0].size == (64, 32)  # raw fit keeps aspect
     assert tuple(f[0].get_flattened_data()) != tuple(raw[0].convert("RGB").get_flattened_data())
+
+
+def test_length_60s_mp4_streams_full_gif_stays_capped():
+    from app.gif import (MAX_MP4_FRAMES, MAX_TOTAL_FRAMES, iter_dissolve_frames,
+                         plan_dissolve)
+    from app.presets import Preset
+
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               dissolve_hold=1.0, gif_fps=30, dissolve_length=60.0)
+    gif_plan = plan_dissolve(6, 1, 30, 1.0, 60.0)
+    assert gif_plan["total"] == MAX_TOTAL_FRAMES
+    assert gif_plan["capped"] is True
+    mp4_plan = plan_dissolve(6, 1, 30, 1.0, 60.0, cap=MAX_MP4_FRAMES)
+    assert mp4_plan["total"] == 1800
+    assert abs(mp4_plan["actual_s"] - 60.0) < 0.01
+    assert mp4_plan["capped"] is False
+    # Streaming yields the full 60s without building the list (O(1) RAM).
+    n = sum(1 for _ in iter_dissolve_frames(_img(), p, frames=6, cap=MAX_MP4_FRAMES))
+    assert n == 1800
+
+
+def test_morph_hold_shared_across_forms():
+    from app.gif import gif_morph_frames, plan_dissolve
+    from app.presets import Preset
+
+    a = Image.new("RGB", (64, 64), (200, 40, 40))
+    b = Image.new("RGB", (64, 64), (40, 200, 40))
+    c = Image.new("RGB", (64, 64), (40, 40, 200))
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               dissolve_hold=1.0, gif_fps=24, dissolve_length=5.0,
+               dissolve_loop=False)
+    plan = plan_dissolve(6, 2, 24, 1.0, 5.0)
+    assert plan["total"] == 120
+    assert max(plan["holds"]) - min(plan["holds"]) <= 1
+    assert sum(plan["holds"]) + plan["n_trans"] == plan["total"]
+    frames = gif_morph_frames(a, [b, c], p, frames=6)
+    assert len(frames) == plan["total"]
+    # Every form reads assembled: the opening run is all-A, the closing
+    # run is all-C, each at least its equal share (no form starved by
+    # the old end-only pad). Solid colors can dither alike, so compare
+    # against the engine's own assembled stills instead of A-vs-C.
+    from app.disintegrate import dither_bw
+
+    stills = [tuple(dither_bw(
+        im, method=p.method, threshold=p.threshold,
+        pixel_size=p.pixel_size).convert("RGB").get_flattened_data())
+        for im in (a, b, c)]
+    flats = [tuple(f.get_flattened_data()) for f in frames]
+    assert flats[:plan["holds"][0]] == [stills[0]] * plan["holds"][0]
+    assert flats[-plan["holds"][-1]:] == [stills[2]] * plan["holds"][-1]
+    assert flats.count(stills[1]) >= plan["holds"][1]
+    assert abs(flats.count(stills[0]) - flats.count(stills[2])) <= 2 + plan["n_trans"]
+
+
+def test_morph_loop_closes_last_to_first():
+    from app.gif import gif_morph_frames, plan_dissolve
+    from app.disintegrate import dither_bw
+    from app.presets import Preset
+
+    a = _img(64)  # gradient reads distinct from the flat forms
+    b = Image.new("RGB", (64, 64), (40, 200, 40))
+    c = Image.new("RGB", (64, 64), (40, 40, 200))
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+               dissolve_hold=1.0, gif_fps=24, dissolve_length=5.0,
+               dissolve_loop=True)
+    plan = plan_dissolve(9, 2, 24, 1.0, 5.0, loop=True)
+    assert plan["total"] == 120
+    assert len(plan["holds"]) == 4  # A-open, B, C, A-close
+    assert plan["holds"][0] + plan["holds"][-1] == plan["holds"][1]
+    assert sum(plan["holds"]) + plan["n_trans"] == plan["total"]
+    frames = gif_morph_frames(a, [b, c], p, frames=9)
+    assert len(frames) == plan["total"]
+    stills = [tuple(dither_bw(
+        im, method=p.method, threshold=p.threshold,
+        pixel_size=p.pixel_size).convert("RGB").get_flattened_data())
+        for im in (a, b, c)]
+    flats = [tuple(f.get_flattened_data()) for f in frames]
+    # Closed loop opens AND closes on A (no hard cut back to start).
+    assert flats[:plan["holds"][0]] == [stills[0]] * plan["holds"][0]
+    assert flats[-plan["holds"][-1]:] == [stills[0]] * plan["holds"][-1]
+    # 3 legs x 3 frames: middle frames actually disperse (visible morph).
+    assert len(set(flats)) > 3

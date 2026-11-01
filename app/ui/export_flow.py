@@ -13,14 +13,16 @@ def _gif_opts_from_prefs(prefs) -> dict:
     return {"frames": prefs.gif_frames, "mode": prefs.gif_mode,
             "fps": getattr(prefs, "gif_fps", 8),
             "size": getattr(prefs, "gif_size", 1200),
-            "pingpong": getattr(prefs, "gif_pingpong", False)}
+            "pingpong": getattr(prefs, "gif_pingpong", False),
+            "mp4_size": getattr(prefs, "mp4_size", "1080p")}
 
 
 def _gif_opts_from_preset(preset) -> dict:
     return {"frames": int(preset.gif_frames), "mode": preset.gif_mode,
             "fps": int(getattr(preset, "gif_fps", 8)),
             "size": int(getattr(preset, "gif_size", 1200)),
-            "pingpong": bool(getattr(preset, "gif_pingpong", False))}
+            "pingpong": bool(getattr(preset, "gif_pingpong", False)),
+            "mp4_size": "1080p"}
 
 
 def export(win, quick: bool = False) -> None:
@@ -58,15 +60,19 @@ def export(win, quick: bool = False) -> None:
         if prefs.out_dir and prefs_match:
             init_sel = prefs.to_selection()
             init_base, init_out = prefs.base, prefs.out_dir
-            init_gopts = _gif_opts_from_prefs(prefs)
             init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
         else:
             init_sel = ExportSelection(vector=bool(preset.vector_export),
                                        anim=bool(preset.gif_export))
             init_base, init_out = win.src_name, str(win.out_dir)
-            init_gopts = _gif_opts_from_preset(preset)
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
+        # Animation spec ALWAYS comes from the live VIDEO section (preset),
+        # never from stale prefs: the dialog itself says "Edit it in VIDEO".
+        # Prefs only persist destination/name/size/format + the MP4 size.
+        init_gopts = _gif_opts_from_preset(preset)
+        if prefs.out_dir and prefs_match:
+            init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
             # pre-checks Animation GIF (still uncheckable, ~MB plan visible).
@@ -82,6 +88,7 @@ def export(win, quick: bool = False) -> None:
             gif_pingpong=bool(init_gopts["pingpong"]),
             vector_cells=win._estimate_vector_cells(preset),
             preset=preset, size=init_size, format=init_fmt, quality=init_q,
+            mp4_size=str(init_gopts.get("mp4_size", "1080p")),
             parent=win,
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
@@ -100,6 +107,7 @@ def export(win, quick: bool = False) -> None:
             gif_opts=gopts, overwrite=choice,
             size=options.size, format=options.format, quality=options.quality,
             mp4=bool(gopts.get("mp4", False)),
+            mp4_size=str(gopts.get("mp4_size", "1080p")),
         )
         save_prefs(ExportPrefs(
             out_dir=str(out_dir), base=options.base,
@@ -110,6 +118,7 @@ def export(win, quick: bool = False) -> None:
             gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
             gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
             gif_pingpong=bool(gopts["pingpong"]),
+            mp4_size=str(gopts.get("mp4_size", "1080p")),
             overwrite="rename",  # per-run choice is not persisted (quick is always safe)
             size=options.size, format=options.format, quality=options.quality,
             recent_files=recent_files, src_name=win.src_name,
@@ -214,10 +223,24 @@ def _morph_imgs(win) -> list | None:
         return None
 
 
+def morph_src_for_mode(win, mode: str) -> list | None:
+    """Session chain only feeds particle modes; anything else ignores it.
+
+    Without this gate a stale MORPH playlist leaks into mix/phase/hue
+    exports (the engine ignores img_b there today, but the export must
+    not depend on that coincidence).
+    """
+    if str(mode) not in ("dissolve", "morph"):
+        return None
+    return _morph_imgs(win)
+
+
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
-               quality: int, mp4: bool = False) -> None:
-    """Render full-res + bundle (+MP4) per options. Always full-res."""
+               quality: int, mp4: bool = False,
+               mp4_size: str = "1080p") -> None:
+    """Render full-res + bundle (+MP4) per options. Stills always full-res;
+    MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs."""
     from dataclasses import replace
     from pathlib import Path
 
@@ -230,18 +253,20 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(getattr(selection, "black_vector", False)):
         preset = replace(preset, vector_black=True)
     go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
+    mode_go = str(go.get("mode", "both"))
     try:
         paths, skipped = export_full(
             win.src, preset, out_dir, base=base, store=win.store,
             preset_name=win.cmb_preset.currentText(), selection=selection,
             overwrite=overwrite,
-            gif_frames=int(go.get("frames", 6)), gif_mode=str(go.get("mode", "both")),
+            gif_frames=int(go.get("frames", 6)), gif_mode=mode_go,
             gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
             gif_pingpong=bool(go.get("pingpong", False)),
             size=int(size), format=str(format), quality=int(quality),
             mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
-            morph_src=_morph_imgs(win),
+            mp4_size=str(go.get("mp4_size", mp4_size)),
+            morph_src=morph_src_for_mode(win, mode_go),
         )
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))

@@ -20,8 +20,8 @@ nothing is tracked. Your data lives on your machine (the app's data folder).
 2. **Pick a method:** the ◀ ▶ buttons cycle through 36 dithering engines.
 3. **Adjust color:** SOURCE extracts the palette from your image, Depth limits
    tones, the dice (🎲) reshuffle without losing the good stuff (locks 🔒).
-4. **Animate (optional):** the VIDEO panel previews; GIF/MP4 export at
-   document size.
+4. **Animate (optional):** the VIDEO panel previews; GIF exports at
+   document size, MP4 defaults to 1080p (MP4 size: Canvas/1080p/720p in the Export dialog).
 5. **Export:** Export… (Ctrl+Shift+S) or Quick export (Ctrl+S), which repeats
    your last setup. SVG for logos, JSON for metadata.
 
@@ -34,6 +34,7 @@ nothing is tracked. Your data lives on your machine (the app's data folder).
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | mosh flavors + amount + seed |
+| MORPH | particle chain (Add/Remove/Up/Down) + "Loop (last → first)" for a seamless loop |
 | MOTION | video preview + Signal Drift |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
@@ -44,7 +45,10 @@ huge canvases use Still.
 - **File name:** base for all files (weird characters → `_`).
 - **Folder:** destination; Settings default.
 - **Format/Quality/Size:** the document CANVAS dictates size.
-- **Include:** main image, 1080p thumb, vector SVG, GIF, JSON.
+- **Include:** main image, 1080p thumb, vector SVG, GIF, MP4, JSON.
+  MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
+  shows a weight estimate and warns on heavy files. The animation
+  always follows the live VIDEO section.
 - **Collision:** nothing is ever lost — if the name exists it suggests
   `name_2`, `name_3`… (or Overwrite if you choose).
 - **Quick export** repeats the last setup without asking. If you switch

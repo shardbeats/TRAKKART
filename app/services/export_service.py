@@ -18,6 +18,15 @@ if TYPE_CHECKING:
     from app.presets import Preset
 
 
+def _morph_chain_for_export(morph_src) -> list:
+    """Count chain segments for the MP4 streaming plan (no UI import)."""
+    if not morph_src:
+        return []
+    if isinstance(morph_src, list):
+        return [m for m in morph_src if m is not None]
+    return [morph_src]
+
+
 def export_full(
     src: Image.Image,
     preset: Preset,
@@ -38,6 +47,7 @@ def export_full(
     quality: int | None = None,
     mp4: bool = False,
     mp4_fps: int | None = None,
+    mp4_size: str | int | None = None,
     morph_src: Image.Image | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Render, generate SVG/GIF/MP4 on request, write bundle and log.
@@ -46,7 +56,9 @@ def export_full(
     the classic full bundle. size/format/quality override the preset
     (chosen by the dialog); None = preset value.
     MP4 is written as an extra `{base}_anim.mp4` file outside the bundle
-    (single-export; batch keeps the GIF route).
+    (single-export; batch keeps the GIF route). Stills stay full-doc;
+    MP4 renders at `mp4_size` (Canvas/1080p/720p, default 1080p) so a
+    3000px doc at 60fps doesn't ship hundreds of MB.
     """
     from app.vector import estimate_cells
 
@@ -79,19 +91,55 @@ def export_full(
 
     frames: list[Image.Image] | None = None
     fps = int(gif_fps if gif_fps is not None else getattr(preset, "gif_fps", 8))
+    mode_eff = str(gif_mode if gif_mode is not None else preset.gif_mode)
+    size_eff = int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480))
+    n_req = int(gif_frames if gif_frames is not None else preset.gif_frames)
+    pp_eff = bool(gif_pingpong if gif_pingpong is not None
+                  else getattr(preset, "gif_pingpong", False))
+    mp4_stream_info: dict | None = None
+    mp4_size_eff = str(mp4_size) if mp4_size not in (None, "") else "1080p"
     if want_gif or want_mp4:
         from app.gif import gif_frames as _gif_frames  # alias: no shadowing of the parameter
 
+        # GIF (and short MP4s) keep the capped list path (<=256f, ping-pong
+        # intact). Long particle MP4s stream below without the huge list.
         frames = _gif_frames(
             src, preset,
-            frames=int(gif_frames if gif_frames is not None else preset.gif_frames),
-            mode=gif_mode if gif_mode is not None else preset.gif_mode,
-            max_side=int(gif_size if gif_size is not None else getattr(preset, "gif_size", 480)),
-            pingpong=bool(gif_pingpong if gif_pingpong is not None
-                          else getattr(preset, "gif_pingpong", False)),
+            frames=n_req,
+            mode=mode_eff,
+            max_side=size_eff,
+            pingpong=pp_eff,
             img_b=morph_src,
             fps=int(fps),
         )
+        if want_mp4 and mode_eff in ("dissolve", "morph"):
+            from app.gif import MAX_MP4_FRAMES, MAX_TOTAL_FRAMES, plan_dissolve
+
+            segs = 1
+            if mode_eff == "morph":
+                chain = _morph_chain_for_export(morph_src)
+                segs = max(1, len(chain)) if chain else 1
+            loop_eff = bool(getattr(preset, "dissolve_loop", False)) if mode_eff == "morph" else False
+            hold = float(getattr(preset, "dissolve_hold", 0.0) or 0.0)
+            target = float(getattr(preset, "dissolve_length", 0.0) or 0.0)
+            plan_mp4 = plan_dissolve(n_req, segs, int(fps), hold,
+                                     target if target > 0 else None,
+                                     cap=MAX_MP4_FRAMES, loop=loop_eff)
+            if int(plan_mp4["total"]) > int(MAX_TOTAL_FRAMES):
+                # Long clip: GIF keeps its capped list; MP4 streams full
+                # Length forward-only (ping-pong a 3600f list = 7k frames in
+                # RAM, so it is intentionally off here).
+                from app.gif import mp4_dims
+
+                try:
+                    mw, mh = mp4_dims(res.width, res.height, mp4_size_eff)
+                    mp4_long = max(mw, mh)
+                except Exception:  # noqa: BLE001
+                    mp4_long = 1080
+                mp4_stream_info = {"plan": plan_mp4, "mode": mode_eff,
+                                   "fps": int(fps), "size": int(mp4_long),
+                                   "frames_req": n_req, "segs": segs,
+                                   "loop": loop_eff}
 
     options = ExportOptions(
         base=base, selection=sel, overwrite=overwrite,
@@ -103,9 +151,7 @@ def export_full(
         res, out_dir, options, meta=preset.meta(),
         vector_svg=svg, gif_frames=frames if want_gif else None, gif_fps=fps,
     )
-    if want_mp4 and frames:
-        from app.video_io import write_mp4
-
+    if want_mp4 and (frames or mp4_stream_info):
         from app.exporter import MP4_SUFFIX, mp4_name as _mp4_name
 
         name = _mp4_name(options.base)
@@ -118,8 +164,42 @@ def export_full(
                 while mp4_path.exists():
                     mp4_path = Path(out_dir) / f"{options.base}_{i}{MP4_SUFFIX}"
                     i += 1
-            write_mp4(frames, mp4_path,
-                      fps=int(mp4_fps if mp4_fps is not None else fps))
+            mp4_fps_eff = int(mp4_fps if mp4_fps is not None else fps)
+            from app.gif import mp4_dims as _mp4_dims
+
+            try:
+                mp4_w, mp4_h = _mp4_dims(res.width, res.height, mp4_size_eff)
+            except Exception:  # noqa: BLE001
+                mp4_w, mp4_h = res.width, res.height
+            if mp4_stream_info is not None:
+                from app.gif import iter_dissolve_frames, iter_morph_frames
+                from app.video_io import write_mp4_iter
+
+                if str(mp4_stream_info["mode"]) == "morph" and morph_src:
+                    stream = iter_morph_frames(
+                        src, morph_src, preset,
+                        frames=int(mp4_stream_info["frames_req"]),
+                        max_side=int(mp4_stream_info["size"]),
+                        fps=mp4_fps_eff, cap=3600,
+                        loop=bool(mp4_stream_info.get("loop", False)),
+                    )
+                else:
+                    stream = iter_dissolve_frames(
+                        src, preset,
+                        frames=int(mp4_stream_info["frames_req"]),
+                        max_side=int(mp4_stream_info["size"]),
+                        fps=mp4_fps_eff, cap=3600,
+                    )
+                write_mp4_iter(stream, mp4_path, fps=mp4_fps_eff)
+            else:
+                from app.video_io import write_mp4
+
+                shrunk = frames or []
+                if (mp4_w, mp4_h) != (res.width, res.height) and shrunk:
+                    shrunk = [f.resize((mp4_w, mp4_h), Image.BICUBIC)
+                              if (f.width, f.height) != (mp4_w, mp4_h) else f
+                              for f in shrunk]
+                write_mp4(shrunk, mp4_path, fps=mp4_fps_eff)
             paths["video"] = mp4_path
     if store is not None and paths:
         try:

@@ -2,6 +2,13 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## Unreleased
+- Morph loop closure: new `dissolve_loop` preset field + MORPH "Loop (last → first)" checkbox (default ON); the last form morphs back into the first (byte-identical joint), A's hold split across both loop ends; ping-pong skipped when the loop is closed.
+- Equal holds: Length pad shared across every form (≤1 frame apart) instead of all-to-last; per-joint hold lists end-to-end (engine + GIF + streaming + labels).
+- Honest MP4 weight: MP4 size selector (Canvas/1080p/720p, default 1080p; stills stay full-doc) + content-aware estimate (transitions ~0.43 B/px, holds ~0.011 B/px, calibrated) + heavy-file hints.
+- Export dialog fix: animation spec always comes from the live VIDEO section, never stale prefs (morph leaked into mix exports); session chain gated by mode in export + preview.
+- Length 0.5–60s via MP4 streaming (up to 3600f, O(1) RAM); GIF/preview stay capped at 256f with honest labels.
+
 ## v1.0.1
 - New icon: 05_bayer_dots (TRAKK SUITE dark + amber).
 - Fixed flaky thread-storm test (pending guard + slot release in preview controller).

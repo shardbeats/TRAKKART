@@ -210,6 +210,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("dissolve_length", "float", ("range", 0.5, 60.0)),
+    _Field("dissolve_loop", "bool"),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -324,6 +325,7 @@ class Preset:
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
     dissolve_length: float = 5.0  # sacred total clip length, seconds
+    dissolve_loop: bool = True  # morph closes the loop (last -> first, no hard cut)
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen
@@ -456,6 +458,7 @@ class Preset:
             "wind_y": float(getattr(self, "dissolve_wind_y", -40.0) or 0.0),
             "hold": float(getattr(self, "dissolve_hold", 1.0) or 0.0),
             "length": float(getattr(self, "dissolve_length", 5.0) or 5.0),
+            "loop": bool(getattr(self, "dissolve_loop", True)),
         }
         m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
         m["motif"] = copy.deepcopy(getattr(self, "motif", None))
@@ -647,6 +650,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_wind_y": _get(dissolve, "wind_y", -40.0),
         "dissolve_hold": _get(dissolve, "hold", 1.0),
         "dissolve_length": _get(dissolve, "length", 5.0),
+        "dissolve_loop": bool(_get(dissolve, "loop", True)),
         "export_size": _get(export, "size", 3000),
         "export_format": str(_get(export, "format", "png") or "png"),
         "export_quality": _get(export, "quality", 90),

@@ -133,8 +133,13 @@ def planned_total(win) -> dict:
         segs = max(1, len(_par.morph_chain_data(win))) if mode == "morph" else 1
     except Exception:  # noqa: BLE001
         segs = 1
-    plan = plan_dissolve(n_req, segs, fps, hold, target)
-    plan.update({"target_s": target, "fps": fps, "segs": segs, "particle": True})
+    try:
+        loop = bool(win.chk_morph_loop.isChecked())
+    except Exception:  # noqa: BLE001
+        loop = True if mode == "morph" else False
+    plan = plan_dissolve(n_req, segs, fps, hold, target, loop=loop if mode == "morph" else False)
+    legs = segs + (1 if (loop and mode == "morph") else 0)
+    plan.update({"target_s": target, "fps": fps, "segs": segs, "legs": legs, "particle": True})
     return plan
 
 
@@ -153,7 +158,8 @@ def sync_duration_ui(win) -> None:
         plan = planned_total(win)
         n_eff = plan["total"]
         pp = bool(win.chk_video_pingpong.isChecked())
-        if pp and n_eff > 2:
+        if pp and n_eff > 2 and not bool(plan.get("loop", False)):
+            # Closed loop is already seamless; the engine skips ping-pong.
             n_eff = n_eff + (n_eff - 2)
         fps = plan["fps"]
         if plan["particle"]:
@@ -162,11 +168,33 @@ def sync_duration_ui(win) -> None:
             if abs(actual - target) < 0.05 and not plan["capped"]:
                 text = f"= {actual:.1f}s total"
             elif plan["capped"]:
-                text = f"= {actual:.1f}s total (target {target:.1f}s — capped)"
+                try:
+                    from app.gif import MAX_MP4_FRAMES, plan_dissolve as _plan2
+
+                    try:
+                        hold_s = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
+                    except Exception:  # noqa: BLE001
+                        hold_s = 0.0
+                    try:
+                        loop_m = bool(win.chk_morph_loop.isChecked())
+                    except Exception:  # noqa: BLE001
+                        loop_m = False
+                    mp4_plan = _plan2(plan["n_trans"], plan["segs"], fps,
+                                      hold_s, target, cap=MAX_MP4_FRAMES,
+                                      loop=loop_m)
+                    mp4_s = float(mp4_plan["actual_s"])
+                except Exception:  # noqa: BLE001
+                    mp4_s = target
+                text = (f"= {actual:.1f}s preview/GIF (target {target:.1f}s — GIF capped "
+                        f"at {plan['cap']}f · MP4 exports full ~{mp4_s:.1f}s)")
             else:
                 text = f"= {actual:.1f}s total (target {target:.1f}s — content overflows, raise Length)"
-            if plan["hs"] + plan["he"] > 0:
-                text += f" · {(plan['hs'] + plan['he']) / max(1, fps):.1f}s hold"
+            try:
+                holds_total = sum(plan.get("holds", [])) if plan.get("holds") else (plan["hs"] + plan["he"])
+            except Exception:  # noqa: BLE001
+                holds_total = plan["hs"] + plan["he"]
+            if holds_total > 0:
+                text += f" · {holds_total / max(1, fps):.1f}s hold"
         else:
             secs = plan["actual_s"]
             text = f"= {secs:.1f}s loop"
@@ -205,7 +233,8 @@ def sync_duration_ui(win) -> None:
             pass
         if plan.get("particle"):
             try:
-                per_seg = plan["n_trans"] / max(1, plan["segs"])
+                legs = int(plan.get("legs", plan["segs"]))
+                per_seg = plan["n_trans"] / max(1, legs)
                 if per_seg < 8 or per_seg / max(1, plan["fps"]) < 0.8:
                     text += (f" · {per_seg:.0f}f/{per_seg / max(1, plan['fps']):.1f}s per form"
                              " — raise Length for slower morphs")
@@ -261,7 +290,8 @@ def start_async(win) -> None:
     win._video_worker = VideoWorker(
         win.src.copy(), win.current_params(), s["size"],
         s["frames"], s["mode"], s["pingpong"], win._video_token,
-        morph_src=_morph_imgs(win), fps=int(s.get("fps", 8)),
+        morph_src=(_morph_imgs(win) if str(s["mode"]) in ("dissolve", "morph") else None),
+        fps=int(s.get("fps", 8)),
     )
     win._video_worker.finished_ok.connect(win._on_video_done)
     win._video_worker.finished_err.connect(win._on_video_error)

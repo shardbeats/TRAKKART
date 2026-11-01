@@ -111,6 +111,20 @@ segment so every form appears assembled; joints sample `q=j/(nk-1)` (no pop);
 holds shrink to fit the 64-frame cap (transitions win). Duration label shows
 loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
 
+## Morph loop + equal holds + honest MP4 (v1.15)
+
+- Loop (MORPH "Loop (last → first)", default ON, `dissolve_loop` preset):
+  last form morphs back into A through one cloud; opening and closing
+  frames are byte-identical A; A's hold share splits across both ends.
+  With loop closed, ping-pong is skipped (already seamless).
+- Holds are shared equally across forms (Length pad included, ≤1f apart);
+  `hold_joint` accepts a per-joint list end-to-end.
+- MP4 size (Export dialog): Canvas/1080p/720p, default 1080p (stills stay
+  full-doc). Estimate is content-aware (noisy transitions vs duplicated
+  holds, calibrated with x264); hints above ~100MB, warning above ~400MB.
+- Export dialog animation spec always follows the live VIDEO section;
+  stale prefs can no longer smuggle a morph mode into a mix export.
+
 ## Manual GUI checklist (before each release)
 
 1. `run.bat` opens without traceback (offscreen in CI: `QT_QPA_PLATFORM=offscreen`).
@@ -118,7 +132,7 @@ loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
 2b. VIDEO mode: animated preview plays (Draft 720p default); switching to Full (doc) re-renders bigger; FPS change does NOT re-render (only retimes).
 3. Preset saves, reloads and applies sliders (incl. grade/texture/glitch + canvas W/H + anim).
 3b. CANVAS → ratio presets fill W/H; typing W/H flips Ratio to Custom. "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode incl. Custom with free frame); Done applies, Cancel keeps values.
-4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS).
+4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS). MP4 defaults to 1080p (selector: Canvas/1080p/720p); the animation line shows the live VIDEO mode + honest `~MB` estimate.
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
 5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
 5b. Release extras: `build_installer.py` builds the Inno Setup installer (needs `dist/TRAKKART.exe` + ISCC); session smoke = open image → close → reopen restores it; Edit → Redo (Ctrl+Y) after Undo; Settings Export…/Import… round-trips the JSON; Settings → Extras shows accel/MP4 state (all included in the exe); F1 opens MANUAL.md; Help → Show logs folder reveals data dir.

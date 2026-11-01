@@ -87,6 +87,25 @@ def _pingpong_set(win, v):
         w.blockSignals(False)
 
 
+def _morph_loop_get(win):
+    try:
+        return bool(win.chk_morph_loop.isChecked())
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _morph_loop_set(win, v):
+    try:
+        w = win.chk_morph_loop
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        w.blockSignals(True)
+        w.setChecked(bool(v))
+    finally:
+        w.blockSignals(False)
+
+
 def doc_dims(win) -> tuple[int, int]:
     """Document W/H (editor-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
@@ -312,6 +331,7 @@ BINDINGS: tuple = (
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
     ("dissolve_length",) + _dspin("spn_duration"),
+    ("dissolve_loop", _morph_loop_get, _morph_loop_set),
     ("paste_mode",) + _combo("cmb_paste"),
     ("paste_opacity",) + _slider("sld_paste_op"),
     ("paste_blend",) + _combo("cmb_paste_blend"),
@@ -381,9 +401,14 @@ def sync_anim_ui(win) -> None:
             segs = max(1, len(chain)) if chain else 1
             import math as _math
 
-            floor = segs * max(8, int(_math.ceil(0.8 * fps)))
+            try:
+                loop_c = bool(win.chk_morph_loop.isChecked())
+            except Exception:  # noqa: BLE001
+                loop_c = True
+            legs_c = segs + (1 if (loop_c and chain) else 0)
+            floor = legs_c * max(8, int(_math.ceil(0.8 * fps)))
             if chain and n < floor:
-                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // segs}f / {n / segs / fps:.1f}s per form — raise Length for slower morphs)")
+                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // legs_c}f / {n / legs_c / fps:.1f}s per form — raise Length for slower morphs)")
         except Exception:  # noqa: BLE001
             pass
 
@@ -931,13 +956,18 @@ def ensure_morph_budget(win) -> bool:
         return False
     try:
         segs = len(chain)
+        try:
+            loop = bool(win.chk_morph_loop.isChecked())
+        except Exception:  # noqa: BLE001
+            loop = True
+        legs = segs + (1 if loop else 0)
         fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
         n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
     except Exception:  # noqa: BLE001
         return False
     import math
 
-    floor = segs * max(8, int(math.ceil(0.8 * fps)))
+    floor = legs * max(8, int(math.ceil(0.8 * fps)))
     want = min(int(GIF_MAX_FRAMES), max(n, floor))
     if want <= n:
         return False

@@ -151,6 +151,51 @@ def test_export_service_mp4(window, qt_app, tmp_path):
     assert any(str(p).endswith(".gif") for p in paths.values())
 
 
+def test_mp4_estimate_and_size_opt():
+    from app.gif import estimate_mp4, mp4_dims
+
+    assert mp4_dims(3000, 3000, "1080p") == (1080, 1080)
+    assert mp4_dims(3000, 3000, "720p") == (720, 720)
+    assert mp4_dims(3000, 3000, "Canvas") == (3000, 3000)
+    assert mp4_dims(64, 64, "1080p") == (64, 64)  # never upscale
+    # Holds (~duplicates) cost ~40x less than dither-noise transitions.
+    trans_only = estimate_mp4(1080, 1080, 64, 0)
+    holds_only = estimate_mp4(1080, 1080, 0, 1136)
+    assert trans_only > holds_only
+    mixed = estimate_mp4(1080, 1080, 64, 1136)
+    assert mixed == trans_only + holds_only
+    # Full-doc 60fps used to read ~1.2GB flat; content-aware + 1080p lands ~47MB.
+    assert mixed < 100 * 1024 * 1024
+    assert estimate_mp4(3000, 3000, 64, 1136) > estimate_mp4(1080, 1080, 64, 1136)
+
+
+def test_export_service_mp4_size_downscales(window, qt_app, tmp_path):
+    import pytest
+
+    from app.exporter import ExportSelection
+    from app.services.export_service import export_full
+    from app.presets import Preset
+    from app.video_io import has_video
+
+    if not has_video():
+        pytest.skip("video extra not installed (imageio + imageio-ffmpeg)")
+    window.src = _img(64, 64)
+    preset = Preset(
+        name="t", method="bayer4", palette="SLIME", gif_export=True,
+        gif_frames=2, export_size=64)
+    sel = ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False)
+    paths, _ = export_full(
+        window.src, preset, tmp_path / "o2", base="m720",
+        selection=sel, mp4=True, gif_frames=2, gif_size=64, mp4_size="720p")
+    mp4s = [str(p) for p in paths.values() if str(p).endswith(".mp4")]
+    assert mp4s
+    import imageio.v3 as iio
+
+    frame = iio.imread(mp4s[0], index=0)
+    assert max(frame.shape[0], frame.shape[1]) <= 720
+
+
 def test_export_dialog_extras(window, qt_app, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QFileDialog
 
@@ -395,3 +440,45 @@ def test_export_quick_via_dialog(window, qt_app, monkeypatch, tmp_path):
     accept_next_dialog(ExportDialog)
     window.export(quick=False)
     assert (window.out_dir / "trakkart_cover.png").exists()
+
+
+def test_export_dialog_uses_live_video_mode_not_stale_prefs(window, qt_app, monkeypatch):
+    from app.export_prefs import ExportPrefs, save_prefs
+    from app.ui.export_dialog import ExportDialog as _RealDialog
+    from tests.conftest import accept_next_dialog
+
+    window.src = Image.new("RGB", (64, 64), (90, 100, 140))
+    window.src_name = "livepic"
+    window.cmb_video_mode.setCurrentText("mix")  # live VIDEO setting
+    # Stale prefs from a previous morph export of the SAME image.
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="stalepic",
+                           gif_mode="morph", gif_frames=24, gif_fps=30,
+                           src_name=window.src_name), window._prefs_path)
+    seen = {}
+    real_init = _RealDialog.__init__
+
+    def spy_init(self, *a, **k):
+        seen.update(k)
+        real_init(self, *a, **k)
+
+    monkeypatch.setattr(_RealDialog, "__init__", spy_init)
+    accept_next_dialog(_RealDialog)
+    window.export(quick=False)
+    assert seen.get("gif_mode") == "mix", seen
+    assert int(seen.get("gif_frames", -1)) != 24, seen
+
+
+def test_morph_src_gated_by_mode(window):
+    from PIL import Image as _Image
+
+    from app.ui import export_flow as ef
+
+    window.morph_src = _Image.new("RGB", (8, 8), (1, 2, 3))
+    assert ef.morph_src_for_mode(window, "mix") is None
+    assert ef.morph_src_for_mode(window, "both") is None
+    assert ef.morph_src_for_mode(window, "phase") is None
+    got = ef.morph_src_for_mode(window, "morph")
+    assert got is not None and len(got) == 1
+    assert ef.morph_src_for_mode(window, "dissolve") is not None
+    window.morph_src = None
+    assert ef.morph_src_for_mode(window, "morph") is None

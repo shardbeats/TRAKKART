@@ -92,7 +92,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.spn_duration.setValue(5.0)
     win.spn_duration.setSuffix("s")
     win.spn_duration.setFixedWidth(72)
-    win.spn_duration.setToolTip("Total clip length in seconds (sacred: padded with end holds to honor it)")
+    win.spn_duration.setToolTip("Total clip length 0.5-60s (sacred: padded to honor it). GIF/preview cap 256f; MP4 streams the full Length.")
     win.spn_duration.valueChanged.connect(lambda _: win._schedule_refresh())
     dur_row.addWidget(win.spn_duration)
     win.lbl_duration = QLabel("= 0.3s loop")

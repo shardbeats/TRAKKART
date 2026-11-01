@@ -243,48 +243,85 @@ def gif_frames(
 
 
 #: Hard cap on total built frames (transitions + holds + pads).
+#: GIF/preview stay here (RAM + format + browsers choke past ~25MB).
 MAX_TOTAL_FRAMES = 256
+#: MP4 streams frame by frame (O(1) RAM), so it can honor Length 0.5-60s:
+#: 60s * 60fps = 3600 frames max.
+MAX_MP4_FRAMES = 3600
 
 
 def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
-                  target_s: float | None) -> dict:
+                  target_s: float | None,
+                  cap: int | None = None, loop: bool = False) -> dict:
     """Frame budget honoring a sacred total duration.
 
     n_trans covers transitions (min 2 per segment so every form appears
     assembled). Holds duplicate assembled forms: start + end + one per
     interior joint (v1.14: every form reads, not just the last one).
-    Pad fills up to the target seconds so exports never come out short.
-    Transitions always win over holds/pad; the total never exceeds
-    MAX_TOTAL_FRAMES. Returns dict(n_trans, hs, he, hj, pad, total,
-    capped, actual_s).
+    Pad fills up to the target seconds so exports never come out short,
+    shared equally across ALL forms (start + joints + end differ by
+    at most 1 frame). Transitions always win over holds/pad; the total
+    never exceeds `cap` (default MAX_TOTAL_FRAMES=256 for GIF/preview;
+    MP4 streaming passes MAX_MP4_FRAMES=3600 to honor Length up to 60s).
+    With loop=True the chain closes (last morphs back into first for a
+    seamless loop): one extra leg, and A's share is split between the
+    opening and closing holds so no form reads double.
+    Returns dict(n_trans, hs, he, hj, holds, pad, total, capped,
+    actual_s, cap, loop). `holds` is the exact per-position list
+    ([start, joints..., end]; loop splits A across both ends);
+    hs/he/hj mirror it (hj = first joint, representative when the
+    remainder spills unevenly by 1).
     """
+    cap_v = int(cap) if cap else MAX_TOTAL_FRAMES
+    cap_v = max(GIF_MAX_FRAMES, cap_v)
     fps_v = max(1, int(fps or 8))
     segs_v = max(1, int(segs or 1))
+    loop_v = bool(loop)
+    legs = segs_v + (1 if loop_v else 0)
+    forms = segs_v + 1  # unique images: A + chain
     joints = max(0, segs_v - 1)
-    n_trans = min(GIF_MAX_FRAMES, max(2 * segs_v, max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(n_req)))))
+    n_trans = min(GIF_MAX_FRAMES, max(2 * legs, max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(n_req)))))
     per = int(round(max(0.0, min(3.0, float(hold_s or 0.0))) * fps_v))
     # Fit holds in the 64-frame transition budget (transitions always win,
     # joints first so every interior form still reads a little).
     room = max(0, GIF_MAX_FRAMES - n_trans)
-    hj = min(per, room // max(1, 2 + joints)) if joints else 0
-    room -= hj * joints
-    hs = min(per, room // 2) if room > 0 else 0
-    he = min(per, room - hs) if room > 0 else 0
-    base = n_trans + hs + he + hj * joints
+    hj0 = min(per, room // max(1, 2 + joints)) if joints else 0
+    room -= hj0 * joints
+    hs0 = min(per, room // 2) if room > 0 else 0
+    he0 = min(per, room - hs0) if room > 0 else 0
+    base = n_trans + hs0 + he0 + hj0 * joints
     if target_s is None:
         want_total = base
     else:
         want_total = max(base, int(round(max(0.0, float(target_s)) * fps_v)))
-    if want_total <= MAX_TOTAL_FRAMES:
+    if want_total <= cap_v:
         pad = want_total - base
-        return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "pad": pad,
-                "total": base + pad, "joints": joints,
-                "capped": False, "actual_s": (base + pad) / fps_v}
-    pad = max(0, MAX_TOTAL_FRAMES - base)
+        capped = False
+    else:
+        pad = max(0, cap_v - base)
+        capped = True
     total = base + pad
-    return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "pad": pad,
-            "total": total, "joints": joints,
-            "capped": True, "actual_s": total / fps_v}
+    # Share ALL still time equally across every unique form so no single
+    # image hogs Length. Remainder round-robin starts at the end (legacy
+    # bias), then start, then joints in play order.
+    total_hold = int(hs0 + he0 + hj0 * joints + pad)
+    q, r = divmod(max(0, total_hold), max(1, forms))
+    shares = [q] * forms
+    order = [forms - 1, 0] + list(range(1, forms - 1))
+    for i in range(r):
+        shares[order[i % forms]] += 1
+    if loop_v:
+        # A's share lives at both loop ends (they are adjacent in loop
+        # playback): split it so A reads the same total as every form.
+        a_half, a_rest = divmod(max(0, int(shares[0])), 2)
+        holds = [a_half] + shares[1:] + [a_half + a_rest]
+    else:
+        holds = list(shares)
+    hs, he = holds[0], holds[-1]
+    hj = holds[1] if len(holds) > 1 else 0
+    return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "holds": holds,
+            "pad": pad, "total": total, "joints": joints, "cap": cap_v,
+            "capped": capped, "actual_s": total / fps_v, "loop": loop_v}
 
 
 def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:
@@ -344,13 +381,144 @@ def _split_chain_entries(img_b) -> tuple[list, list]:
     return imgs, crops
 
 
+def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
+                         max_side: int | None = None,
+                         seed: int | None = None,
+                         wind: tuple[float, float] | None = None,
+                         mode: str | None = None, loops: float | None = None,
+                         amount: float | None = None,
+                         fps: int | None = None,
+                         cap: int | None = None):
+    """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
+
+    Same pixels as gif_dissolve_frames(pingpong=False). No ping-pong here:
+    reversing a 3600-frame stream would need the whole list in RAM; short
+    clips (<=256f) keep ping-pong via the list path.
+    """
+    from app.disintegrate import DISINTEGRATE_MODES, iter_dissolve
+
+    n = _clamp_frames(frames)
+    if preset is None:
+        side = int(max_side or GIF_MAX_SIDE)
+        method, threshold, pixel = "bayer8", 128.0, 1
+    else:
+        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
+        method = str(getattr(preset, "method", "bayer8") or "bayer8")
+        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
+        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
+    seed_v = 0xD15C if seed is None else int(seed)
+    if preset is not None and seed is None:
+        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
+    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    if preset is not None and wind is None:
+        wx = getattr(preset, "dissolve_wind_x", None)
+        wy = getattr(preset, "dissolve_wind_y", None)
+        if wx is not None and wy is not None:
+            wind_v = (float(wx), float(wy))
+    mode_v = "wind" if mode is None else str(mode)
+    if preset is not None and mode is None:
+        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
+    if mode_v not in DISINTEGRATE_MODES:
+        mode_v = "wind"
+    loops_v = 1.0 if loops is None else float(loops)
+    if preset is not None and loops is None:
+        loops_v = float(getattr(preset, "dissolve_speed", getattr(preset, "drift_speed", loops_v)) or loops_v)
+    amount_v = 1.0 if amount is None else float(amount)
+    if preset is not None and amount is None:
+        amount_v = float(getattr(preset, "dissolve_amount", amount_v))
+    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) if preset is not None else 8))
+    target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
+    plan = plan_dissolve(n, 1, fps_v,
+                         float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
+                         target_s if target_s > 0 else None,
+                         cap=cap if cap else MAX_MP4_FRAMES)
+    a = _canvas_a(img, preset, side)
+    yield from iter_dissolve(a, method=method, threshold=threshold,
+                             pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
+                             mode=mode_v, loops=loops_v, amount=amount_v,
+                             max_side=side, hold_start=plan["hs"],
+                             hold_end=plan["he"])
+
+
+def _morph_loop(preset, loop: bool | None) -> bool:
+    """Loop flag: explicit param wins, else the preset (default off)."""
+    if loop is not None:
+        return bool(loop)
+    if preset is None:
+        return False
+    return bool(getattr(preset, "dissolve_loop", False))
+
+
+def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
+                      frames: int = 8, max_side: int | None = None,
+                      seed: int | None = None,
+                      wind: tuple[float, float] | None = None,
+                      mode: str | None = None,
+                      amount: float | None = None,
+                      fps: int | None = None,
+                      cap: int | None = None,
+                      loop: bool | None = None):
+    """Yield morph chain frames one by one (streaming: O(1) RAM for long MP4)."""
+    from app.disintegrate import DISINTEGRATE_MODES, iter_morph_chain
+
+    n = _clamp_frames(frames)
+    if preset is None:
+        side = int(max_side or GIF_MAX_SIDE)
+        method, threshold, pixel = "bayer8", 128.0, 1
+    else:
+        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
+        method = str(getattr(preset, "method", "bayer8") or "bayer8")
+        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
+        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
+    seed_v = 0xD15C if seed is None else int(seed)
+    if preset is not None and seed is None:
+        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
+    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    if preset is not None and wind is None:
+        wx = getattr(preset, "dissolve_wind_x", None)
+        wy = getattr(preset, "dissolve_wind_y", None)
+        if wx is not None and wy is not None:
+            wind_v = (float(wx), float(wy))
+    mode_v = "wind" if mode is None else str(mode)
+    if preset is not None and mode is None:
+        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
+    if mode_v not in DISINTEGRATE_MODES:
+        mode_v = "wind"
+    amount_v = 1.0 if amount is None else float(amount)
+    if preset is not None and amount is None:
+        amount_v = float(getattr(preset, "dissolve_amount", amount_v))
+    others, other_crops = _split_chain_entries(img_b)
+    if not others:
+        yield from iter_dissolve_frames(img_a, preset, frames=n, max_side=side,
+                                        seed=seed_v, wind=wind_v, mode=mode_v,
+                                        amount=amount_v, fps=fps, cap=cap)
+        return
+    fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) if preset is not None else 8))
+    target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
+    loop_v = _morph_loop(preset, loop)
+    plan = plan_dissolve(n, len(others), fps_v,
+                         float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
+                         target_s if target_s > 0 else None,
+                         cap=cap if cap else MAX_MP4_FRAMES, loop=loop_v)
+    a = _canvas_a(img_a, preset, side)
+    crops = [{}] + other_crops
+    yield from iter_morph_chain([a] + others, method=method,
+                                threshold=threshold, pixel_size=pixel, frames=plan["n_trans"],
+                                seed=seed_v, wind=wind_v, mode=mode_v,
+                                amount=amount_v, max_side=side,
+                                hold_start=plan["hs"], hold_end=plan["he"],
+                                hold_joint=plan["holds"][1:-1], crops=crops,
+                                loop=loop_v)
+
+
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                         max_side: int | None = None,
                         pingpong: bool | None = None, seed: int | None = None,
                         wind: tuple[float, float] | None = None,
                         mode: str | None = None, loops: float | None = None,
                         amount: float | None = None,
-                        fps: int | None = None) -> list[Image.Image]:
+                        fps: int | None = None,
+                        cap: int | None = None) -> list[Image.Image]:
     """Particle disperse loop for one image (Fase 2, solo dispersion).
 
     Dithers once (preset method/threshold/pixel_size) then marches
@@ -397,12 +565,13 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
     plan = plan_dissolve(n, 1, fps_v,
                          float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
-                         target_s if target_s > 0 else None)
+                         target_s if target_s > 0 else None,
+                         cap=cap if cap else MAX_TOTAL_FRAMES)
     a = _canvas_a(img, preset, side)
     out = dissolve_frames(a, method=method, threshold=threshold,
                           pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
                           mode=mode_v, loops=loops_v, amount=amount_v,
-                          max_side=side, hold_start=plan["hs"], hold_end=plan["he"] + plan["pad"])
+                          max_side=side, hold_start=plan["hs"], hold_end=plan["he"])
     if pp:
         out = _pingpong(out)
     return out
@@ -414,15 +583,19 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                      wind: tuple[float, float] | None = None,
                      mode: str | None = None,
                      amount: float | None = None,
-                     fps: int | None = None) -> list[Image.Image]:
+                     fps: int | None = None,
+                     cap: int | None = None,
+                     loop: bool | None = None) -> list[Image.Image]:
     """Swap A -> B (-> C ...) through particle clouds (Fase 5 + v1.8 chain).
 
     img_b may be a single image or a list (chain A -> B -> C ..., capped
     at MAX_MORPH_IMAGES). Same dither engine for all images (preset
-    method/threshold/pixel). Transition frames get a 2-per-segment floor
+    method/threshold/pixel). Transition frames get a 2-per-leg floor
     so every form appears at least assembled (strict correctness); `fps`
-    only sets end hold durations. Deterministic. For a seamless GIF loop
-    use pingpong=True (A->B->A).
+    only sets end hold durations. Deterministic. With loop=True the last
+    form morphs back into the first (closed loop, no hard cut, no
+    ping-pong needed); without it use pingpong=True (A->B->A) for a
+    seamless GIF loop.
     """
     from app.disintegrate import DISINTEGRATE_MODES, morph_chain_frames
 
@@ -458,22 +631,26 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     if not others:
         return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                    pingpong=pp, seed=seed_v, wind=wind_v,
-                                   mode=mode_v, amount=amount_v, fps=fps)
+                                   mode=mode_v, amount=amount_v, fps=fps,
+                                   cap=cap)
     fps_v = max(1, int(fps if fps is not None else getattr(preset, "gif_fps", 8) if preset is not None else 8))
     target_s = float(getattr(preset, "dissolve_length", 0.0) or 0.0) if preset is not None else 0.0
+    loop_v = _morph_loop(preset, loop)
     plan = plan_dissolve(n, len(others), fps_v,
                          float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
-                         target_s if target_s > 0 else None)
-    n_trans, hs, he, hj, pad = plan["n_trans"], plan["hs"], plan["he"], plan["hj"], plan["pad"]
+                         target_s if target_s > 0 else None,
+                         cap=cap if cap else MAX_TOTAL_FRAMES, loop=loop_v)
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
     out = morph_chain_frames([a] + others, method=method,
-                             threshold=threshold, pixel_size=pixel, frames=n_trans,
+                             threshold=threshold, pixel_size=pixel, frames=plan["n_trans"],
                              seed=seed_v, wind=wind_v, mode=mode_v,
                              amount=amount_v, max_side=side,
-                             hold_start=hs, hold_end=he + pad, hold_joint=hj,
-                             crops=crops)
-    if pp:
+                             hold_start=plan["hs"], hold_end=plan["he"],
+                             hold_joint=plan["holds"][1:-1],
+                             crops=crops, loop=loop_v)
+    if pp and not loop_v:
+        # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)
     return out
 
@@ -510,3 +687,42 @@ def save_gif(
 def estimate_gif(frames: int, w: int, h: int) -> int:
     """Rough weight estimate (bytes) to warn about huge GIFs."""
     return int(frames) * int(w) * int(h) // 2
+
+
+#: Calibrated H.264 cost at quality=8 (measured 256px bayer8, x264/yuv420p):
+#: dithered transition frames are near-incompressible noise (~0.43 B/px),
+#: duplicated assembled holds collapse to near-zero (~0.011 B/px, ~40x).
+MP4_BYTES_PER_PX_TRANS = 0.43
+MP4_BYTES_PER_PX_HOLD = 0.011
+
+#: MP4 long-side choices (main image always stays at canvas size).
+MP4_SIZES = ("Canvas", "1080p", "720p")
+
+
+def mp4_dims(doc_w: int, doc_h: int, size_opt: str | int = "1080p") -> tuple[int, int]:
+    """MP4 frame dims preserving aspect (long side per option)."""
+    dw, dh = max(1, int(doc_w)), max(1, int(doc_h))
+    if isinstance(size_opt, int) or str(size_opt).isdigit():
+        long_side = max(64, int(size_opt))
+    elif str(size_opt) == "720p":
+        long_side = 720
+    elif str(size_opt) == "Canvas":
+        return (dw, dh)
+    else:
+        long_side = 1080
+    r = long_side / max(dw, dh)
+    if r >= 1.0:
+        return (dw, dh)
+    return (max(1, round(dw * r)), max(1, round(dh * r)))
+
+
+def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
+    """Content-aware MP4 weight estimate (bytes).
+
+    Transitions are dither noise (expensive); holds are duplicated stills
+    (cheap). The old flat 0.12 B/px/frame overestimated hold-heavy clips
+    ~8x and hid that 3000px/60fps is impagable even when honest.
+    """
+    px = max(1, int(w)) * max(1, int(h))
+    return int(px * (max(0, int(n_trans)) * MP4_BYTES_PER_PX_TRANS
+                     + max(0, int(n_hold)) * MP4_BYTES_PER_PX_HOLD))

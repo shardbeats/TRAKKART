@@ -126,6 +126,43 @@ def render_points(positions: np.ndarray, h: int, w: int) -> Image.Image:
     return Image.fromarray(canvas, mode="L").convert("RGB")
 
 
+def iter_dissolve(img: Image.Image, method: str = "bayer8",
+                  threshold: float = 128.0, pixel_size: int = 1,
+                  frames: int = 8, seed: int = 0xD15C,
+                  wind: tuple[float, float] = (120.0, -40.0),
+                  mode: str = "wind", loops: float = 1.0,
+                  amount: float = 1.0,
+                  max_side: int = 480,
+                  hold_start: int = 0, hold_end: int = 0):
+    """Yield dissolve frames one by one (streaming: O(1) RAM).
+
+    Same pixels as dissolve_frames(), no list kept alive. Lets MP4 honor
+    Length up to 60s (3600f) without the 256-frame list cap blowing RAM.
+    """
+    from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
+
+    n = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
+    side = max(64, min(8000, int(max_side or 480)))
+    small = img.convert("RGB")
+    r = side / max(small.width, small.height)
+    if r < 1.0:
+        small = small.resize((max(1, round(small.width * r)),
+                              max(1, round(small.height * r))), Image.BICUBIC)
+    dithered = dither_bw(small, method=method, threshold=threshold,
+                         pixel_size=pixel_size)
+    still = dithered.convert("RGB")
+    coords, h, w = points_from_dither(dithered)
+    for _ in range(max(0, int(hold_start))):
+        yield still.copy()
+    for i in range(n):
+        progress = float(i) / float(n)
+        pos = disperse_positions(coords, h, w, progress=progress, seed=seed,
+                                 wind=wind, mode=mode, loops=loops, amount=amount)
+        yield render_points(pos, h, w)
+    for _ in range(max(0, int(hold_end))):
+        yield still.copy()
+
+
 def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     threshold: float = 128.0, pixel_size: int = 1,
                     frames: int = 8, seed: int = 0xD15C,
@@ -150,18 +187,11 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     if r < 1.0:
         small = small.resize((max(1, round(small.width * r)),
                               max(1, round(small.height * r))), Image.BICUBIC)
-    dithered = dither_bw(small, method=method, threshold=threshold,
-                         pixel_size=pixel_size)
-    still = dithered.convert("RGB")
-    coords, h, w = points_from_dither(dithered)
-    out: list[Image.Image] = [still.copy() for _ in range(max(0, int(hold_start)))]
-    for i in range(n):
-        progress = float(i) / float(n)
-        pos = disperse_positions(coords, h, w, progress=progress, seed=seed,
-                                 wind=wind, mode=mode, loops=loops, amount=amount)
-        out.append(render_points(pos, h, w))
-    out.extend(still.copy() for _ in range(max(0, int(hold_end))))
-    return out
+    return list(iter_dissolve(img, method=method, threshold=threshold,
+                              pixel_size=pixel_size, frames=n, seed=seed,
+                              wind=wind, mode=mode, loops=loops, amount=amount,
+                              max_side=side, hold_start=hold_start,
+                              hold_end=hold_end))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -193,24 +223,22 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
 MAX_MORPH_IMAGES = 6
 
 
-def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
-                       threshold: float = 128.0, pixel_size: int = 1,
-                       frames: int = 8, seed: int = 0xD15C,
-                       wind: tuple[float, float] = (120.0, -40.0),
-                       mode: str = "wind", amount: float = 1.0,
-                       max_side: int = 480,
-                       hold_start: int = 0, hold_end: int = 0,
-                       hold_joint: int = 0,
-                       crops: list[dict] | None = None) -> list[Image.Image]:
-    """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
+def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
+                     threshold: float = 128.0, pixel_size: int = 1,
+                     frames: int = 8, seed: int = 0xD15C,
+                     wind: tuple[float, float] = (120.0, -40.0),
+                     mode: str = "wind", amount: float = 1.0,
+                     max_side: int = 480,
+                     hold_start: int = 0, hold_end: int = 0,
+                     hold_joint: int | list | tuple = 0,
+                     crops: list[dict] | None = None,
+                     loop: bool = False):
+    """Yield chain frames one by one (streaming: O(1) RAM).
 
-    All images fitted to the same HxW (rest cover-fit to A), dithered with
-    the same engine. Frames split per segment; each segment marches q over
-    [0, 1] inclusive (assembled -> cloud -> assembled) so joints meet
-    assembled with no pop. hold_start / hold_end freeze the first / last
-    form; hold_joint freezes every interior form so each one reads.
-    amount 0 gives hard cuts (strict 0=off). Deterministic per segment
-    seed (seed + k).
+    Same pixels as morph_chain_frames(), no list kept alive.
+    With loop=True the last form morphs back into the first (closed
+    loop, no hard cut): the closing leg reuses the first form's exact
+    dithered still/coords, so the loop joint is byte-identical.
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -243,17 +271,29 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
             h, w = hh, ww  # dithered size rules (pixel_size floors odd sides)
         coord_list.append(coords if (hh, ww) == (h, w) else _refit_coords(coords, hh, ww, h, w))
     segs = len(fitted) - 1
-    base, rem = divmod(n, segs)
+    loop_v = bool(loop) and len(fitted) >= 2
+    legs = segs + (1 if loop_v else 0)
+    base, rem = divmod(n, legs)
     dithered_all = [dither_bw(im, method=method, threshold=threshold,
                               pixel_size=pixel_size).convert("RGB")
                     for im in fitted]
-    out: list[Image.Image] = [dithered_all[0].copy() for _ in range(max(0, int(hold_start)))]
-    hj = max(0, int(hold_joint))
-    for k in range(segs):
+    for _ in range(max(0, int(hold_start))):
+        yield dithered_all[0].copy()
+    if isinstance(hold_joint, (list, tuple)):
+        hj_list = [max(0, int(v)) for v in list(hold_joint)]
+    else:
+        hj_list = [max(0, int(hold_joint))] * max(0, legs - 1)
+    for k in range(legs):
         nk = base + (1 if k < rem else 0)
         if nk <= 0:
+            if k < legs - 1:
+                hj_k = hj_list[k] if k < len(hj_list) else (hj_list[-1] if hj_list else 0)
+                for _ in range(hj_k):
+                    yield dithered_all[(k + 1) % len(dithered_all)].copy()
             continue
-        ca, cb = coord_list[k], coord_list[k + 1]
+        closing = loop_v and k == legs - 1
+        ca = coord_list[k] if not closing else coord_list[-1]
+        cb = coord_list[k + 1] if not closing else coord_list[0]
         for j in range(nk):
             q = float(j) / float(max(1, nk - 1))
             if q < 0.5:
@@ -262,13 +302,46 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
             else:
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
                                          wind=wind, mode=mode, loops=1.0, amount=amount)
-            out.append(render_points(pos, h, w))
-        if k < segs - 1:
-            out.extend(dithered_all[k + 1].copy() for _ in range(hj))
-    out.extend(dithered_all[-1].copy() for _ in range(max(0, int(hold_end))))
-    return out
+            yield render_points(pos, h, w)
+        if k < legs - 1:
+            hj_k = hj_list[k] if k < len(hj_list) else (hj_list[-1] if hj_list else 0)
+            for _ in range(hj_k):
+                yield dithered_all[(k + 1) % len(dithered_all)].copy()
+    for _ in range(max(0, int(hold_end))):
+        yield dithered_all[0 if loop_v else -1].copy()
+
+
+def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
+                       threshold: float = 128.0, pixel_size: int = 1,
+                       frames: int = 8, seed: int = 0xD15C,
+                       wind: tuple[float, float] = (120.0, -40.0),
+                       mode: str = "wind", amount: float = 1.0,
+                       max_side: int = 480,
+                       hold_start: int = 0, hold_end: int = 0,
+                       hold_joint: int | list | tuple = 0,
+                       crops: list[dict] | None = None,
+                       loop: bool = False) -> list[Image.Image]:
+    """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
+
+    All images fitted to the same HxW (rest cover-fit to A), dithered with
+    the same engine. Frames split per segment; each segment marches q over
+    [0, 1] inclusive (assembled -> cloud -> assembled) so joints meet
+    assembled with no pop. hold_start / hold_end freeze the first / last
+    form; hold_joint freezes every interior form so each one reads
+    (int = same for all joints, list/tuple = per-joint exact share).
+    amount 0 gives hard cuts (strict 0=off). Deterministic per segment
+    seed (seed + k). With loop=True the last form morphs back into the
+    first (closed loop, no hard cut).
+    """
+    return list(iter_morph_chain(imgs, method=method, threshold=threshold,
+                                 pixel_size=pixel_size, frames=frames, seed=seed,
+                                 wind=wind, mode=mode, amount=amount,
+                                 max_side=max_side, hold_start=hold_start,
+                                 hold_end=hold_end, hold_joint=hold_joint,
+                                 crops=crops, loop=loop))
 
 
 __all__ = ["DISINTEGRATE_MODES", "MAX_POINTS", "MAX_MORPH_IMAGES", "dither_bw",
            "points_from_dither", "disperse_positions", "render_points",
-           "dissolve_frames", "morph_frames", "morph_chain_frames"]
+           "dissolve_frames", "morph_frames", "morph_chain_frames",
+           "iter_dissolve", "iter_morph_chain"]

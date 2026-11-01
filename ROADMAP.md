@@ -289,6 +289,13 @@ frames/fps son calidad.
   Length ligado, fps re-render solo en dissolve/morph, label honesto con
   hold y hint por tramo, cap 256 con aviso. Suite 464 -> 465. Follow-up: holds en cada junta interior (cada forma se lee), Length 0.5-60s, cap total 256.
 
+### v1.15 — Loop cerrado + holds iguales + MP4 honesto + diálogo vivo (done)
+- Loop: `dissolve_loop` (preset, default True) + checkbox MORPH "Loop (last → first)"; pierna de cierre con still/coords exactos de A (joint byte-idéntico); holds: reparto igual por forma con A partida en apertura/cierre; ping-pong se omite con loop cerrado; presupuesto/budget/hints cuentan la pierna extra.
+- MP4: streaming hasta 60s (3600f, O(1) RAM), tamaño MP4 Canvas/1080p/720p (default 1080p, stills full-doc), estima por contenido (trans 0.43 / hold 0.011 B/px, calibrada con x264) + avisos >100/400MB.
+- Holds iguales: el pad de Length se reparte entre todas las formas (≤1f de diferencia) en vez de ir todo a la última; `hold_joint` acepta lista por tramo de punta a punta.
+- Export: spec animada siempre del preset vivo (las prefs rancias ya no hacen bypass: morph se colaba en exports mix); chain de sesión solo alimenta dissolve/morph (export + preview).
+- Tests nuevos: loop abre/cierra en A, reparto de holds, estima MP4, diálogo vivo vs prefs rancias, gate por modo (+7).
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
@@ -365,8 +372,9 @@ form appears at least assembled), joints meet assembled (q=j/(nk-1)).
 - dissolve_mode wind | random: directional + turbulence vs all directions.
 - dissolve_speed 0.25-4.0 (1): traversals per clip.
 - dissolve_wind_x/y -500..500 px (120, -40): displacement at full disperse.
-- dissolve_hold 0-3s (1.0): still pause per end (assembled duplicates).
-- dissolve_length 0.5-32s (default 5.0): sacred total; plan_dissolve pads with end duplicates to honor it (cap 256 frames).
+- dissolve_hold 0-3s (1.0): still pause per form (assembled duplicates, Length pad shared equally across all forms).
+- dissolve_length 0.5-60s (default 5.0): sacred total; plan_dissolve pads with end duplicates to honor it (GIF/preview cap 256 frames, MP4 streams full Length up to 3600f via write_mp4_iter).
+- dissolve_loop true (default): closed loop, last form morphs back into A; A's share split across both loop ends; ping-pong ignored when closed.
 - Chain: playlist order = play order; per-image Crop X/Y 0-100 + Zoom 1-4x
   (session-only, covers B..F; A comes from the canvas).
 

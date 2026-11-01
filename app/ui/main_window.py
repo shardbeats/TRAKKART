@@ -1013,9 +1013,10 @@ class MainWindow(QMainWindow):
 
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
-                    quality: int, mp4: bool = False) -> None:
-        """Render full-res + bundle per options. Always full-res."""
+                    quality: int, mp4: bool = False,
+                    mp4_size: str = "1080p") -> None:
+        """Render full-res + bundle per options. Stills full-res, MP4 sized."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
-                       overwrite, size, format, quality, mp4)
+                       overwrite, size, format, quality, mp4, mp4_size)

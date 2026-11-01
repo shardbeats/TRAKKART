@@ -242,14 +242,14 @@ def test_morph_budget_grows_with_chain(window, tmp_path, monkeypatch):
     window.cmb_video_fps.setCurrentText("12")
     window.cmb_video_frames.setCurrentText("6")
     window.cmb_video_mode.setCurrentText("morph")
-    assert window._on_morph_pick() is True  # 1 seg -> max(6, 10) = 10
-    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 10
-    assert window._on_morph_pick() is True  # 2 segs -> max(10, 20) = 20
+    assert window._on_morph_pick() is True  # 1 seg + loop leg -> max(6, 20) = 20
     assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 20
+    assert window._on_morph_pick() is True  # 2 segs + loop leg -> max(20, 30) = 30
+    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 30
     assert _par.ensure_morph_budget(window) is False  # already enough
     window.cmb_video_mode.setCurrentText("mix")
     window.cmb_video_mode.setCurrentText("morph")  # switch back re-checks
-    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 20
+    assert window._anim_combo_int(window.cmb_video_frames, 6, 2, 64) == 30
     # Short budget warns with per-form time.
     window.cmb_video_frames.setCurrentText("8")
     window._sync_anim_ui()
