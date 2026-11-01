@@ -2,6 +2,29 @@
 
 > Context for continued development. Single source of truth for state and next steps.
 
+## 0. Handoff — continuar en otra sesión (nov-2026)
+
+- Estado: `main` limpio. Último bloque: loop cerrado (`dissolve_loop`),
+  holds iguales, MP4 1080p/720p + estima honesta, diálogo vivo vs prefs
+  rancias, Length 60s por streaming; docs en CHANGELOG Unreleased + QA
+  v1.15 + MANUAL; research sin implementar en §7.7 (modos morph) y §8.
+- Verificar al abrir: `git log --oneline -3` y
+  `.venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow" -n auto`
+  (verde) + `flake8 app tests tools main.py build_exe.py build_installer.py`
+  (limpio). Venv: `.venv` local o `C:\venvs\dev` (CENTRAL_VEN). CI usa
+  `QT_QPA_PLATFORM=offscreen`; pin `pytest<9.2` por pytest-bdd (ver
+  MAINTENANCE.md: no levantar sin upgrade de pytest-bdd).
+- Hilos abiertos: (1) Hold slider muerto cuando Length domina (medido:
+  0.0/1.0/3.0 idénticos): opciones (a) Hold manda + Length derivado,
+  (b) Length sagrada pero crecen transiciones antes que holds. SIN DECIDIR,
+  no tocar modelo hasta que el usuario elija. (2) Loop default True solo
+  afecta con chain en sesión; tests al día. (3) R5 sin corregir.
+- Siguiente paso recomendado: **R5+R6** (bug real + gratis):
+  `macro_block_size=2` + even-guard en `mp4_dims` (`app/gif.py`) +
+  `-movflags +faststart` en `write_mp4`/`write_mp4_iter` (`app/video_io.py`);
+  test: MP4 pedido 1080x1920 debe salir 1080x1920 (hoy sale 1088x1920) y
+  721x721 par, no 736x736. Después: R1+R2+R3 (Canvas) o morph F1 (§7.7).
+
 ## 1. Vision
 
 TRAKKART = offline cover art studio for beatmakers, part of the ShardBeats TRAKK SUITE.
@@ -439,4 +462,141 @@ Long term (new surfaces):
 - Beat-grid sync: amount/speed keyed to BPM markers.
 - Animated WebP export (smaller than GIF; Pillow supports per-frame
   duration lists too) + PNG-sequence zip (dither_app ships both).
+  --> Promoted with concrete spec in §8 R7 (nov-2026 research).
 - In-app text-to-image source so TEXT_CARD presets need no paste step.
+
+### 7.7 New morph modes: fields × stagger × ease (researched nov-2026)
+
+Hoy solo hay `wind` + `random` (`disperse_positions`, `app/disintegrate.py`).
+Sondeo: taxonomías de forces (Gravity/Wind/Turbulence/Vortex/Attractor/
+Spring), burst con varianza de velocidad (muchas lentas, pocas rápidas),
+flow-fields de ruido suave (bake-then-play), release escalonado por mapa
+(graph/axis/rank), ripple/wave/pulse sobre dot-grids, block dissolve por
+celdas. Todo es expresable en nuestro diseño (campo cerrado × envolvente
+periódica, sin integración: por eso somos loop-perfect y deterministas;
+la simulación con velocidades/drag NO entra: rompería el loop).
+
+Regla de diseño (no explosión combinatoria, filosofía FX stack): tres ejes
+ortogonales en vez of N modos sueltos. Mismo coste O(n) vectorizado, misma
+RAM (MAX_POINTS), mismos invariantes (seeded, frac%1 loop-perfect).
+
+- DIRECTION (campo de offset, `dissolve_mode` extendido; wind/random intactos):
+  `burst` (radial-out desde centro, speed por rank 0.3+rank para no hacer
+  anillo mecánico), `suction` (radial-in: converge; ideal logo-stings §7.5),
+  `vortex` (tangencial + leve pull outward, ángulo por posición),
+  `rain` (caída con frac² + floor-bounce por plegado: periódico),
+  `rise` (subida: hace real el preset propuesto EMBER_RISE §7.4),
+  `wave` (seno viajero en x, fase lockeada al loop),
+  `ripple` (anillos concéntricos desde centro, seno radial),
+  `flow` (campo de value-noise suave con seed, FIJO por clip como la
+  turbulencia actual: bake once O(HxW), lookup por frame; organic drift),
+  `blocks` (block dissolve por celdas pixel_size con orden por rank: sin
+  nube, pop por bloques; el más barato y el más dither-nativo).
+- STAGGER (`dissolve_stagger`: off | rank | radial | scan | sweep):
+  delay por partícula como shift de fase `frac_i=(progress*loops+delay_i)%1`
+  (loop intacto por el %1). `rank` usa el mapa Bayer de `ordered_maps.py`
+  (orden de matriz = firma dither); `radial` = ola centro-fuera en el
+  gather; `scan` = filas top-down; `sweep` = reensamblado left-right
+  (converge-to-shape). Determinista, sin RNG extra.
+- EASE (`dissolve_ease`: sine | cubic | elastic | bounce | linear):
+  forma de la envolvente en vez del sin fijo; sine = legacy byte-identical.
+  (El §7.6 ya pedía easing select: aquí queda concretado.)
+- Preset/UI/migración: 3 fields (`mode` oneof extendido + `stagger` +
+  `ease`, defaults wind/off/sine = renders legacy byte-identical);
+  MORPH: combo de modo extendido + 2 combos; plan cuenta igual (el stagger
+  no cambia conteos, solo reparte qué partícula se mueve cuándo).
+- Tests: determinismo (same seed = same pixels) + loop-perfect
+  (frac 0 == 1 por modo/stagger/ease) + legacy byte-identical por
+  defecto + 2-3 escenarios Gherkin (burst determinista, rank neutral
+  con stagger off, blocks en # formas).
+- Fases: F1 = fields (burst/suction/vortex/rain/wave/ripple/flow/blocks)
+  + stagger (rank/radial/scan/sweep) + ease sine/cubic; F2 = elastic/
+  bounce + acople con dot-size (§7.6) + preset pack (EMBER_RISE,
+  GRAVITY_DROP con rain, POUR Fake con flow + stagger rank).
+- No entra: física integrada (springs/drag con velocidad), interactividad
+  hover/explode en export (solo tendría sentido en preview; ver §7.6
+  long-term), nuevos formatos aquí (eso es §8 R7).
+
+## 8. Research backlog (web, nov-2026) — candidates, not scheduled
+
+Sondeo externo (specs oficiales + docs de Pillow/imageio) cruzado con
+mediciones en este repo. Solo entra lo offline, Pillow/numpy/imageio y
+coherente con TRAKK = stills dither + videos DE esos stills.
+Verificado hoy en código: (1) imageio reescala el MP4 a múltiplos de 16
+(1080x1920 sale como 1088x1920: rompe el 9:16 exacto que exige Canvas);
+(2) Pillow ya colapsa holds idénticos del GIF (medido: 114f -> 1f, 171B).
+
+### 8.1 Delivery social (encaje máximo, coste bajo)
+
+Fuentes: Spotify Canvas guidelines (MP4 o JPG, 9:16, 720-1080px, 3-8s);
+guías de specs sep/oct-2026 (Reels/Stories/TikTok/Shorts = 1080x1920 9:16;
+YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas con
+chrome arriba/abajo ~250px).
+
+- [ ] R1 — Canvas recipe preset: 9:16 + 1080x1920 + 24/30fps + Length 7.5s
+  (H.264 + faststart). A 8.000 exactos hay reportes de rechazo: apuntar
+  ≤7.9s. Nuestros 3 modos ya mapean 1:1 con la taxonomía Spotify
+  (Continuous=loop, Rebound=ping-pong, Hard Cut=loop off). Coste S.
+- [ ] R2 — "Canvas check": si ratio 9:16 y (Length fuera de 3-8s o MP4 size
+  fuera de 720p/1080p), hint en el duration label. Coste S.
+- [ ] R3 — BPM -> Length: inputs BPM + compases -> Length = bars*240/BPM
+  (120BPM/2 compases = 4s; 140BPM/4 compases = 6.86s). El loop no arranca
+  en downbeat (Spotify loopea por su reloj) pero el pulso interno coincide
+  con el tema. Coste S, encaje total con beatmakers.
+- [ ] R4 — Social recipe presets (bundled JSON): YT thumb 1280x720, square
+  1080x1080, portrait 4:5 1080x1350, master 9:16 1080x1920 (un master cubre
+  Reels/Stories/TikTok/Shorts). Coste S.
+
+### 8.2 Formato/codec (medido, coste bajo)
+
+- [ ] R5 — macro_block_size=2 + even-guard en mp4_dims (BUG verificado hoy:
+  1080x1920 -> 1088x1920, 404x720 -> 416x720; H.264/yuv420p solo exige
+  múltiplos de 2). Sin esto ningún MP4 es Canvas-válido. Coste XS, hacerlo ya.
+- [ ] R6 — faststart (`-movflags +faststart`) en write_mp4/write_mp4_iter:
+  playback progresivo en web/stores, coste ~cero. Hacer con R5.
+- [ ] R7 — Animated WebP export (promueve §7.6): Pillow save_all + duration
+  (int o lista) + loop=0 + minimize_size, sin deps nuevas, ~1/3 del GIF a
+  igual calidad y full color; todos los browsers lo reproducen. Nuevo
+  `save_webp()` espejo de save_gif + checkbox en diálogo + bundle
+  `*_anim.webp`. Coste S/M.
+- [ ] R8 — GIF estimate v2 (hold-collapse aware): la estima actual
+  (frames*w*h//2) miente 100-1000x en clips con holds porque Pillow
+  fusiona frames idénticos. Estimar transiciones a coste completo + 1f
+  por forma quieta. Coste S.
+
+### 8.3 Print (encaja con Vector Pro)
+
+- [ ] R9 — Separaciones por tinta (RISO/serigrafía): un PNG por color de
+  paleta (spot separations) + marcas de registro. Flujo real de
+  print-shops, sin OpenCV. Coste M.
+
+### 8.4 Workflow/automatización
+
+- [ ] R10 — CLI headless (`TRAKKART.exe --cli --preset X --in ... --out ...`):
+  sellos con 20 singles/mes lo agradecen; UI y engine ya están separados
+  por servicios. Coste M.
+- [ ] R11 — Watch-folder (carpeta vigilada -> auto-batch con preset fijo).
+  Coste M. Alternativa barata: "re-batch last folder" en 1 click (S).
+
+### 8.5 Polish UX/motor (solo si sobra ciclo)
+
+- [ ] R12 — Safe-area guides 9:16 (franjas top/bottom de chrome
+  IG/TikTok/Shorts) en crop editor + preview. Coste S/M.
+- [ ] R13 — Wipe compare (slider antes/después) además de hold-to-compare.
+  Coste S.
+- [ ] R14 — Congelar roster de motores en 36: más difusiones (Ostromoukhov
+  y cía) aportan <5% visible para covers y cada motor es superficie de
+  test/preset para siempre. Decisión propuesta.
+
+### 8.6 Rechazado explícito (no reabrir sin motivo)
+
+- AV1/codecs nuevos: H.264 es el codec universal de Canvas/socials; AV1
+  encode es lento y nada lo exige. Pillow+numpy+imageio bastan.
+- IA en nube, cuentas, uploads, login, auto-update/store: rompen
+  offline-first y el §6. Text layer in-app: ya se quitó en v0.14.
+
+### Recomendado (siguiente trilogía)
+
+1. R5+R6 (bug real + gratis) → 2. R1+R2+R3 (Canvas: el caso de uso que
+   paga el producto) → 3. R7 (WebP) o R9 (separaciones) según tiren
+   más social o print.
