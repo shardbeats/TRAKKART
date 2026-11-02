@@ -108,8 +108,8 @@ app/ui/theme.qss         :: static dark stylesheet (tokens #151617/#F5A623, no s
 app/ui/workers.py        :: BatchWorker QThread (jobs + cancel)
 app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, stale drops)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
-presets/*.json           :: 4 bundled (never overwritten)
-features/*.feature       :: 52 Gherkin scenarios
+presets/*.json           :: 13 bundled (never overwritten)
+features/*.feature       :: 61 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
 ```

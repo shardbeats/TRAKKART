@@ -98,7 +98,7 @@ app/ui/theme.qss        :: static dark stylesheet (tokens #151617/#F5A623, no sw
 app/ui/widgets.py        :: ValueSlider with reset on double-click
 app/ui/workers.py        :: BatchWorker QThread
 app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, drops stale renders)
-features/*.feature       :: 52 Gherkin acceptance scenarios (pytest-bdd)
+features/*.feature       :: 61 Gherkin acceptance scenarios (pytest-bdd)
 tools/quality_metrics.py :: 5 quality gates -> data/quality_report.json
 ```
 
