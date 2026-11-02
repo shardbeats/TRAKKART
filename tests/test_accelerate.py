@@ -65,13 +65,15 @@ def test_pure_python_fallback_correct(monkeypatch):
 def test_lazy_import_defers_numba():
     import subprocess
     import sys
+    from pathlib import Path
 
+    root = Path(__file__).resolve().parents[1]
     code = ("import sys; import app.accelerate as a; "
             "assert 'numba' not in sys.modules, 'numba imported at accelerate import'; "
             "assert a.has_numba() is True; "
             "assert 'numba' in sys.modules, 'probe must import numba'")
     r = subprocess.run([sys.executable, "-c", code], capture_output=True,
-                       text=True, cwd="<repo>")
+                       text=True, cwd=str(root))
     assert r.returncode == 0, r.stderr
 
 

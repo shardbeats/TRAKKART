@@ -52,11 +52,14 @@ def test_cli_list_presets(capsys):
 
 def test_cli_dispatch_without_qt():
     # Fresh interpreter: --cli must never import PySide6 (fast, display-free).
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
     code = ("import sys; sys.argv=['main.py', '--cli', '--list-presets']; "
             "sys.path.insert(0, '.'); import main; rc = main.main(); "
             "assert 'PySide6' not in sys.modules, 'Qt leaked into CLI'; "
             "assert rc == 0")
     r = subprocess.run([sys.executable, "-c", code], capture_output=True,
-                       text=True, cwd="<repo>")
+                       text=True, cwd=str(root))
     assert r.returncode == 0, r.stderr
     assert "SLIME_FS" in r.stdout
