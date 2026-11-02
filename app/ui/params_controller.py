@@ -330,6 +330,7 @@ BINDINGS: tuple = (
     ("dissolve_mode",) + _combo("cmb_dissolve_mode"),
     ("dissolve_stagger",) + _combo("cmb_dissolve_stagger"),
     ("dissolve_ease",) + _combo("cmb_dissolve_ease"),
+    ("dissolve_dotsize",) + _slider("sld_dissolve_dotsize", 1.0),
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
     ("dissolve_length",) + _dspin("spn_duration"),

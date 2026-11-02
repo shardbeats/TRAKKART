@@ -1,0 +1,11 @@
+{
+  "name": "GRAVITY_DROP",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "dissolve_mode": "rain",
+  "dissolve_amount": 1.0,
+  "dissolve_seed": 53596,
+  "dissolve_speed": 1.0
+}

@@ -23,7 +23,7 @@ DISINTEGRATE_MODES = ("wind", "random", "burst", "suction", "vortex",
 #: Release stagger: per-particle phase shift (loop-safe via %1).
 STAGGER_MODES = ("off", "rank", "radial", "scan", "sweep")
 #: Loop envelope shape (all close at the joints: env(0) == env(1) == 0).
-EASE_MODES = ("sine", "cubic", "linear")
+EASE_MODES = ("sine", "cubic", "linear", "elastic", "bounce")
 
 #: Hard cap on rasterized points per frame (perf: vectorized scatter).
 MAX_POINTS = 120_000
@@ -84,6 +84,39 @@ def _refit_coords(coords: np.ndarray, hh: int, ww: int, h: int, w: int) -> np.nd
     return out
 
 
+def _pinned_frac(progress: float, loops: float, delays: np.ndarray) -> np.ndarray:
+    """Joint-pinned staggered phase: full pour waves mid-loop, zero shift
+    at both joints (holds meet assembled). Loop-safe by the %1."""
+    frac = (float(progress) * max(0.25, min(4.0, float(loops or 1.0)))) % 1.0
+    return np.mod(frac + np.asarray(delays, dtype=np.float64) * math.sin(math.pi * frac), 1.0)
+
+
+def dot_sizes(env, maxsize: int = 1):
+    """Per-dot render size 1..maxsize from the envelope (None = legacy 1px).
+
+    Dots swell as they fly (Heckel-style attenuation by envelope) and
+    land back at 1px, so joints stay byte-sharp under holds.
+    """
+    m = max(1, int(maxsize or 1))
+    if m <= 1:
+        return None
+    return (1 + np.round((m - 1) * np.asarray(env, dtype=np.float64))).astype(np.int64)
+
+
+def frame_dot_sizes(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
+                    loops: float = 1.0, stagger: str = "off", ease: str = "sine",
+                    dotsize: int = 1):
+    """Sizes for one frame (None when dotsize is 1: legacy path untouched)."""
+    if max(1, int(dotsize or 1)) <= 1 or int(len(coords)) == 0:
+        return None
+    st = str(stagger or "off")
+    if st not in STAGGER_MODES:
+        st = "off"
+    delays = stagger_delays(coords, h, w, st)
+    env = ease_env(_pinned_frac(progress, loops, delays), ease)
+    return dot_sizes(env, dotsize)
+
+
 def _bayer_rank(ys: np.ndarray, xs: np.ndarray) -> np.ndarray:
     """Dither-matrix rank in [0, 1): the bayer8 signature per position."""
     mat = np.asarray(BAYER_8X8, dtype=np.float64)
@@ -122,7 +155,9 @@ def stagger_delays(coords: np.ndarray, h: int, w: int, stagger: str = "off") -> 
 
 def ease_env(frac, ease: str = "sine") -> np.ndarray:
     """Loop envelope: sine = legacy, cubic = sharper attack/longer dwell,
-    linear = constant-speed tent. All satisfy env(0) == env(1) == 0."""
+    linear = constant-speed tent, elastic = wobble riding the breathe,
+    bounce = sub-impacts riding the breathe. All satisfy
+    env(0) == env(1) == 0 with peak <= 1."""
     f = np.mod(np.asarray(frac, dtype=np.float64), 1.0)
     e = str(ease or "sine")
     if e == "cubic":
@@ -130,6 +165,10 @@ def ease_env(frac, ease: str = "sine") -> np.ndarray:
         return s * s * s
     if e == "linear":
         return 1.0 - np.abs(1.0 - 2.0 * f)
+    if e == "elastic":
+        return np.sin(np.pi * f) * (0.65 + 0.35 * np.cos(6.0 * np.pi * f))
+    if e == "bounce":
+        return np.sin(np.pi * f) * (0.55 + 0.45 * np.abs(np.sin(3.0 * np.pi * f)))
     return np.sin(np.pi * f)
 
 
@@ -226,8 +265,7 @@ def block_visible(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
     px = max(1, int(pixel_size or 1))
     f = np.asarray(coords, dtype=np.float64)
     delays = stagger_delays(f, h, w, st)
-    frac = (float(progress) * max(0.25, min(4.0, float(loops or 1.0)))) % 1.0
-    frac = np.mod(frac + delays * np.sin(np.pi * frac), 1.0)
+    frac = _pinned_frac(progress, loops, delays)
     env = ease_env(frac, ease)
     rank = _bayer_rank(np.floor(f[:, 0] / px), np.floor(f[:, 1] / px))
     # Peak anchor: the densest ~15% of cells persist through full
@@ -283,10 +321,7 @@ def disperse_positions(coords: np.ndarray, h: int, w: int, progress: float = 0.0
         return out
     n = int(len(coords))
     delays = stagger_delays(coords, h, w, st)
-    frac = (float(progress) * float(loops)) % 1.0
-    # Joint-pinned stagger: no shift at frac 0/1 (holds meet assembled),
-    # full pour waves mid-loop. Loop-safe by the %1.
-    frac = np.mod(frac + delays * math.sin(math.pi * frac), 1.0)
+    frac = _pinned_frac(progress, loops, delays)
     env = ease_env(frac, ez).astype(np.float32)
     if mode == "blocks":
         off = np.zeros((n, 2), dtype=np.float32)  # blocks pop, they never drift
@@ -300,13 +335,35 @@ def disperse_positions(coords: np.ndarray, h: int, w: int, progress: float = 0.0
     return out
 
 
-def render_points(positions: np.ndarray, h: int, w: int) -> Image.Image:
-    """Rasterize float (y,x) points to a BW RGB image (white bg, black dots)."""
+def render_points(positions: np.ndarray, h: int, w: int, sizes=None) -> Image.Image:
+    """Rasterize float (y,x) points to a BW RGB image (white bg, black dots).
+
+    `sizes` (per-dot ints, None = legacy 1px): dots swell as kxk blocks
+    anchored at the dot, clipped. Grouped fills keep it vectorized.
+    """
     canvas = np.full((h, w), 255, dtype=np.uint8)
     if len(positions):
         ys = np.clip(positions[:, 0].astype(np.int32), 0, h - 1)
         xs = np.clip(positions[:, 1].astype(np.int32), 0, w - 1)
-        canvas[ys, xs] = 0
+        if sizes is None:
+            canvas[ys, xs] = 0
+        else:
+            s = np.asarray(sizes, dtype=np.int64)
+            if len(s) != len(ys):
+                canvas[ys, xs] = 0
+            else:
+                for k in np.unique(s):
+                    m = s == k
+                    yy = np.clip(ys[m], 0, h - 1)
+                    xx = np.clip(xs[m], 0, w - 1)
+                    kk = max(1, int(k))
+                    if kk <= 1:
+                        canvas[yy, xx] = 0
+                        continue
+                    for dy in range(kk):
+                        yyc = np.clip(yy + dy, 0, h - 1)
+                        for dx in range(kk):
+                            canvas[yyc, np.clip(xx + dx, 0, w - 1)] = 0
     return Image.fromarray(canvas, mode="L").convert("RGB")
 
 
@@ -318,11 +375,13 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   amount: float = 1.0,
                   max_side: int = 480,
                   hold_start: int = 0, hold_end: int = 0,
-                  stagger: str = "off", ease: str = "sine"):
-    """Yield dissolve frames one by one (streaming: O(1) RAM).
+                  stagger: str = "off", ease: str = "sine",
+                  dotsize: int = 1):
+    """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
     long clips (up to 3600f) without the 256-frame list cap blowing RAM.
+    `dotsize` 1..4 swells dots with the envelope (1 = legacy 1px).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -346,11 +405,16 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                                  stagger=stagger, ease=ease,
                                  pixel_size=pixel_size, seed=seed)
             pos = coords.astype(np.float32)[mask]
+            sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
+                                    stagger=stagger, ease=ease, dotsize=dotsize)
+            sizes = None if sizes is None else np.asarray(sizes)[mask]
         else:
             pos = disperse_positions(coords, h, w, progress=progress, seed=seed,
                                      wind=wind, mode=mode, loops=loops, amount=amount,
                                      stagger=stagger, ease=ease, pixel_size=pixel_size)
-        yield render_points(pos, h, w)
+            sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
+                                    stagger=stagger, ease=ease, dotsize=dotsize)
+        yield render_points(pos, h, w, sizes)
     for _ in range(max(0, int(hold_end))):
         yield still.copy()
 
@@ -363,13 +427,15 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     amount: float = 1.0,
                     max_side: int = 480,
                     hold_start: int = 0, hold_end: int = 0,
-                    stagger: str = "off", ease: str = "sine") -> list[Image.Image]:
+                    stagger: str = "off", ease: str = "sine",
+                    dotsize: int = 1) -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
     n copies of the dithered still (identity, strict 0=off). hold_start /
     hold_end prepend / append assembled copies so the form reads before
-    it bursts (loop joint stays assembled -> seamless).
+    it bursts (loop joint stays assembled -> seamless). `dotsize` 1..4
+    swells dots with the envelope (1 = legacy 1px).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -381,10 +447,11 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
         small = small.resize((max(1, round(small.width * r)),
                               max(1, round(small.height * r))), Image.BICUBIC)
     return list(iter_dissolve(img, method=method, threshold=threshold,
-                              pixel_size=pixel_size, frames=n, seed=seed,
-                              wind=wind, mode=mode, loops=loops, amount=amount,
-                              max_side=side, hold_start=hold_start,
-                              hold_end=hold_end, stagger=stagger, ease=ease))
+                pixel_size=pixel_size, frames=n, seed=seed,
+                wind=wind, mode=mode, loops=loops, amount=amount,
+                max_side=side, hold_start=hold_start,
+                hold_end=hold_end, stagger=stagger, ease=ease,
+                dotsize=dotsize))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -396,7 +463,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  hold_start: int = 0, hold_end: int = 0,
                  hold_joint: int = 0,
                  crops: list[dict] | None = None,
-                 stagger: str = "off", ease: str = "sine") -> list[Image.Image]:
+                 stagger: str = "off", ease: str = "sine",
+                 dotsize: int = 1) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -410,7 +478,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  wind=wind, mode=mode, amount=amount, max_side=max_side,
                                  hold_start=hold_start, hold_end=hold_end,
                                  hold_joint=hold_joint, crops=crops,
-                                 stagger=stagger, ease=ease)
+                                 stagger=stagger, ease=ease, dotsize=dotsize)
     return chained
 
 
@@ -428,7 +496,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      hold_joint: int | list | tuple = 0,
                      crops: list[dict] | None = None,
                      loop: bool = False,
-                     stagger: str = "off", ease: str = "sine"):
+                     stagger: str = "off", ease: str = "sine",
+                     dotsize: int = 1):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -498,15 +567,25 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                      loops=1.0, stagger=stagger, ease=ease,
                                      pixel_size=pixel_size, seed=int(seed) + k)
                 pos = pick.astype(np.float32)[mask]
+                sizes = frame_dot_sizes(pick, h, w, progress=q,
+                                        loops=1.0, stagger=stagger, ease=ease,
+                                        dotsize=dotsize)
+                sizes = None if sizes is None else np.asarray(sizes)[mask]
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
                                          stagger=stagger, ease=ease, pixel_size=pixel_size)
+                sizes = frame_dot_sizes(ca, h, w, progress=q,
+                                        loops=1.0, stagger=stagger, ease=ease,
+                                        dotsize=dotsize)
             else:
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
                                          stagger=stagger, ease=ease, pixel_size=pixel_size)
-            yield render_points(pos, h, w)
+                sizes = frame_dot_sizes(cb, h, w, progress=q,
+                                        loops=1.0, stagger=stagger, ease=ease,
+                                        dotsize=dotsize)
+            yield render_points(pos, h, w, sizes)
         if k < legs - 1:
             hj_k = hj_list[k] if k < len(hj_list) else (hj_list[-1] if hj_list else 0)
             for _ in range(hj_k):
@@ -525,7 +604,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        hold_joint: int | list | tuple = 0,
                        crops: list[dict] | None = None,
                        loop: bool = False,
-                       stagger: str = "off", ease: str = "sine") -> list[Image.Image]:
+                       stagger: str = "off", ease: str = "sine",
+                       dotsize: int = 1) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -539,12 +619,12 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     first (closed loop, no hard cut).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
-                                 pixel_size=pixel_size, frames=frames, seed=seed,
-                                 wind=wind, mode=mode, amount=amount,
-                                 max_side=max_side, hold_start=hold_start,
-                                 hold_end=hold_end, hold_joint=hold_joint,
-                                 crops=crops, loop=loop,
-                                 stagger=stagger, ease=ease))
+                pixel_size=pixel_size, frames=frames, seed=seed,
+                wind=wind, mode=mode, amount=amount,
+                max_side=max_side, hold_start=hold_start,
+                hold_end=hold_end, hold_joint=hold_joint,
+                crops=crops, loop=loop,
+                stagger=stagger, ease=ease, dotsize=dotsize))
 
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",

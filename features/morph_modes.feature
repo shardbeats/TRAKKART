@@ -18,3 +18,8 @@ Feature: Morph particle fields
     Given two flat images
     When I morph them in blocks mode without loop
     Then the first frame is A assembled and the last is B assembled
+
+  Scenario: Elastic ease loops and fat dots land sharp
+    Given a 48x48 gradient image
+    When I disperse it in elastic mode with dotsize 3
+    Then the loop closes and the joints match the 1px still

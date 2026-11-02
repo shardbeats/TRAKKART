@@ -1,0 +1,12 @@
+{
+  "name": "POUR_FAKE",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "dissolve_mode": "flow",
+  "dissolve_stagger": "rank",
+  "dissolve_amount": 0.5,
+  "dissolve_seed": 777,
+  "dissolve_speed": 1.0
+}

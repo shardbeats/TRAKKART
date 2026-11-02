@@ -1,0 +1,11 @@
+{
+  "name": "EMBER_RISE",
+  "method": "floyd",
+  "palette": "BW",
+  "pixel_size": 2,
+  "threshold": 128,
+  "dissolve_mode": "rise",
+  "dissolve_amount": 1.0,
+  "dissolve_seed": 53596,
+  "dissolve_speed": 1.0
+}

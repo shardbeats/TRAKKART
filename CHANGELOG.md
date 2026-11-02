@@ -22,6 +22,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Headless CLI (R10): `TRAKKART.exe --cli --preset X --in ... --out ...` (file/folder, batch bundle, skip-existing, exit 0/1/2, Qt-free; MP4/WebP/seps stay dialog-only).
 - Watch folder (R11): File → Watch folder auto-batches arrivals with a fixed preset (2s debounce, 3s settle, skip-existing, sequential, stateless, no modals).
 - Morph F1 (§7.7): 11 particle fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks) × 5 staggers (joint-pinned) × 3 eases; legacy wind/off/sine byte-identical; MORPH combos; Gherkin 55.
+- Morph F2 (§7.7): elastic/bounce eases + dot-size swell (`dissolve_dotsize` 1-4, joints at 1px) + bundled EMBER_RISE/GRAVITY_DROP/POUR_FAKE; Gherkin 56.
+- Engine roster frozen at 36 (R14 decision, exact-list test; particle fields are a separate axis).
 - Polish (R12+R13): 9:16 safe-area chrome guides (still preview + crop editor, View toggle, display-only) + wipe compare slider (ORIGINAL/result divider, aligned canvas, survives refreshes).
 
 ## v1.0.1

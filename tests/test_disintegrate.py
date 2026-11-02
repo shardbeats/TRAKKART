@@ -504,7 +504,11 @@ def test_f1_preset_roundtrip_and_old_defaults():
     with pytest.raises(ValueError):
         Preset(name="x", dissolve_mode="nope").validate()
     with pytest.raises(ValueError):
-        Preset(name="x", dissolve_ease="elastic").validate()  # F2, not yet
+        Preset(name="x", dissolve_ease="springy").validate()
+    Preset(name="x", dissolve_ease="elastic").validate()  # F2
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_dotsize=9).validate()
+    Preset(name="x", dissolve_dotsize=3).validate()  # F2
 
 
 def test_f1_blocks_morph_ends_assembled():
@@ -518,3 +522,64 @@ def test_f1_blocks_morph_ends_assembled():
     assert tuple(f[0].get_flattened_data()) == stills[0]
     assert tuple(f[-1].get_flattened_data()) == stills[1]
     assert len({tuple(x.get_flattened_data()) for x in f}) > 2
+
+
+def test_f2_elastic_bounce_close_and_shape():
+    import numpy as np
+
+    from app.disintegrate import EASE_MODES, disperse_positions, ease_env
+
+    assert set(EASE_MODES) == {"sine", "cubic", "linear", "elastic", "bounce"}
+    coords, h, w = _coords48()
+    for ez in ("elastic", "bounce"):
+        a = disperse_positions(coords, h, w, progress=0.25, seed=5, mode="burst", ease=ez)
+        b = disperse_positions(coords, h, w, progress=0.25, seed=5, mode="burst", ease=ez)
+        assert (a == b).all(), ez
+        s = disperse_positions(coords, h, w, progress=0.25, seed=5, mode="burst", ease="sine")
+        assert not (a == s).all(), ez
+    v = ease_env(np.linspace(0.0, 1.0, 1001), "elastic")
+    assert float(v.max()) <= 1.0 and abs(float(v[0])) < 1e-12 and abs(float(v[-1])) < 1e-12
+    v = ease_env(np.linspace(0.0, 1.0, 1001), "bounce")
+    assert float(v.max()) <= 1.0 and abs(float(v[0])) < 1e-12 and abs(float(v[-1])) < 1e-12
+
+
+def test_f2_dotsize_swell_and_joints():
+    import numpy as np
+
+    from app.disintegrate import dot_sizes, frame_dot_sizes, render_points
+    from app.gif import gif_dissolve_frames
+    from app.presets import Preset
+
+    assert dot_sizes([0.0, 0.5, 1.0], 1) is None
+    assert list(dot_sizes([0.0, 0.5, 1.0], 3)) == [1, 2, 3]
+    # Isolated dot renders kxk blacks.
+    one = render_points(np.array([[10.0, 10.0]]), 32, 32, np.array([3]))
+    assert int((np.asarray(one.convert("L")) == 0).sum()) == 9
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    a = gif_dissolve_frames(_img(), Preset(**base), frames=4)
+    b = gif_dissolve_frames(_img(), Preset(**base, dissolve_dotsize=3), frames=4)
+    assert a[0].tobytes() == b[0].tobytes()  # joints land back at 1px
+    assert a[2].tobytes() != b[2].tobytes()  # mid swells
+    coords, h, w = _coords48()
+    assert frame_dot_sizes(coords, h, w, progress=0.3, dotsize=1) is None
+
+
+def test_f2_preset_pack():
+    import tempfile
+    from pathlib import Path
+
+    from app.presets import ensure_bundled, load_preset
+
+    with tempfile.TemporaryDirectory() as d:
+        ensure_bundled(Path(d))
+        ember = load_preset("EMBER_RISE", Path(d))
+        ember.validate()
+        assert ember.dissolve_mode == "rise"
+        drop = load_preset("GRAVITY_DROP", Path(d))
+        drop.validate()
+        assert drop.dissolve_mode == "rain"
+        pour = load_preset("POUR_FAKE", Path(d))
+        pour.validate()
+        assert (pour.dissolve_mode, pour.dissolve_stagger) == ("flow", "rank")
+        assert pour.dissolve_amount == 0.5

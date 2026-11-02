@@ -43,6 +43,22 @@ def test_apply_method_dispatch():
         assert out.size == (64, 64)
 
 
+def test_engine_roster_frozen_r14():
+    # R14 decision: the roster is frozen at 36 (new diffusions add <5%
+    # visible for covers, each engine is eternal test/preset surface).
+    # Adding one must be a conscious decision: update this list + docs.
+    from app.dither import METHODS
+
+    assert sorted(METHODS) == [
+        "ascii", "atkinson", "bayer16", "bayer2", "bayer32", "bayer4",
+        "bayer8", "blocks", "bluenoise", "burkes", "checker", "cluster",
+        "cmyk", "columns", "cross", "diag", "edges", "filterlite",
+        "floyd", "grid", "halftone", "hilbert", "ign", "jjn", "lines",
+        "motif", "pattern", "scan_bayer", "shiaufan", "sierra", "sierra3",
+        "sierralite", "stevenson", "stucki", "wave_map", "white_noise",
+    ]
+
+
 def test_ign_deterministic_and_phased():
     from app.dither import ordered
 

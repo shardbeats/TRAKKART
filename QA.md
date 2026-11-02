@@ -56,11 +56,11 @@ features/color_pro.feature :: 2 scenarios (auto-extract, source/depth)
 features/fx_stack.feature :: 2 scenarios (stack order, jpeg neutral)
 features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
 features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
-features/morph_modes.feature :: 3 scenarios (burst determinism, stagger-off legacy, blocks ends assembled)
+features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off legacy, blocks ends assembled, elastic loop + fat-dot joints)
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 55/55. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 56/56. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -181,6 +181,18 @@ wind/off/sine byte-identical (fast path). 3 preset fields with
 migración (defaults = legacy). Gherkin 55 (`morph_modes.feature`).
 Deviations from research noted in §7.7 (rise+linear in F1, flow
 closed-form not baked, blocks 15% peak anchor).
+
+## Morph F2: elastic/bounce + dot-size + preset pack (§7.7)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f2 or preset_pack or elastic"
+```
+
+elastic/bounce cierran el loop (pico ≤1, joints a 0);
+`dissolve_dotsize` 1-4 hincha dots con la envolvente (joints a 1px,
+slider MORPH); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
+(rain/bayer8), POUR_FAKE (flow+rank+amount 0.5). 4º Gherkin
+(elastic loop + fat-dot joints). Gates 56.
 
 ## Polish (R12+R13)
 

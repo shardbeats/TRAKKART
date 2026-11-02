@@ -515,15 +515,20 @@ RAM (MAX_POINTS), mismos invariantes (seeded, frac%1 loop-perfect).
   Done F1: `features/morph_modes.feature` (3) + unit en
   `tests/test_disintegrate.py` (11 modos × 5 staggers × 3 eases en loop,
   ancla blocks 9/64, fallback) + combos MORPH (11/5/3). Gates 55.
+  Done F2: elastic/bounce + `dissolve_dotsize` 1-4 (joints a 1px) +
+  pack EMBER_RISE/GRAVITY_DROP/POUR_FAKE + 4º Gherkin. Gates 56.
 - Fases: F1 = fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks;
   rise entra por simetría con rain, 3 líneas) + stagger (rank/radial/scan/sweep)
   + ease sine/cubic/linear (linear entra por neutralidad, 1 línea);
   rain/rise pliegan su drop (frac² + bounce) DENTRO del field y la envolvente
   lo puerta (el ease sí manda); blocks popea por celdas pixel_size con ancla
   del 15% denso (sin ancla flashea blanco a pico: medido); stagger pineado
-  al joint (shift puro rompía holds). F2 = elastic/
-  bounce + acople con dot-size (§7.6) + preset pack (EMBER_RISE,
-  GRAVITY_DROP con rain, POUR Fake con flow + stagger rank).
+   al joint (shift puro rompía holds). F2 = elastic/
+   bounce + acople con dot-size (§7.6) + preset pack (EMBER_RISE,
+   GRAVITY_DROP con rain, POUR Fake con flow + stagger rank).
+   Done F2: elastic = sine·(0.65+0.35cos) pico ~0.88, bounce =
+   sine·(0.55+0.45|sin|) pico 1.0; dotsize 1-4 con joints a 1px
+   (slider MORPH + BINDINGS); pack de 3 bundled.
 - No entra: física integrada (springs/drag con velocidad), interactividad
   hover/explode en export (solo tendría sentido en preview; ver §7.6
   long-term), nuevos formatos aquí (eso es §8 R7).
@@ -641,9 +646,13 @@ chrome arriba/abajo ~250px).
   divisor ámbar, 0 = off); original alineado vía canvas vivo;
   composita a tamaño display; hold manda mientras se pulsa; video lo
   ignora; sobrevive refreshes (router `redisplay`).
-- [ ] R14 — Congelar roster de motores en 36: más difusiones (Ostromoukhov
+- [x] R14 — Congelar roster de motores en 36: más difusiones (Ostromoukhov
   y cía) aportan <5% visible para covers y cada motor es superficie de
   test/preset para siempre. Decisión propuesta.
+  Done (decisión adoptada): roster congelado con test que afirma la lista
+  exacta (`test_engine_roster_frozen_r14`); añadir un motor exige decisión
+  consciente (lista + docs). NOTA: el roster de PARTÍCULAS (11 fields F1/F2)
+  no entra en este freeze (eje vivo).
 
 ### 8.6 Rechazado explícito (no reabrir sin motivo)
 

@@ -79,3 +79,30 @@ def blocks_ends(ctx):
     assert flats[0] == stills[0]
     assert flats[-1] == stills[1]
     assert len(set(flats)) > 2
+
+
+@when("I disperse it in elastic mode with dotsize 3")
+def elastic_fat(ctx):
+    from app.disintegrate import dither_bw, disperse_positions, points_from_dither, render_points
+
+    coords, h, w = points_from_dither(dither_bw(ctx["img"]))
+    ctx["coords"] = (coords, h, w)
+    p0 = disperse_positions(coords, h, w, progress=0.0, seed=5, mode="burst", ease="elastic")
+    p1 = disperse_positions(coords, h, w, progress=1.0, seed=5, mode="burst", ease="elastic")
+    ctx["joint_a"] = render_points(p0, h, w)
+    ctx["joint_b"] = render_points(p1, h, w)
+    from app.disintegrate import frame_dot_sizes
+
+    ctx["sizes"] = frame_dot_sizes(coords, h, w, progress=0.0, ease="elastic", dotsize=3)
+    assert list(ctx["sizes"]) == [1] * len(coords)  # joints land back at 1px
+
+
+@then("the loop closes and the joints match the 1px still")
+def elastic_ok(ctx):
+    from app.disintegrate import dither_bw, render_points
+
+    coords, h, w = ctx["coords"]
+    assert list(ctx["joint_a"].get_flattened_data()) == list(ctx["joint_b"].get_flattened_data())
+    still = dither_bw(ctx["img"]).convert("RGB")
+    assert list(ctx["joint_a"].get_flattened_data()) == list(still.get_flattened_data())
+    assert render_points(coords.astype("float32"), h, w, ctx["sizes"]).size == still.size
