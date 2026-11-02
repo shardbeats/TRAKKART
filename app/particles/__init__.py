@@ -15,6 +15,9 @@ from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, MAX_MORPH_IMAGE
                                  MAX_POINTS, MAX_TRAIL, STAGGER_MODES, TRAVEL_SPAN)
 from app.particles.raster import (_paint_layer, dot_sizes, frame_dot_sizes,  # noqa: F401
                                   ghost_entries, render_points, trail_decay)
+from app.particles.travel import (_smootherstep, block_visible,  # noqa: F401
+                                  disperse_positions, match_travel,
+                                  travel_positions)
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
            "MAX_POINTS", "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES",
@@ -24,4 +27,6 @@ __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
            "sample_colors", "darkness_map", "tint_strength", "tint_dots",
            "_darkness_of",
            "dot_sizes", "frame_dot_sizes", "trail_decay", "ghost_entries",
-           "_paint_layer", "render_points"]
+           "_paint_layer", "render_points",
+           "_smootherstep", "match_travel", "travel_positions",
+           "disperse_positions", "block_visible"]
