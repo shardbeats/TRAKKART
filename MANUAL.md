@@ -121,6 +121,13 @@ and MP4. Nothing to install, nothing to pick.
 
 Full list: Help → Keyboard shortcuts.
 
+**Custom shortcuts:** open Help → Keyboard shortcuts, click any
+shortcut cell and press the new keys (Esc cancels, Del clears).
+Conflicts are refused with a message naming the other action;
+*Reset defaults* restores everything. Bindings live in
+`shortcuts.json` next to the other portable data, so they travel
+with your `data` folder.
+
 ## Privacy & data
 
 - Zero network: TRAKKART makes no connections (unless you drop an

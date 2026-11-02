@@ -13,11 +13,24 @@ Layout (one group per block, separated):
 from __future__ import annotations
 
 
-def _act(win, menu, label, slot, shortcut="", tip=""):
+def _act(win, menu, label, slot, shortcut="", tip="", action_id=None):
     from PySide6.QtGui import QAction
 
     a = QAction(label, win)
-    if shortcut:
+    if action_id:
+        from app import shortcuts as _keys
+
+        keys = _keys.effective_for(win, action_id)
+        if keys:
+            a.setShortcuts([keys])
+        try:
+            registry = getattr(win, "_shortcut_actions", None)
+            if registry is None:
+                registry = win._shortcut_actions = {}
+            registry.setdefault(action_id, []).append(a)
+        except Exception:  # noqa: BLE001
+            pass
+    elif shortcut:
         a.setShortcut(shortcut)
     if tip:
         a.setToolTip(tip)
@@ -33,70 +46,75 @@ def build_menus(win) -> None:
 
     m_file = bar.addMenu("File")
     _act(win, m_file, "Open image...", win.open_image_dialog,
-         "Ctrl+O", "Open an image into the canvas")
+         "", "Open an image into the canvas", action_id="file_open")
     m_recent = m_file.addMenu("Open recent")
     m_recent.aboutToShow.connect(lambda: _refresh_recent(win, m_recent))
     m_file.addSeparator()
     _act(win, m_file, "Export…", lambda: win.export(False),
-         "Ctrl+Shift+S", "Export with options at canvas size")
+         "", "Export with options at canvas size", action_id="file_export")
     _act(win, m_file, "Quick export", lambda: win.export(True),
-         "Ctrl+S", "Repeat the last export setup")
+         "", "Repeat the last export setup", action_id="file_quick_export")
     _act(win, m_file, "Batch folder...", win.run_batch_dialog,
-         "Ctrl+B", "Process a folder with the current preset")
+         "", "Process a folder with the current preset", action_id="file_batch")
     win.act_watch = _act(win, m_file, "Watch folder...", win.toggle_watch,
-                         "", "Auto-batch new files with a fixed preset")
+                         "", "Auto-batch new files with a fixed preset",
+                         action_id="file_watch")
     win.act_watch.setCheckable(True)
     m_file.addSeparator()
     _act(win, m_file, "Export preset...", win.share_preset_export,
-         "", "Share the current preset as a .json file (offline)")
+         "", "Share the current preset as a .json file (offline)",
+         action_id="file_share_export")
     _act(win, m_file, "Import preset...", win.share_preset_import,
-         "", "Load a preset from a .json file (offline)")
+         "", "Load a preset from a .json file (offline)",
+         action_id="file_share_import")
     _act(win, m_file, "Import metadata...", win.import_metadata,
-         "", "Restore values + image from an export _metadata.json")
+         "", "Restore values + image from an export _metadata.json",
+         action_id="file_import_metadata")
     m_file.addSeparator()
     _act(win, m_file, "Settings...", win.open_settings,
-         "Ctrl+,", "Default output folder, export defaults and behavior")
+         "", "Default output folder, export defaults and behavior",
+         action_id="file_settings")
 
     m_edit = bar.addMenu("Edit")
     _act(win, m_edit, "Undo image", win.undo_image,
-         "Ctrl+Z", "Undo the last image op")
+         "", "Undo the last image op", action_id="edit_undo")
     _act(win, m_edit, "Redo", win.redo_image,
-         "Ctrl+Y", "Redo the last undone op")
+         "", "Redo the last undone op", action_id="edit_redo")
     _act(win, m_edit, "Surprise me", win.randomize,
-         "Ctrl+R", "Randomize method/palette/params")
+         "", "Randomize method/palette/params", action_id="edit_randomize")
     m_edit.addSeparator()
     _act(win, m_edit, "Copy result", win.copy_result,
-         "Ctrl+C", "Copy the dithered result to the clipboard")
+         "", "Copy the dithered result to the clipboard", action_id="edit_copy")
     _act(win, m_edit, "Paste image", win.paste_image,
-         "Ctrl+V", "Load an image from the clipboard")
+         "", "Load an image from the clipboard", action_id="edit_paste")
     m_edit.addSeparator()
     _act(win, m_edit, "Previous method", lambda: win.step_method(-1),
-         "", "Step to the previous dither engine (Alt+Left)")
+         "", "Step to the previous dither engine", action_id="edit_method_prev")
     _act(win, m_edit, "Next method", lambda: win.step_method(1),
-         "", "Step to the next dither engine (Alt+Right)")
+         "", "Step to the next dither engine", action_id="edit_method_next")
     m_edit.addSeparator()
-    for label, tip, fn in [
-        ("Rotate left", "Rotate left", lambda: win._op_image(rotate_left, "rotate left")),
-        ("Rotate right", "Rotate right", lambda: win._op_image(rotate_right, "rotate right")),
-        ("Flip H", "Flip H", lambda: win._op_image(flip_h, "flip H")),
-        ("Flip V", "Flip V", lambda: win._op_image(flip_v, "flip V")),
-        ("Invert", "Invert", lambda: win._op_image(invert, "invert")),
+    for label, tip, fn, aid in [
+        ("Rotate left", "Rotate left", lambda: win._op_image(rotate_left, "rotate left"), "edit_rotate_left"),
+        ("Rotate right", "Rotate right", lambda: win._op_image(rotate_right, "rotate right"), "edit_rotate_right"),
+        ("Flip H", "Flip H", lambda: win._op_image(flip_h, "flip H"), "edit_flip_h"),
+        ("Flip V", "Flip V", lambda: win._op_image(flip_v, "flip V"), "edit_flip_v"),
+        ("Invert", "Invert", lambda: win._op_image(invert, "invert"), "edit_invert"),
     ]:
-        _act(win, m_edit, label, fn, "", tip)
+        _act(win, m_edit, label, fn, "", tip, action_id=aid)
 
     m_view = bar.addMenu("View")
     _act(win, m_view, "Refresh preview", win.refresh,
-         "F5", "Re-render the preview now")
+         "", "Re-render the preview now", action_id="view_refresh")
     _act_compare(win, m_view)
     m_view.addSeparator()
     _act(win, m_view, "Zoom +", lambda: win._zoom_step(1.25),
-         "Ctrl+=", "Zoom the preview in")
+         "", "Zoom the preview in", action_id="view_zoom_in")
     _act(win, m_view, "Zoom -", lambda: win._zoom_step(1 / 1.25),
-         "Ctrl+-", "Zoom the preview out")
+         "", "Zoom the preview out", action_id="view_zoom_out")
     _act(win, m_view, "Fit", win._zoom_fit,
-         "Ctrl+0", "Fit the preview to the canvas area")
+         "", "Fit the preview to the canvas area", action_id="view_zoom_fit")
     _act(win, m_view, "100%", win._zoom_full,
-         "Ctrl+1", "Preview at 100%")
+         "", "Preview at 100%", action_id="view_zoom_100")
     m_view.addSeparator()
     _viewport_menu(win, m_view)
     win.act_safe = _act(win, m_view, "Safe areas 9:16", win.toggle_safe_areas,
@@ -110,9 +128,9 @@ def build_menus(win) -> None:
     _act(win, m_help, "Open samples folder", win.open_samples,
          "", "Open the offline sample pack")
     _act(win, m_help, "Keyboard shortcuts...", win.show_shortcuts,
-         "", "Every shortcut in one table")
+         "", "Every shortcut in one table", action_id="help_shortcuts")
     _act(win, m_help, "User manual...", win.open_manual,
-         "F1", "Open MANUAL.md (bundled offline handbook)")
+         "", "Open MANUAL.md (bundled offline handbook)", action_id="help_manual")
     _act(win, m_help, "Show logs folder", win.open_logs,
          "", "Reveal prefs, database and trakkart.log")
     _act(win, m_help, "Copy last error report", win.copy_last_error,
@@ -144,17 +162,18 @@ def _refresh_recent(win, m_recent) -> None:
 
 
 def _act_compare(win, m_view):
-    """Checkable 'Show original': same pixels as holding Space, discoverable.
+    """Checkable 'Show original': same pixels as holding compare, discoverable.
 
-    No Space shortcut on purpose: Space is already handled by
-    `keyPressEvent` (hold semantics), and a shortcut here would double-fire
-    and hijack typing in the editable Frames/FPS combos.
+    No shortcut on the action itself: the hold key is handled by
+    keyPressEvent (hold semantics) via the shortcuts registry, and a
+    shortcut here would double-fire + hijack typing in the editable
+    Frames/FPS combos.
     """
     from PySide6.QtGui import QAction
 
     a = QAction("Show original", win)
     a.setCheckable(True)
-    a.setToolTip("Same as holding Space: shows ORIGINAL while checked")
+    a.setToolTip("Same as holding the compare key: shows ORIGINAL while checked")
 
     def _on_toggle(on: bool) -> None:
         if on:

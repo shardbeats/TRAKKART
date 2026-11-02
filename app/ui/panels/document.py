@@ -82,12 +82,19 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
     row.addWidget(win.btn_method_next)
     g.addLayout(row)
     try:
-        from PySide6.QtGui import QShortcut, QKeySequence
+        from PySide6.QtGui import QKeySequence, QShortcut
 
-        win._sc_method_prev = QShortcut(QKeySequence("Alt+Left"), win)
+        from app import shortcuts as _keys
+
+        win._sc_method_prev = QShortcut(QKeySequence(_keys.effective_for(win, "edit_method_prev")), win)
         win._sc_method_prev.activated.connect(lambda: win.step_method(-1))
-        win._sc_method_next = QShortcut(QKeySequence("Alt+Right"), win)
+        win._sc_method_next = QShortcut(QKeySequence(_keys.effective_for(win, "edit_method_next")), win)
         win._sc_method_next.activated.connect(lambda: win.step_method(1))
+        registry = getattr(win, "_shortcut_actions", None)
+        if registry is None:
+            registry = win._shortcut_actions = {}
+        registry.setdefault("edit_method_prev", []).append(win._sc_method_prev)
+        registry.setdefault("edit_method_next", []).append(win._sc_method_next)
     except Exception:  # noqa: BLE001
         pass
 

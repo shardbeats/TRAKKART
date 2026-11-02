@@ -15,7 +15,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (  # noqa: F401 (QMessageBox: test seam, see note below)
     QHBoxLayout,
     QLabel,
@@ -127,6 +126,14 @@ class MainWindow(QMainWindow):
                 self.viewport_mode = _vp
         except Exception:  # noqa: BLE001
             pass
+        # -- shortcuts: registry BEFORE panels/menus (builders read it) --
+        self._shortcut_actions: dict = {}
+        try:
+            from app.shortcuts import load_custom as _load_keys
+
+            self._shortcuts_custom: dict = _load_keys()
+        except Exception:  # noqa: BLE001
+            self._shortcuts_custom = {}
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(350)  # live default; modes retime it
@@ -136,6 +143,12 @@ class MainWindow(QMainWindow):
         self._video_timer.setInterval(125)  # 8fps default
         self._setup_ui()
         self._build_menus()
+        try:
+            from app.shortcuts import apply_shortcuts as _apply_keys
+
+            _apply_keys(self)
+        except Exception:  # noqa: BLE001
+            pass
         # -- general prefs: jobs / drop / output (action bar exists now) --
         try:
             from app.export_prefs import load_prefs as _load_prefs2, resolve_out_dir as _resolve
@@ -593,19 +606,33 @@ class MainWindow(QMainWindow):
         _cc.toggle_safe_areas(self)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
-        if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self.src is not None:
-            self._comparing = True
-            self._paint_compare_orig()
-            event.accept()
-            return
+        try:
+            from app import shortcuts as _keys
+
+            hold = _keys.effective_for(self, "view_compare_hold")
+            if (hold and _keys.event_matches(event, hold)
+                    and not event.isAutoRepeat() and self.src is not None):
+                self._comparing = True
+                self._paint_compare_orig()
+                event.accept()
+                return
+        except Exception:  # noqa: BLE001
+            pass
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event) -> None:  # noqa: N802
-        if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self._comparing:
-            self._comparing = False
-            self._paint_compare_result()
-            event.accept()
-            return
+        try:
+            from app import shortcuts as _keys
+
+            hold = _keys.effective_for(self, "view_compare_hold")
+            if (hold and _keys.event_matches(event, hold)
+                    and not event.isAutoRepeat() and self._comparing):
+                self._comparing = False
+                self._paint_compare_result()
+                event.accept()
+                return
+        except Exception:  # noqa: BLE001
+            pass
         super().keyReleaseEvent(event)
 
     def _show_video_frame(self, force: bool = False) -> None:
