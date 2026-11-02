@@ -3,6 +3,11 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- CI fix: subprocess tests used a hardcoded local `cwd` (`<repo>`) and failed on runners with `NotADirectoryError`; both now use the repo root (`Path(__file__).parents[1]`).
+- Docs synced to reality: 572 tests (440 fast + 132 slow) + 61 Gherkin scenarios + 13 bundled presets (`README.md`, `MAINTENANCE.md`, `QA.md`, `ROADMAP.md` handoff); numba ships in the bundle with numpy fallback (was documented as optional).
+- Correctness (R4): `normalize_stack` warns on unknown effect ids instead of dropping them silently; preview compensates pixel-unit FX (`glow_radius/border/scanlines/grille/halftone/letterbox`) by the downscale factor; `RenderSpec.meta()` now includes grade/texture/drift/paste/motif blocks.
+- No more GUI freezes: preview slots no longer `wait(5000)` on the worker (token + `deleteLater`, re-queue on pending); single export runs on an `ExportWorker` thread with snapshotted inputs (tests keep the sync path via `win._export_sync`).
+- R2 split (zero logic change, byte-identical, shims keep every import working): `app/disintegrate.py` (1252 → 33 lines) is now `app/particles/` (modes/fields/color/raster/travel/engine); `app/gif.py` (935 → 48 lines) is now `app/anim/` (limits/plan/io/frames). Shared `_resolve_anim_spec()` helper removes the duplicated preset→spec prologue in the 4 particle builders.
 - Removed BPM beat grid (too fiddly): no more ♫ BPM/Bars row + Set Hold in VIDEO, no `apply_bpm()`/`hold_for_target()`.
 - Fixed morph crash with travel/tint on multi-leg chains (closed loop or 2+ chain images): per-frame color temps shadowed the frame budget (`base`) and legs after the first blew up with "truth value of an array is ambiguous". Pinned by a regression test (plus a 1024-combo sweep).
 - Error reporting you can actually use: every failure logs a numbered report (`[E0007]`: action + params + full traceback) to `trakkart.log`; workers report in-thread so nothing is lost crossing threads; the UI shows a plain-language hint + code instead of raw tracebacks; Help → Copy last error report copies the full report for bug reports.
