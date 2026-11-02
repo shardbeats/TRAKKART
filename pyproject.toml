@@ -7,6 +7,9 @@ dependencies = [
   "PySide6>=6.6,<7.0",
   "Pillow>=10.0",
   "numpy>=1.24",
+  "numba>=0.60",
+  "imageio>=2.31",
+  "imageio-ffmpeg>=0.4.9",
 ]
 
 [project.optional-dependencies]
