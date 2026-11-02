@@ -93,6 +93,15 @@ def _dissolve_tint(preset) -> float:
     return min(1.0, max(0.0, float(getattr(preset, "dissolve_tint", 0.0) or 0.0)))
 
 
+def _dissolve_trail(preset) -> int:
+    """Ghost-dot trail frames 0..8 (F5, default 0 = legacy)."""
+    if preset is None:
+        return 0
+    from app.disintegrate import MAX_TRAIL
+
+    return max(0, min(MAX_TRAIL, int(getattr(preset, "dissolve_trail", 0) or 0)))
+
+
 def _pingpong(seq: list) -> list:
     """Forward-backward loop so the GIF has no jump cut. 6 -> 10 frames."""
     if len(seq) <= 2:
@@ -474,7 +483,8 @@ def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                              mode=mode_v, loops=loops_v, amount=amount_v,
                              max_side=side, hold_start=plan["hs"],
                              hold_end=plan["he"], stagger=stagger_v, ease=ease_v,
-                             dotsize=dotsize_v, tint=_dissolve_tint(preset))
+                             dotsize=dotsize_v, tint=_dissolve_tint(preset),
+                             trail=_dissolve_trail(preset))
 
 
 def _morph_loop(preset, loop: bool | None) -> bool:
@@ -550,7 +560,8 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                                 hold_joint=plan["holds"][1:-1], crops=crops,
                                 loop=loop_v, stagger=stagger_v, ease=ease_v,
                                 dotsize=dotsize_v, travel=travel_v,
-                                tint=_dissolve_tint(preset))
+                                tint=_dissolve_tint(preset),
+                                trail=_dissolve_trail(preset))
 
 
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -618,7 +629,8 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                           mode=mode_v, loops=loops_v, amount=amount_v,
                           max_side=side, hold_start=plan["hs"], hold_end=plan["he"],
                           stagger=stagger_v, ease=ease_v, dotsize=dotsize_v,
-                          tint=_dissolve_tint(preset))
+                          tint=_dissolve_tint(preset),
+                          trail=_dissolve_trail(preset))
     if pp:
         out = _pingpong(out)
     return out
@@ -701,7 +713,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                              hold_joint=plan["holds"][1:-1],
                              crops=crops, loop=loop_v,
                              stagger=stagger_v, ease=ease_v, dotsize=dotsize_v,
-                             travel=travel_v, tint=_dissolve_tint(preset))
+                             travel=travel_v, tint=_dissolve_tint(preset),
+                             trail=_dissolve_trail(preset))
     if pp and not loop_v:
         # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)

@@ -33,3 +33,8 @@ Feature: Morph particle fields
     Given two flat images
     When I morph them with full tint
     Then mid-flight dots carry color and both ends match the stills
+
+  Scenario: Trail leaves fading ghosts then lands clean
+    Given a 48x48 gradient image
+    When I disperse it with trail ghosts
+    Then mid-flight shows ghosts and the joints are clean

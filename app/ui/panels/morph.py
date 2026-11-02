@@ -54,6 +54,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.sld_dissolve_dotsize, _ = labeled_slider(win, g, "Dots:", 1, 4, 1, "Max dot swell 1-4px with the envelope (1 = classic 1px dots)", div=1.0)
     win.sld_dissolve_travel, _ = labeled_slider(win, g, "Travel:", 0, 100, 0, "Dots pour A->B through destination matching (0 = classic cloud reform)", div=100.0)
     win.sld_dissolve_tint, _ = labeled_slider(win, g, "Tint:", 0, 100, 0, "Source-color dots mid-flight, gated by the envelope (0 = classic black dots)", div=100.0)
+    win.sld_dissolve_trail, _ = labeled_slider(win, g, "Trail:", 0, 8, 0, "Fading ghost dots behind moving particles (0 = off)", div=1.0)
     win.sld_dissolve_amount, _ = labeled_slider(win, g, "Amount:", 0, 200, 100, "Disperse strength 0=still · 100=classic · up to 200", div=100.0)
     win.sld_dissolve_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100, "Traversals per clip 0.25-4.0x (1 = full sweep)", div=100.0)
     win.sld_dissolve_wind_x, _ = labeled_slider(win, g, "Wind X:", -500, 500, 120, "Horizontal wind px at full disperse")

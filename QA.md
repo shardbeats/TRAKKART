@@ -60,7 +60,7 @@ features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off lega
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 58/58. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 59/59. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -222,6 +222,20 @@ untouched; all-black equals the L path pixel for pixel);
 `render_points(..., colors)` vectorized RGB path (kxk blocks incl.);
 strict 0=off gates tint off (frozen stills). 6º Gherkin
 (tinted mid + black ends). Gates 58.
+
+## Morph F5: motion trails (§7.6)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f5 or trail"
+```
+
+`dissolve_trail` 0-8 (default 0 = legacy) + MORPH Trail slider;
+`trail_decay()` age falloff × envelope (`ghost_entries()` oldest→
+newest, joints ghost-free = byte-exact stills); `render_points(...,
+trail)` paints ghosts before the core (gray ints / faded hues,
+kxk sizes kept); per-leg deque reset, O(K·n) RAM-bounded; strict
+0=off skips ghosts. 7º Gherkin (ghosts mid + clean joints).
+Gates 59.
 
 ## Perf round (measured, nov-2026)
 

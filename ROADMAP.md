@@ -460,6 +460,8 @@ Mid term (visible leap, needs UI + tests):
 - Dot-size attenuation by envelope/luminance (Heckel halftone shading)
   instead of fixed 1px dots.
 - Trails / motion-blur accumulation (Word Morph trails; Particle Image).
+  Done F5: `dissolve_trail` 0-8 + per-leg position deque + envelope-gated
+  ghosts (BW gray / tinted hues, joints ghost-free, 0 = legacy). Gherkin 59.
 
 Long term (new surfaces):
 - Interactive cursor repel in the preview canvas via Qt mouse events

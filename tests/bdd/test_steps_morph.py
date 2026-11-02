@@ -188,3 +188,33 @@ def tint_ok(ctx):
     assert ctx["tinted_mid_color"]
     assert not ctx["plain_mid_color"]
     assert flats[4] != tuple(ctx["plain"][4].get_flattened_data())
+
+
+@when("I disperse it with trail ghosts")
+def trail_runs(ctx):
+    import numpy as np
+
+    from app.disintegrate import dissolve_frames
+
+    ctx["trailed"] = dissolve_frames(ctx["img"], frames=8, max_side=64,
+                                     seed=5, trail=4)
+    ctx["untrailed"] = dissolve_frames(ctx["img"], frames=8, max_side=64,
+                                       seed=5, trail=0)
+
+    def ghosts(im):
+        arr = np.asarray(im.convert("RGB")).astype(int)
+        g = arr[:, :, 0]
+        return int(((g != 0) & (g != 255)).sum())
+
+    ctx["trail_mid_ghosts"] = ghosts(ctx["trailed"][3])
+    ctx["plain_mid_ghosts"] = ghosts(ctx["untrailed"][3])
+    ctx["trail_joint_ghosts"] = ghosts(ctx["trailed"][0])
+
+
+@then("mid-flight shows ghosts and the joints are clean")
+def trail_ok(ctx):
+    assert ctx["trail_mid_ghosts"] > 0
+    assert ctx["plain_mid_ghosts"] == 0
+    assert ctx["trail_joint_ghosts"] == 0
+    assert list(ctx["trailed"][0].get_flattened_data()) == list(
+        ctx["untrailed"][0].get_flattened_data())

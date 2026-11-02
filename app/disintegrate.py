@@ -496,16 +496,132 @@ def tint_dots(base_col: np.ndarray, strength: float) -> np.ndarray | None:
     return np.clip(np.round(cols), 0, 255).astype(np.uint8)
 
 
+#: Motion-trail buffer cap (frames of ghost dots per render).
+MAX_TRAIL = 8
+
+
+def trail_decay(age: int, length: int) -> float:
+    """Ghost strength 0..1 for a 1-based age (1 = previous frame).
+
+    Newest ghost reads clearly, oldest barely prints; length 0 (off)
+    always yields 0 so the legacy path stays byte-identical.
+    """
+    n = max(0, int(length))
+    a = int(age)
+    if n <= 0 or a < 1 or a > n:
+        return 0.0
+    return float(((n + 1 - a) / (n + 1)) ** 1.5)
+
+
+def ghost_entries(history, length: int, env: float, color_mode: bool) -> list:
+    """Paint-ready ghost layers (oldest -> newest) for one frame.
+
+    `history` holds (pos float32, base-cols-or-None, sizes-or-None) of
+    past frames, newest last. Strength = decay(age) x loop envelope,
+    so joints (env 0) render ghost-free = byte-exact stills. BW ghosts
+    paint flat gray; color ghosts fade base hues toward white.
+    """
+    out: list = []
+    n = max(0, int(length or 0))
+    e = max(0.0, min(1.0, float(env)))
+    if n <= 0 or e <= 0.0 or not history:
+        return out
+    items = list(history)[-n:]
+    total = len(items)
+    for idx, (p, base, s) in enumerate(items):
+        st = trail_decay(total - idx, n) * e
+        if st <= 0.0:
+            continue
+        if color_mode and base is not None:
+            b = np.asarray(base, dtype=np.float64)
+            if len(b) != len(p):
+                continue
+            paint = np.clip(np.round(255.0 * (1.0 - st) + b * st),
+                            0, 255).astype(np.uint8)
+        else:
+            paint = int(round(255.0 - 215.0 * st))
+            if paint >= 255:
+                continue
+        out.append((np.asarray(p, dtype=np.float32), paint,
+                    None if s is None else np.asarray(s)))
+    return out
+
+
+def _paint_layer(canvas: np.ndarray, ys: np.ndarray, xs: np.ndarray,
+                 paint, sizes=None) -> None:
+    """Paint one dot layer (core or ghost) onto a BW or RGB canvas.
+
+    `paint` is a gray int (BW canvas or RGB flat) or an (m,3) uint8
+    array (RGB canvas). `sizes` reuses the kxk block expansion.
+    """
+    is_color = canvas.ndim == 3
+    n = int(len(ys))
+    if n == 0:
+        return
+    h, w = canvas.shape[0], canvas.shape[1]
+    ys = np.clip(np.asarray(ys, dtype=np.int32), 0, h - 1)
+    xs = np.clip(np.asarray(xs, dtype=np.int32), 0, w - 1)
+    if isinstance(paint, int):
+        flat = paint
+        arr = None
+    else:
+        flat = None
+        arr = np.asarray(paint, dtype=np.uint8)
+        if len(arr) != n:
+            arr = None
+            flat = 0 if not is_color else 0
+    if sizes is None:
+        if is_color:
+            canvas[ys, xs] = (flat, flat, flat) if flat is not None else arr
+        else:
+            canvas[ys, xs] = flat if flat is not None else 0
+        return
+    s = np.asarray(sizes, dtype=np.int64)
+    if len(s) != n:
+        if is_color:
+            canvas[ys, xs] = (flat, flat, flat) if flat is not None else arr
+        else:
+            canvas[ys, xs] = flat if flat is not None else 0
+        return
+    for k in np.unique(s):
+        m = s == k
+        yy, xx = ys[m], xs[m]
+        pp = flat if flat is not None else arr[m]
+        kk = max(1, int(k))
+        if kk <= 1:
+            if is_color:
+                canvas[yy, xx] = (pp, pp, pp) if isinstance(pp, int) else pp
+            else:
+                canvas[yy, xx] = pp if isinstance(pp, int) else 0
+            continue
+        oy, ox = np.meshgrid(np.arange(kk), np.arange(kk), indexing="ij")
+        yyy = np.clip((yy[:, None, None] + oy[None]), 0, h - 1).reshape(-1)
+        xxx = np.clip((xx[:, None, None] + ox[None]), 0, w - 1).reshape(-1)
+        if is_color:
+            if isinstance(pp, int):
+                canvas[yyy, xxx] = (pp, pp, pp)
+            else:
+                canvas[yyy, xxx] = np.repeat(pp, kk * kk, axis=0)
+        else:
+            if isinstance(pp, int):
+                canvas[yyy, xxx] = pp
+            else:
+                canvas[yyy, xxx] = 0
+
+
 def render_points(positions: np.ndarray, h: int, w: int, sizes=None,
-                  colors=None) -> Image.Image:
+                  colors=None, trail=None) -> Image.Image:
     """Rasterize float (y,x) points to an RGB image (white bg, black dots).
 
     `sizes` (per-dot ints, None = legacy 1px): dots swell as kxk blocks
     anchored at the dot, clipped. Grouped fills keep it vectorized.
     `colors` ((n,3) uint8, None = black): per-dot tint; None keeps the
     legacy BW path byte-identical, all-black equals it pixel for pixel.
+    `trail` (None or list of (tpos, tpaint, tsizes) oldest -> newest):
+    ghost dots painted before the core; `tpaint` is a gray int (BW) or
+    an (m,3) uint8 array (color). Empty trail renders exactly as None.
     """
-    if colors is None:
+    if colors is None and not trail:
         canvas = np.full((h, w), 255, dtype=np.uint8)
         if len(positions):
             ys = np.clip(positions[:, 0].astype(np.int32), 0, h - 1)
@@ -530,31 +646,26 @@ def render_points(positions: np.ndarray, h: int, w: int, sizes=None,
                             for dx in range(kk):
                                 canvas[yyc, np.clip(xx + dx, 0, w - 1)] = 0
         return Image.fromarray(canvas, mode="L").convert("RGB")
-    canvas = np.full((h, w, 3), 255, dtype=np.uint8)
-    if len(positions):
-        ys = np.clip(positions[:, 0].astype(np.int32), 0, h - 1)
-        xs = np.clip(positions[:, 1].astype(np.int32), 0, w - 1)
+    if colors is None:
+        canvas = np.full((h, w), 255, dtype=np.uint8)
+        core_paint: object = 0
+    else:
+        canvas = np.full((h, w, 3), 255, dtype=np.uint8)
         cc = np.asarray(colors, dtype=np.uint8)
-        if len(cc) != len(ys):
-            canvas[ys, xs] = (0, 0, 0)
-        elif sizes is None:
-            canvas[ys, xs] = cc
-        else:
-            s = np.asarray(sizes, dtype=np.int64)
-            if len(s) != len(ys):
-                canvas[ys, xs] = cc
-            else:
-                for k in np.unique(s):
-                    m = s == k
-                    yy, xx, ckk = ys[m], xs[m], cc[m]
-                    kk = max(1, int(k))
-                    if kk <= 1:
-                        canvas[yy, xx] = ckk
-                        continue
-                    oy, ox = np.meshgrid(np.arange(kk), np.arange(kk), indexing="ij")
-                    yyy = np.clip((yy[:, None, None] + oy[None]), 0, h - 1).reshape(-1)
-                    xxx = np.clip((xx[:, None, None] + ox[None]), 0, w - 1).reshape(-1)
-                    canvas[yyy, xxx] = np.repeat(ckk, kk * kk, axis=0)
+        core_paint = cc if len(cc) == len(positions) else 0
+    for entry in (trail or []):
+        tpos, tpaint, tsizes = entry
+        if len(tpos) == 0:
+            continue
+        _paint_layer(canvas,
+                     np.asarray(tpos)[:, 0], np.asarray(tpos)[:, 1],
+                     tpaint, tsizes)
+    if len(positions):
+        _paint_layer(canvas,
+                     np.asarray(positions)[:, 0], np.asarray(positions)[:, 1],
+                     core_paint, sizes)
+    if canvas.ndim == 2:
+        return Image.fromarray(canvas, mode="L").convert("RGB")
     return Image.fromarray(canvas, mode="RGB")
 
 
@@ -567,7 +678,7 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   max_side: int = 480,
                   hold_start: int = 0, hold_end: int = 0,
                   stagger: str = "off", ease: str = "sine",
-                  dotsize: int = 1, tint: float = 0.0):
+                  dotsize: int = 1, tint: float = 0.0, trail: int = 0):
     """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
@@ -575,8 +686,11 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     `dotsize` 1..4 swells dots with the envelope (1 = legacy 1px).
     `tint` 0..1 tints dots with their source colors, gated by the loop
     envelope (0 = legacy BW; joints stay black = byte-exact stills).
+    `trail` 0..8 pastes fading ghost dots (0 = legacy; joints stay
+    ghost-free = byte-exact stills).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
+    from collections import deque
 
     n = max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
     side = max(64, min(8000, int(max_side or 480)))
@@ -592,6 +706,10 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     tv = max(0.0, min(1.0, float(tint or 0.0)))
     if max(0.0, min(2.0, float(amount or 0.0))) <= 0.0:
         tv = 0.0  # strict 0=off: frozen still, tint has nothing to paint
+    trail_n = max(0, min(MAX_TRAIL, int(trail or 0)))
+    trail_on = trail_n > 0 and max(0.0, min(2.0, float(amount or 0.0))) > 0.0
+    hist: deque = deque(maxlen=trail_n if trail_n > 0 else 1)
+    color_mode = tv > 0.0
     base_col = sample_colors(small, h, w) if tv > 0 and len(coords) else None
     home_col = None
     if base_col is not None:
@@ -603,6 +721,7 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
         progress = float(i) / float(n)
         env = float(ease_env(np.mod(progress, 1.0), ease if ease in EASE_MODES else "sine"))
         cols = tint_dots(home_col, tint_strength(tv, env)) if home_col is not None else None
+        ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
         if mode == "blocks":
             mask = block_visible(coords, h, w, progress=progress, loops=loops,
                                  stagger=stagger, ease=ease,
@@ -612,13 +731,19 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                                     stagger=stagger, ease=ease, dotsize=dotsize)
             sizes = None if sizes is None else np.asarray(sizes)[mask]
             cols = None if cols is None else np.asarray(cols)[mask]
+            ghost_base = None if home_col is None else np.asarray(home_col)[mask]
         else:
             pos = disperse_positions(coords, h, w, progress=progress, seed=seed,
                                      wind=wind, mode=mode, loops=loops, amount=amount,
                                      stagger=stagger, ease=ease, pixel_size=pixel_size)
             sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
                                     stagger=stagger, ease=ease, dotsize=dotsize)
-        yield render_points(pos, h, w, sizes, cols)
+            ghost_base = home_col
+        if trail_on:
+            hist.append((np.asarray(pos, dtype=np.float32),
+                         None if ghost_base is None else np.asarray(ghost_base),
+                         None if sizes is None else np.asarray(sizes)))
+        yield render_points(pos, h, w, sizes, cols, ghosts)
     for _ in range(max(0, int(hold_end))):
         yield still.copy()
 
@@ -632,7 +757,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     max_side: int = 480,
                     hold_start: int = 0, hold_end: int = 0,
                     stagger: str = "off", ease: str = "sine",
-                    dotsize: int = 1, tint: float = 0.0) -> list[Image.Image]:
+                    dotsize: int = 1, tint: float = 0.0, trail: int = 0) -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
@@ -640,7 +765,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     hold_end prepend / append assembled copies so the form reads before
     it bursts (loop joint stays assembled -> seamless). `dotsize` 1..4
     swells dots with the envelope (1 = legacy 1px). `tint` 0..1 colors
-    dots from the source (0 = legacy BW).
+    dots from the source (0 = legacy BW). `trail` 0..8 pastes fading
+    ghost dots (0 = legacy).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -656,7 +782,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                 wind=wind, mode=mode, loops=loops, amount=amount,
                 max_side=side, hold_start=hold_start,
                 hold_end=hold_end, stagger=stagger, ease=ease,
-                dotsize=dotsize, tint=tint))
+                dotsize=dotsize, tint=tint, trail=trail))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -669,7 +795,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  hold_joint: int = 0,
                  crops: list[dict] | None = None,
                  stagger: str = "off", ease: str = "sine",
-                 dotsize: int = 1, travel: float = 0.0, tint: float = 0.0) -> list[Image.Image]:
+                 dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
+                 trail: int = 0) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -684,7 +811,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  hold_start=hold_start, hold_end=hold_end,
                                  hold_joint=hold_joint, crops=crops,
                                  stagger=stagger, ease=ease, dotsize=dotsize,
-                                 travel=travel, tint=tint)
+                                 travel=travel, tint=tint, trail=trail)
     return chained
 
 
@@ -703,7 +830,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      crops: list[dict] | None = None,
                      loop: bool = False,
                      stagger: str = "off", ease: str = "sine",
-                     dotsize: int = 1, travel: float = 0.0, tint: float = 0.0):
+                     dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
+                     trail: int = 0):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -715,7 +843,11 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
     travel = 0 keeps the legacy path byte-identical.
     With tint > 0 (F4) dots carry their source colors, gated by the
     loop envelope (tint = 0 keeps the legacy BW path byte-identical).
+    With trail > 0 (F5) past dots linger as fading ghosts, gated by the
+    loop envelope (trail = 0 keeps the legacy path byte-identical).
     """
+    from collections import deque
+
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
     if len(imgs) < 2:
@@ -777,6 +909,10 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         tv = max(0.0, min(1.0, float(tint or 0.0)))
         if amt_v <= 0.0:
             tv = 0.0  # strict 0=off: frozen stills, tint has nothing to paint
+        trail_n = max(0, min(MAX_TRAIL, int(trail or 0)))
+        trail_on = trail_n > 0 and amt_v > 0.0
+        hist: deque = deque(maxlen=trail_n if trail_n > 0 else 1)
+        color_mode = tv > 0.0
         tsrc = tdst = None
         tsrc_col = tdst_col = None
         leg_col_a = leg_col_b = None
@@ -801,6 +937,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         for j in range(nk):
             q = float(j) / float(max(1, nk - 1))
             env = float(ease_env(np.mod(q, 1.0), ez_leg))
+            ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
+            ghost_base = None
             if mode == "blocks":
                 pick = ca if q < 0.5 else cb
                 mask = block_visible(pick, h, w, progress=q,
@@ -814,6 +952,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 base = (leg_col_a if (q < 0.5 and leg_col_a is not None)
                         else (leg_col_b if leg_col_b is not None else None))
                 cols = tint_dots(base[mask], tint_strength(tv, env)) if base is not None else None
+                if base is not None:
+                    ghost_base = np.asarray(base)[mask]
             elif travel_on:
                 assert tsrc is not None and tdst is not None
                 pos = travel_positions(tsrc, tdst, h, w, progress=q,
@@ -834,6 +974,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                     sm = _smootherstep(qi).astype(np.float64)[:, None]
                     base = (1.0 - sm) * tsrc_col + sm * tdst_col
                     cols = tint_dots(base, tint_strength(tv, env))
+                    ghost_base = np.asarray(base)
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
@@ -842,6 +983,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize)
                 cols = tint_dots(leg_col_a, tint_strength(tv, env)) if leg_col_a is not None else None
+                ghost_base = leg_col_a
             else:
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
@@ -850,7 +992,12 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize)
                 cols = tint_dots(leg_col_b, tint_strength(tv, env)) if leg_col_b is not None else None
-            yield render_points(pos, h, w, sizes, cols)
+                ghost_base = leg_col_b
+            if trail_on:
+                hist.append((np.asarray(pos, dtype=np.float32),
+                             None if ghost_base is None else np.asarray(ghost_base),
+                             None if sizes is None else np.asarray(sizes)))
+            yield render_points(pos, h, w, sizes, cols, ghosts)
         if k < legs - 1:
             hj_k = hj_list[k] if k < len(hj_list) else (hj_list[-1] if hj_list else 0)
             for _ in range(hj_k):
@@ -870,7 +1017,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        crops: list[dict] | None = None,
                        loop: bool = False,
                        stagger: str = "off", ease: str = "sine",
-                       dotsize: int = 1, travel: float = 0.0, tint: float = 0.0) -> list[Image.Image]:
+                       dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
+                       trail: int = 0) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -884,6 +1032,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     first (closed loop, no hard cut). With travel > 0 (F3) non-blocks
     legs pour src -> dst via seeded-greedy matching (0 = legacy cloud).
     With tint > 0 (F4) dots carry source colors (0 = legacy BW).
+    With trail > 0 (F5) past dots linger as fading ghosts (0 = legacy).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
                 pixel_size=pixel_size, frames=frames, seed=seed,
@@ -892,7 +1041,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 hold_end=hold_end, hold_joint=hold_joint,
                 crops=crops, loop=loop,
                 stagger=stagger, ease=ease, dotsize=dotsize,
-                travel=travel, tint=tint))
+                travel=travel, tint=tint, trail=trail))
 
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",

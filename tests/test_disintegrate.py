@@ -823,3 +823,120 @@ def test_f4_tint_preset_roundtrip_and_gif():
                           loop=False)
     assert m[-1].tobytes() == mp[-1].tobytes()  # lands black
     assert m[4].tobytes() != mp[4].tobytes() and _has_color(m[4])
+
+
+def _gray_ghost_pixels(im):
+    import numpy as np
+
+    arr = np.asarray(im.convert("RGB")).astype(int)
+    g = arr[:, :, 0]
+    return int(((g != 0) & (g != 255)).sum())
+
+
+def test_f5_trail_decay_shape():
+    from app.disintegrate import MAX_TRAIL, trail_decay
+
+    assert MAX_TRAIL == 8
+    assert trail_decay(1, 0) == 0.0
+    assert trail_decay(0, 4) == 0.0
+    assert trail_decay(9, 8) == 0.0
+    assert trail_decay(1, 4) > trail_decay(4, 4) > 0.0
+    assert 0.0 < trail_decay(1, 8) < 1.0
+
+
+def test_f5_ghost_entries_ages_and_envelope():
+    from collections import deque
+
+    import numpy as np
+
+    from app.disintegrate import ghost_entries
+
+    p = np.array([[5.0, 5.0]])
+    h = deque([(p, None, None), (p + 1.0, None, None)], maxlen=8)
+    assert ghost_entries(h, 0, 1.0, False) == []
+    assert ghost_entries(h, 4, 0.0, False) == []  # joints: no ghosts
+    g = ghost_entries(h, 4, 1.0, False)
+    assert len(g) == 2
+    assert g[0][1] > g[1][1]  # oldest ghost paints lightest
+    assert all(isinstance(paint, int) for _, paint, _ in g)
+
+
+def test_f5_trail_dissolve_ghosts_mid_clean_joints():
+    from app.disintegrate import dissolve_frames
+
+    a = _solid((200, 50, 90))
+    t = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=4)
+    u = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=0)
+    assert len(t) == len(u) == 8
+    assert t[0].tobytes() == u[0].tobytes()  # joints ghost-free
+    assert _gray_ghost_pixels(t[0]) == 0
+    assert t[3].tobytes() != u[3].tobytes()
+    assert _gray_ghost_pixels(t[3]) > 0
+    assert _gray_ghost_pixels(u[3]) == 0
+    again = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=4)
+    assert [f.tobytes() for f in t] == [f.tobytes() for f in again]
+    legacy = dissolve_frames(a, frames=8, max_side=64, seed=7)
+    assert [f.tobytes() for f in legacy] == [f.tobytes() for f in u]
+    hc = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=4,
+                         amount=0.0)
+    assert len({f.tobytes() for f in hc}) == 1
+
+
+def test_f5_trail_morph_blocks_and_lengths():
+    from app.disintegrate import morph_chain_frames
+
+    a = _solid((200, 50, 90))
+    b = _solid((40, 180, 60))
+    kw = dict(frames=8, max_side=64, seed=7, loop=False)
+    short = morph_chain_frames([a, b], trail=2, **kw)
+    long = morph_chain_frames([a, b], trail=8, **kw)
+    plain = morph_chain_frames([a, b], **kw)
+    assert short[0].tobytes() == plain[0].tobytes()
+    assert short[-1].tobytes() == plain[-1].tobytes()
+    assert _gray_ghost_pixels(short[0]) == 0
+    assert _gray_ghost_pixels(short[3]) > 0
+    assert short[3].tobytes() != long[3].tobytes() != plain[3].tobytes()
+    bl = morph_chain_frames([a, b], trail=4, mode="blocks", **kw)
+    bl0 = morph_chain_frames([a, b], mode="blocks", **kw)
+    assert bl[0].tobytes() == bl0[0].tobytes()
+    assert bl[-1].tobytes() == bl0[-1].tobytes()
+    assert bl[3].tobytes() != bl0[3].tobytes()
+
+
+def test_f5_trail_preset_roundtrip_and_gif():
+    import tempfile
+    from pathlib import Path
+
+    import pytest
+
+    from app.gif import gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="T5", dissolve_trail=5)
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert back.dissolve_trail == 5
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert old.dissolve_trail == 0
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_trail=9).validate()
+    Preset(name="x", dissolve_trail=8).validate()
+    a = _solid((200, 50, 90))
+    b = _solid((40, 180, 60))
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    d = gif_dissolve_frames(a, Preset(**base, dissolve_trail=4),
+                            frames=6, max_side=64)
+    plain = gif_dissolve_frames(a, Preset(**base), frames=6, max_side=64)
+    assert d[0].tobytes() == plain[0].tobytes()
+    assert d[2].tobytes() != plain[2].tobytes()
+    assert _gray_ghost_pixels(d[2]) > 0
+    m = gif_morph_frames(a, b, Preset(**base, dissolve_trail=4),
+                         frames=8, max_side=64, loop=False)
+    mp = gif_morph_frames(a, b, Preset(**base), frames=8, max_side=64,
+                          loop=False)
+    assert m[0].tobytes() == mp[0].tobytes()
+    assert m[-1].tobytes() == mp[-1].tobytes()
+    assert m[4].tobytes() != mp[4].tobytes()
+    assert _gray_ghost_pixels(m[4]) > 0
