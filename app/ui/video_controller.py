@@ -72,26 +72,18 @@ def toggle(win) -> None:
 
 
 def fps_changed(win) -> None:
-    """FPS retimes the player; particle modes also re-render (pad depends on fps)."""
+    """FPS retimes the player; Length stays sacred, so re-solve + re-render.
+
+    Particle: Hold re-solves to the same seconds (slider follows).
+    Rest: n = Length x fps recomputes (Frames combo follows). Either way
+    the clip keeps its seconds and only gains/loses smoothness.
+    """
     try:
         fps = win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)
         win._video_timer.setInterval(max(1, 1000 // fps))
     except Exception:  # noqa: BLE001
         pass
-    try:
-        mode = str(win.cmb_video_mode.currentText())
-    except Exception:  # noqa: BLE001
-        mode = ""
-    if mode in ("dissolve", "morph"):
-        # Holds are baked per fps: re-render so Hold keeps meaning time.
-        try:
-            win._schedule_refresh()
-            return
-        except Exception:  # noqa: BLE001
-            pass
-    sync_duration_ui(win)
-    # NOTE: non-particle modes intentionally skip re-render here (was a full
-    # re-render of N canvas-size frames on every fps tick).
+    apply_length(win)
 
 
 def duration_seconds(win) -> float:
@@ -106,18 +98,19 @@ def planned_total(win) -> dict:
     """Mirror of gif.plan_dissolve for honest UI (no render).
 
     Returns dict(n_trans, hs, he, pad, total, capped, actual_s, target_s,
-    fps, segs, particle). Non-particle modes report plain frames/fps.
+    fps, segs, particle). Non-particle modes report plain frames/fps
+    (Length editable upstream sets n = L x fps, capped at 256).
     Particle modes derive Length = (transitions + holds) / fps
     (Hold-manda: target_s mirrors actual_s, no sacred target).
     """
-    from app.gif import plan_dissolve
+    from app.gif import MAX_TOTAL_FRAMES, plan_dissolve
 
     try:
         mode = str(win.cmb_video_mode.currentText())
     except Exception:  # noqa: BLE001
         mode = "both"
     try:
-        n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
+        n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 256))
         fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
         hold = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
     except Exception:  # noqa: BLE001
@@ -125,8 +118,9 @@ def planned_total(win) -> dict:
                 "capped": False, "actual_s": 1.0, "target_s": 1.0,
                 "fps": 8, "segs": 1, "particle": False}
     if mode not in ("dissolve", "morph"):
+        capped = n_req >= MAX_TOTAL_FRAMES
         return {"n_trans": n_req, "hs": 0, "he": 0, "pad": 0, "total": n_req,
-                "capped": False, "actual_s": n_req / fps,
+                "capped": capped, "actual_s": n_req / fps,
                 "target_s": n_req / fps, "fps": fps, "segs": 1, "particle": False}
     try:
         from app.ui import params_controller as _par
@@ -145,8 +139,78 @@ def planned_total(win) -> dict:
     return plan
 
 
-def duration_changed(win) -> None:
-    """Length readout touched (read-only): just re-sync, no re-render."""
+def apply_length(win) -> None:
+    """Apply the Length spin as the sacred total (all modes).
+
+    Particle (dissolve/morph): solve the Hold needed to reach it
+    (clamped 0-3s, honest when short). Non-particle: n = Length x fps
+    (capped at 256, honest). FPS/Frames keep meaning quality: same
+    seconds, different frame counts. Ends with a re-render + label sync.
+    """
+    try:
+        from app.gif import MAX_TOTAL_FRAMES, solve_hold_for_length
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        target = max(0.5, min(60.0, float(win.spn_duration.value())))
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
+    except Exception:  # noqa: BLE001
+        fps = 8
+    if mode in ("dissolve", "morph"):
+        try:
+            from app.ui import params_controller as _par
+
+            segs = max(1, len(_par.morph_chain_data(win))) if mode == "morph" else 1
+        except Exception:  # noqa: BLE001
+            segs = 1
+        try:
+            plan = planned_total(win)
+            n_req = int(plan["n_trans"])
+            loop = bool(plan.get("loop", False))
+        except Exception:  # noqa: BLE001
+            n_req, loop = 6, False
+        try:
+            hold, _, fits = solve_hold_for_length(n_req, segs, fps, target, loop=loop)
+        except Exception:  # noqa: BLE001
+            return
+        try:
+            w = win.sld_dissolve_hold
+            w.blockSignals(True)
+            try:
+                w.setValue(int(round(hold * 10.0)))
+            finally:
+                w.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
+        msg = f"= {target:.1f}s target → Hold {hold:.1f}s"
+        if not fits:
+            msg += " — short: add Frames/chain or lower FPS"
+        try:
+            win._status(msg)
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        n = max(2, min(MAX_TOTAL_FRAMES, int(round(target * fps))))
+        capped = int(round(target * fps)) > MAX_TOTAL_FRAMES
+        try:
+            win._set_anim_combo(win.cmb_video_frames, n)
+        except Exception:  # noqa: BLE001
+            pass
+        msg = f"= {target:.1f}s target → {n}f @{fps}fps"
+        if capped:
+            msg += f" — capped at {MAX_TOTAL_FRAMES}f: shorten Length or lower FPS"
+        try:
+            win._status(msg)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        win._schedule_refresh()
+    except Exception:  # noqa: BLE001
+        pass
     sync_duration_ui(win)
 
 
@@ -208,6 +272,8 @@ def sync_duration_ui(win) -> None:
         else:
             secs = plan["actual_s"]
             text = f"= {secs:.1f}s loop"
+            if plan.get("capped"):
+                text += " · capped at 256f: shorten Length or lower FPS"
         # Strict-mode hint: mix/glitch with every FX/DATAMOSH channel at 0
         # only does march+hue (no forced slices).
         try:

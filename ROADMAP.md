@@ -395,7 +395,7 @@ form appears at least assembled), joints meet assembled (q=j/(nk-1)).
 - dissolve_speed 0.25-4.0 (1): traversals per clip.
 - dissolve_wind_x/y -500..500 px (120, -40): displacement at full disperse.
 - dissolve_hold 0-3s (1.0): still pause per form (assembled duplicates, shared equally across all forms). Every tick adds time: total = transitions + holds.
-- dissolve_length: legacy request, IGNORED since Hold-manda (kept for preset compat); Length is derived = total / fps, shown as readout.
+- dissolve_length: legacy request, IGNORED since Hold-manda (kept for preset compat); Length is sacred since v1.3: the UI spin is editable and solves Hold (particle) or n = Length x fps (rest).
 - dissolve_loop true (default): closed loop, last form morphs back into A; A's share split across both loop ends; ping-pong ignored when closed.
 - Chain: playlist order = play order; per-image Crop X/Y 0-100 + Zoom 1-4x
   (session-only, covers B..F; A comes from the canvas).

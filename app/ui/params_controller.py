@@ -184,7 +184,7 @@ def doc_size(win) -> int:
 
 def gif_anim_frames(win) -> int:
     try:
-        return anim_combo_int(win.cmb_video_frames, 6, 2, 64)
+        return anim_combo_int(win.cmb_video_frames, 6, 2, 256)
     except Exception:  # noqa: BLE001
         return int(getattr(win, "_gif_frames", 6))
 
@@ -311,7 +311,7 @@ BINDINGS: tuple = (
     ("vignette",) + _slider("sld_vig"),
     ("scanlines", _scan_get, _scan_set),
     ("replace_color", _brand_get, _brand_set),
-    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 64, 6),
+    ("gif_frames",) + _anim_combo("cmb_video_frames", 2, 256, 6),
     ("gif_mode", _video_mode_get, _video_mode_set),
     ("gif_fps",) + _anim_combo("cmb_video_fps", 2, 60, 8),
     ("gif_pingpong", _pingpong_get, _pingpong_set),
@@ -989,7 +989,7 @@ def ensure_morph_budget(win) -> bool:
             loop = True
         legs = segs + (1 if loop else 0)
         fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
-        n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
+        n = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 256))
     except Exception:  # noqa: BLE001
         return False
     import math

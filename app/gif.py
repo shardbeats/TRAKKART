@@ -58,7 +58,7 @@ GIF_MIN_FRAMES = 2
 GIF_MAX_FRAMES = 64
 # Suggested (editable combos: the list guides, the value is free).
 GIF_FPS_SUGGESTED = (8, 12, 24, 30, 48, 60)
-GIF_FRAMES_SUGGESTED = (4, 6, 8, 12, 24, 32, 48, 64)
+GIF_FRAMES_SUGGESTED = (4, 6, 8, 12, 24, 32, 48, 64, 96, 128, 256)
 # Full-canvas video preview (customizable, default 1200).
 VIDEO_DEFAULT_SIZE = 1200
 VIDEO_MIN_SIZE = 480
@@ -187,7 +187,14 @@ def gif_frames(
                                        max_side=max_side, pingpong=pingpong, fps=fps)
         return gif_morph_frames(img, img_b, preset, frames=frames,
                                 max_side=max_side, pingpong=pingpong, fps=fps)
-    n = _clamp_frames(frames)
+    # Non-particle modes render the still pipeline per frame (no holds):
+    # total = n frames, so Length = n / fps. n caps at the GIF list cap
+    # (preview + GIF + MP4 share the list path here; particle MP4 streams
+    # long clips instead). Sacred Length sets n = L x fps upstream.
+    try:
+        n = max(GIF_MIN_FRAMES, min(MAX_TOTAL_FRAMES, int(frames)))
+    except (TypeError, ValueError):
+        n = GIF_MIN_FRAMES
     side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
     pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
     small = _fit_small(img.convert("RGB"), side)
@@ -382,6 +389,34 @@ def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
     return {"n_trans": n_trans, "hs": hs, "he": he, "hj": hj, "holds": holds,
             "pad": 0, "total": total, "joints": joints, "cap": cap_v,
             "capped": capped, "actual_s": total / fps_v, "loop": loop_v}
+
+
+def solve_hold_for_length(n_req: int, segs: int, fps: int, target_s: float,
+                          loop: bool = False,
+                          cap: int | None = None) -> tuple[float, dict, bool]:
+    """Hold seconds so the derived total reaches target_s (Length sacred).
+
+    Inverse of plan_dissolve with no pad anywhere: transitions come from
+    n_req (density/quality), holds fill up to the target, shared equally
+    across forms. Hold caps at 3.0s; transitions alone may overshoot a
+    tiny target (then hold 0 and fits=False: fewer Frames needed). The
+    output cap can shrink holds (capped=True): shorter clip, honest report.
+    Returns (hold_s, plan, fits).
+    """
+    from math import ceil
+
+    fps_v = max(1, int(fps or 8))
+    want = int(round(max(0.0, float(target_s or 0.0)) * fps_v))
+    base = plan_dissolve(n_req, segs, fps_v, 0.0, None, cap=cap, loop=loop)
+    nt = int(base["n_trans"])
+    forms = max(1, int(segs or 1) + 1)
+    need = want - nt
+    if need <= 0:
+        return (0.0, base, nt <= want)  # transitions alone overshoot: fewer Frames needed
+    per = min(int(ceil(need / forms)), 3 * fps_v)
+    hold = per / fps_v
+    plan = plan_dissolve(n_req, segs, fps_v, hold, None, cap=cap, loop=loop)
+    return (hold, plan, int(plan["total"]) >= want)
 
 
 def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:

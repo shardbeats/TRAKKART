@@ -112,15 +112,21 @@ segment so every form appears assembled; joints sample `q=j/(nk-1)` (no pop);
 holds shrink to fit the 64-frame cap (transitions win). Duration label shows
 loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
 
-## Hold-manda (Length derived, no pad)
+## Sacred Length (editable total, no pad)
 
-The sacred total made the Hold slider dead (0.0/1.0/3.0 rendered identical
-clips: the pad compensated every change). New rule: total = transitions +
-requested holds; Length is a read-only readout (`= Xs total · Ys hold`).
-`dissolve_length` stays in presets for compat but is ignored. Holds only
+Hold-manda stays the engine rule (total = transitions + requested
+holds, never padded), but the Length spin is editable again (0.5–60s,
+was read-only): it is the sacred total for every MOTION mode.
+Particle (dissolve/morph): editing Length solves the Hold needed
+(clamped 0–3s, honest short-message when unreachable); dragging Hold
+still adds time and Length follows. Rest (phase/hue/both/glitch/mix):
+editing Length sets n = Length x FPS (capped at 256f, honest message);
+FPS changes keep the seconds and only gain/lose frames (quality).
+`dissolve_length` stays in presets for compat but is ignored; no new
+preset fields — Length derives from Frames/FPS/Hold. Holds only
 shrink against the output cap (256 GIF/preview, 3600 MP4 streaming);
-transitions always win. Trade-off: the 60s extreme is no longer reachable
-(max ≈ transitions + forms×3s); long hold-heavy clips still stream via MP4.
+transitions always win. Non-particle MP4 over 256f stays capped
+(streaming that path is future work).
 
 ## Social delivery (R1+R2, Spotify Canvas shaped)
 
@@ -132,8 +138,8 @@ transitions always win. Trade-off: the 60s extreme is no longer reachable
   when a 9:16 particle clip lands outside 3–8s; the export dialog warns
   when a 9:16 doc would export MP4 at full-doc size or outside 3–8s.
 - R3 beat grid REMOVED (too fiddly): no more ♫ BPM/Bars row, no
-  `hold_for_target`. Length stays derived (transitions + holds);
-  set it directly with Frames/FPS/Hold.
+  `hold_for_target`. Sacred Length (editable spin) covers every mode
+  instead — particle solves Hold, rest derive n = Length x FPS.
 
 ## Animated WebP (R7)
 

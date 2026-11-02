@@ -132,6 +132,25 @@ def test_estimate():
     assert estimate_gif(6, 120, 120) == 6 * 120 * 120 // 2
 
 
+def test_solve_hold_for_length():
+    from app.gif import solve_hold_for_length
+
+    hold, plan, fits = solve_hold_for_length(64, 1, 30, 7.5)
+    assert (round(hold, 2), round(plan["actual_s"], 2), fits) == (2.7, 7.53, True)
+    assert plan["total"] == 64 + 81 + 81  # transitions + equal holds
+    assert plan["pad"] == 0  # never pads, Hold mandates
+    hold, plan, fits = solve_hold_for_length(64, 1, 30, 60.0)
+    assert hold == 3.0 and fits is False  # clamped: add Frames/chain
+    hold, plan, fits = solve_hold_for_length(64, 1, 30, 0.5)
+    assert hold == 0.0 and fits is False  # transitions alone overshoot
+    hold, plan, fits = solve_hold_for_length(6, 1, 24, 4.0)
+    assert abs(plan["actual_s"] - 4.0) < 0.01 and fits is True
+    # Same target, higher fps: same seconds, more frames (quality only).
+    hold2, plan2, fits2 = solve_hold_for_length(6, 1, 48, 4.0)
+    assert abs(plan2["actual_s"] - 4.0) < 0.05 and fits2 is True
+    assert plan2["total"] > plan["total"]
+
+
 def test_gif_end_to_end_bundle(tmp_path):
     from app.exporter import export_bundle
 

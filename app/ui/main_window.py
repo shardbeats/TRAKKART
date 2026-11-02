@@ -481,7 +481,7 @@ class MainWindow(QMainWindow):
     def _on_duration_changed(self) -> None:
         from app.ui import video_controller as _vc
 
-        _vc.duration_changed(self)
+        _vc.apply_length(self)
 
     def _on_video_mode_changed(self) -> None:
         from app.ui import params_controller as _par

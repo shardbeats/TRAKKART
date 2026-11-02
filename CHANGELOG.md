@@ -3,7 +3,8 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
-- Removed BPM beat grid (too fiddly): no more ♫ BPM/Bars row + Set Hold in VIDEO, no `apply_bpm()`/`hold_for_target()`. Length stays derived (transitions + holds) — set directly with Frames/FPS/Hold. No preset fields involved.
+- Removed BPM beat grid (too fiddly): no more ♫ BPM/Bars row + Set Hold in VIDEO, no `apply_bpm()`/`hold_for_target()`.
+- Sacred Length (editable total, all modes): the VIDEO Length spin is editable again (0.5–60s) — particle modes solve the Hold needed to reach it (clamped 0–3s, honest short-message), other modes set n = Length x FPS (Frames combo shows the derived total, capped at 256f); FPS changes keep the seconds and only gain/lose frames; Hold-manda (no pad) stays the engine rule; no new preset fields (`dissolve_length` stays ignored compat). Non-particle GIF/MP4 lists cap at 256f.
 
 ## v1.2.0 — 2026-11-02
 - Morph F3 travel/pour (§7.6): `dissolve_travel` 0-1 preset field + MORPH Travel slider; non-blocks legs pour src→dst through seeded-greedy 1:1 matching (uneven counts padded, empties fall back to legacy); leg joints stay byte-exact, stagger shifts the pour, ease gates the cloud; travel=0 keeps the legacy cloud path byte-identical; strict 0=off still hard-cuts. Gherkin 57.

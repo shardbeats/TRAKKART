@@ -232,7 +232,7 @@ def test_validation_rejects_extended():
     with pytest.raises(ValueError):
         Preset(name="x", glitch_slice_max=999).validate()
     with pytest.raises(ValueError):
-        Preset(name="x", gif_frames=99).validate()
+        Preset(name="x", gif_frames=300).validate()
     with pytest.raises(ValueError):
         Preset(name="x", gif_fps=61).validate()
     with pytest.raises(ValueError):

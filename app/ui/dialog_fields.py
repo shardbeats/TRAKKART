@@ -16,7 +16,7 @@ def normalize_gif_spec(frames=6, mode: str = "both", fps: int = 8,
     from app.gif import GIF_MODES
 
     try:
-        n_frames = max(2, min(64, int(frames)))
+        n_frames = max(2, min(256, int(frames)))
     except (TypeError, ValueError):
         n_frames = 6
     try:
@@ -35,7 +35,7 @@ def gif_summary(spec: dict, suffix: str = "") -> str:
     """One-line spec text shared by the export/batch gif labels."""
     g = dict(spec or {})
     try:
-        frames = max(2, min(64, int(g.get("frames", 6))))
+        frames = max(2, min(256, int(g.get("frames", 6))))
         fps = max(2, min(60, int(g.get("fps", 8))))
         secs = frames / max(1, fps)
     except (TypeError, ValueError):

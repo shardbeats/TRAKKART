@@ -197,10 +197,61 @@ def test_duration_label_follows_frames_and_fps(window):
     assert vc.duration_seconds(window) >= 0.0
     window.cmb_video_frames.setCurrentText("8")
     window.cmb_video_fps.setCurrentText("24")
-    assert window.lbl_duration.text().startswith("= 0.3s loop")
+    # Sacred Length: fps change keeps seconds (8f@8fps = 1.0s),
+    # Frames re-solves to 24f @24fps.
+    assert window.cmb_video_frames.currentText() == "24"
+    assert window.lbl_duration.text().startswith("= 1.0s loop")
     window.cmb_video_fps.setCurrentText("12")
-    assert window.cmb_video_frames.currentText() == "8"
-    assert window.lbl_duration.text().startswith("= 0.7s loop")
+    assert window.cmb_video_frames.currentText() == "12"
+    assert window.lbl_duration.text().startswith("= 1.0s loop")
+
+
+def test_length_spin_solves_hold_in_dissolve(window):
+    from app.ui import video_controller as vc
+
+    window.cmb_video_mode.setCurrentText("dissolve")
+    window.cmb_video_frames.setCurrentText("6")
+    window.cmb_video_fps.setCurrentText("24")
+    window.spn_duration.setValue(4.0)
+    vc.apply_length(window)
+    # 6 trans + solved holds hit ~4.0s @24fps (slider ticks are 0.1s);
+    # slider moved, Length kept.
+    assert window.sld_dissolve_hold.value() == 19
+    assert window.lbl_duration.text().startswith("= 4.1s")
+    assert "target" in window.lbl_status.text()
+
+
+def test_length_spin_sets_frames_in_mix(window):
+    from app.ui import video_controller as vc
+
+    window.cmb_video_mode.setCurrentText("mix")
+    window.cmb_video_fps.setCurrentText("30")
+    window.spn_duration.setValue(5.0)
+    vc.apply_length(window)
+    assert window.cmb_video_frames.currentText() == "150"
+    assert window.lbl_duration.text().startswith("= 5.0s loop")
+
+
+def test_hold_drag_updates_length_readout(window):
+    window.cmb_video_mode.setCurrentText("dissolve")
+    window.cmb_video_frames.setCurrentText("6")
+    window.cmb_video_fps.setCurrentText("24")
+    window.sld_dissolve_hold.setValue(10)  # 1.0s per form x2 forms + 6 trans
+    window._sync_duration_ui()
+    assert window.spn_duration.value() == 2.2  # 54f @24fps
+    assert window.lbl_duration.text().startswith("= 2.2s")
+
+
+def test_fps_change_keeps_seconds(window):
+    window.cmb_video_mode.setCurrentText("mix")
+    window.cmb_video_frames.setCurrentText("48")  # 48f @8fps = 6.0s
+    window.cmb_video_fps.setCurrentText("24")  # re-solves to 144f, same 6.0s
+    assert window.cmb_video_frames.currentText() == "144"
+    assert window.lbl_duration.text().startswith("= 6.0s loop")
+    window.cmb_video_fps.setCurrentText("48")  # 288f wants > 256 cap
+    assert window.cmb_video_frames.currentText() == "256"
+    assert window.lbl_duration.text().startswith("= 5.3s loop")
+    assert "capped at 256f" in window.lbl_duration.text()
 
 
 def test_anim_combo_inserts_sorted_without_dupes(window):
