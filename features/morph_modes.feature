@@ -23,3 +23,8 @@ Feature: Morph particle fields
     Given a 48x48 gradient image
     When I disperse it in elastic mode with dotsize 3
     Then the loop closes and the joints match the 1px still
+
+  Scenario: Travel pours dots to their destination
+    Given two half black images
+    When I morph them with travel matching
+    Then the pour has no seam jump and both ends assemble

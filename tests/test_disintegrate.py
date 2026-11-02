@@ -583,3 +583,119 @@ def test_f2_preset_pack():
         pour.validate()
         assert (pour.dissolve_mode, pour.dissolve_stagger) == ("flow", "rank")
         assert pour.dissolve_amount == 0.5
+
+
+def _halves():
+    from PIL import ImageDraw
+
+    a = Image.new("RGB", (48, 48), (255, 255, 255))
+    b = Image.new("RGB", (48, 48), (255, 255, 255))
+    ImageDraw.Draw(a).rectangle([0, 0, 23, 47], fill=(0, 0, 0))
+    ImageDraw.Draw(b).rectangle([24, 0, 47, 47], fill=(0, 0, 0))
+    return a, b
+
+
+def _meanx(im):
+    import numpy as np
+
+    g = np.asarray(im.convert("L"))
+    ys, xs = np.nonzero(g < 128)
+    return float(xs.mean()) if len(xs) else -1.0
+
+
+def test_f3_match_travel_bijection_and_deterministic():
+    import numpy as np
+
+    from app.disintegrate import dither_bw, match_travel, points_from_dither
+
+    a, b = _halves()
+    ca, h, w = points_from_dither(dither_bw(a))
+    cb, _, _ = points_from_dither(dither_bw(b))
+    assert len(ca) > 0 and len(cb) > 0
+    s, d = match_travel(ca, cb, h, w, seed=7)
+    assert len(s) == len(d) == max(len(ca), len(cb))
+    s2, d2 = match_travel(ca, cb, h, w, seed=7)
+    assert (s == s2).all() and (d == d2).all()
+    if len(ca) == len(cb):  # true bijection when counts match
+        assert len({tuple(p) for p in np.asarray(d).tolist()}) == len(d)
+    # Uneven counts pad instead of crashing (gradient vs flat).
+    g = _img(48)
+    cg, _, _ = points_from_dither(dither_bw(g))
+    sp, dp = match_travel(cg, cb, h, w, seed=7)
+    assert len(sp) == len(dp) == max(len(cg), len(cb))
+    # Empty sets are a safe no-op (caller falls back to legacy).
+    e, _ = match_travel(np.zeros((0, 2), dtype=np.int32), cb, h, w, seed=7)
+    assert len(e) == 0
+
+
+def test_f3_travel_endpoints_exact():
+    import numpy as np
+
+    from app.disintegrate import dither_bw, match_travel, points_from_dither, travel_positions
+
+    a, b = _halves()
+    ca, h, w = points_from_dither(dither_bw(a))
+    cb, _, _ = points_from_dither(dither_bw(b))
+    s, d = match_travel(ca, cb, h, w, seed=7)
+    p0 = travel_positions(s, d, h, w, progress=0.0, seed=7, travel=1.0)
+    p1 = travel_positions(s, d, h, w, progress=1.0, seed=7, travel=1.0)
+    assert (p0 == np.asarray(s, dtype=np.float32)).all()
+    assert (p1 == np.asarray(d, dtype=np.float32)).all()
+
+
+def test_f3_travel_pours_without_seam_pop():
+    from app.disintegrate import dither_bw, morph_chain_frames
+
+    a, b = _halves()
+    kw = dict(frames=8, max_side=64, seed=11, wind=(0.0, 0.0),
+              amount=0.5, loop=False)
+    lt = morph_chain_frames([a, b], travel=1.0, **kw)
+    l0 = morph_chain_frames([a, b], travel=0.0, **kw)
+    assert len(lt) == len(l0) == 8
+    still_a = dither_bw(a).convert("RGB")
+    still_b = dither_bw(b).convert("RGB")
+    assert lt[0].tobytes() == still_a.tobytes()  # opens on A
+    assert lt[-1].tobytes() == still_b.tobytes()  # lands on B
+    assert [f.tobytes() for f in l0] == [f.tobytes() for f in
+                                         morph_chain_frames([a, b], **kw)]
+    assert lt[4].tobytes() != l0[4].tobytes()  # mid-flight differs
+    mx_t = [_meanx(f) for f in lt]
+    mx_0 = [_meanx(f) for f in l0]
+    assert mx_t[-1] > mx_t[0]  # pour travels left -> right
+    assert (mx_0[4] - mx_0[3]) > (mx_t[4] - mx_t[3])  # no cloud seam jump
+    # Strict 0=off still hard-cuts with travel on.
+    hc = morph_chain_frames([a, b], travel=1.0, amount=0.0,
+                            frames=8, max_side=64, seed=11, loop=False)
+    assert hc[0].tobytes() == hc[3].tobytes() == still_a.tobytes()
+    assert hc[4].tobytes() == hc[7].tobytes() == still_b.tobytes()
+
+
+def test_f3_travel_preset_roundtrip_and_gif():
+    import tempfile
+    from pathlib import Path
+
+    from app.gif import gif_morph_frames
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="T3", dissolve_travel=0.75)
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert back.dissolve_travel == 0.75
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert old.dissolve_travel == 0.0
+    import pytest
+
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_travel=1.5).validate()
+    Preset(name="x", dissolve_travel=1.0).validate()
+    a, b = _halves()
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    out = gif_morph_frames(a, b, Preset(**base, dissolve_travel=1.0),
+                           frames=8, max_side=64)
+    assert len(out) == 8
+    again = gif_morph_frames(a, b, Preset(**base, dissolve_travel=1.0),
+                             frames=8, max_side=64)
+    assert [f.tobytes() for f in out] == [f.tobytes() for f in again]
+    assert out[0].tobytes() != out[4].tobytes()

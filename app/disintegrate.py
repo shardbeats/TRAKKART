@@ -273,6 +273,133 @@ def block_visible(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
     return rank >= np.asarray(env, dtype=np.float64) * 0.85
 
 
+#: Stagger window for destination travel: qi spans q*(1+S)-d*S so
+#: particles pour in waves while both joints stay exact (q=0 -> 0, q=1 -> 1).
+TRAVEL_SPAN = 0.5
+
+
+def _smootherstep(t: np.ndarray) -> np.ndarray:
+    """Per-particle travel mixer 0 -> 1 (zero velocity at both joints)."""
+    x = np.clip(np.asarray(t, dtype=np.float64), 0.0, 1.0)
+    return (x * x * x * (x * (x * 6.0 - 15.0) + 10.0)).astype(np.float64)
+
+
+def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
+                 seed: int = 0xD15C) -> tuple[np.ndarray, np.ndarray]:
+    """Seeded-greedy 1:1 destination assignment A -> B (F3 travel/pour).
+
+    Returns (src, dst) float32 (y,x) of equal length: the smaller set is
+    padded by seeded resampling of its own points, then A's points (in
+    seeded-shuffle order) each take their nearest free B point via a
+    uniform grid with expanding-ring search (seeded fallback when the
+    ring cap misses, so dense clusters degrade gracefully). Any
+    bijection keeps the leg joints byte-exact; the pairing only shapes
+    the mid-flight pour. Deterministic for a given seed.
+    """
+    a = np.asarray(ca, dtype=np.float32).reshape(-1, 2)
+    b = np.asarray(cb, dtype=np.float32).reshape(-1, 2)
+    na, nb = int(len(a)), int(len(b))
+    if na == 0 or nb == 0:
+        return a.copy(), b.copy()
+    rng = np.random.default_rng(int(seed))
+    if na < nb:
+        a = np.concatenate([a, a[rng.integers(0, na, nb - na)]])
+    elif nb < na:
+        b = np.concatenate([b, b[rng.integers(0, nb, na - nb)]])
+    n = int(len(a))
+    ext = max(1.0, float(max(int(h), int(w))))
+    cell = max(2.0, ext / math.sqrt(max(1, n)))
+    inv = 1.0 / cell
+    from collections import defaultdict
+
+    grid: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for i in range(n):
+        grid[(int(b[i, 0] * inv), int(b[i, 1] * inv))].append(i)
+    alive = np.ones(n, dtype=bool)
+    match = np.empty(n, dtype=np.int64)
+    order = rng.permutation(n)
+    rmax = 24
+    for k in (int(v) for v in order):
+        ay, ax = float(a[k, 0]), float(a[k, 1])
+        cy, cx = int(ay * inv), int(ax * inv)
+        best, bestd = -1, float("inf")
+        for r in range(rmax + 1):
+            if r == 0:
+                ring = ((cy, cx),)
+            else:
+                ring = ([(cy - r, cx + dx) for dx in range(-r, r + 1)]
+                        + [(cy + r, cx + dx) for dx in range(-r, r + 1)]
+                        + [(cy + dy, cx - r) for dy in range(-r + 1, r)]
+                        + [(cy + dy, cx + r) for dy in range(-r + 1, r)])
+            for key in ring:
+                for i in grid.get(key, ()):
+                    if not alive[i]:
+                        continue
+                    dy = float(b[i, 0]) - ay
+                    dx = float(b[i, 1]) - ax
+                    d2 = dy * dy + dx * dx
+                    if d2 < bestd:
+                        bestd, best = d2, i
+            if best >= 0 and bestd <= (float(r) * cell) ** 2:
+                break
+        if best < 0:  # dense cluster beyond the ring cap: seeded fallback
+            rest = np.flatnonzero(alive)
+            best = int(rest[int(rng.integers(0, len(rest)))]) if len(rest) else 0
+            if not len(rest):
+                match[k] = 0
+                continue
+        match[k] = best
+        alive[best] = False
+    return a, b[match]
+
+
+def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
+                     progress: float = 0.0, seed: int = 0xD15C,
+                     wind: tuple[float, float] = (120.0, -40.0),
+                     mode: str = "wind", loops: float = 1.0,
+                     amount: float = 1.0, stagger: str = "off",
+                     ease: str = "sine", travel: float = 1.0,
+                     pixel_size: int = 1) -> np.ndarray:
+    """Pour positions for one morph frame: dots TRAVEL src -> dst.
+
+    Mixer s(q) is a per-particle smootherstep over a stagger-shifted
+    q (joints stay exact: s(0) = 0, s(1) = 1 for every particle), plus
+    the field cloud gated by the loop envelope (zero at both joints).
+    travel scales the pour (1 = full destination matching). amount 0
+    is handled by the caller (strict 0=off: hard cut, no travel).
+    """
+    s0 = np.asarray(src, dtype=np.float32)
+    d0 = np.asarray(dst, dtype=np.float32)
+    n = int(len(s0))
+    if n == 0:
+        return s0.copy()
+    st = str(stagger or "off")
+    if st not in STAGGER_MODES:
+        st = "off"
+    ez = str(ease or "sine")
+    if ez not in EASE_MODES:
+        ez = "sine"
+    tv = max(0.0, min(1.0, float(travel)))
+    q = max(0.0, min(1.0, float(progress)))
+    delays = stagger_delays(s0, h, w, st)
+    qi = np.clip(q * (1.0 + TRAVEL_SPAN) - delays * TRAVEL_SPAN, 0.0, 1.0)
+    s = _smootherstep(qi).astype(np.float32)
+    base = (1.0 - s)[:, None] * s0 + s[:, None] * d0
+    amt = max(0.0, min(2.0, float(amount or 0.0)))
+    ce = float(ease_env(np.mod(q, 1.0), ez))
+    if amt > 0 and ce > 0 and tv > 0:
+        md = str(mode or "wind")
+        if md not in DISINTEGRATE_MODES:
+            md = "wind"
+        off = _field_offset(s0, h, w, md, wind, amt, int(seed), qi,
+                            max(1, int(pixel_size or 1)))
+        base = base + off * (ce * (1.0 - 0.5 * tv))
+    out = base
+    out[:, 0] = np.clip(out[:, 0], 0, h - 1)
+    out[:, 1] = np.clip(out[:, 1], 0, w - 1)
+    return out
+
+
 def disperse_positions(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
                        seed: int = 0xD15C, wind: tuple[float, float] = (120.0, -40.0),
                        mode: str = "wind", loops: float = 1.0,
@@ -464,7 +591,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  hold_joint: int = 0,
                  crops: list[dict] | None = None,
                  stagger: str = "off", ease: str = "sine",
-                 dotsize: int = 1) -> list[Image.Image]:
+                 dotsize: int = 1, travel: float = 0.0) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -478,7 +605,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  wind=wind, mode=mode, amount=amount, max_side=max_side,
                                  hold_start=hold_start, hold_end=hold_end,
                                  hold_joint=hold_joint, crops=crops,
-                                 stagger=stagger, ease=ease, dotsize=dotsize)
+                                 stagger=stagger, ease=ease, dotsize=dotsize,
+                                 travel=travel)
     return chained
 
 
@@ -497,13 +625,16 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      crops: list[dict] | None = None,
                      loop: bool = False,
                      stagger: str = "off", ease: str = "sine",
-                     dotsize: int = 1):
+                     dotsize: int = 1, travel: float = 0.0):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
     With loop=True the last form morphs back into the first (closed
     loop, no hard cut): the closing leg reuses the first form's exact
     dithered still/coords, so the loop joint is byte-identical.
+    With travel > 0 (F3, non-blocks legs only) dots pour src -> dst
+    through a seeded-greedy 1:1 assignment instead of cloud-reform;
+    travel = 0 keeps the legacy path byte-identical.
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -559,6 +690,13 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         closing = loop_v and k == legs - 1
         ca = coord_list[k] if not closing else coord_list[-1]
         cb = coord_list[k + 1] if not closing else coord_list[0]
+        amt_v = max(0.0, min(2.0, float(amount or 0.0)))
+        travel_on = (float(travel or 0.0) > 0.0 and amt_v > 0.0
+                     and str(mode or "wind") != "blocks"
+                     and len(ca) > 0 and len(cb) > 0)
+        tsrc = tdst = None
+        if travel_on:
+            tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k)
         for j in range(nk):
             q = float(j) / float(max(1, nk - 1))
             if mode == "blocks":
@@ -571,6 +709,17 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize)
                 sizes = None if sizes is None else np.asarray(sizes)[mask]
+            elif travel_on:
+                assert tsrc is not None and tdst is not None
+                pos = travel_positions(tsrc, tdst, h, w, progress=q,
+                                       seed=int(seed) + k,
+                                       wind=wind, mode=mode, loops=1.0,
+                                       amount=amount, stagger=stagger,
+                                       ease=ease, travel=travel,
+                                       pixel_size=pixel_size)
+                sizes = frame_dot_sizes(tsrc, h, w, progress=q,
+                                        loops=1.0, stagger=stagger, ease=ease,
+                                        dotsize=dotsize)
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
@@ -605,7 +754,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        crops: list[dict] | None = None,
                        loop: bool = False,
                        stagger: str = "off", ease: str = "sine",
-                       dotsize: int = 1) -> list[Image.Image]:
+                       dotsize: int = 1, travel: float = 0.0) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -616,7 +765,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     (int = same for all joints, list/tuple = per-joint exact share).
     amount 0 gives hard cuts (strict 0=off). Deterministic per segment
     seed (seed + k). With loop=True the last form morphs back into the
-    first (closed loop, no hard cut).
+    first (closed loop, no hard cut). With travel > 0 (F3) non-blocks
+    legs pour src -> dst via seeded-greedy matching (0 = legacy cloud).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
                 pixel_size=pixel_size, frames=frames, seed=seed,
@@ -624,12 +774,13 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 max_side=max_side, hold_start=hold_start,
                 hold_end=hold_end, hold_joint=hold_joint,
                 crops=crops, loop=loop,
-                stagger=stagger, ease=ease, dotsize=dotsize))
+                stagger=stagger, ease=ease, dotsize=dotsize, travel=travel))
 
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
            "MAX_POINTS", "MAX_MORPH_IMAGES", "dither_bw",
            "points_from_dither", "disperse_positions", "block_visible",
+           "match_travel", "travel_positions",
            "stagger_delays", "ease_env", "render_points",
            "dissolve_frames", "morph_frames", "morph_chain_frames",
            "iter_dissolve", "iter_morph_chain"]

@@ -516,6 +516,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         mode_v = "wind"
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
+    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
@@ -541,7 +542,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                                 hold_start=plan["hs"], hold_end=plan["he"],
                                 hold_joint=plan["holds"][1:-1], crops=crops,
                                 loop=loop_v, stagger=stagger_v, ease=ease_v,
-                                dotsize=dotsize_v)
+                                dotsize=dotsize_v, travel=travel_v)
 
 
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -663,6 +664,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         mode_v = "wind"
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
+    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
@@ -689,7 +691,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                              hold_start=plan["hs"], hold_end=plan["he"],
                              hold_joint=plan["holds"][1:-1],
                              crops=crops, loop=loop_v,
-                             stagger=stagger_v, ease=ease_v, dotsize=dotsize_v)
+                             stagger=stagger_v, ease=ease_v, dotsize=dotsize_v,
+                             travel=travel_v)
     if pp and not loop_v:
         # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)

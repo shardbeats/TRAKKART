@@ -448,6 +448,9 @@ Mid term (visible leap, needs UI + tests):
   assignment A->B so dots TRAVEL to their target instead of cloud-reform
   (TesseraUI pour; typexperiments glyph mapping). Keep seeded-greedy for
   determinism. Biggest single visual upgrade on this list.
+  Done F3: `match_travel()` seeded-greedy grid matching + `travel_positions()`
+  smootherstep pour (`dissolve_travel` 0-1, default 0 = legacy; MORPH slider;
+  joints exact; blocks exempt). Gherkin 57.
 - Color particles: tint each dot with its source pixel/palette color
   (GodUI color=source; halftone-fx multicolor). Huge for SLIME/VAPOR covers;
   watch export size + readability gates.

@@ -60,7 +60,7 @@ features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off lega
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 56/56. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 57/57. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -193,6 +193,20 @@ elastic/bounce cierran el loop (pico ≤1, joints a 0);
 slider MORPH); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
 (rain/bayer8), POUR_FAKE (flow+rank+amount 0.5). 4º Gherkin
 (elastic loop + fat-dot joints). Gates 56.
+
+## Morph F3: travel/pour A->B (§7.6)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f3 or travel"
+```
+
+`dissolve_travel` 0-1 (default 0 = legacy cloud byte-identical) +
+MORPH Travel slider; `match_travel()` seeded-greedy 1:1 (grid +
+expanding rings, padded counts, empty-safe fallback); pour mixer =
+smootherstep over stagger-shifted q (joints exact, no seam jump),
+cloud gated by the ease envelope; strict 0=off hard-cuts even with
+travel on; blocks ignores travel. 5º Gherkin (pour ends + seam).
+Gates 57.
 
 ## Perf round (measured, nov-2026)
 

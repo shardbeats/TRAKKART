@@ -2,6 +2,9 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## Unreleased
+- Morph F3 travel/pour (§7.6): `dissolve_travel` 0-1 preset field + MORPH Travel slider; non-blocks legs pour src→dst through seeded-greedy 1:1 matching (uneven counts padded, empties fall back to legacy); leg joints stay byte-exact, stagger shifts the pour, ease gates the cloud; travel=0 keeps the legacy cloud path byte-identical; strict 0=off still hard-cuts. Gherkin 57.
+
 ## v1.1.0 — 2026-11-02
 - MP4 Canvas-exacto (R5): `mp4_dims` siempre par + `macro_block_size=2` en
   ambos writers — 1080x1920 sale 1080x1920 (era 1088x1920), 404x720 intacto,

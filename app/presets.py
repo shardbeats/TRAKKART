@@ -232,6 +232,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_stagger", "str", ("oneof", ("off", "rank", "radial", "scan", "sweep"))),
     _Field("dissolve_ease", "str", ("oneof", ("sine", "cubic", "linear", "elastic", "bounce"))),
     _Field("dissolve_dotsize", "int", ("range", 1, 4)),
+    _Field("dissolve_travel", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("dissolve_length", "float", ("range", 0.0, 99.9)),
@@ -350,6 +351,7 @@ class Preset:
     dissolve_stagger: str = "off"  # release order: off | rank | radial | scan | sweep
     dissolve_ease: str = "sine"  # loop envelope: sine (legacy) | cubic | linear | elastic | bounce
     dissolve_dotsize: int = 1  # max dot swell 1-4px with the envelope (1 = legacy 1px)
+    dissolve_travel: float = 0.0  # F3 destination matching 0-1 (0 = legacy cloud-reform)
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
     dissolve_length: float = 5.0  # legacy total-length request (compat only:
@@ -485,6 +487,7 @@ class Preset:
             "stagger": str(getattr(self, "dissolve_stagger", "off") or "off"),
             "ease": str(getattr(self, "dissolve_ease", "sine") or "sine"),
             "dotsize": int(getattr(self, "dissolve_dotsize", 1) or 1),
+            "travel": float(getattr(self, "dissolve_travel", 0.0) or 0.0),
             "speed": float(getattr(self, "dissolve_speed", 1.0) or 1.0),
             "wind_x": float(getattr(self, "dissolve_wind_x", 120.0) or 0.0),
             "wind_y": float(getattr(self, "dissolve_wind_y", -40.0) or 0.0),
@@ -680,6 +683,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_stagger": str(_get(dissolve, "stagger", "off") or "off"),
         "dissolve_ease": str(_get(dissolve, "ease", "sine") or "sine"),
         "dissolve_dotsize": _get(dissolve, "dotsize", 1),
+        "dissolve_travel": _get(dissolve, "travel", 0.0),
         "dissolve_speed": _get(dissolve, "speed", 1.0),
         "dissolve_wind_x": _get(dissolve, "wind_x", 120.0),
         "dissolve_wind_y": _get(dissolve, "wind_y", -40.0),

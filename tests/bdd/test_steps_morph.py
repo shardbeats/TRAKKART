@@ -106,3 +106,51 @@ def elastic_ok(ctx):
     still = dither_bw(ctx["img"]).convert("RGB")
     assert list(ctx["joint_a"].get_flattened_data()) == list(still.get_flattened_data())
     assert render_points(coords.astype("float32"), h, w, ctx["sizes"]).size == still.size
+
+
+@given("two half black images")
+def two_halves(ctx):
+    from PIL import Image as Img, ImageDraw as Draw
+
+    ctx["img_a"] = Img.new("RGB", (48, 48), (255, 255, 255))
+    ctx["img_b"] = Img.new("RGB", (48, 48), (255, 255, 255))
+    Draw.Draw(ctx["img_a"]).rectangle([0, 0, 23, 47], fill=(0, 0, 0))
+    Draw.Draw(ctx["img_b"]).rectangle([24, 0, 47, 47], fill=(0, 0, 0))
+    return True
+
+
+@when("I morph them with travel matching")
+def travel_morph(ctx):
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames
+
+    kw = dict(frames=8, max_side=64, seed=11, wind=(0.0, 0.0),
+              amount=0.5, loop=False)
+    ctx["travel"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]],
+                                       travel=1.0, **kw)
+    ctx["legacy"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]],
+                                       travel=0.0, **kw)
+
+    def meanx(im):
+        g = np.asarray(im.convert("L"))
+        ys, xs = np.nonzero(g < 128)
+        return float(xs.mean()) if len(xs) else -1.0
+
+    ctx["meanx_travel"] = [meanx(f) for f in ctx["travel"]]
+    ctx["meanx_legacy"] = [meanx(f) for f in ctx["legacy"]]
+
+
+@then("the pour has no seam jump and both ends assemble")
+def travel_ok(ctx):
+    from app.disintegrate import dither_bw
+
+    stills = [tuple(dither_bw(im).convert("RGB").get_flattened_data())
+              for im in (ctx["img_a"], ctx["img_b"])]
+    flats = [tuple(f.get_flattened_data()) for f in ctx["travel"]]
+    assert flats[0] == stills[0]
+    assert flats[-1] == stills[1]
+    assert flats[4] != tuple(ctx["legacy"][4].get_flattened_data())
+    mx_t, mx_0 = ctx["meanx_travel"], ctx["meanx_legacy"]
+    assert mx_t[-1] > mx_t[0]  # pour travels left -> right
+    assert (mx_0[4] - mx_0[3]) > (mx_t[4] - mx_t[3])  # no cloud seam jump
