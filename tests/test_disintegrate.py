@@ -940,3 +940,120 @@ def test_f5_trail_preset_roundtrip_and_gif():
     assert m[-1].tobytes() == mp[-1].tobytes()
     assert m[4].tobytes() != mp[4].tobytes()
     assert _gray_ghost_pixels(m[4]) > 0
+
+
+def _gradient_ltr(size=48):
+    im = Image.new("RGB", (size, size))
+    px = im.load()
+    for y in range(size):
+        for x in range(size):
+            v = int(255 * x / (size - 1))
+            px[x, y] = (v, v, v)
+    return im
+
+
+def _black_halves(im):
+    import numpy as np
+
+    g = np.asarray(im.convert("L")).astype(int)
+    w = g.shape[1]
+    return (int((g[:, :w // 2] == 0).sum()),
+            int((g[:, w // 2:] == 0).sum()))
+
+
+def test_f6_darkness_map_range():
+    import numpy as np
+
+    from app.disintegrate import darkness_map, dither_bw, points_from_dither
+
+    black = darkness_map(_solid((0, 0, 0)), np.array([[0, 0], [5, 5]]), 8, 8)
+    white = darkness_map(_solid((255, 255, 255)), np.array([[0, 0]]), 8, 8)
+    assert (black == 1.0).all()
+    assert (white == 0.0).all()
+    coords, h, w = points_from_dither(dither_bw(_gradient_ltr()))
+    dark = darkness_map(_gradient_ltr(), coords, h, w)
+    assert float(dark.min()) < 0.2 and float(dark.max()) > 0.9
+
+
+def test_f6_frame_dot_sizes_shade():
+    import numpy as np
+
+    from app.disintegrate import dither_bw, frame_dot_sizes, points_from_dither
+
+    coords, h, w = points_from_dither(dither_bw(_gradient_ltr()))
+    assert frame_dot_sizes(coords, h, w, progress=0.3, dotsize=1,
+                           shade=np.ones(len(coords))) is None
+    uni = frame_dot_sizes(coords, h, w, progress=0.3, dotsize=3)
+    assert uni is not None and len(set(uni.tolist())) == 1
+    dark = frame_dot_sizes(coords, h, w, progress=0.0, dotsize=3,
+                           shade=np.ones(len(coords)))
+    assert dark is not None and (np.asarray(dark) == 1).all()  # joints: 1px
+    mp = _darkness_of_arr(coords, h, w)
+    sha = frame_dot_sizes(coords, h, w, progress=0.3, dotsize=3, shade=mp)
+    assert len(set(np.asarray(sha).tolist())) > 1
+    assert (float(np.asarray(sha)[np.asarray(mp) > 0.7].mean())
+            > float(np.asarray(sha)[np.asarray(mp) < 0.3].mean()))
+    fallback = frame_dot_sizes(coords, h, w, progress=0.3, dotsize=3,
+                               shade=np.ones(3))
+    assert [int(v) for v in fallback] == [int(v) for v in uni]
+
+
+def _darkness_of_arr(coords, h, w):
+    from app.disintegrate import _darkness_of, sample_colors
+
+    return _darkness_of(sample_colors(_gradient_ltr(), h, w).astype(float),
+                        coords, h, w)
+
+
+def test_f6_shade_dissolve_heckel():
+    from app.disintegrate import dissolve_frames
+
+    kw = dict(frames=8, max_side=64, seed=7, dotsize=3, wind=(0.0, 0.0),
+              amount=0.5)
+    s = dissolve_frames(_gradient_ltr(), shade=True, **kw)
+    u = dissolve_frames(_gradient_ltr(), **kw)
+    assert s[0].tobytes() == u[0].tobytes()  # joints stay sharp
+    left_s, right_s = _black_halves(s[4])
+    left_u, right_u = _black_halves(u[4])
+    assert left_s > right_s  # dark side grows bigger dots
+    assert s[4].tobytes() != u[4].tobytes()
+    again = dissolve_frames(_gradient_ltr(), shade=True, **kw)
+    assert [f.tobytes() for f in s] == [f.tobytes() for f in again]
+    legacy = dissolve_frames(_gradient_ltr(), shade=False, **kw)
+    assert [f.tobytes() for f in legacy] == [f.tobytes() for f in u]
+    plain1 = dissolve_frames(_gradient_ltr(), frames=8, max_side=64,
+                             seed=7, dotsize=1, shade=True)
+    base1 = dissolve_frames(_gradient_ltr(), frames=8, max_side=64, seed=7)
+    assert [f.tobytes() for f in plain1] == [f.tobytes() for f in base1]
+
+
+def test_f6_shade_preset_roundtrip_and_gif():
+    import tempfile
+    from pathlib import Path
+
+    from app.gif import gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="T6", dissolve_shade=True)
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert back.dissolve_shade is True
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert old.dissolve_shade is False
+    a = _gradient_ltr()
+    b = _solid((40, 180, 60))
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0, dissolve_dotsize=3)
+    d = gif_dissolve_frames(a, Preset(**base, dissolve_shade=True),
+                            frames=6, max_side=64)
+    plain = gif_dissolve_frames(a, Preset(**base), frames=6, max_side=64)
+    assert d[0].tobytes() == plain[0].tobytes()
+    assert d[2].tobytes() != plain[2].tobytes()
+    m = gif_morph_frames(a, b, Preset(**base, dissolve_shade=True),
+                         frames=8, max_side=64, loop=False)
+    mp = gif_morph_frames(a, b, Preset(**base), frames=8, max_side=64,
+                          loop=False)
+    assert m[0].tobytes() == mp[0].tobytes()
+    assert m[-1].tobytes() == mp[-1].tobytes()
+    assert m[4].tobytes() != mp[4].tobytes()

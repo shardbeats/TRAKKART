@@ -459,6 +459,9 @@ Mid term (visible leap, needs UI + tests):
   (byte-exact); tint=0 legacy BW; 0=off freezes tint. Gherkin 58.
 - Dot-size attenuation by envelope/luminance (Heckel halftone shading)
   instead of fixed 1px dots.
+  Done F6: `dissolve_shade` bool + `darkness_map()` per-dot darkness,
+  `frame_dot_sizes(shade=)` 1..dotsize x darkness x envelope (joints 1px;
+  off/Dots=1 = legacy). Gherkin 60.
 - Trails / motion-blur accumulation (Word Morph trails; Particle Image).
   Done F5: `dissolve_trail` 0-8 + per-leg position deque + envelope-gated
   ghosts (BW gray / tinted hues, joints ghost-free, 0 = legacy). Gherkin 59.

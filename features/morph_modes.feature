@@ -38,3 +38,8 @@ Feature: Morph particle fields
     Given a 48x48 gradient image
     When I disperse it with trail ghosts
     Then mid-flight shows ghosts and the joints are clean
+
+  Scenario: Shade grows dark dots bigger then lands sharp
+    Given a dark-to-light gradient image
+    When I disperse it with Heckel shade
+    Then dark dots grow bigger and the joints stay sharp

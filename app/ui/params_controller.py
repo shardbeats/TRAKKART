@@ -106,6 +106,25 @@ def _morph_loop_set(win, v):
         w.blockSignals(False)
 
 
+def _shade_get(win):
+    try:
+        return bool(win.chk_dissolve_shade.isChecked())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _shade_set(win, v):
+    try:
+        w = win.chk_dissolve_shade
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        w.blockSignals(True)
+        w.setChecked(bool(v))
+    finally:
+        w.blockSignals(False)
+
+
 def doc_dims(win) -> tuple[int, int]:
     """Document W/H (editor-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
@@ -334,6 +353,7 @@ BINDINGS: tuple = (
     ("dissolve_travel",) + _slider("sld_dissolve_travel", 100.0),
     ("dissolve_tint",) + _slider("sld_dissolve_tint", 100.0),
     ("dissolve_trail",) + _slider("sld_dissolve_trail", 1.0),
+    ("dissolve_shade", _shade_get, _shade_set),
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
     ("dissolve_length",) + _dspin("spn_duration"),

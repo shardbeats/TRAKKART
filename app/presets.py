@@ -235,6 +235,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_travel", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_tint", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_trail", "int", ("range", 0, 8)),
+    _Field("dissolve_shade", "bool"),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("dissolve_length", "float", ("range", 0.0, 99.9)),
@@ -356,6 +357,7 @@ class Preset:
     dissolve_travel: float = 0.0  # F3 destination matching 0-1 (0 = legacy cloud-reform)
     dissolve_tint: float = 0.0  # F4 source-color dots 0-1 (0 = legacy BW)
     dissolve_trail: int = 0  # F5 ghost-dot trail frames 0-8 (0 = legacy)
+    dissolve_shade: bool = False  # F6 Heckel dot-size by darkness (off = uniform)
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
     dissolve_length: float = 5.0  # legacy total-length request (compat only:
@@ -494,6 +496,7 @@ class Preset:
             "travel": float(getattr(self, "dissolve_travel", 0.0) or 0.0),
             "tint": float(getattr(self, "dissolve_tint", 0.0) or 0.0),
             "trail": int(getattr(self, "dissolve_trail", 0) or 0),
+            "shade": bool(getattr(self, "dissolve_shade", False)),
             "speed": float(getattr(self, "dissolve_speed", 1.0) or 1.0),
             "wind_x": float(getattr(self, "dissolve_wind_x", 120.0) or 0.0),
             "wind_y": float(getattr(self, "dissolve_wind_y", -40.0) or 0.0),
@@ -692,6 +695,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_travel": _get(dissolve, "travel", 0.0),
         "dissolve_tint": _get(dissolve, "tint", 0.0),
         "dissolve_trail": _get(dissolve, "trail", 0),
+        "dissolve_shade": bool(_get(dissolve, "shade", False)),
         "dissolve_speed": _get(dissolve, "speed", 1.0),
         "dissolve_wind_x": _get(dissolve, "wind_x", 120.0),
         "dissolve_wind_y": _get(dissolve, "wind_y", -40.0),

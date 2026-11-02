@@ -73,6 +73,12 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per form 0-3.0s — adds time, Length is derived (each form reads)", div=10.0)
     from PySide6.QtWidgets import QCheckBox as _Chk
 
+    win.chk_dissolve_shade = _Chk("Shade (Heckel)")
+    win.chk_dissolve_shade.setChecked(False)
+    win.chk_dissolve_shade.setToolTip("Dot size follows source darkness (needs Dots > 1; joints stay 1px). Off = uniform swell.")
+    win.chk_dissolve_shade.stateChanged.connect(lambda _: win._schedule_refresh())
+    g.addWidget(win.chk_dissolve_shade)
+
     win.chk_morph_loop = _Chk("Loop (last → first)")
     win.chk_morph_loop.setChecked(True)
     win.chk_morph_loop.setToolTip("Closed loop: the last image morphs back into the first (no hard cut). Off = ends on the last image.")

@@ -218,3 +218,48 @@ def trail_ok(ctx):
     assert ctx["trail_joint_ghosts"] == 0
     assert list(ctx["trailed"][0].get_flattened_data()) == list(
         ctx["untrailed"][0].get_flattened_data())
+
+
+@given("a dark-to-light gradient image")
+def gradient_bw(ctx):
+    from PIL import Image as Img
+
+    im = Img.new("RGB", (48, 48))
+    px = im.load()
+    for y in range(48):
+        for x in range(48):
+            v = int(255 * x / 47)
+            px[x, y] = (v, v, v)
+    ctx["img"] = im
+    return im
+
+
+@when("I disperse it with Heckel shade")
+def shade_runs(ctx):
+    import numpy as np
+
+    from app.disintegrate import dissolve_frames
+
+    kw = dict(frames=8, max_side=64, seed=5, dotsize=3,
+              wind=(0.0, 0.0), amount=0.5)
+    ctx["shaded"] = dissolve_frames(ctx["img"], shade=True, **kw)
+    ctx["unshaded"] = dissolve_frames(ctx["img"], **kw)
+
+    def halves(im):
+        arr = np.asarray(im.convert("L")).astype(int)
+        w = arr.shape[1]
+        return (int((arr[:, :w // 2] == 0).sum()),
+                int((arr[:, w // 2:] == 0).sum()))
+
+    ctx["shaded_halves"] = halves(ctx["shaded"][4])
+    ctx["unshaded_halves"] = halves(ctx["unshaded"][4])
+
+
+@then("dark dots grow bigger and the joints stay sharp")
+def shade_ok(ctx):
+    left_s, right_s = ctx["shaded_halves"]
+    assert left_s > right_s  # dark side grows bigger dots
+    assert (list(ctx["shaded"][0].get_flattened_data())
+            == list(ctx["unshaded"][0].get_flattened_data()))
+    assert (list(ctx["shaded"][4].get_flattened_data())
+            != list(ctx["unshaded"][4].get_flattened_data()))

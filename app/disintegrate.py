@@ -105,16 +105,48 @@ def dot_sizes(env, maxsize: int = 1):
 
 def frame_dot_sizes(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
                     loops: float = 1.0, stagger: str = "off", ease: str = "sine",
-                    dotsize: int = 1):
-    """Sizes for one frame (None when dotsize is 1: legacy path untouched)."""
+                    dotsize: int = 1, shade=None):
+    """Sizes for one frame (None when dotsize is 1: legacy path untouched).
+
+    `shade` (per-dot darkness 0..1, None = uniform swell): Heckel-style
+    attenuation — dark-origin dots swell to full `dotsize`, light ones
+    stay near 1px. Multiplied by the envelope, so joints land at 1px
+    either way. Length mismatches fall back to the uniform swell.
+    """
     if max(1, int(dotsize or 1)) <= 1 or int(len(coords)) == 0:
         return None
     st = str(stagger or "off")
     if st not in STAGGER_MODES:
         st = "off"
     delays = stagger_delays(coords, h, w, st)
-    env = ease_env(_pinned_frac(progress, loops, delays), ease)
-    return dot_sizes(env, dotsize)
+    env = np.asarray(ease_env(_pinned_frac(progress, loops, delays), ease),
+                     dtype=np.float64)
+    m = max(1, int(dotsize))
+    if shade is None:
+        return dot_sizes(env, m)
+    d = np.asarray(shade, dtype=np.float64)
+    if len(d) != len(coords):
+        return dot_sizes(env, m)
+    return (1 + np.round((m - 1) * np.clip(d, 0.0, 1.0) * env)).astype(np.int64)
+
+
+def _darkness_of(arr: np.ndarray, coords: np.ndarray, h: int, w: int) -> np.ndarray:
+    """Per-dot darkness 0..1 from an (h,w,3) uint8 array (1 = black source)."""
+    ys = np.clip(np.asarray(coords)[:, 0].astype(np.int64), 0, h - 1)
+    xs = np.clip(np.asarray(coords)[:, 1].astype(np.int64), 0, w - 1)
+    lum = (0.299 * arr[ys, xs, 0] + 0.587 * arr[ys, xs, 1]
+           + 0.114 * arr[ys, xs, 2]) / 255.0
+    return np.clip(1.0 - lum, 0.0, 1.0)
+
+
+def darkness_map(img: Image.Image, coords: np.ndarray, h: int, w: int) -> np.ndarray:
+    """Per-dot darkness 0..1 of the source at each coord (Heckel shading).
+
+    Samples in coord space (resizes when the dithered grid differs from
+    the source, same rule as sample_colors).
+    """
+    return _darkness_of(sample_colors(img, h, w).astype(np.float64),
+                        coords, h, w)
 
 
 def _bayer_rank(ys: np.ndarray, xs: np.ndarray) -> np.ndarray:
@@ -678,7 +710,8 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   max_side: int = 480,
                   hold_start: int = 0, hold_end: int = 0,
                   stagger: str = "off", ease: str = "sine",
-                  dotsize: int = 1, tint: float = 0.0, trail: int = 0):
+                  dotsize: int = 1, tint: float = 0.0, trail: int = 0,
+                  shade: bool = False):
     """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
@@ -688,6 +721,8 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     envelope (0 = legacy BW; joints stay black = byte-exact stills).
     `trail` 0..8 pastes fading ghost dots (0 = legacy; joints stay
     ghost-free = byte-exact stills).
+    `shade` sizes dots by source darkness — Heckel-style attenuation
+    (False = uniform swell; joints stay 1px either way).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
     from collections import deque
@@ -710,11 +745,17 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     trail_on = trail_n > 0 and max(0.0, min(2.0, float(amount or 0.0))) > 0.0
     hist: deque = deque(maxlen=trail_n if trail_n > 0 else 1)
     color_mode = tv > 0.0
-    base_col = sample_colors(small, h, w) if tv > 0 and len(coords) else None
+    shade_on = bool(shade)
+    rgb_src = (sample_colors(small, h, w)
+               if (tv > 0 or shade_on) and len(coords) else None)
+    base_col = rgb_src
     home_col = None
+    home_dark = None
     if base_col is not None:
         home_col = base_col[np.clip(coords[:, 0], 0, h - 1),
                             np.clip(coords[:, 1], 0, w - 1)].astype(np.float64)
+    if shade_on and rgb_src is not None and len(coords):
+        home_dark = _darkness_of(rgb_src.astype(np.float64), coords, h, w)
     for _ in range(max(0, int(hold_start))):
         yield still.copy()
     for i in range(n):
@@ -722,13 +763,15 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
         env = float(ease_env(np.mod(progress, 1.0), ease if ease in EASE_MODES else "sine"))
         cols = tint_dots(home_col, tint_strength(tv, env)) if home_col is not None else None
         ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
+        shade_map = home_dark
         if mode == "blocks":
             mask = block_visible(coords, h, w, progress=progress, loops=loops,
                                  stagger=stagger, ease=ease,
                                  pixel_size=pixel_size, seed=seed)
             pos = coords.astype(np.float32)[mask]
             sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
-                                    stagger=stagger, ease=ease, dotsize=dotsize)
+                                    stagger=stagger, ease=ease, dotsize=dotsize,
+                                    shade=shade_map)
             sizes = None if sizes is None else np.asarray(sizes)[mask]
             cols = None if cols is None else np.asarray(cols)[mask]
             ghost_base = None if home_col is None else np.asarray(home_col)[mask]
@@ -737,7 +780,8 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                                      wind=wind, mode=mode, loops=loops, amount=amount,
                                      stagger=stagger, ease=ease, pixel_size=pixel_size)
             sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
-                                    stagger=stagger, ease=ease, dotsize=dotsize)
+                                    stagger=stagger, ease=ease, dotsize=dotsize,
+                                    shade=shade_map)
             ghost_base = home_col
         if trail_on:
             hist.append((np.asarray(pos, dtype=np.float32),
@@ -757,7 +801,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     max_side: int = 480,
                     hold_start: int = 0, hold_end: int = 0,
                     stagger: str = "off", ease: str = "sine",
-                    dotsize: int = 1, tint: float = 0.0, trail: int = 0) -> list[Image.Image]:
+                    dotsize: int = 1, tint: float = 0.0, trail: int = 0,
+                    shade: bool = False) -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
@@ -766,7 +811,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     it bursts (loop joint stays assembled -> seamless). `dotsize` 1..4
     swells dots with the envelope (1 = legacy 1px). `tint` 0..1 colors
     dots from the source (0 = legacy BW). `trail` 0..8 pastes fading
-    ghost dots (0 = legacy).
+    ghost dots (0 = legacy). `shade` sizes dots by source darkness
+    (False = uniform swell).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -782,7 +828,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                 wind=wind, mode=mode, loops=loops, amount=amount,
                 max_side=side, hold_start=hold_start,
                 hold_end=hold_end, stagger=stagger, ease=ease,
-                dotsize=dotsize, tint=tint, trail=trail))
+                dotsize=dotsize, tint=tint, trail=trail, shade=shade))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -796,7 +842,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  crops: list[dict] | None = None,
                  stagger: str = "off", ease: str = "sine",
                  dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                 trail: int = 0) -> list[Image.Image]:
+                 trail: int = 0, shade: bool = False) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -811,7 +857,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  hold_start=hold_start, hold_end=hold_end,
                                  hold_joint=hold_joint, crops=crops,
                                  stagger=stagger, ease=ease, dotsize=dotsize,
-                                 travel=travel, tint=tint, trail=trail)
+                                 travel=travel, tint=tint, trail=trail,
+                                 shade=shade)
     return chained
 
 
@@ -831,7 +878,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      loop: bool = False,
                      stagger: str = "off", ease: str = "sine",
                      dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                     trail: int = 0):
+                     trail: int = 0, shade: bool = False):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -845,6 +892,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
     loop envelope (tint = 0 keeps the legacy BW path byte-identical).
     With trail > 0 (F5) past dots linger as fading ghosts, gated by the
     loop envelope (trail = 0 keeps the legacy path byte-identical).
+    With shade on (F6) dots swell by source darkness (off = uniform).
     """
     from collections import deque
 
@@ -916,23 +964,34 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         tsrc = tdst = None
         tsrc_col = tdst_col = None
         leg_col_a = leg_col_b = None
+        tsrc_dark = tdst_dark = None
+        leg_dark_a = leg_dark_b = None
         if travel_on:
             tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k)
-        if tv > 0.0:
+        shade_on = bool(shade)
+        if tv > 0.0 or shade_on:
             fa = fitted[k] if not closing else fitted[-1]
             fb = fitted[k + 1] if not closing else fitted[0]
             arr_a = sample_colors(fa, h, w)
             arr_b = sample_colors(fb, h, w)
-            leg_col_a = arr_a[np.clip(ca[:, 0], 0, h - 1),
-                              np.clip(ca[:, 1], 0, w - 1)].astype(np.float64)
-            leg_col_b = arr_b[np.clip(cb[:, 0], 0, h - 1),
-                              np.clip(cb[:, 1], 0, w - 1)].astype(np.float64)
-            if travel_on:
-                assert tsrc is not None and tdst is not None
-                tsrc_col = arr_a[np.clip(tsrc[:, 0].astype(np.int64), 0, h - 1),
-                                 np.clip(tsrc[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
-                tdst_col = arr_b[np.clip(tdst[:, 0].astype(np.int64), 0, h - 1),
-                                 np.clip(tdst[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
+            if tv > 0.0:
+                leg_col_a = arr_a[np.clip(ca[:, 0], 0, h - 1),
+                                  np.clip(ca[:, 1], 0, w - 1)].astype(np.float64)
+                leg_col_b = arr_b[np.clip(cb[:, 0], 0, h - 1),
+                                  np.clip(cb[:, 1], 0, w - 1)].astype(np.float64)
+                if travel_on:
+                    assert tsrc is not None and tdst is not None
+                    tsrc_col = arr_a[np.clip(tsrc[:, 0].astype(np.int64), 0, h - 1),
+                                     np.clip(tsrc[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
+                    tdst_col = arr_b[np.clip(tdst[:, 0].astype(np.int64), 0, h - 1),
+                                     np.clip(tdst[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
+            if shade_on:
+                leg_dark_a = _darkness_of(arr_a.astype(np.float64), ca, h, w)
+                leg_dark_b = _darkness_of(arr_b.astype(np.float64), cb, h, w)
+                if travel_on:
+                    assert tsrc is not None and tdst is not None
+                    tsrc_dark = _darkness_of(arr_a.astype(np.float64), tsrc, h, w)
+                    tdst_dark = _darkness_of(arr_b.astype(np.float64), tdst, h, w)
         ez_leg = ease if ease in EASE_MODES else "sine"
         for j in range(nk):
             q = float(j) / float(max(1, nk - 1))
@@ -945,9 +1004,11 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                      loops=1.0, stagger=stagger, ease=ease,
                                      pixel_size=pixel_size, seed=int(seed) + k)
                 pos = pick.astype(np.float32)[mask]
+                dark_pick = (leg_dark_a if (q < 0.5 and leg_dark_a is not None)
+                             else (leg_dark_b if leg_dark_b is not None else None))
                 sizes = frame_dot_sizes(pick, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
-                                        dotsize=dotsize)
+                                        dotsize=dotsize, shade=dark_pick)
                 sizes = None if sizes is None else np.asarray(sizes)[mask]
                 base = (leg_col_a if (q < 0.5 and leg_col_a is not None)
                         else (leg_col_b if leg_col_b is not None else None))
@@ -962,16 +1023,20 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                        amount=amount, stagger=stagger,
                                        ease=ease, travel=travel,
                                        pixel_size=pixel_size)
+                st = str(stagger or "off")
+                st = st if st in STAGGER_MODES else "off"
+                delays = stagger_delays(tsrc, h, w, st)
+                qi = np.clip(q * (1.0 + TRAVEL_SPAN) - delays * TRAVEL_SPAN, 0.0, 1.0)
+                sm = _smootherstep(qi).astype(np.float64)[:, None]
+                dark_sm = None
+                if shade_on and tsrc_dark is not None and tdst_dark is not None:
+                    dark_sm = ((1.0 - sm) * tsrc_dark[:, None]
+                               + sm * tdst_dark[:, None])[:, 0]
                 sizes = frame_dot_sizes(tsrc, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
-                                        dotsize=dotsize)
+                                        dotsize=dotsize, shade=dark_sm)
                 cols = None
                 if tsrc_col is not None and tdst_col is not None:
-                    st = str(stagger or "off")
-                    st = st if st in STAGGER_MODES else "off"
-                    delays = stagger_delays(tsrc, h, w, st)
-                    qi = np.clip(q * (1.0 + TRAVEL_SPAN) - delays * TRAVEL_SPAN, 0.0, 1.0)
-                    sm = _smootherstep(qi).astype(np.float64)[:, None]
                     base = (1.0 - sm) * tsrc_col + sm * tdst_col
                     cols = tint_dots(base, tint_strength(tv, env))
                     ghost_base = np.asarray(base)
@@ -981,7 +1046,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                          stagger=stagger, ease=ease, pixel_size=pixel_size)
                 sizes = frame_dot_sizes(ca, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
-                                        dotsize=dotsize)
+                                        dotsize=dotsize, shade=leg_dark_a)
                 cols = tint_dots(leg_col_a, tint_strength(tv, env)) if leg_col_a is not None else None
                 ghost_base = leg_col_a
             else:
@@ -990,7 +1055,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                          stagger=stagger, ease=ease, pixel_size=pixel_size)
                 sizes = frame_dot_sizes(cb, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
-                                        dotsize=dotsize)
+                                        dotsize=dotsize, shade=leg_dark_b)
                 cols = tint_dots(leg_col_b, tint_strength(tv, env)) if leg_col_b is not None else None
                 ghost_base = leg_col_b
             if trail_on:
@@ -1018,7 +1083,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        loop: bool = False,
                        stagger: str = "off", ease: str = "sine",
                        dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                       trail: int = 0) -> list[Image.Image]:
+                       trail: int = 0, shade: bool = False) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -1033,6 +1098,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     legs pour src -> dst via seeded-greedy matching (0 = legacy cloud).
     With tint > 0 (F4) dots carry source colors (0 = legacy BW).
     With trail > 0 (F5) past dots linger as fading ghosts (0 = legacy).
+    With shade on (F6) dots swell by source darkness (off = uniform).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
                 pixel_size=pixel_size, frames=frames, seed=seed,
@@ -1041,7 +1107,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 hold_end=hold_end, hold_joint=hold_joint,
                 crops=crops, loop=loop,
                 stagger=stagger, ease=ease, dotsize=dotsize,
-                travel=travel, tint=tint, trail=trail))
+                travel=travel, tint=tint, trail=trail, shade=shade))
 
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",

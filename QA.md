@@ -60,7 +60,7 @@ features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off lega
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 59/59. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 60/60. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -236,6 +236,19 @@ trail)` paints ghosts before the core (gray ints / faded hues,
 kxk sizes kept); per-leg deque reset, O(K·n) RAM-bounded; strict
 0=off skips ghosts. 7º Gherkin (ghosts mid + clean joints).
 Gates 59.
+
+## Morph F6: Heckel shade (§7.6)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f6 or shade"
+```
+
+`dissolve_shade` bool (default off = uniform) + MORPH Shade checkbox;
+`darkness_map()` per-dot source darkness, `frame_dot_sizes(...,
+shade=)` scales 1..dotsize by darkness x envelope (joints stay 1px);
+length mismatches fall back to uniform; Dots=1 keeps the legacy None
+path; strict 0=off untouched (frozen stills need no sizes). 8º Gherkin
+(dark dots bigger + sharp joints). Gates 60.
 
 ## Perf round (measured, nov-2026)
 
