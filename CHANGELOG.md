@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## Unreleased
+## v1.1.0 — 2026-11-02
 - MP4 Canvas-exacto (R5): `mp4_dims` siempre par + `macro_block_size=2` en
   ambos writers — 1080x1920 sale 1080x1920 (era 1088x1920), 404x720 intacto,
   721x721 -> 720x720.
