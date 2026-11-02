@@ -43,6 +43,9 @@ def build_menus(win) -> None:
          "Ctrl+S", "Repeat the last export setup")
     _act(win, m_file, "Batch folder...", win.run_batch_dialog,
          "Ctrl+B", "Process a folder with the current preset")
+    win.act_watch = _act(win, m_file, "Watch folder...", win.toggle_watch,
+                         "", "Auto-batch new files with a fixed preset")
+    win.act_watch.setCheckable(True)
     m_file.addSeparator()
     _act(win, m_file, "Export preset...", win.share_preset_export,
          "", "Share the current preset as a .json file (offline)")
@@ -96,6 +99,10 @@ def build_menus(win) -> None:
          "Ctrl+1", "Preview at 100%")
     m_view.addSeparator()
     _viewport_menu(win, m_view)
+    win.act_safe = _act(win, m_view, "Safe areas 9:16", win.toggle_safe_areas,
+                        "", "Chrome guides for 9:16 social canvas (crop editor + still preview)")
+    win.act_safe.setCheckable(True)
+    win.act_safe.setChecked(True)
 
     m_help = bar.addMenu("Help")
     _act(win, m_help, "Quick tour...", lambda: win.show_tutorial(manual=True),

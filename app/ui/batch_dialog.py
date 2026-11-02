@@ -220,4 +220,60 @@ class BatchDialog(QDialog):
         }
 
 
-__all__ = ["BatchDialog", "count_images"]
+class WatchDialog(QDialog):
+    """Watch input/output; preset is fixed (shown, not edited). `paths()`
+    only valid after Accept. Invalid input keeps the dialog open with
+    an inline hint (no modal)."""
+
+    def __init__(
+        self,
+        in_dir: str | Path = "",
+        out_dir: str | Path = "",
+        preset_name: str = "",
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Watch folder")
+        col = QVBoxLayout(self)
+        from app.ui.dialog_fields import build_folder_row
+
+        row_in, self.edit_in, _ = build_folder_row("Watch:", str(in_dir or ""), self)
+        col.addLayout(row_in)
+        row_out, self.edit_out, _ = build_folder_row("Output:", str(out_dir or ""), self)
+        col.addLayout(row_out)
+        lbl = QLabel(f"Preset (fixed): {preset_name or '—'}")
+        lbl.setObjectName("subtitleLabel")
+        lbl.setWordWrap(True)
+        col.addWidget(lbl)
+        note = QLabel("Auto-batch on arrival: only new/changed files process "
+                      "(3s settle delay, sequential, no history log).")
+        note.setObjectName("subtitleLabel")
+        note.setWordWrap(True)
+        col.addWidget(note)
+        self.lbl_hint = QLabel("")
+        self.lbl_hint.setWordWrap(True)
+        col.addWidget(self.lbl_hint)
+        bar = QHBoxLayout()
+        bar.addStretch()
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.clicked.connect(self.reject)
+        bar.addWidget(btn_cancel)
+        btn_start = QPushButton("Start watching")
+        btn_start.setDefault(True)
+        btn_start.clicked.connect(self._on_start)
+        bar.addWidget(btn_start)
+        col.addLayout(bar)
+        self.edit_in.textChanged.connect(lambda _: self.lbl_hint.setText(""))
+
+    def _on_start(self) -> None:
+        if not Path(self.edit_in.text().strip()).is_dir():
+            self.lbl_hint.setText("Pick an existing input folder first.")
+            return
+        self.accept()
+
+    def paths(self) -> tuple[Path, Path]:
+        """(input, output). Only after Accept."""
+        return Path(self.edit_in.text().strip()), Path(self.edit_out.text().strip())
+
+
+__all__ = ["BatchDialog", "WatchDialog", "count_images"]

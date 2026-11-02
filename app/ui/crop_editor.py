@@ -52,9 +52,10 @@ class CropView(QWidget):
     def __init__(self, img: Image.Image, ratio: str = "1:1", mode: str = "cover",
                  fx: float = 50.0, fy: float = 50.0, zoom: float = 1.0,
                  canvas_w: int = 0, canvas_h: int = 0,
-                 parent=None) -> None:
+                 parent=None, show_safe: bool = True) -> None:
         super().__init__(parent)
         self._img = img.convert("RGB")
+        self.show_safe = bool(show_safe)
         self.ratio = ratio
         self.mode = mode
         self.fx = float(fx)
@@ -162,6 +163,16 @@ class CropView(QWidget):
         border.setWidth(3)
         p.setPen(border)
         p.drawRoundedRect(frame, radius, radius)
+        if bool(getattr(self, "show_safe", True)):
+            try:
+                from app.ui.safeareas import paint_rect_guides
+
+                p.save()
+                p.setClipPath(frame_path)
+                paint_rect_guides(p, frame)
+                p.restore()
+            except Exception:  # noqa: BLE001
+                pass
         p.end()
 
     # -- interaction --
@@ -261,7 +272,7 @@ class CropEditorDialog(QDialog):
                  fx: float = 50.0, fy: float = 50.0, zoom: float = 1.0,
                  canvas_w: int = 0, canvas_h: int = 0,
                  fixed_frame: bool = False,
-                 parent=None) -> None:
+                 parent=None, show_safe: bool = True) -> None:
         super().__init__(parent)
         self.setWindowTitle("Adjust crop")
         self.setMinimumSize(560, 640)
@@ -288,7 +299,8 @@ class CropEditorDialog(QDialog):
         col.addLayout(top)
 
         self.view = CropView(self.image, ratio, mode, fx, fy, zoom,
-                             canvas_w=self._doc_w, canvas_h=self._doc_h)
+                             canvas_w=self._doc_w, canvas_h=self._doc_h,
+                             show_safe=show_safe)
         col.addWidget(self.view, 1)
 
         self.lbl_hint = QLabel("Drag to move · Mouse wheel to zoom")

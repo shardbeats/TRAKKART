@@ -492,24 +492,36 @@ RAM (MAX_POINTS), mismos invariantes (seeded, frac%1 loop-perfect).
   `blocks` (block dissolve por celdas pixel_size con orden por rank: sin
   nube, pop por bloques; el más barato y el más dither-nativo).
 - STAGGER (`dissolve_stagger`: off | rank | radial | scan | sweep):
-  delay por partícula como shift de fase `frac_i=(progress*loops+delay_i)%1`
-  (loop intacto por el %1). `rank` usa el mapa Bayer de `ordered_maps.py`
+  delay por partícula con pin al joint `frac_i=(frac+delay_i·sin(π·frac))%1`
+  (shift puro rompería el ensamblado del joint y los holds harían pop;
+  pineado: cero shift en ambos joints, olas llenas mid-loop, loop intacto
+  por el %1). `rank` usa el mapa Bayer de `ordered_maps.py`
   (orden de matriz = firma dither); `radial` = ola centro-fuera en el
   gather; `scan` = filas top-down; `sweep` = reensamblado left-right
   (converge-to-shape). Determinista, sin RNG extra.
-- EASE (`dissolve_ease`: sine | cubic | elastic | bounce | linear):
-  forma de la envolvente en vez del sin fijo; sine = legacy byte-identical.
-  (El §7.6 ya pedía easing select: aquí queda concretado.)
+- EASE (`dissolve_ease`: sine | cubic | linear en F1; elastic | bounce en F2):
+  forma de la envolvente en vez del sin fijo; sine = legacy byte-identical;
+  cubic = sin³ (ataque marcado, dwell largo); linear = tent a velocidad
+  constante. rain/rise pliegan su drop dentro del field y la envolvente
+  lo puerta (el ease siempre manda, ningún control miente).
 - Preset/UI/migración: 3 fields (`mode` oneof extendido + `stagger` +
   `ease`, defaults wind/off/sine = renders legacy byte-identical);
   MORPH: combo de modo extendido + 2 combos; plan cuenta igual (el stagger
   no cambia conteos, solo reparte qué partícula se mueve cuándo).
 - Tests: determinismo (same seed = same pixels) + loop-perfect
-  (frac 0 == 1 por modo/stagger/ease) + legacy byte-identical por
-  defecto + 2-3 escenarios Gherkin (burst determinista, rank neutral
-  con stagger off, blocks en # formas).
-- Fases: F1 = fields (burst/suction/vortex/rain/wave/ripple/flow/blocks)
-  + stagger (rank/radial/scan/sweep) + ease sine/cubic; F2 = elastic/
+  (frac 0 == 1 por modo/stagger/ease) + joint ensamblado pineado por
+  stagger + legacy byte-identical por defecto + 2-3 escenarios Gherkin
+  (burst determinista, rank neutral con stagger off, blocks en # formas).
+  Done F1: `features/morph_modes.feature` (3) + unit en
+  `tests/test_disintegrate.py` (11 modos × 5 staggers × 3 eases en loop,
+  ancla blocks 9/64, fallback) + combos MORPH (11/5/3). Gates 55.
+- Fases: F1 = fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks;
+  rise entra por simetría con rain, 3 líneas) + stagger (rank/radial/scan/sweep)
+  + ease sine/cubic/linear (linear entra por neutralidad, 1 línea);
+  rain/rise pliegan su drop (frac² + bounce) DENTRO del field y la envolvente
+  lo puerta (el ease sí manda); blocks popea por celdas pixel_size con ancla
+  del 15% denso (sin ancla flashea blanco a pico: medido); stagger pineado
+  al joint (shift puro rompía holds). F2 = elastic/
   bounce + acople con dot-size (§7.6) + preset pack (EMBER_RISE,
   GRAVITY_DROP con rain, POUR Fake con flow + stagger rank).
 - No entra: física integrada (springs/drag con velocidad), interactividad
@@ -607,15 +619,28 @@ chrome arriba/abajo ~250px).
   history); `main.py` despacha `--cli` antes de importar Qt (verificado
   sin PySide6 en intérprete fresco); MP4/WebP/seps quedan dialog-only;
   MANUAL con sección.
-- [ ] R11 — Watch-folder (carpeta vigilada -> auto-batch con preset fijo).
+- [x] R11 — Watch-folder (carpeta vigilada -> auto-batch con preset fijo).
   Coste M. Alternativa barata: "re-batch last folder" en 1 click (S).
+  Done: `app/ui/watch_flow.py` (QFileSystemWatcher + 2s debounce +
+  skip-existing idempotente + 3s settle anti-copias-parciales + preset
+  fijo por NOMBRE recargado por ciclo + jobs=1 + stateless sin history
+  + cero modales) + `WatchDialog` + File → Watch folder... (checkable).
+  La alternativa barata no hizo falta (el mismo coste cubre el caso).
 
 ### 8.5 Polish UX/motor (solo si sobra ciclo)
 
-- [ ] R12 — Safe-area guides 9:16 (franjas top/bottom de chrome
+- [x] R12 — Safe-area guides 9:16 (franjas top/bottom de chrome
   IG/TikTok/Shorts) en crop editor + preview. Coste S/M.
-- [ ] R13 — Wipe compare (slider antes/después) además de hold-to-compare.
+  Done: `app/ui/safeareas.py` (bandas 250/1920 como fracción + overlay
+  Qt, display-only); preview still (sync + async) + crop editor (frame
+  9:16); View → Safe areas 9:16 (default ON). Video frames excluidos
+  (coste por frame, documentado).
+- [x] R13 — Wipe compare (slider antes/después) además de hold-to-compare.
   Coste S.
+  Done: slider Wipe bajo el preview (ORIGINAL izq / result der,
+  divisor ámbar, 0 = off); original alineado vía canvas vivo;
+  composita a tamaño display; hold manda mientras se pulsa; video lo
+  ignora; sobrevive refreshes (router `redisplay`).
 - [ ] R14 — Congelar roster de motores en 36: más difusiones (Ostromoukhov
   y cía) aportan <5% visible para covers y cada motor es superficie de
   test/preset para siempre. Decisión propuesta.

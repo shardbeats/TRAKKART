@@ -21,15 +21,10 @@ def render_still(win) -> None:
 
 
 def show(win, orig, res) -> None:
-    from app.ui.qt_image import pil_to_pixmap
+    """Still result display (single router: hold-compare, wipe, safe guides)."""
+    from app.ui import compare_controller as _cc
 
-    zoomed = int(520 * win.zoom)
-    if win._comparing:
-        win.lbl_res.setPixmap(pil_to_pixmap(orig, max_side=zoomed))
-        win.lbl_res_title.setText(f"ORIGINAL (hold) · {orig.width}x{orig.height}")
-        return
-    win.lbl_res.setPixmap(pil_to_pixmap(res, max_side=zoomed))
-    win.lbl_res_title.setText(f"DITHER · {res.width}x{res.height}")
+    _cc.redisplay(win)
 
 
 def start_async(win) -> None:
@@ -67,8 +62,14 @@ def on_done(win, qimg, pil_img, token: int) -> None:
         win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=zoomed))
         win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}x{win.src.height}")
     else:
-        win.lbl_res.setPixmap(QPixmap.fromImage(qimg))
-        win.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
+        from app.ui import compare_controller as _cc
+
+        if _cc.wipe_pos(win) > 0 and win.src is not None:
+            _cc.paint_wipe(win)
+        else:
+            win.lbl_res.setPixmap(_cc.guided_pixmap(
+                win, QPixmap.fromImage(qimg), pil_img.width, pil_img.height))
+            win.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
     win._status("Preview ready")
     w = win._preview_worker
     if w is not None:

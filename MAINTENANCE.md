@@ -66,6 +66,7 @@ app/names.py             :: filename sanitizers (single home)
 app/recent.py            :: recent files (capped, prefs-backed)
 app/vector.py            :: grid re-render + RLE + SVG
 app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
+app/disintegrate.py        :: particle fields x stagger x ease (11 modes, loop-perfect, deterministic)
 app/separations.py       :: RISO/screen spot plates (nearest-color + register marks + effective palette)
 app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
 app/viewport.py          :: Full/Live/Still modes + fast/slow debounce
@@ -85,7 +86,8 @@ app/ui/params_controller.py :: widgets<->Preset (BINDINGS table + doc/anim reade
 app/ui/params_binding.py :: widget get/set factories
 app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy + duration label
 app/ui/preview_controller.py:: still preview (sync or background thread)
-app/ui/compare_controller.py:: hold-to-compare (Space/button)
+app/ui/compare_controller.py:: hold-to-compare (Space/button) + wipe + safe toggle
+app/ui/safeareas.py          :: R12 chrome guides 9:16 (display-only paint)
 app/ui/export_flow.py    :: export dialog orchestration + collision alert + history
 app/ui/export_dialog.py  :: File name section + plan + policy note
 app/ui/settings_dialog.py :: Settings (default output, export defaults, jobs/drop/viewport)
@@ -94,6 +96,7 @@ app/ui/session_flow.py    :: session restore (last image + preset, silent + opt-
 app/extras.py             :: accel/MP4 detection + pip install (dev; frozen → full build)
 app/ui/dialog_fields.py   :: shared dialog builders (format/quality, jobs, folder row, gif-spec)
 app/ui/batch_flow.py     :: batch dialog + worker + progress/ETA
+app/ui/watch_flow.py     :: watch folder (debounce + settle + fixed preset, no modals)
 app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
 app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
 app/ui/crop_editor.py    :: CropEditorDialog (visual crop, owned box, cached paint)

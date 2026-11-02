@@ -290,6 +290,7 @@ def open_crop_editor(win) -> None:
         zoom=float(win.crop_zoom),
         canvas_w=w, canvas_h=h,
         parent=win,
+        show_safe=bool(getattr(win, "_show_safe", True)),
     )
     if dlg.exec() != dlg.DialogCode.Accepted:
         dlg.deleteLater()  # no hoard hidden dialogs (they linger in topLevelWidgets)

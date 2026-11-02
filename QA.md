@@ -56,10 +56,11 @@ features/color_pro.feature :: 2 scenarios (auto-extract, source/depth)
 features/fx_stack.feature :: 2 scenarios (stack order, jpeg neutral)
 features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
 features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
+features/morph_modes.feature :: 3 scenarios (burst determinism, stagger-off legacy, blocks ends assembled)
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 52/52. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 55/55. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -166,6 +167,38 @@ custom > SOURCE extraída > BW > named+depth). Se separan del main
 exportado ("separate what you see", mismo tamaño). Dialog-only
 (checkbox + plan + colisiones); batch no. Unit-covered, Gherkin 52.
 
+## Morph F1: fields × stagger × ease (§7.7)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py tests/bdd/test_steps_morph.py -q -p no:cacheprovider --no-cov
+```
+
+11 fields (`wind/random` legacy + burst/suction/vortex/rain/rise/
+wave/ripple/flow/blocks), 5 staggers (off/rank/radial/scan/sweep,
+joint-pinned: joints stay assembled under holds), 3 eases
+(sine/cubic/linear; elastic/bounce = F2). Legacy triple
+wind/off/sine byte-identical (fast path). 3 preset fields with
+migración (defaults = legacy). Gherkin 55 (`morph_modes.feature`).
+Deviations from research noted in §7.7 (rise+linear in F1, flow
+closed-form not baked, blocks 15% peak anchor).
+
+## Polish (R12+R13)
+
+```
+.venv\Scripts\python -m pytest tests/test_polish.py -q -p no:cacheprovider --no-cov
+```
+
+- R12: 9:16 still previews (sync + async) + crop editor frame show
+  250px chrome bands + dashed amber edges (fractions of height, any
+  scale); View → Safe areas 9:16 default ON, display-only. Video
+  frames excluded (per-frame cost).
+- R13: Wipe slider under the preview (ORIGINAL left / result right,
+  amber divider, 0 = off); original aligned through the live canvas;
+  display-size composite; hold wins while held; video ignores it;
+  survives refreshes via the `redisplay` router. Manual: drag wipe on
+  a 9:16 cover, toggle safe areas, hold-to-compare still shows pure
+  ORIGINAL.
+
 ## Headless CLI (R10)
 
 ```
@@ -179,6 +212,20 @@ python main.py --cli --preset SLIME_FS --in covers --out out
 safety guard en single; stateless (sin history); jobs=1 fijo
 (spawn-free en exe). `--cli` se despacha antes de importar Qt
 (test en intérprete fresco lo afirma). Exit 0/1/2.
+
+## Watch folder (R11)
+
+```
+.venv\Scripts\python -m pytest tests/test_watch.py -q -p no:cacheprovider --no-cov
+```
+
+File → Watch folder… (checkable): input/output + preset fijo por
+nombre (se recarga por ciclo: edítalo y aplica). QFileSystemWatcher
++ debounce 2s + settle 3s (nunca hornea copias parciales) +
+skip-existing idempotente + BatchWorker jobs=1 + stateless (sin
+history) + cero modales (solo status). Stop: mismo menú, cerrar app,
+o preset borrado. Unit-covered con worker stub síncrono (sin
+event-loop waits), Gherkin 52.
 
 ## Morph loop + equal holds + honest MP4 (v1.15)
 

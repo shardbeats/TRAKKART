@@ -328,6 +328,8 @@ BINDINGS: tuple = (
     ("dissolve_wind_x",) + _slider("sld_dissolve_wind_x"),
     ("dissolve_wind_y",) + _slider("sld_dissolve_wind_y"),
     ("dissolve_mode",) + _combo("cmb_dissolve_mode"),
+    ("dissolve_stagger",) + _combo("cmb_dissolve_stagger"),
+    ("dissolve_ease",) + _combo("cmb_dissolve_ease"),
     ("dissolve_speed",) + _slider("sld_dissolve_speed", 100.0),
     ("dissolve_hold",) + _slider("sld_dissolve_hold", 10.0),
     ("dissolve_length",) + _dspin("spn_duration"),
@@ -773,6 +775,7 @@ def open_morph_crop(win) -> bool:
             zoom=float(entry.get("zoom", 1.0)),
             canvas_w=int(aw), canvas_h=int(ah),
             fixed_frame=True, parent=win,
+            show_safe=bool(getattr(win, "_show_safe", True)),
         )
         ok = dlg.exec() == dlg.DialogCode.Accepted
         if ok:

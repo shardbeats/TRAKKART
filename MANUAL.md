@@ -61,6 +61,10 @@ File → Batch folder (Ctrl+B): pick input/output, Jobs 1-8
 operation. With `Drop=Batch` on, dropping a folder asks directly
 whether to process it.
 
+**Watch folder:** File → Watch folder… picks a folder to watch, an
+output and a fixed preset. New/changed files process automatically
+(only those; 3s settle delay). Uncheck the menu entry to stop.
+
 ## Command line (no UI)
 
 Same engine, no window — for labels batching many singles:

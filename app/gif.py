@@ -77,6 +77,15 @@ def _clamp_frames(frames: int) -> int:
     return max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
 
 
+def _dissolve_style(preset) -> tuple[str, str]:
+    """(stagger, ease) from a preset (F1 defaults = legacy: off/sine)."""
+    from app.disintegrate import EASE_MODES, STAGGER_MODES
+
+    st = str(getattr(preset, "dissolve_stagger", "off") or "off") if preset is not None else "off"
+    ez = str(getattr(preset, "dissolve_ease", "sine") or "sine") if preset is not None else "sine"
+    return (st if st in STAGGER_MODES else "off", ez if ez in EASE_MODES else "sine")
+
+
 def _pingpong(seq: list) -> list:
     """Forward-backward loop so the GIF has no jump cut. 6 -> 10 frames."""
     if len(seq) <= 2:
@@ -438,6 +447,7 @@ def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
         mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
     if mode_v not in DISINTEGRATE_MODES:
         mode_v = "wind"
+    stagger_v, ease_v = _dissolve_style(preset)
     loops_v = 1.0 if loops is None else float(loops)
     if preset is not None and loops is None:
         loops_v = float(getattr(preset, "dissolve_speed", getattr(preset, "drift_speed", loops_v)) or loops_v)
@@ -455,7 +465,7 @@ def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                              pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
                              mode=mode_v, loops=loops_v, amount=amount_v,
                              max_side=side, hold_start=plan["hs"],
-                             hold_end=plan["he"])
+                             hold_end=plan["he"], stagger=stagger_v, ease=ease_v)
 
 
 def _morph_loop(preset, loop: bool | None) -> bool:
@@ -502,6 +512,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
     if mode_v not in DISINTEGRATE_MODES:
         mode_v = "wind"
+    stagger_v, ease_v = _dissolve_style(preset)
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
@@ -526,7 +537,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                                 amount=amount_v, max_side=side,
                                 hold_start=plan["hs"], hold_end=plan["he"],
                                 hold_joint=plan["holds"][1:-1], crops=crops,
-                                loop=loop_v)
+                                loop=loop_v, stagger=stagger_v, ease=ease_v)
 
 
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -573,6 +584,7 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
         mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
     if mode_v not in DISINTEGRATE_MODES:
         mode_v = "wind"
+    stagger_v, ease_v = _dissolve_style(preset)
     loops_v = 1.0 if loops is None else float(loops)
     if preset is not None and loops is None:
         loops_v = float(getattr(preset, "dissolve_speed", getattr(preset, "drift_speed", loops_v)) or loops_v)
@@ -589,7 +601,8 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     out = dissolve_frames(a, method=method, threshold=threshold,
                           pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
                           mode=mode_v, loops=loops_v, amount=amount_v,
-                          max_side=side, hold_start=plan["hs"], hold_end=plan["he"])
+                          max_side=side, hold_start=plan["hs"], hold_end=plan["he"],
+                          stagger=stagger_v, ease=ease_v)
     if pp:
         out = _pingpong(out)
     return out
@@ -642,6 +655,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
     if mode_v not in DISINTEGRATE_MODES:
         mode_v = "wind"
+    stagger_v, ease_v = _dissolve_style(preset)
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
@@ -666,7 +680,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                              amount=amount_v, max_side=side,
                              hold_start=plan["hs"], hold_end=plan["he"],
                              hold_joint=plan["holds"][1:-1],
-                             crops=crops, loop=loop_v)
+                             crops=crops, loop=loop_v,
+                             stagger=stagger_v, ease=ease_v)
     if pp and not loop_v:
         # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)

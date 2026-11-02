@@ -370,3 +370,151 @@ def test_morph_loop_closes_last_to_first():
     assert flats[-plan["holds"][-1]:] == [stills[0]] * plan["holds"][-1]
     # 3 legs x 3 frames: middle frames actually disperse (visible morph).
     assert len(set(flats)) > 3
+
+
+def _coords48():
+    from app.disintegrate import dither_bw, points_from_dither
+
+    coords, h, w = points_from_dither(dither_bw(_img(48)))
+    assert len(coords) > 0
+    return coords, h, w
+
+
+def test_f1_modes_deterministic_and_alive():
+    from app.disintegrate import DISINTEGRATE_MODES, disperse_positions
+
+    assert len(DISINTEGRATE_MODES) == 11
+    coords, h, w = _coords48()
+    still = coords.astype("float32")
+    for mode in DISINTEGRATE_MODES:
+        a = disperse_positions(coords, h, w, progress=0.3, seed=5, mode=mode)
+        b = disperse_positions(coords, h, w, progress=0.3, seed=5, mode=mode)
+        assert (a == b).all(), mode
+        if mode != "blocks":
+            assert not (a == still).all(), mode  # blocks pops, it never drifts
+
+
+def test_f1_loop_perfect_every_axis():
+    from app.disintegrate import (EASE_MODES, STAGGER_MODES, block_visible,
+                                  disperse_positions)
+
+    coords, h, w = _coords48()
+    still = coords.astype("float32")
+    for mode in ("wind", "burst", "suction", "vortex", "rain", "rise",
+                 "wave", "ripple", "flow"):
+        for st in STAGGER_MODES:
+            for ez in EASE_MODES:
+                a = disperse_positions(coords, h, w, progress=0.0, seed=5,
+                                       mode=mode, stagger=st, ease=ez)
+                b = disperse_positions(coords, h, w, progress=1.0, seed=5,
+                                       mode=mode, stagger=st, ease=ez)
+                assert (a == b).all(), (mode, st, ez)
+                # Joint-pinned stagger: the loop joint is the still itself,
+                # so holds never pop (this is what stagger is FOR).
+                assert (a == still).all(), (mode, st, ez)
+    for st in STAGGER_MODES:
+        for ez in EASE_MODES:
+            m0 = block_visible(coords, h, w, progress=0.0, stagger=st, ease=ez)
+            m1 = block_visible(coords, h, w, progress=1.0, stagger=st, ease=ez)
+            assert m0.all() and m1.all(), (st, ez)
+
+
+def test_f1_legacy_byte_identical():
+    from app.disintegrate import disperse_positions
+    from app.gif import gif_dissolve_frames
+    from app.presets import Preset
+
+    coords, h, w = _coords48()
+    old = disperse_positions(coords, h, w, progress=0.37, seed=99,
+                             wind=(120.0, -40.0), mode="wind")
+    new = disperse_positions(coords, h, w, progress=0.37, seed=99,
+                             wind=(120.0, -40.0), mode="wind",
+                             stagger="off", ease="sine", pixel_size=3)
+    assert (old == new).all()
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    a = gif_dissolve_frames(_img(), Preset(**base), frames=4)
+    b = gif_dissolve_frames(_img(), Preset(**base, dissolve_mode="wind",
+                                           dissolve_stagger="off",
+                                           dissolve_ease="sine"), frames=4)
+    assert [f.tobytes() for f in a] == [f.tobytes() for f in b]
+
+
+def test_f1_ease_and_stagger_shape_motion():
+    from app.disintegrate import disperse_positions, stagger_delays
+
+    coords, h, w = _coords48()
+    kw = dict(progress=0.3, seed=5, mode="burst")
+    sine = disperse_positions(coords, h, w, ease="sine", **kw)
+    cubic = disperse_positions(coords, h, w, ease="cubic", **kw)
+    linear = disperse_positions(coords, h, w, ease="linear", **kw)
+    assert not (sine == cubic).all()
+    assert not (sine == linear).all()
+    assert (stagger_delays(coords, h, w, "off") == 0).all()
+    for st in ("rank", "radial", "scan", "sweep"):
+        d = stagger_delays(coords, h, w, st)
+        assert d.min() >= 0.0 and d.max() < 1.0 and d.max() > 0.0, st
+        moved = disperse_positions(coords, h, w, stagger=st, **kw)
+        assert not (moved == sine).all(), st
+
+
+def test_f1_blocks_pop_schedule():
+    import numpy as np
+
+    from app.disintegrate import block_visible
+
+    coords, h, w = _coords48()
+    n = len(coords)
+    m0 = block_visible(coords, h, w, progress=0.0)
+    assert m0.all() and len(m0) == n
+    assert block_visible(coords, h, w, progress=1.0).all()
+    # Full rank coverage (one dot per bayer8 cell): the peak keeps the
+    # densest cells (rank >= 0.85 -> ranks 55..63 = 9 of 64), never blank.
+    grid = np.array([[(y, x) for x in range(8)] for y in range(8)]).reshape(-1, 2)
+    mid = block_visible(grid, 8, 8, progress=0.5)
+    assert int(mid.sum()) == 9
+    assert block_visible(grid, 8, 8, progress=0.0).all()
+    # Unknown names fall back to legacy behavior (wind/off/sine).
+    from app.disintegrate import disperse_positions
+
+    assert (disperse_positions(coords, h, w, progress=0.3, seed=5, mode="nope")
+            == disperse_positions(coords, h, w, progress=0.3, seed=5, mode="wind")).all()
+    assert (disperse_positions(coords, h, w, progress=0.3, seed=5, ease="nope")
+            == disperse_positions(coords, h, w, progress=0.3, seed=5, ease="sine")).all()
+
+
+def test_f1_preset_roundtrip_and_old_defaults():
+    from app.presets import Preset, load_preset, save_preset
+
+    import tempfile
+    from pathlib import Path
+
+    p = Preset(name="F1", dissolve_mode="vortex", dissolve_stagger="sweep",
+               dissolve_ease="linear")
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert (back.dissolve_mode, back.dissolve_stagger, back.dissolve_ease) == \
+            ("vortex", "sweep", "linear")
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert (old.dissolve_mode, old.dissolve_stagger, old.dissolve_ease) == \
+        ("wind", "off", "sine")
+    import pytest
+
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_mode="nope").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_ease="elastic").validate()  # F2, not yet
+
+
+def test_f1_blocks_morph_ends_assembled():
+    from app.disintegrate import dither_bw, morph_chain_frames
+
+    a = _img(48)
+    b = Image.new("RGB", (48, 48), (10, 200, 90))
+    f = morph_chain_frames([a, b], frames=8, max_side=64, mode="blocks", loop=False)
+    assert len(f) == 8
+    stills = [tuple(dither_bw(im).convert("RGB").get_flattened_data()) for im in (a, b)]
+    assert tuple(f[0].get_flattened_data()) == stills[0]
+    assert tuple(f[-1].get_flattened_data()) == stills[1]
+    assert len({tuple(x.get_flattened_data()) for x in f}) > 2

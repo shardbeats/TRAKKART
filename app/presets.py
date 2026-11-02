@@ -216,7 +216,11 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_seed", "int", ("range", 0, 999999)),
     _Field("dissolve_wind_x", "float", ("range", -500.0, 500.0)),
     _Field("dissolve_wind_y", "float", ("range", -500.0, 500.0)),
-    _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
+    _Field("dissolve_mode", "str", ("oneof", ("wind", "random", "burst", "suction",
+                                              "vortex", "rain", "rise", "wave",
+                                              "ripple", "flow", "blocks"))),
+    _Field("dissolve_stagger", "str", ("oneof", ("off", "rank", "radial", "scan", "sweep"))),
+    _Field("dissolve_ease", "str", ("oneof", ("sine", "cubic", "linear"))),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("dissolve_length", "float", ("range", 0.0, 99.9)),
@@ -331,7 +335,9 @@ class Preset:
     dissolve_seed: int = 53596  # deterministic pattern
     dissolve_wind_x: float = 120.0  # px at full disperse
     dissolve_wind_y: float = -40.0  # px at full disperse
-    dissolve_mode: str = "wind"  # wind | random
+    dissolve_mode: str = "wind"  # 11 particle fields (F1); wind = legacy
+    dissolve_stagger: str = "off"  # release order: off | rank | radial | scan | sweep
+    dissolve_ease: str = "sine"  # loop envelope: sine (legacy) | cubic | linear
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
     dissolve_length: float = 5.0  # legacy total-length request (compat only:
@@ -464,6 +470,8 @@ class Preset:
             "amount": float(getattr(self, "dissolve_amount", 1.0)),
             "seed": int(getattr(self, "dissolve_seed", 53596) or 0),
             "mode": str(getattr(self, "dissolve_mode", "wind") or "wind"),
+            "stagger": str(getattr(self, "dissolve_stagger", "off") or "off"),
+            "ease": str(getattr(self, "dissolve_ease", "sine") or "sine"),
             "speed": float(getattr(self, "dissolve_speed", 1.0) or 1.0),
             "wind_x": float(getattr(self, "dissolve_wind_x", 120.0) or 0.0),
             "wind_y": float(getattr(self, "dissolve_wind_y", -40.0) or 0.0),
@@ -656,6 +664,8 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_amount": _get(dissolve, "amount", 1.0),
         "dissolve_seed": _get(dissolve, "seed", 53596),
         "dissolve_mode": str(_get(dissolve, "mode", "wind") or "wind"),
+        "dissolve_stagger": str(_get(dissolve, "stagger", "off") or "off"),
+        "dissolve_ease": str(_get(dissolve, "ease", "sine") or "sine"),
         "dissolve_speed": _get(dissolve, "speed", 1.0),
         "dissolve_wind_x": _get(dissolve, "wind_x", 120.0),
         "dissolve_wind_y": _get(dissolve, "wind_y", -40.0),

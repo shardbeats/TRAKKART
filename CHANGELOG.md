@@ -20,6 +20,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Honest GIF/WebP weight (R8): hold-collapse-aware estimates (transitions full cost + 1 frame per still form; measured 12.7x→3.8x over on real 480p dither).
 - Ink separations (R9): one PNG per palette ink + corner registration marks (`{base}_sep_{NN}_{RRGGBB}.png`, dialog-only, pairs with Vector Pro black-ink).
 - Headless CLI (R10): `TRAKKART.exe --cli --preset X --in ... --out ...` (file/folder, batch bundle, skip-existing, exit 0/1/2, Qt-free; MP4/WebP/seps stay dialog-only).
+- Watch folder (R11): File → Watch folder auto-batches arrivals with a fixed preset (2s debounce, 3s settle, skip-existing, sequential, stateless, no modals).
+- Morph F1 (§7.7): 11 particle fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks) × 5 staggers (joint-pinned) × 3 eases; legacy wind/off/sine byte-identical; MORPH combos; Gherkin 55.
+- Polish (R12+R13): 9:16 safe-area chrome guides (still preview + crop editor, View toggle, display-only) + wipe compare slider (ORIGINAL/result divider, aligned canvas, survives refreshes).
 
 ## v1.0.1
 - New icon: 05_bayer_dots (TRAKK SUITE dark + amber).

@@ -33,6 +33,7 @@ from app.presets import Preset, ensure_bundled
 # tests stub them as MW.QMessageBox / MW.BatchDialog. BatchWorker is resolved
 # through this namespace by batch_flow for the same reason.
 from app.ui.batch_dialog import BatchDialog  # noqa: F401
+from app.ui.batch_dialog import WatchDialog  # noqa: F401 (MW namespace for watch_flow seam)
 from app.ui.workers import BatchWorker
 
 
@@ -86,11 +87,23 @@ class MainWindow(QMainWindow):
         ensure_bundled_palettes(get_palettes_dir())
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
+        # -- watch folder (R11): auto-batch with a fixed preset --
+        self._watcher = None
+        self._watch_timer = None
+        self._watch_src: Path | None = None
+        self._watch_dst: Path | None = None
+        self._watch_preset: str = ""
+        self._watch_busy: bool = False
+        self._watch_pending: bool = False
+        self._watch_worker = None
+        self._watch_cancel: list[bool] = [False]
         self._preview_worker = None
         self._preview_token = 0
         self._preview_pending = False
         # -- compare: hold-to-compare (single canvas, no ORIGINAL panel) --
         self._comparing: bool = False
+        # -- safe areas 9:16 (R12, display-only chrome guides) --
+        self._show_safe: bool = True
         # -- video mode: full canvas preview, 1200px default --
         self._video_on: bool = False
         self._video_frames: list = []
@@ -176,6 +189,16 @@ class MainWindow(QMainWindow):
         except Exception:  # noqa: BLE001
             pass
         self._batch_cancel[0] = True
+        try:
+            self._watch_cancel[0] = True
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from app.ui import watch_flow as _wf
+
+            _wf.watch_stop(self, quiet=True)
+        except Exception:  # noqa: BLE001
+            pass
         for worker in (self._preview_worker, self._batch_worker, self._video_worker):
             try:
                 if worker is not None:
@@ -522,6 +545,16 @@ class MainWindow(QMainWindow):
 
         _cc.paint_result(self)
 
+    def _on_wipe_changed(self) -> None:
+        from app.ui import compare_controller as _cc
+
+        _cc.wipe(self)
+
+    def toggle_safe_areas(self) -> None:
+        from app.ui import compare_controller as _cc
+
+        _cc.toggle_safe_areas(self)
+
     def keyPressEvent(self, event) -> None:  # noqa: N802
         if event.key() == Qt.Key_Space and not event.isAutoRepeat() and self.src is not None:
             self._comparing = True
@@ -807,6 +840,32 @@ class MainWindow(QMainWindow):
         from app.ui import batch_flow as _bf
 
         _bf.cancel_batch(self)
+
+    # -- watch folder (body in watch_flow) --
+    def toggle_watch(self) -> None:
+        from app.ui import watch_flow as _wf
+
+        _wf.toggle_watch(self)
+
+    def _on_watch_dir_changed(self) -> None:
+        from app.ui import watch_flow as _wf
+
+        _wf._on_watch_dir_changed(self)
+
+    def _on_watch_timeout(self) -> None:
+        from app.ui import watch_flow as _wf
+
+        _wf._on_watch_timeout(self)
+
+    def _on_watch_finished(self, results: list[dict]) -> None:
+        from app.ui import watch_flow as _wf
+
+        _wf._on_watch_finished(self, results)
+
+    def _on_watch_error(self, msg: str) -> None:
+        from app.ui import watch_flow as _wf
+
+        _wf._on_watch_error(self, msg)
 
     def run_batch_sync(self, src: Path, dst: Path) -> list[dict]:
         """Synchronous batch (tests + scripts)."""
