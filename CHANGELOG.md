@@ -4,6 +4,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
 - Morph F3 travel/pour (§7.6): `dissolve_travel` 0-1 preset field + MORPH Travel slider; non-blocks legs pour src→dst through seeded-greedy 1:1 matching (uneven counts padded, empties fall back to legacy); leg joints stay byte-exact, stagger shifts the pour, ease gates the cloud; travel=0 keeps the legacy cloud path byte-identical; strict 0=off still hard-cuts. Gherkin 57.
+- Morph F4 color particles (§7.6): `dissolve_tint` 0-1 preset field + MORPH Tint slider; dots carry their source colors mid-flight (travel legs lerp src→dst hues), gated by the loop envelope so joints land black = byte-exact stills; tint=0 keeps the legacy BW path byte-identical; strict 0=off freezes tint too; blocks tints its pops. Gherkin 58.
 
 ## v1.1.0 — 2026-11-02
 - MP4 Canvas-exacto (R5): `mp4_dims` siempre par + `macro_block_size=2` en

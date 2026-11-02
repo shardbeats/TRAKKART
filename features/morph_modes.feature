@@ -28,3 +28,8 @@ Feature: Morph particle fields
     Given two half black images
     When I morph them with travel matching
     Then the pour has no seam jump and both ends assemble
+
+  Scenario: Tint paints dots with source colors then lands black
+    Given two flat images
+    When I morph them with full tint
+    Then mid-flight dots carry color and both ends match the stills

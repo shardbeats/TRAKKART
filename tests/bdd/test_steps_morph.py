@@ -154,3 +154,37 @@ def travel_ok(ctx):
     mx_t, mx_0 = ctx["meanx_travel"], ctx["meanx_legacy"]
     assert mx_t[-1] > mx_t[0]  # pour travels left -> right
     assert (mx_0[4] - mx_0[3]) > (mx_t[4] - mx_t[3])  # no cloud seam jump
+
+
+@when("I morph them with full tint")
+def tint_morph(ctx):
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames
+
+    kw = dict(frames=8, max_side=64, seed=7, travel=1.0, loop=False)
+    ctx["tinted"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]],
+                                       tint=1.0, **kw)
+    ctx["plain"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]], **kw)
+
+    def has_color(im):
+        arr = np.asarray(im.convert("RGB")).astype(int)
+        return bool((((arr[:, :, 0] != arr[:, :, 1])
+                      | (arr[:, :, 1] != arr[:, :, 2])).any()))
+
+    ctx["tinted_mid_color"] = has_color(ctx["tinted"][4])
+    ctx["plain_mid_color"] = has_color(ctx["plain"][4])
+
+
+@then("mid-flight dots carry color and both ends match the stills")
+def tint_ok(ctx):
+    from app.disintegrate import dither_bw
+
+    stills = [tuple(dither_bw(im).convert("RGB").get_flattened_data())
+              for im in (ctx["img_a"], ctx["img_b"])]
+    flats = [tuple(f.get_flattened_data()) for f in ctx["tinted"]]
+    assert flats[0] == stills[0]
+    assert flats[-1] == stills[1]
+    assert ctx["tinted_mid_color"]
+    assert not ctx["plain_mid_color"]
+    assert flats[4] != tuple(ctx["plain"][4].get_flattened_data())

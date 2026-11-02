@@ -454,6 +454,9 @@ Mid term (visible leap, needs UI + tests):
 - Color particles: tint each dot with its source pixel/palette color
   (GodUI color=source; halftone-fx multicolor). Huge for SLIME/VAPOR covers;
   watch export size + readability gates.
+  Done F4: `dissolve_tint` 0-1 + `sample_colors()` per-dot hues
+  (travel legs lerp src→dst), envelope-gated so joints land black
+  (byte-exact); tint=0 legacy BW; 0=off freezes tint. Gherkin 58.
 - Dot-size attenuation by envelope/luminance (Heckel halftone shading)
   instead of fixed 1px dots.
 - Trails / motion-blur accumulation (Word Morph trails; Particle Image).

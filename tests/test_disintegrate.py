@@ -699,3 +699,127 @@ def test_f3_travel_preset_roundtrip_and_gif():
                              frames=8, max_side=64)
     assert [f.tobytes() for f in out] == [f.tobytes() for f in again]
     assert out[0].tobytes() != out[4].tobytes()
+
+
+def _solid(color, size=48):
+    return Image.new("RGB", (size, size), color)
+
+
+def _has_color(im):
+    import numpy as np
+
+    arr = np.asarray(im.convert("RGB")).astype(int)
+    return bool(((arr[:, :, 0] != arr[:, :, 1])
+                 | (arr[:, :, 1] != arr[:, :, 2])).any())
+
+
+def test_f4_tint_helpers():
+    import numpy as np
+
+    from app.disintegrate import sample_colors, tint_dots, tint_strength
+
+    assert tint_strength(1.0, 0.0) == 0.0
+    assert tint_strength(0.0, 0.7) == 0.0
+    assert tint_strength(1.0, 0.5) == 0.5
+    assert tint_dots(np.ones((3, 3)), 0.0) is None
+    cols = tint_dots(np.full((2, 3), 200.0), 0.5)
+    assert cols is not None and cols.dtype == np.uint8
+    assert (cols == 100).all()
+    arr = sample_colors(_solid((10, 20, 30), 8), 4, 4)
+    assert arr.shape == (4, 4, 3) and (arr == (10, 20, 30)).all()
+
+
+def test_f4_tint_dissolve_mid_colored_joints_bw():
+    from app.disintegrate import dissolve_frames
+
+    a = _solid((200, 50, 90))
+    t = dissolve_frames(a, frames=8, max_side=64, seed=7, tint=1.0)
+    u = dissolve_frames(a, frames=8, max_side=64, seed=7)
+    assert len(t) == len(u) == 8
+    assert t[0].tobytes() == u[0].tobytes()  # joints land black
+    assert t[4].tobytes() != u[4].tobytes()  # mid-flight tinted
+    assert _has_color(t[4])
+    assert not _has_color(u[4])
+    again = dissolve_frames(a, frames=8, max_side=64, seed=7, tint=1.0)
+    assert [f.tobytes() for f in t] == [f.tobytes() for f in again]
+    legacy = dissolve_frames(a, frames=8, max_side=64, seed=7, tint=0.0)
+    assert [f.tobytes() for f in legacy] == [f.tobytes() for f in u]
+    # Strict 0=off ignores tint (hard cut, no mid-flight to paint).
+    hc = dissolve_frames(a, frames=8, max_side=64, seed=7, tint=1.0, amount=0.0)
+    assert len({f.tobytes() for f in hc}) == 1
+
+
+def test_f4_tint_morph_travel_lerps_color():
+    from app.disintegrate import dither_bw, morph_chain_frames
+
+    a = _solid((200, 40, 40))
+    b = _solid((40, 180, 60))
+    kw = dict(frames=8, max_side=64, seed=7, travel=1.0, loop=False)
+    t = morph_chain_frames([a, b], tint=1.0, **kw)
+    u = morph_chain_frames([a, b], **kw)
+    assert t[0].tobytes() == dither_bw(a).convert("RGB").tobytes()
+    assert t[-1].tobytes() == dither_bw(b).convert("RGB").tobytes()
+    assert t[0].tobytes() == u[0].tobytes()
+    assert t[-1].tobytes() == u[-1].tobytes()
+    assert t[4].tobytes() != u[4].tobytes()
+    assert _has_color(t[4])
+    # Travel-off legs tint from their own form.
+    s = morph_chain_frames([a, b], tint=1.0, travel=0.0, frames=8,
+                           max_side=64, seed=7, loop=False)
+    assert _has_color(s[2]) and s[0].tobytes() == u[0].tobytes()
+
+
+def test_f4_tint_render_points_colors_and_sizes():
+    import numpy as np
+
+    from app.disintegrate import render_points
+
+    pos = np.array([[5.0, 5.0], [10.0, 10.0], [20.0, 20.0]])
+    cols = np.array([[200, 0, 0], [0, 200, 0], [0, 0, 200]], dtype=np.uint8)
+    im = render_points(pos, 32, 32, None, cols)
+    px = np.asarray(im)
+    assert (px[5, 5] == (200, 0, 0)).all()
+    assert (px[10, 10] == (0, 200, 0)).all()
+    bw = render_points(pos, 32, 32)
+    assert (np.asarray(bw)[5, 5] == (0, 0, 0)).all()
+    fat = render_points(pos, 32, 32, np.array([2, 2, 2]), cols)
+    assert (np.asarray(fat)[6, 6] == (200, 0, 0)).all()  # 2x2 block
+    black = render_points(pos, 32, 32, None, np.zeros((3, 3), dtype=np.uint8))
+    assert black.tobytes() == bw.tobytes()  # all-black == legacy path
+
+
+def test_f4_tint_preset_roundtrip_and_gif():
+    import tempfile
+    from pathlib import Path
+
+    import pytest
+
+    from app.gif import gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="T4", dissolve_tint=0.6)
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert back.dissolve_tint == 0.6
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert old.dissolve_tint == 0.0
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_tint=1.5).validate()
+    Preset(name="x", dissolve_tint=1.0).validate()
+    a = _solid((200, 50, 90))
+    b = _solid((40, 180, 60))
+    base = dict(name="t", method="bayer8", palette="BW", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    d = gif_dissolve_frames(a, Preset(**base, dissolve_tint=1.0),
+                            frames=6, max_side=64)
+    plain = gif_dissolve_frames(a, Preset(**base), frames=6, max_side=64)
+    assert len(d) == len(plain) == 6
+    assert d[0].tobytes() == plain[0].tobytes()
+    assert d[2].tobytes() != plain[2].tobytes() and _has_color(d[2])
+    m = gif_morph_frames(a, b, Preset(**base, dissolve_tint=1.0),
+                         frames=8, max_side=64, loop=False)
+    mp = gif_morph_frames(a, b, Preset(**base), frames=8, max_side=64,
+                          loop=False)
+    assert m[-1].tobytes() == mp[-1].tobytes()  # lands black
+    assert m[4].tobytes() != mp[4].tobytes() and _has_color(m[4])
