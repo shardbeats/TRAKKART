@@ -72,17 +72,24 @@ def on_done(win, qimg, pil_img, token: int) -> None:
             win.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
     win._status("Preview ready")
     w = win._preview_worker
+    win._preview_worker = None
     if w is not None:
         try:
-            w.wait(5000)
+            alive = bool(w.isRunning())
+        except Exception:  # noqa: BLE001
+            alive = False
+        try:
+            deleter = getattr(w, "deleteLater", None)
+            if callable(deleter):
+                deleter()
         except Exception:  # noqa: BLE001
             pass
-        if w.isRunning():
+        if alive:
             # Still truly alive (or fake-busy in tests): re-queue without
             # spawning or looping. The next on_done/on_error drains it.
+            # No wait() here: blocking the GUI slot up to 5s freezes the UI.
             win._preview_pending = True
             return
-    win._preview_worker = None
     if win._preview_pending:
         win._preview_pending = False
         start_async(win)
@@ -92,17 +99,23 @@ def on_error(win, msg: str, token: int) -> None:
     if token != win._preview_token:
         return
     w = win._preview_worker
+    win._preview_worker = None
     if w is not None:
         try:
-            w.wait(5000)
+            alive = bool(w.isRunning())
+        except Exception:  # noqa: BLE001
+            alive = False
+        try:
+            deleter = getattr(w, "deleteLater", None)
+            if callable(deleter):
+                deleter()
         except Exception:  # noqa: BLE001
             pass
-        if w.isRunning():
+        if alive:
             # Worker still alive (or fake-busy in tests): re-queue without
-            # spawning or looping. Slot untouched.
+            # spawning or looping. Slot untouched. No wait() in GUI slot.
             win._preview_pending = True
             return
-    win._preview_worker = None
     if win._preview_pending:
         win._preview_pending = False
         start_async(win)
