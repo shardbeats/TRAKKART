@@ -1057,3 +1057,129 @@ def test_f6_shade_preset_roundtrip_and_gif():
     assert m[0].tobytes() == mp[0].tobytes()
     assert m[-1].tobytes() == mp[-1].tobytes()
     assert m[4].tobytes() != mp[4].tobytes()
+
+
+def _slime_inks():
+    from app.pipeline import resolve_palette
+
+    inks, _ = resolve_palette("SLIME", None)
+    assert isinstance(inks, list) and len(inks) >= 2
+    return [tuple(c) for c in inks]
+
+
+def test_f7_morph_ink_legacy_and_degenerate():
+    from app.disintegrate import dither_bw, morph_ink, points_from_dither
+
+    a = _solid((200, 50, 90))
+    still, coords, cols, h, w = morph_ink(a)
+    d = dither_bw(a)
+    assert still.tobytes() == d.convert("RGB").tobytes()
+    ref, _, _ = points_from_dither(d)
+    assert (coords == ref).all() and cols is None
+    bw, bw_type = __import__("app.pipeline", fromlist=["resolve_palette"]).resolve_palette("BW", None)
+    assert bw is None
+    still2, coords2, cols2, _, _ = morph_ink(a, paint=bw)
+    assert still2.tobytes() == still.tobytes() and cols2 is None
+    degen_still, _, degen_cols, _, _ = morph_ink(a, paint=[(0, 0, 0), (255, 255, 255)])
+    assert degen_cols is None  # BW-equivalent falls back to legacy
+    assert degen_still.tobytes() == still.tobytes()
+
+
+def test_f7_inked_points_black_on_bw():
+    import numpy as np
+
+    from app.disintegrate import dither_bw, inked_points
+
+    d = dither_bw(_gradient_ltr())
+    coords, cols, h, w = inked_points(d)
+    assert len(coords) > 0 and (cols == 0).all()
+    assert (np.asarray(cols)[:, 0] == np.asarray(cols)[:, 1]).all()
+
+
+def test_f7_palette_morph_prints_inks():
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames, morph_ink, render_points
+
+    inks = _slime_inks()
+    a = _solid((200, 50, 90))
+    b = _solid((40, 180, 60))
+    kw = dict(frames=8, max_side=64, seed=7, loop=False)
+    m = morph_chain_frames([a, b], palette=inks, **kw)
+    u = morph_chain_frames([a, b], **kw)
+    assert len(m) == len(u) == 8
+    # Ends assemble the ink stills (not the BW legacy ends).
+    still_a, ca, cola, _, _ = morph_ink(a, paint=inks)
+    still_b, cb, colb, _, _ = morph_ink(b, paint=inks)
+    assert cola is not None and colb is not None
+    assert m[0].tobytes() == render_points(ca.astype(np.float32),
+                                           still_a.height, still_a.width,
+                                           None, cola).tobytes()
+    assert m[-1].tobytes() == render_points(cb.astype(np.float32),
+                                            still_b.height, still_b.width,
+                                            None, colb).tobytes()
+    assert m[0].tobytes() != u[0].tobytes()
+    arr = np.asarray(m[4].convert("RGB")).astype(int)
+    assert bool((((arr[:, :, 1] > arr[:, :, 0])
+                  & (arr[:, :, 1] >= arr[:, :, 2])).any()))  # green ink
+    again = morph_chain_frames([a, b], palette=inks, **kw)
+    assert [f.tobytes() for f in m] == [f.tobytes() for f in again]
+    hc = morph_chain_frames([a, b], palette=inks, amount=0.0, **kw)
+    assert hc[0].tobytes() == hc[3].tobytes() == m[0].tobytes()
+    assert hc[4].tobytes() == hc[7].tobytes() == m[-1].tobytes()
+
+
+def test_f7_source_and_adjust_paths():
+    import numpy as np
+
+    from app.adjust import Adjust
+    from app.disintegrate import dissolve_frames, morph_chain_frames
+
+    a = _solid((200, 50, 90))
+    kw = dict(frames=8, max_side=64, seed=7)
+    s = dissolve_frames(a, palette="SOURCE", **kw)
+    u = dissolve_frames(a, **kw)
+    arr = np.asarray(s[4].convert("RGB")).astype(int)
+    assert bool((((arr[:, :, 0] != arr[:, :, 1])
+                  | (arr[:, :, 1] != arr[:, :, 2])).any()))
+    assert s[4].tobytes() != u[4].tobytes()
+    assert s[0].tobytes() != u[0].tobytes()  # ink joints, not BW
+    again = dissolve_frames(a, palette="SOURCE", **kw)
+    assert [f.tobytes() for f in s] == [f.tobytes() for f in again]
+    bright = dissolve_frames(a, adjust=Adjust(brightness=1.6), **kw)
+    assert bright[3].tobytes() != u[3].tobytes()  # grade moves dots
+    ident = dissolve_frames(a, adjust=Adjust(), **kw)
+    assert [f.tobytes() for f in ident] == [f.tobytes() for f in u]
+    m = morph_chain_frames([a, _solid((40, 180, 60))], palette="SOURCE",
+                           frames=8, max_side=64, seed=7, loop=False,
+                           travel=1.0)
+    assert _has_color(m[4])
+
+
+def test_f7_paint_helper_and_gif():
+    from app.gif import _dissolve_paint, gif_dissolve_frames, gif_morph_frames
+    from app.presets import Preset
+
+    assert _dissolve_paint(None) is None
+    assert _dissolve_paint(Preset(name="x", palette="BW")) is None
+    slime = _dissolve_paint(Preset(name="x", palette="SLIME"))
+    assert isinstance(slime, list) and len(slime) >= 2
+    assert _dissolve_paint(Preset(name="x", palette="SOURCE")) == "SOURCE"
+    cust = _dissolve_paint(Preset(name="x", palette="BW",
+                                  custom_palette=[(10, 20, 30)] * 4))
+    assert isinstance(cust, list) and cust[0] == (10, 20, 30)
+    a = _solid((200, 50, 90))
+    b = _solid((40, 180, 60))
+    base = dict(name="t", method="bayer8", gif_size=64,
+                dissolve_hold=0.0, dissolve_length=0.0)
+    d = gif_dissolve_frames(a, Preset(**base), frames=6, max_side=64)
+    plain = gif_dissolve_frames(a, Preset(**base, palette="BW"),
+                                frames=6, max_side=64)
+    assert d[2].tobytes() != plain[2].tobytes()  # SLIME default colors
+    assert _has_color(d[2]) and not _has_color(plain[2])
+    assert d[0].tobytes() != plain[0].tobytes()  # ink joints, not BW
+    m = gif_morph_frames(a, b, Preset(**base), frames=8, max_side=64,
+                         loop=False)
+    mp = gif_morph_frames(a, b, Preset(**base, palette="BW"), frames=8,
+                          max_side=64, loop=False)
+    assert m[4].tobytes() != mp[4].tobytes() and _has_color(m[4])

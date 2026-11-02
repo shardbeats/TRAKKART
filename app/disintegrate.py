@@ -139,6 +139,66 @@ def _darkness_of(arr: np.ndarray, coords: np.ndarray, h: int, w: int) -> np.ndar
     return np.clip(1.0 - lum, 0.0, 1.0)
 
 
+def inked_points(still: Image.Image) -> tuple[np.ndarray, np.ndarray, int, int]:
+    """(coords, colors, h, w) of dark pixels of a still (luminance < 128).
+
+    Same stride cap + deterministic order as points_from_dither, plus
+    per-dot RGB colors. Only used for chromatic palette stills; BW keeps
+    the legacy points_from_dither path byte-identical.
+    """
+    arr = np.asarray(still.convert("RGB"))
+    h, w = arr.shape[0], arr.shape[1]
+    lum = (0.299 * arr[:, :, 0].astype(np.float64)
+           + 0.587 * arr[:, :, 1].astype(np.float64)
+           + 0.114 * arr[:, :, 2].astype(np.float64))
+    ys, xs = np.nonzero(lum < 128)
+    coords = np.stack([ys.astype(np.int32), xs.astype(np.int32)], axis=1)
+    cols = arr[ys, xs].astype(np.float64)
+    if len(coords) > MAX_POINTS:
+        step = int(math.ceil(len(coords) / MAX_POINTS))
+        coords = coords[::step].copy()
+        cols = cols[::step].copy()
+    return coords, cols, int(h), int(w)
+
+
+def morph_ink(work: Image.Image, method: str = "bayer8",
+              threshold: float = 128.0, pixel_size: int = 1,
+              paint=None, depth: int = 0):
+    """Still + dots + dot colors for one morph form (F7 palette following).
+
+    `paint`: None (legacy BW: BW dither + black dots, byte-identical),
+    "SOURCE" (original hues: auto-extracted inks like the pipeline), or
+    a concrete ink list (palette-dithered still, dots carry the inks).
+    A BW-equivalent extract falls back to the legacy path.
+    Returns (still_rgb, coords, cols_or_None, h, w); cols is None only
+    for the legacy path (tint then works on source colors as in F4).
+    """
+    from app.dither import apply_method
+
+    if paint is not None and paint != "SOURCE" and len(list(paint)) == 0:
+        paint = None
+    inks = None
+    if paint == "SOURCE":
+        from app.palette_extract import extract_palette
+
+        inks = extract_palette(work.convert("RGB"), n=int(depth or 6))
+    elif paint is not None:
+        inks = [tuple(max(0, min(255, int(c))) for c in col) for col in paint]
+    if inks is not None and (len(inks) == 0 or (
+            len(inks) == 2
+            and {tuple(c) for c in inks} == {(0, 0, 0), (255, 255, 255)})):
+        inks = None  # degenerate BW: legacy path, byte-identical
+    if inks is None:
+        d = dither_bw(work, method=method, threshold=threshold,
+                      pixel_size=pixel_size)
+        coords, h, w = points_from_dither(d)
+        return d.convert("RGB"), coords, None, h, w
+    still = apply_method(work.convert("RGB"), method=method, palette=inks,
+                         threshold=float(threshold), pixel_size=int(pixel_size))
+    coords, cols, h, w = inked_points(still)
+    return still.convert("RGB"), coords, cols, h, w
+
+
 def darkness_map(img: Image.Image, coords: np.ndarray, h: int, w: int) -> np.ndarray:
     """Per-dot darkness 0..1 of the source at each coord (Heckel shading).
 
@@ -711,7 +771,8 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   hold_start: int = 0, hold_end: int = 0,
                   stagger: str = "off", ease: str = "sine",
                   dotsize: int = 1, tint: float = 0.0, trail: int = 0,
-                  shade: bool = False):
+                  shade: bool = False, adjust=None, palette=None,
+                  palette_depth: int = 0):
     """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
@@ -723,6 +784,10 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     ghost-free = byte-exact stills).
     `shade` sizes dots by source darkness — Heckel-style attenuation
     (False = uniform swell; joints stay 1px either way).
+    `adjust` (Adjust|dict|None) grades the source first (identity =
+    same pixels, legacy byte-identical). `palette` (None|"SOURCE"|inks)
+    follows the palette: dots print the inks at full strength mid-flight
+    (None = legacy BW; joints land exact either way).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
     from collections import deque
@@ -734,24 +799,28 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     if r < 1.0:
         small = small.resize((max(1, round(small.width * r)),
                               max(1, round(small.height * r))), Image.BICUBIC)
-    dithered = dither_bw(small, method=method, threshold=threshold,
-                         pixel_size=pixel_size)
-    still = dithered.convert("RGB")
-    coords, h, w = points_from_dither(dithered)
+    from app.adjust import apply_adjust
+
+    work = apply_adjust(small, adjust)
+    still, coords, ink_col, h, w = morph_ink(
+        work, method, threshold, pixel_size, palette, palette_depth)
     tv = max(0.0, min(1.0, float(tint or 0.0)))
     if max(0.0, min(2.0, float(amount or 0.0))) <= 0.0:
         tv = 0.0  # strict 0=off: frozen still, tint has nothing to paint
+    chroma = ink_col is not None
+    if chroma:
+        tv = 1.0  # palette inks print at full strength mid-flight
     trail_n = max(0, min(MAX_TRAIL, int(trail or 0)))
     trail_on = trail_n > 0 and max(0.0, min(2.0, float(amount or 0.0))) > 0.0
     hist: deque = deque(maxlen=trail_n if trail_n > 0 else 1)
     color_mode = tv > 0.0
     shade_on = bool(shade)
-    rgb_src = (sample_colors(small, h, w)
+    rgb_src = (sample_colors(work, h, w)
                if (tv > 0 or shade_on) and len(coords) else None)
     base_col = rgb_src
-    home_col = None
+    home_col = ink_col
     home_dark = None
-    if base_col is not None:
+    if home_col is None and base_col is not None:
         home_col = base_col[np.clip(coords[:, 0], 0, h - 1),
                             np.clip(coords[:, 1], 0, w - 1)].astype(np.float64)
     if shade_on and rgb_src is not None and len(coords):
@@ -761,7 +830,12 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
     for i in range(n):
         progress = float(i) / float(n)
         env = float(ease_env(np.mod(progress, 1.0), ease if ease in EASE_MODES else "sine"))
-        cols = tint_dots(home_col, tint_strength(tv, env)) if home_col is not None else None
+        if home_col is None:
+            cols = None
+        elif chroma:
+            cols = home_col  # palette inks at full strength (joints = holds)
+        else:
+            cols = tint_dots(home_col, tint_strength(tv, env))
         ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
         shade_map = home_dark
         if mode == "blocks":
@@ -802,7 +876,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     hold_start: int = 0, hold_end: int = 0,
                     stagger: str = "off", ease: str = "sine",
                     dotsize: int = 1, tint: float = 0.0, trail: int = 0,
-                    shade: bool = False) -> list[Image.Image]:
+                    shade: bool = False, adjust=None, palette=None,
+                    palette_depth: int = 0) -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
@@ -812,7 +887,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     swells dots with the envelope (1 = legacy 1px). `tint` 0..1 colors
     dots from the source (0 = legacy BW). `trail` 0..8 pastes fading
     ghost dots (0 = legacy). `shade` sizes dots by source darkness
-    (False = uniform swell).
+    (False = uniform swell). `adjust` grades first (identity = legacy).
+    `palette` (None|"SOURCE"|inks) prints the inks (None = legacy BW).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -828,7 +904,9 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                 wind=wind, mode=mode, loops=loops, amount=amount,
                 max_side=side, hold_start=hold_start,
                 hold_end=hold_end, stagger=stagger, ease=ease,
-                dotsize=dotsize, tint=tint, trail=trail, shade=shade))
+                dotsize=dotsize, tint=tint, trail=trail, shade=shade,
+                adjust=adjust, palette=palette,
+                palette_depth=palette_depth))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -842,7 +920,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  crops: list[dict] | None = None,
                  stagger: str = "off", ease: str = "sine",
                  dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                 trail: int = 0, shade: bool = False) -> list[Image.Image]:
+                 trail: int = 0, shade: bool = False, adjust=None,
+                 palette=None, palette_depth: int = 0) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -858,7 +937,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  hold_joint=hold_joint, crops=crops,
                                  stagger=stagger, ease=ease, dotsize=dotsize,
                                  travel=travel, tint=tint, trail=trail,
-                                 shade=shade)
+                                 shade=shade, adjust=adjust, palette=palette,
+                                 palette_depth=palette_depth)
     return chained
 
 
@@ -878,7 +958,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      loop: bool = False,
                      stagger: str = "off", ease: str = "sine",
                      dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                     trail: int = 0, shade: bool = False):
+                     trail: int = 0, shade: bool = False, adjust=None,
+                     palette=None, palette_depth: int = 0):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -918,21 +999,35 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         except (TypeError, ValueError):
             fx, fy, zm = 50.0, 50.0, 1.0
         fitted.append(_fit_cover(im, a.width, a.height, fx, fy, zm))
+    from app.adjust import apply_adjust
+
+    worked = [apply_adjust(im, adjust) for im in fitted]
     coord_list: list[np.ndarray] = []
+    col_list: list = []
+    still_list: list[Image.Image] = []
+    still_arr_list: list = []
     h = w = 0
-    for im in fitted:
-        d = dither_bw(im, method=method, threshold=threshold, pixel_size=pixel_size)
-        coords, hh, ww = points_from_dither(d)
+    for im in worked:
+        still, coords, cols, hh, ww = morph_ink(
+            im, method, threshold, pixel_size, palette, palette_depth)
         if not coord_list:
             h, w = hh, ww  # dithered size rules (pixel_size floors odd sides)
-        coord_list.append(coords if (hh, ww) == (h, w) else _refit_coords(coords, hh, ww, h, w))
+        if (hh, ww) == (h, w):
+            coord_list.append(coords)
+            col_list.append(cols)
+            still_list.append(still)
+            still_arr_list.append(np.asarray(still.convert("RGB")))
+        else:
+            coord_list.append(_refit_coords(coords, hh, ww, h, w))
+            col_list.append(None if cols is None else _refit_coords(cols, hh, ww, h, w))
+            still_list.append(still if still.size == (w, h)
+                              else still.resize((w, h), Image.BICUBIC))
+            still_arr_list.append(np.asarray(still_list[-1].convert("RGB")))
     segs = len(fitted) - 1
     loop_v = bool(loop) and len(fitted) >= 2
     legs = segs + (1 if loop_v else 0)
     base, rem = divmod(n, legs)
-    dithered_all = [dither_bw(im, method=method, threshold=threshold,
-                              pixel_size=pixel_size).convert("RGB")
-                    for im in fitted]
+    dithered_all = [s.copy() for s in still_list]
     for _ in range(max(0, int(hold_start))):
         yield dithered_all[0].copy()
     if isinstance(hold_joint, (list, tuple)):
@@ -969,9 +1064,24 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         if travel_on:
             tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k)
         shade_on = bool(shade)
-        if tv > 0.0 or shade_on:
-            fa = fitted[k] if not closing else fitted[-1]
-            fb = fitted[k + 1] if not closing else fitted[0]
+        cola_full = col_list[k] if not closing else col_list[-1]
+        colb_full = col_list[k + 1] if not closing else col_list[0]
+        chroma = cola_full is not None or colb_full is not None
+        if chroma:
+            tv = 1.0  # palette inks print at full strength (joints = holds)
+            color_mode = True
+            leg_col_a, leg_col_b = cola_full, colb_full
+            arr_ink_a = still_arr_list[k] if not closing else still_arr_list[-1]
+            arr_ink_b = still_arr_list[k + 1] if not closing else still_arr_list[0]
+            if travel_on:
+                assert tsrc is not None and tdst is not None
+                tsrc_col = arr_ink_a[np.clip(tsrc[:, 0].astype(np.int64), 0, h - 1),
+                                     np.clip(tsrc[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
+                tdst_col = arr_ink_b[np.clip(tdst[:, 0].astype(np.int64), 0, h - 1),
+                                     np.clip(tdst[:, 1].astype(np.int64), 0, w - 1)].astype(np.float64)
+        if not chroma and (tv > 0.0 or shade_on):
+            fa = worked[k] if not closing else worked[-1]
+            fb = worked[k + 1] if not closing else worked[0]
             arr_a = sample_colors(fa, h, w)
             arr_b = sample_colors(fb, h, w)
             if tv > 0.0:
@@ -1012,7 +1122,12 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 sizes = None if sizes is None else np.asarray(sizes)[mask]
                 base = (leg_col_a if (q < 0.5 and leg_col_a is not None)
                         else (leg_col_b if leg_col_b is not None else None))
-                cols = tint_dots(base[mask], tint_strength(tv, env)) if base is not None else None
+                if base is None:
+                    cols = None
+                elif chroma:
+                    cols = np.asarray(base)[mask]  # inks at full strength
+                else:
+                    cols = tint_dots(base[mask], tint_strength(tv, env))
                 if base is not None:
                     ghost_base = np.asarray(base)[mask]
             elif travel_on:
@@ -1038,7 +1153,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 cols = None
                 if tsrc_col is not None and tdst_col is not None:
                     base = (1.0 - sm) * tsrc_col + sm * tdst_col
-                    cols = tint_dots(base, tint_strength(tv, env))
+                    cols = base if chroma else tint_dots(base, tint_strength(tv, env))
                     ghost_base = np.asarray(base)
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
@@ -1047,7 +1162,12 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 sizes = frame_dot_sizes(ca, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize, shade=leg_dark_a)
-                cols = tint_dots(leg_col_a, tint_strength(tv, env)) if leg_col_a is not None else None
+                if leg_col_a is None:
+                    cols = None
+                elif chroma:
+                    cols = leg_col_a
+                else:
+                    cols = tint_dots(leg_col_a, tint_strength(tv, env))
                 ghost_base = leg_col_a
             else:
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
@@ -1056,7 +1176,12 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 sizes = frame_dot_sizes(cb, h, w, progress=q,
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize, shade=leg_dark_b)
-                cols = tint_dots(leg_col_b, tint_strength(tv, env)) if leg_col_b is not None else None
+                if leg_col_b is None:
+                    cols = None
+                elif chroma:
+                    cols = leg_col_b
+                else:
+                    cols = tint_dots(leg_col_b, tint_strength(tv, env))
                 ghost_base = leg_col_b
             if trail_on:
                 hist.append((np.asarray(pos, dtype=np.float32),
@@ -1083,7 +1208,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        loop: bool = False,
                        stagger: str = "off", ease: str = "sine",
                        dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                       trail: int = 0, shade: bool = False) -> list[Image.Image]:
+                       trail: int = 0, shade: bool = False, adjust=None,
+                       palette=None, palette_depth: int = 0) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -1099,6 +1225,9 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     With tint > 0 (F4) dots carry source colors (0 = legacy BW).
     With trail > 0 (F5) past dots linger as fading ghosts (0 = legacy).
     With shade on (F6) dots swell by source darkness (off = uniform).
+    With adjust set, sources grade first (identity = legacy).
+    With palette set (F7: "SOURCE"|inks), dots print the inks at full
+    strength (None = legacy BW).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
                 pixel_size=pixel_size, frames=frames, seed=seed,
@@ -1107,7 +1236,9 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 hold_end=hold_end, hold_joint=hold_joint,
                 crops=crops, loop=loop,
                 stagger=stagger, ease=ease, dotsize=dotsize,
-                travel=travel, tint=tint, trail=trail, shade=shade))
+                travel=travel, tint=tint, trail=trail, shade=shade,
+                adjust=adjust, palette=palette,
+                palette_depth=palette_depth))
 
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",

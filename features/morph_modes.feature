@@ -43,3 +43,8 @@ Feature: Morph particle fields
     Given a dark-to-light gradient image
     When I disperse it with Heckel shade
     Then dark dots grow bigger and the joints stay sharp
+
+  Scenario: Palette prints ink dots then lands on the still
+    Given two flat images
+    When I morph them with the SLIME palette
+    Then dots carry the palette inks and ends match the ink stills

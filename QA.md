@@ -60,7 +60,7 @@ features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off lega
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 60/60. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 61/61. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 466 tests (incl. `tests/test_disintegrate.py`: wind vs random, seed, identity, loop, chain up to 6, odd-canvas regression, joints, holds, cover-fit, canvas-A; `tests/test_ux.py`: morph live pick + playlist + per-image crop + budget). Perf tests marked `slow` are excluded with `-m "not slow"` in the fast loop.
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -249,6 +249,19 @@ shade=)` scales 1..dotsize by darkness x envelope (joints stay 1px);
 length mismatches fall back to uniform; Dots=1 keeps the legacy None
 path; strict 0=off untouched (frozen stills need no sizes). 8º Gherkin
 (dark dots bigger + sharp joints). Gates 60.
+
+## Morph F7: palette following
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f7 or ink or paint"
+```
+
+`morph_ink()` renders the form's still first (BW dither = legacy,
+palette = palette-dithered still, `inked_points()` dark-dot extract +
+per-dot ink colors); `dissolve adjust` grades the dots, COLOR palette
+prints the inks at full strength (joints = ink stills = holds, no
+pop); BW presets keep every byte identical; strict 0=off holds.
+9º Gherkin (ink dots + ink ends). Gates 61.
 
 ## Perf round (measured, nov-2026)
 

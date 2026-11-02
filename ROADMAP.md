@@ -444,6 +444,11 @@ Short term (engine-only, no UI migration):
   (dither_app) map directly onto wind + a floor bounce.
 
 Mid term (visible leap, needs UI + tests):
+- Palette following (F7, done): morph animates the graded still —
+  IMAGE adjust grades the dots, COLOR palette prints the inks at full
+  strength (joints = ink stills = holds, no pop); BW presets keep every
+  byte identical. Grade/FX/texture stay still-only (post-dither FX on
+  particles needs its own renderer). Gherkin 61.
 - Destination matching (pour, not scatter): nearest-neighbor / angle-paired
   assignment A->B so dots TRAVEL to their target instead of cloud-reform
   (TesseraUI pour; typexperiments glyph mapping). Keep seeded-greedy for

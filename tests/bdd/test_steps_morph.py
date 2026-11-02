@@ -263,3 +263,36 @@ def shade_ok(ctx):
             == list(ctx["unshaded"][0].get_flattened_data()))
     assert (list(ctx["shaded"][4].get_flattened_data())
             != list(ctx["unshaded"][4].get_flattened_data()))
+
+
+@when("I morph them with the SLIME palette")
+def palette_morph(ctx):
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames, morph_ink
+    from app.pipeline import resolve_palette
+
+    inks, _ = resolve_palette("SLIME", None)
+    inks = [tuple(c) for c in inks]
+    kw = dict(frames=8, max_side=64, seed=7, loop=False)
+    ctx["inked"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]],
+                                      palette=inks, **kw)
+    ctx["legacy"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]], **kw)
+    still, coords, cols, h, w = morph_ink(ctx["img_a"], paint=inks)
+    ctx["ink_still_footprint"] = (tuple(still.convert("RGB").get_flattened_data()),
+                                  len(coords), cols is not None)
+    arr = np.asarray(ctx["inked"][4].convert("RGB")).astype(int)
+    ctx["inked_mid_green"] = bool((((arr[:, :, 1] > arr[:, :, 0])
+                                    & (arr[:, :, 1] >= arr[:, :, 2])).any()))
+
+
+@then("dots carry the palette inks and ends match the ink stills")
+def palette_ok(ctx):
+    still_flat, n_ink_dots, has_cols = ctx["ink_still_footprint"]
+    assert has_cols
+    assert n_ink_dots > 0
+    assert ctx["inked_mid_green"]
+    assert (list(ctx["inked"][0].get_flattened_data())
+            != list(ctx["legacy"][0].get_flattened_data()))
+    assert (list(ctx["inked"][4].get_flattened_data())
+            != list(ctx["legacy"][4].get_flattened_data()))
