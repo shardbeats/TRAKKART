@@ -68,7 +68,11 @@ class PreviewWorker(WorkerBase):
         self.finished_ok.emit(pil_to_qimage(rgb), rgb.copy(), self.token)
 
     def _report_error(self, exc: Exception) -> None:
-        self.finished_err.emit(str(exc) or type(exc).__name__, self.token)
+        from app.log import report_error
+
+        rid = report_error("still preview", exc,
+                           {"max_side": PREVIEW_LONG_SIDE})
+        self.finished_err.emit(f"[{rid}] {exc}" or type(exc).__name__, self.token)
 
 
 class VideoWorker(WorkerBase):
@@ -107,7 +111,16 @@ class VideoWorker(WorkerBase):
         self.finished_ok.emit(out, self.token)
 
     def _report_error(self, exc: Exception) -> None:
-        self.finished_err.emit(str(exc) or type(exc).__name__, self.token)
+        from app.log import report_error
+
+        try:
+            mode = str(self.mode)
+        except Exception:  # noqa: BLE001
+            mode = "?"
+        rid = report_error("video preview", exc,
+                           {"mode": mode, "frames": self.frames,
+                            "size": self.video_size, "fps": self.fps})
+        self.finished_err.emit(f"[{rid}] {exc}" or type(exc).__name__, self.token)
 
     @staticmethod
     def current_params_snapshot(preset) -> dict:

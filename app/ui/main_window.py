@@ -347,6 +347,41 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    def _report_error(self, prefix: str, msg: str) -> None:
+        """Show a worker error with its report id + plain-language hint.
+
+        Workers log the full report in-thread and tag the message as
+        "[E0007] ..."; here we split the tag and translate the rest.
+        """
+        from app.log import friendly_message, split_report_tag
+
+        try:
+            rid, clean = split_report_tag(msg)
+            hint = friendly_message(clean or msg)
+            if rid:
+                self._status(f"{prefix} [{rid}]: {hint}")
+            else:
+                self._status(f"{prefix}: {hint}")
+        except Exception:  # noqa: BLE001
+            self._status(f"{prefix}: {msg}")
+
+    def copy_last_error(self) -> None:
+        """Help > Copy last error report: full text to the clipboard."""
+        from PySide6.QtWidgets import QApplication
+
+        from app.log import last_report_text
+
+        text = last_report_text()
+        if not text:
+            self._status("No errors logged yet — nothing to copy.")
+            return
+        try:
+            QApplication.clipboard().setText(text)
+            first = text.splitlines()[0] if text else ""
+            self._status(f"Copied {first} — paste it with your bug report.")
+        except Exception as e:  # noqa: BLE001
+            self._status(f"Copy failed: {e}")
+
     # ------------------------------------------------------------------
     # UI construction (body in window_assembly; orchestrates, does not build)
     # ------------------------------------------------------------------
@@ -395,7 +430,14 @@ class MainWindow(QMainWindow):
 
             _pc.render_still(self)
         except Exception as e:  # noqa: BLE001
-            self._status(f"Error: {e}")
+            from app.log import friendly_message, report_error
+
+            try:
+                rid = report_error("still preview",
+                                   e, {"mode": "still"})
+                self._status(f"Error [{rid}]: {friendly_message(e)}")
+            except Exception:  # noqa: BLE001
+                self._status(f"Error: {e}")
 
     # ------------------------------------------------------------------
     # Single doc (CANVAS) + single anim (VIDEO): one size source each
@@ -517,7 +559,7 @@ class MainWindow(QMainWindow):
     def _on_video_error(self, msg: str, token: int) -> None:
         if token != self._video_token:
             return
-        self._status(f"Video error: {msg}")
+        self._report_error("Video error", msg)
 
     # -- hold-to-compare (single canvas; behavior in compare_controller) --
     def _compare_pressed(self) -> None:

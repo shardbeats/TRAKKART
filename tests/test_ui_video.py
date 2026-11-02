@@ -288,3 +288,29 @@ def test_canvas_check_warns_outside_3_to_8s(window):
     window.sld_dissolve_hold.setValue(27)
     window._sync_duration_ui()
     assert "Canvas wants" not in window.lbl_duration.text()
+
+
+def test_report_error_display_format(window):
+    window._report_error("Video error",
+                         "[E0042] The truth value of an array is ambiguous")
+    assert "E0042" in window.lbl_status.text()
+    assert "internal bug" in window.lbl_status.text()
+    window._report_error("Video error", "plain boom")
+    assert "plain boom" in window.lbl_status.text()
+
+
+def test_copy_last_error_report(window, monkeypatch):
+    from PySide6.QtWidgets import QApplication
+
+    from app import log as _log
+
+    monkeypatch.setattr(_log, "LAST_REPORT", None)
+    window.copy_last_error()
+    assert "No errors" in window.lbl_status.text()
+    try:
+        raise RuntimeError("copy-me")
+    except RuntimeError as e:
+        rid = _log.report_error("video preview", e, {"mode": "mix"})
+    window.copy_last_error()
+    assert rid in (QApplication.clipboard().text() or "")
+    assert "Copied" in window.lbl_status.text()

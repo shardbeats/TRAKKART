@@ -158,10 +158,15 @@ def on_finished(win, results: list[dict]) -> None:
 def on_error(win, msg: str) -> None:
     from PySide6.QtWidgets import QMessageBox
 
+    from app.log import friendly_message, split_report_tag
+
     win.btn_batch.setEnabled(True)
     win.progress.hide()
     win.btn_cancel.hide()
-    QMessageBox.warning(win, "TRAKKART", f"Batch error:\n{msg}")
+    rid, clean = split_report_tag(msg)
+    hint = friendly_message(clean or msg)
+    detail = f"Batch error [{rid}]:\n{hint}" if rid else f"Batch error:\n{hint}"
+    QMessageBox.warning(win, "TRAKKART", detail)
 
 
 def run_batch_with_input(win, src) -> None:

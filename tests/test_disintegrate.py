@@ -1169,3 +1169,23 @@ def test_f7_paint_helper_and_gif():
     mp = gif_morph_frames(a, b, Preset(**base, palette="BW"), frames=8,
                           max_side=64, loop=False)
     assert m[4].tobytes() != mp[4].tobytes() and _has_color(m[4])
+
+
+def test_multileg_travel_tint_no_budget_shadow():
+    # Regression: per-frame color temps named `base` shadowed the
+    # divmod frame budget -> ambiguous-truth crash on legs after the
+    # first (chain of 3, closed loop, blocks + tint).
+    from app.disintegrate import morph_chain_frames
+
+    a = _img(48)
+    b = Image.new("RGB", (48, 48), (10, 200, 90))
+    c = Image.new("RGB", (48, 48), (200, 40, 200))
+    f = morph_chain_frames([a, b, c], frames=9, max_side=64, seed=7,
+                           travel=1.0, tint=1.0, loop=False)
+    assert len(f) == 9
+    g = morph_chain_frames([a, b], frames=8, max_side=64, seed=7,
+                           travel=1.0, tint=1.0, loop=True)
+    assert len(g) == 8
+    h = morph_chain_frames([a, b, c], frames=9, max_side=64, seed=7,
+                           mode="blocks", tint=1.0, loop=False)
+    assert len(h) == 9

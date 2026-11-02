@@ -4,6 +4,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
 - Removed BPM beat grid (too fiddly): no more ♫ BPM/Bars row + Set Hold in VIDEO, no `apply_bpm()`/`hold_for_target()`.
+- Fixed morph crash with travel/tint on multi-leg chains (closed loop or 2+ chain images): per-frame color temps shadowed the frame budget (`base`) and legs after the first blew up with "truth value of an array is ambiguous". Pinned by a regression test (plus a 1024-combo sweep).
+- Error reporting you can actually use: every failure logs a numbered report (`[E0007]`: action + params + full traceback) to `trakkart.log`; workers report in-thread so nothing is lost crossing threads; the UI shows a plain-language hint + code instead of raw tracebacks; Help → Copy last error report copies the full report for bug reports.
 - Sacred Length (editable total, all modes): the VIDEO Length spin is editable again (0.5–60s) — particle modes solve the Hold needed to reach it (clamped 0–3s, honest short-message), other modes set n = Length x FPS (Frames combo shows the derived total, capped at 256f); FPS changes keep the seconds and only gain/lose frames; Hold-manda (no pad) stays the engine rule; no new preset fields (`dissolve_length` stays ignored compat). Non-particle GIF/MP4 lists cap at 256f.
 
 ## v1.2.0 — 2026-11-02

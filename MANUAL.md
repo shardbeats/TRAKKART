@@ -137,5 +137,9 @@ Full list: Help → Keyboard shortcuts.
   BMP) or giant image (8000px limit / see the exact message).
 - **It's slow:** switch to the Still viewport or lower the CANVAS size.
 - **MP4 disabled:** install the video extra (above).
-- **Something broke:** Help → Show logs folder, attach `trakkart.log`
-  when reporting the bug. Exact version: Help → About.
+- **Something broke:** every failure writes a numbered report
+  (`[E0007]`: what you did + full technical detail) to `trakkart.log`,
+  and the app shows a plain-language hint plus that code instead of
+  the raw error. Help → *Copy last error report* copies the whole
+  report — paste it when reporting the bug (Help → *Show logs folder*
+  reveals the file; Help → *About* shows the exact version).

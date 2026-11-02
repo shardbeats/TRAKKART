@@ -107,4 +107,4 @@ def on_error(win, msg: str, token: int) -> None:
         win._preview_pending = False
         start_async(win)
         return
-    win._status(f"Preview error: {msg}")
+    win._report_error("Preview error", msg)

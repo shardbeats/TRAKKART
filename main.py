@@ -13,27 +13,34 @@ from app import __version__
 
 
 def install_crash_hook(log_path):
-    """Uncaught exceptions -> log file + friendly dialog (or stderr headless)."""
+    """Uncaught exceptions -> error report + friendly dialog (or stderr headless)."""
     import logging
     import traceback
 
     def _hook(exc_type, exc, tb):
         try:
-            logging.getLogger("trakkart").error(
-                "Uncaught:\n%s", "".join(traceback.format_exception(exc_type, exc, tb)))
+            from app.log import friendly_message, report_error
+
+            rid = report_error("crash", exc if isinstance(exc, BaseException) else RuntimeError(str(exc)))
+            hint = friendly_message(exc)
         except Exception:  # noqa: BLE001
-            pass
+            rid, hint = "?", str(exc)
+            try:
+                logging.getLogger("trakkart").error(
+                    "Uncaught:\n%s", "".join(traceback.format_exception(exc_type, exc, tb)))
+            except Exception:  # noqa: BLE001
+                pass
         try:
             from PySide6.QtWidgets import QApplication, QMessageBox
 
             if QApplication.instance() is not None:
                 QMessageBox.critical(
                     None, "TRAKKART",
-                    f"Something broke (details logged):\n{exc}\n\nSee:\n{log_path}")
+                    f"{hint}\n\nDetails: {exc}\n[{rid}] logged. See:\n{log_path}")
                 return
         except Exception:  # noqa: BLE001
             pass
-        print(f"TRAKKART crashed (details logged): {exc}\nSee: {log_path}")
+        print(f"TRAKKART crashed [{rid}] (details logged): {exc}\nSee: {log_path}")
 
     sys.excepthook = _hook
     return _hook

@@ -115,6 +115,8 @@ def build_menus(win) -> None:
          "F1", "Open MANUAL.md (bundled offline handbook)")
     _act(win, m_help, "Show logs folder", win.open_logs,
          "", "Reveal prefs, database and trakkart.log")
+    _act(win, m_help, "Copy last error report", win.copy_last_error,
+         "", "Copy the last logged error (code + details) for bug reports")
     _act(win, m_help, "About TRAKKART...", win.show_about,
          "", "Version, license and offline note")
 

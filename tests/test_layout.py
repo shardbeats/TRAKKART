@@ -46,7 +46,8 @@ def test_menus_complete(window):
     assert "Settings..." in file_items
     assert items("Help") == ["Quick tour...", "Open samples folder",
                              "Keyboard shortcuts...", "User manual...",
-                             "Show logs folder", "About TRAKKART..."]
+                             "Show logs folder", "Copy last error report",
+                             "About TRAKKART..."]
 
 
 def test_viewport_actions_synced(window):

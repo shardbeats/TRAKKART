@@ -52,4 +52,15 @@ class BatchWorker(WorkerBase):
         self.finished.emit(results)
 
     def _report_error(self, exc: Exception) -> None:
-        self.error.emit(str(exc))
+        from app.log import report_error
+
+        try:
+            preset_name = str(getattr(self.preset, "name", "?"))
+        except Exception:  # noqa: BLE001
+            preset_name = "?"
+        rid = report_error("batch", exc,
+                           {"preset": preset_name,
+                            "input": getattr(self.input_dir, "name", "?"),
+                            "output": getattr(self.out_dir, "name", "?"),
+                            "jobs": self.jobs})
+        self.error.emit(f"[{rid}] {exc}")

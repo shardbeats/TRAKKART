@@ -1120,16 +1120,18 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                         loops=1.0, stagger=stagger, ease=ease,
                                         dotsize=dotsize, shade=dark_pick)
                 sizes = None if sizes is None else np.asarray(sizes)[mask]
-                base = (leg_col_a if (q < 0.5 and leg_col_a is not None)
-                        else (leg_col_b if leg_col_b is not None else None))
-                if base is None:
+                # NOTE: never name this `base`: that name holds the
+                # per-leg frame budget from divmod above (multi-leg crash).
+                pick_col = (leg_col_a if (q < 0.5 and leg_col_a is not None)
+                            else (leg_col_b if leg_col_b is not None else None))
+                if pick_col is None:
                     cols = None
                 elif chroma:
-                    cols = np.asarray(base)[mask]  # inks at full strength
+                    cols = np.asarray(pick_col)[mask]  # inks at full strength
                 else:
-                    cols = tint_dots(base[mask], tint_strength(tv, env))
-                if base is not None:
-                    ghost_base = np.asarray(base)[mask]
+                    cols = tint_dots(pick_col[mask], tint_strength(tv, env))
+                if pick_col is not None:
+                    ghost_base = np.asarray(pick_col)[mask]
             elif travel_on:
                 assert tsrc is not None and tdst is not None
                 pos = travel_positions(tsrc, tdst, h, w, progress=q,
@@ -1152,9 +1154,9 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                         dotsize=dotsize, shade=dark_sm)
                 cols = None
                 if tsrc_col is not None and tdst_col is not None:
-                    base = (1.0 - sm) * tsrc_col + sm * tdst_col
-                    cols = base if chroma else tint_dots(base, tint_strength(tv, env))
-                    ghost_base = np.asarray(base)
+                    mix = (1.0 - sm) * tsrc_col + sm * tdst_col
+                    cols = mix if chroma else tint_dots(mix, tint_strength(tv, env))
+                    ghost_base = np.asarray(mix)
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
                                          wind=wind, mode=mode, loops=1.0, amount=amount,
