@@ -585,3 +585,28 @@ def test_batch_progress_shows_fps_eta(window):
     window._on_batch_progress(1, 2, "a.png")
     txt = window.lbl_status.text()
     assert "1/2" in txt and "img/s" in txt and "ETA" in txt
+
+
+def test_export_async_worker_writes_bundle(window, tmp_path, qt_app):
+    import time
+
+    from app.exporter import ExportSelection
+
+    window._export_sync = False
+    out = tmp_path / "async_out"
+    out.mkdir()
+    sel = ExportSelection(image=True, thumb_1080p=False, vector=False,
+                          anim=False, metadata=True)
+    window._run_export(base="async", out_dir=out, selection=sel,
+                       gif_opts={"frames": 6, "mode": "both", "fps": 8,
+                                 "size": 1200, "pingpong": False},
+                       overwrite="rename", size=64, format="png",
+                       quality=90, _sync=False)
+    assert getattr(window, "_export_worker", None) is not None
+    deadline = time.time() + 30.0
+    while getattr(window, "_export_worker", None) is not None and time.time() < deadline:
+        qt_app.processEvents()
+        time.sleep(0.05)
+        qt_app.processEvents()
+    assert (out / "async.png").exists()
+    assert "Exported" in window.lbl_status.text()

@@ -249,14 +249,72 @@ def morph_src_for_mode(win, mode: str) -> list | None:
     return _morph_imgs(win)
 
 
-def run_export(win, base: str, out_dir, selection, gif_opts: dict,
-               overwrite: str, size: int, format: str,
-               quality: int, mp4: bool = False,
-               mp4_size: str = "1080p", webp: bool = False,
-               sep: bool = False) -> None:
-    """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
-    MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
-    WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink."""
+def _snapshot_morph(src_list):
+    """Copy morph chain entries so the worker never touches live images."""
+    if not src_list:
+        return src_list
+    out = []
+    for entry in src_list:
+        if isinstance(entry, dict):
+            img = entry.get("img")
+            try:
+                cp = img.copy() if img is not None else None
+            except Exception:  # noqa: BLE001
+                cp = img
+            out.append({**entry, "img": cp} if cp is not None else entry)
+        else:
+            try:
+                out.append(entry.copy())
+            except Exception:  # noqa: BLE001
+                out.append(entry)
+    return out
+
+
+def on_export_done(win, paths: dict, skipped: bool, base: str, out_dir) -> None:
+    """Export worker success slot (GUI thread): dialogs + status + cleanup."""
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QMessageBox
+
+    w = getattr(win, "_export_worker", None)
+    win._export_worker = None
+    if w is not None:
+        try:
+            deleter = getattr(w, "deleteLater", None)
+            if callable(deleter):
+                deleter()
+        except Exception:  # noqa: BLE001
+            pass
+    if skipped and not paths:
+        QMessageBox.information(
+            win, "TRAKKART",
+            f"Skipped: {base} already exists (policy: skip).")
+        win._status(f"Export skipped (exists): {base}")
+        return
+    show_exported(win, Path(out_dir).resolve(), [p.name for p in paths.values()])
+    win._status(f"Exported to {Path(out_dir).resolve()}")
+
+
+def on_export_error(win, msg: str) -> None:
+    """Export worker error slot (GUI thread): report + cleanup."""
+    w = getattr(win, "_export_worker", None)
+    win._export_worker = None
+    if w is not None:
+        try:
+            deleter = getattr(w, "deleteLater", None)
+            if callable(deleter):
+                deleter()
+        except Exception:  # noqa: BLE001
+            pass
+    win._report_error("Export error", msg)
+
+
+def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
+                     overwrite: str, size: int, format: str,
+                     quality: int, mp4: bool = False,
+                     mp4_size: str = "1080p", webp: bool = False,
+                     sep: bool = False) -> None:
+    """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
     from pathlib import Path
 
@@ -298,3 +356,87 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         return
     show_exported(win, Path(out_dir).resolve(), [p.name for p in paths.values()])
     win._status(f"Exported to {Path(out_dir).resolve()}")
+
+
+def run_export(win, base: str, out_dir, selection, gif_opts: dict,
+               overwrite: str, size: int, format: str,
+               quality: int, mp4: bool = False,
+               mp4_size: str = "1080p", webp: bool = False,
+               sep: bool = False, _sync: bool = False) -> None:
+    """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
+    MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
+    WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink.
+
+    Async by default (ExportWorker, no GUI freeze); `_sync=True` or
+    `win._export_sync` keeps the blocking path (tests).
+    """
+    import copy
+    from dataclasses import replace
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.video_io import VideoBackendMissing
+
+    if bool(_sync) or bool(getattr(win, "_export_sync", False)):
+        _run_export_sync(win, base, out_dir, selection, gif_opts,
+                         overwrite, size, format, quality, mp4,
+                         mp4_size, webp, sep)
+        return
+    running = getattr(win, "_export_worker", None)
+    try:
+        is_running = bool(running is not None and running.isRunning())
+    except Exception:  # noqa: BLE001
+        is_running = False
+    if is_running:
+        win._status("Export already running...")
+        return
+    if win.src is None:
+        QMessageBox.information(win, "TRAKKART", "Open an image first.")
+        return
+    try:
+        preset = win.current_params()
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
+        return
+    if bool(getattr(selection, "black_vector", False)):
+        preset = replace(preset, vector_black=True)
+    go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
+    mode_go = str(go.get("mode", "both"))
+    try:
+        src_snapshot = win.src.copy()
+    except Exception:  # noqa: BLE001
+        src_snapshot = win.src
+    try:
+        preset_snapshot = copy.deepcopy(preset)
+    except Exception:  # noqa: BLE001
+        preset_snapshot = preset
+    morph_snapshot = _snapshot_morph(morph_src_for_mode(win, mode_go))
+    try:
+        preset_name = win.cmb_preset.currentText()
+    except Exception:  # noqa: BLE001
+        preset_name = ""
+    from app.ui.workers import ExportWorker
+
+    worker = ExportWorker(
+        src_snapshot, preset_snapshot, out_dir, base=base, store=win.store,
+        preset_name=preset_name, selection=selection, overwrite=overwrite,
+        gif_frames=int(go.get("frames", 6)), gif_mode=mode_go,
+        gif_fps=int(go.get("fps", 8)), gif_size=int(go.get("size", 1200)),
+        gif_pingpong=bool(go.get("pingpong", False)),
+        size=int(size), format=str(format), quality=int(quality),
+        mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
+        mp4_size=str(go.get("mp4_size", mp4_size)),
+        webp=bool(webp), sep=bool(sep), morph_src=morph_snapshot,
+        parent=win,
+    )
+    worker.finished_ok.connect(
+        lambda paths, skipped: on_export_done(win, paths, skipped, base, out_dir))
+    worker.error.connect(lambda msg: on_export_error(win, msg))
+    win._export_worker = worker
+    win._status("Exporting in background...")
+    try:
+        worker.start()
+    except VideoBackendMissing as e:
+        win._export_worker = None
+        QMessageBox.warning(win, "TRAKKART", str(e))
+        win._status("MP4 needs the video extra (still exports skipped)")

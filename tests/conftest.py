@@ -53,6 +53,7 @@ def window(qt_app, tmp_path, monkeypatch):
     w = MainWindow(out_dir=_P(str(tmp_path)) / "out", db_path=_P(str(tmp_path)) / "h.db",
                    prefs_path=_P(str(tmp_path)) / "prefs.json")
     w.src = Image.new("RGB", (64, 64), (200, 50, 90))
+    w._export_sync = True  # tests assert files right after export(); prod uses the worker.
     yield w
     w.store.close()
     w.close()

@@ -86,6 +86,8 @@ class MainWindow(QMainWindow):
         ensure_bundled_palettes(get_palettes_dir())
         self._batch_worker: BatchWorker | None = None
         self._batch_cancel: list[bool] = [False]
+        self._export_worker = None
+        self._export_sync = False
         # -- watch folder (R11): auto-batch with a fixed preset --
         self._watcher = None
         self._watch_timer = None
@@ -212,7 +214,9 @@ class MainWindow(QMainWindow):
             _wf.watch_stop(self, quiet=True)
         except Exception:  # noqa: BLE001
             pass
-        for worker in (self._preview_worker, self._batch_worker, self._video_worker):
+        workers = [self._preview_worker, self._batch_worker,
+                   self._video_worker, getattr(self, "_export_worker", None)]
+        for worker in workers:
             try:
                 if worker is not None:
                     worker.blockSignals(True)  # sus slots nunca tocan UI muerta
@@ -1143,9 +1147,10 @@ class MainWindow(QMainWindow):
                     overwrite: str, size: int, format: str,
                     quality: int, mp4: bool = False,
                     mp4_size: str = "1080p", webp: bool = False,
-                    sep: bool = False) -> None:
+                    sep: bool = False, _sync: bool = False) -> None:
         """Render full-res + bundle per options. Stills full-res, MP4 sized."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
-                       overwrite, size, format, quality, mp4, mp4_size, webp, sep)
+                       overwrite, size, format, quality, mp4, mp4_size, webp, sep,
+                       _sync=_sync)
