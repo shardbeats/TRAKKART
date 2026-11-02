@@ -43,6 +43,40 @@ def mode_desc(mode: str) -> str:
     return GIF_MODE_INFO.get(str(mode), ("?", ""))[1]
 
 
+def _resolve_anim_spec(preset, max_side=None, seed=None, wind=None, mode=None):
+    """Shared preset -> engine spec for the 4 particle builders.
+
+    Returns (side, method, threshold, pixel, seed_v, wind_v, mode_v).
+    Defaults mirror the legacy engine (bayer8 / 128.0 / 1px / 0xD15C /
+    (120, -40) / wind); unknown modes fall back to "wind" (legacy compat).
+    """
+    from app.particles.modes import DISINTEGRATE_MODES
+
+    if preset is None:
+        side = int(max_side or GIF_MAX_SIDE)
+        method, threshold, pixel = "bayer8", 128.0, 1
+    else:
+        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
+        method = str(getattr(preset, "method", "bayer8") or "bayer8")
+        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
+        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
+    seed_v = 0xD15C if seed is None else int(seed)
+    if preset is not None and seed is None:
+        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
+    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    if preset is not None and wind is None:
+        wx = getattr(preset, "dissolve_wind_x", None)
+        wy = getattr(preset, "dissolve_wind_y", None)
+        if wx is not None and wy is not None:
+            wind_v = (float(wx), float(wy))
+    mode_v = "wind" if mode is None else str(mode)
+    if preset is not None and mode is None:
+        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
+    if mode_v not in DISINTEGRATE_MODES:
+        mode_v = "wind"
+    return side, method, threshold, pixel, seed_v, wind_v, mode_v
+
+
 def _dissolve_style(preset) -> tuple[str, str]:
     """(stagger, ease) from a preset (F1 defaults = legacy: off/sine)."""
     from app.disintegrate import EASE_MODES, STAGGER_MODES
@@ -346,31 +380,11 @@ def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     reversing a 3600-frame stream would need the whole list in RAM; short
     clips (<=256f) keep ping-pong via the list path.
     """
-    from app.disintegrate import DISINTEGRATE_MODES, iter_dissolve
+    from app.disintegrate import iter_dissolve
 
     n = _clamp_frames(frames)
-    if preset is None:
-        side = int(max_side or GIF_MAX_SIDE)
-        method, threshold, pixel = "bayer8", 128.0, 1
-    else:
-        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
-        method = str(getattr(preset, "method", "bayer8") or "bayer8")
-        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
-        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
-    seed_v = 0xD15C if seed is None else int(seed)
-    if preset is not None and seed is None:
-        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
-    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
-    if preset is not None and wind is None:
-        wx = getattr(preset, "dissolve_wind_x", None)
-        wy = getattr(preset, "dissolve_wind_y", None)
-        if wx is not None and wy is not None:
-            wind_v = (float(wx), float(wy))
-    mode_v = "wind" if mode is None else str(mode)
-    if preset is not None and mode is None:
-        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
-    if mode_v not in DISINTEGRATE_MODES:
-        mode_v = "wind"
+    side, method, threshold, pixel, seed_v, wind_v, mode_v = _resolve_anim_spec(
+        preset, max_side, seed, wind, mode)
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
     loops_v = 1.0 if loops is None else float(loops)
@@ -418,31 +432,11 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                       cap: int | None = None,
                       loop: bool | None = None):
     """Yield morph chain frames one by one (streaming: O(1) RAM for long MP4)."""
-    from app.disintegrate import DISINTEGRATE_MODES, iter_morph_chain
+    from app.disintegrate import iter_morph_chain
 
     n = _clamp_frames(frames)
-    if preset is None:
-        side = int(max_side or GIF_MAX_SIDE)
-        method, threshold, pixel = "bayer8", 128.0, 1
-    else:
-        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
-        method = str(getattr(preset, "method", "bayer8") or "bayer8")
-        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
-        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
-    seed_v = 0xD15C if seed is None else int(seed)
-    if preset is not None and seed is None:
-        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
-    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
-    if preset is not None and wind is None:
-        wx = getattr(preset, "dissolve_wind_x", None)
-        wy = getattr(preset, "dissolve_wind_y", None)
-        if wx is not None and wy is not None:
-            wind_v = (float(wx), float(wy))
-    mode_v = "wind" if mode is None else str(mode)
-    if preset is not None and mode is None:
-        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
-    if mode_v not in DISINTEGRATE_MODES:
-        mode_v = "wind"
+    side, method, threshold, pixel, seed_v, wind_v, mode_v = _resolve_anim_spec(
+        preset, max_side, seed, wind, mode)
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
     travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
@@ -497,33 +491,15 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
     hold durations from dissolve_hold seconds. Reuses save_gif()
     and video_io.write_mp4() for export (same stem _gif.gif / _vid.mp4).
     """
-    from app.disintegrate import DISINTEGRATE_MODES, dissolve_frames
+    from app.disintegrate import dissolve_frames
 
     n = _clamp_frames(frames)
+    side, method, threshold, pixel, seed_v, wind_v, mode_v = _resolve_anim_spec(
+        preset, max_side, seed, wind, mode)
     if preset is None:
-        side = int(max_side or GIF_MAX_SIDE)
         pp = bool(pingpong or False)
-        method, threshold, pixel = "bayer8", 128.0, 1
     else:
-        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
         pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
-        method = str(getattr(preset, "method", "bayer8") or "bayer8")
-        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
-        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
-    seed_v = 0xD15C if seed is None else int(seed)
-    if preset is not None and seed is None:
-        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
-    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
-    if preset is not None and wind is None:
-        wx = getattr(preset, "dissolve_wind_x", None)
-        wy = getattr(preset, "dissolve_wind_y", None)
-        if wx is not None and wy is not None:
-            wind_v = (float(wx), float(wy))
-    mode_v = "wind" if mode is None else str(mode)
-    if preset is not None and mode is None:
-        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
-    if mode_v not in DISINTEGRATE_MODES:
-        mode_v = "wind"
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
     loops_v = 1.0 if loops is None else float(loops)
@@ -576,33 +552,15 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     ping-pong needed); without it use pingpong=True (A->B->A) for a
     seamless GIF loop.
     """
-    from app.disintegrate import DISINTEGRATE_MODES, morph_chain_frames
+    from app.disintegrate import morph_chain_frames
 
     n = _clamp_frames(frames)
+    side, method, threshold, pixel, seed_v, wind_v, mode_v = _resolve_anim_spec(
+        preset, max_side, seed, wind, mode)
     if preset is None:
-        side = int(max_side or GIF_MAX_SIDE)
         pp = bool(pingpong or False)
-        method, threshold, pixel = "bayer8", 128.0, 1
     else:
-        side = int(getattr(preset, "gif_size", GIF_MAX_SIDE) if max_side is None else max_side)
         pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
-        method = str(getattr(preset, "method", "bayer8") or "bayer8")
-        threshold = float(getattr(preset, "threshold", 128.0) or 128.0)
-        pixel = max(1, int(getattr(preset, "pixel_size", 1) or 1))
-    seed_v = 0xD15C if seed is None else int(seed)
-    if preset is not None and seed is None:
-        seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
-    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
-    if preset is not None and wind is None:
-        wx = getattr(preset, "dissolve_wind_x", None)
-        wy = getattr(preset, "dissolve_wind_y", None)
-        if wx is not None and wy is not None:
-            wind_v = (float(wx), float(wy))
-    mode_v = "wind" if mode is None else str(mode)
-    if preset is not None and mode is None:
-        mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)
-    if mode_v not in DISINTEGRATE_MODES:
-        mode_v = "wind"
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
     travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
@@ -646,6 +604,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
 
 
 __all__ = ["GIF_MODE_INFO", "mode_label", "mode_desc", "gif_frames",
+           "_resolve_anim_spec",
            "_dissolve_style", "_dissolve_tint", "_dissolve_trail",
            "_dissolve_shade", "_dissolve_paint", "_dissolve_adjust",
            "_canvas_a", "_split_chain_entries",

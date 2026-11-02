@@ -71,8 +71,8 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 .venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov
 ```
 
-Engine: `app/disintegrate.py` (BW dither -> points -> breathe `sin(pi*frac)`, loop-perfect).
-GIF bridge: `app/gif.py::gif_dissolve_frames` (reuses `save_gif` + `video_io.write_mp4`).
+Engine: `app/particles/` (BW dither -> points -> breathe `sin(pi*frac)`, loop-perfect; `app/disintegrate.py` is a shim).
+GIF bridge: `app/anim/frames.py::gif_dissolve_frames` (reuses `save_gif` + `video_io.write_mp4`; `app/gif.py` is a shim).
 Presets: `ASH_WIND` (wind) + `DUST_RANDOM` (random) via `dissolve_*` fields.
 
 ## Morph A->B + dissolve UI (v1.7)

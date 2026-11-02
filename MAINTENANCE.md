@@ -65,8 +65,11 @@ app/export_prefs.py      :: last-config prefs (recent + src_name guard, always-r
 app/names.py             :: filename sanitizers (single home)
 app/recent.py            :: recent files (capped, prefs-backed)
 app/vector.py            :: grid re-render + RLE + SVG
-app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
-app/disintegrate.py        :: particle fields x stagger x ease (11 modes, loop-perfect, deterministic)
+app/gif.py               :: shim (R2 split): GIF modes live in app/anim/ (limits/plan/io/frames)
+app/anim/                :: limits (caps) + plan (budgets/estimates) + io (save_gif/webp) + frames (builders)
+app/disintegrate.py      :: shim (R2 split): particle engine lives in app/particles/ (see below)
+app/particles/           :: modes + fields (stagger/ease/offset) + color (dots/inks/tint)
+                            + raster (sizes/trail/paint) + travel (match/pour/disperse) + engine (iterators)
 app/separations.py       :: RISO/screen spot plates (nearest-color + register marks + effective palette)
 app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
 app/viewport.py          :: Full/Live/Still modes + fast/slow debounce

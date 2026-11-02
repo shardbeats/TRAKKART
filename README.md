@@ -54,8 +54,9 @@ app/recent.py            :: recent files (capped, prefs-backed)
 app/pipeline.py          :: RenderSpec (single ~40-param dataclass) + render_spec/render
 app/render_params.py     :: shared normalizers (delegates to RenderSpec.from_preset)
 app/vector.py            :: SVG renderer (gridded re-render + RLE)
-app/gif.py               :: animated GIF modes (phase/hue/both/glitch/mix, Pillow only)
-app/disintegrate.py        :: particle fields x stagger x ease (11 modes, loop-perfect, deterministic)
+app/gif.py               :: shim (R2 split): GIF modes live in app/anim/ (limits/plan/io/frames)
+app/anim/                :: limits + plan (budgets) + io (save_gif/webp) + frames (builders)
+app/disintegrate.py      :: shim (R2 split): particles live in app/particles/ (modes/fields/color/raster/travel/engine)
 app/separations.py       :: RISO/screen spot plates (nearest-color + register marks + effective palette)
 app/cli.py               :: headless --cli (no Qt): preset over file/folder, exit 0/1/2
 app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
