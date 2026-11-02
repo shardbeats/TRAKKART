@@ -91,7 +91,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.spn_duration.setDecimals(2)
     win.spn_duration.setValue(5.0)
     win.spn_duration.setSuffix("s")
-    win.spn_duration.setFixedWidth(72)
+    win.spn_duration.setFixedWidth(128)  # fits 60.00s + step buttons (was 72 read-only)
     win.spn_duration.setToolTip("Sacred total: edit to retime the clip (particle: solves Hold · rest: n = Length x FPS). Hold/Frames/FPS re-derive it.")
     win.spn_duration.valueChanged.connect(lambda _: win._on_duration_changed())
     dur_row.addWidget(win.spn_duration)
