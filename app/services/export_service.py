@@ -203,7 +203,9 @@ def export_full(
 
                 shrunk = frames or []
                 if (mp4_w, mp4_h) != (res.width, res.height) and shrunk:
-                    shrunk = [f.resize((mp4_w, mp4_h), Image.BICUBIC)
+                    # BILINEAR: ~2x faster than bicubic on long clips, no
+                    # visible difference on downscaled dither (both alias).
+                    shrunk = [f.resize((mp4_w, mp4_h), Image.BILINEAR)
                               if (f.width, f.height) != (mp4_w, mp4_h) else f
                               for f in shrunk]
                 write_mp4(shrunk, mp4_path, fps=mp4_fps_eff)

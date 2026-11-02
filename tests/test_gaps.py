@@ -185,6 +185,27 @@ def test_export_service_webp(window, qt_app, tmp_path):
     assert not any(str(p).endswith(".gif") for p in paths.values())
 
 
+def test_gif_ram_budget_trips_before_render(tmp_path):
+    # P0: absurd GIF lists fail fast (MemoryError) instead of OOM-killing.
+    import pytest
+
+    from PIL import Image
+
+    from app.gif import MAX_GIF_PIXELS, gif_dissolve_frames, plan_dissolve, save_gif
+    from app.presets import Preset
+
+    assert MAX_GIF_PIXELS == 1_200_000_000
+    with pytest.raises(MemoryError):
+        save_gif([Image.new("RGB", (3000, 3000))] * 150, tmp_path / "big.gif")
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=3000,
+               gif_frames=64, gif_fps=60, dissolve_hold=3.0, dissolve_length=0.0)
+    with pytest.raises(MemoryError):
+        gif_dissolve_frames(Image.new("RGB", (64, 64)), p)
+    # CANVAS_916 shape (226f @1080x1920) stays inside the budget.
+    plan = plan_dissolve(64, 1, 30, 2.7, None)
+    assert plan["total"] * 1920 * 1920 < MAX_GIF_PIXELS
+
+
 def test_gif_estimate_hold_collapse_aware(tmp_path):
     # R8: transitions full cost + 1 frame per still form (no flat-frames lie).
     from app.gif import estimate_gif, gif_dissolve_frames, save_gif

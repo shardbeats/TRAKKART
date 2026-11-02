@@ -45,6 +45,36 @@ def test_numba_missing_raises(monkeypatch):
         run_kernel(_img(16), "floyd", None, 128.0, backend="numba")
 
 
+def test_pure_python_fallback_correct(monkeypatch):
+    # P1: lazy numba keeps a correct pure-python path (tiny: ms).
+    from app import accelerate as acc
+
+    monkeypatch.setattr(acc, "_NUMBA", False)
+    acc._compiled.clear()
+    dys, dxs, wts = acc.coeffs_to_arrays(COEFFS["floyd"])
+    lum = np.array(_img(16).convert("L"), dtype=np.float32)
+    out = acc.ed_bw(lum.copy(), dys, dxs, wts, 128.0)
+    assert out.shape == (16, 16) and set(np.unique(out)) <= {0, 255}
+    pal = np.array(get_palette("SLIME"), dtype=np.float64)
+    arr = np.array(_img(16), dtype=np.float32)
+    out_c = acc.ed_color(arr.copy(), pal, dys, dxs, wts)
+    assert out_c.shape == (16, 16, 3)
+    monkeypatch.setattr(acc, "_NUMBA", None)  # re-probe on next use
+
+
+def test_lazy_import_defers_numba():
+    import subprocess
+    import sys
+
+    code = ("import sys; import app.accelerate as a; "
+            "assert 'numba' not in sys.modules, 'numba imported at accelerate import'; "
+            "assert a.has_numba() is True; "
+            "assert 'numba' in sys.modules, 'probe must import numba'")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                       text=True, cwd="<repo>")
+    assert r.returncode == 0, r.stderr
+
+
 def test_coeffs_arrays_shapes():
     from app.accelerate import coeffs_to_arrays
 

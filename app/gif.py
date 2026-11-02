@@ -602,6 +602,7 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                          float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
                          None,  # Hold-manda: no Length pad
                          cap=cap if cap else MAX_TOTAL_FRAMES)
+    _check_gif_budget(plan["total"], side, side)  # approx (long side); exact check in save_gif
     a = _canvas_a(img, preset, side)
     out = dissolve_frames(a, method=method, threshold=threshold,
                           pixel_size=pixel, frames=plan["n_trans"], seed=seed_v, wind=wind_v,
@@ -678,6 +679,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                          float(getattr(preset, "dissolve_hold", 0.0) or 0.0) if preset is not None else 0.0,
                          None,  # Hold-manda: no Length pad
                          cap=cap if cap else MAX_TOTAL_FRAMES, loop=loop_v)
+    _check_gif_budget(plan["total"], side, side)  # approx (long side); exact check in save_gif
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
     out = morph_chain_frames([a] + others, method=method,
@@ -694,6 +696,23 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     return out
 
 
+#: RAM budget for a GIF frame list (pixels): beyond this save_gif would
+#: transiently hold ~4 bytes/px (caller list + paletted copy) and OOM a
+#: typical machine. Checked with planned totals (builders, approx) and
+#: exact dims (save_gif): fewer Frames/Hold, smaller canvas, or WebP/MP4.
+MAX_GIF_PIXELS = 1_200_000_000
+
+
+def _check_gif_budget(n_frames: int, w: int, h: int) -> None:
+    total = max(0, int(n_frames)) * max(1, int(w)) * max(1, int(h))
+    if total > MAX_GIF_PIXELS:
+        gb = total * 4 / 1_000_000_000
+        raise MemoryError(
+            f"GIF needs ~{gb:.1f}GB transient RAM for {int(n_frames)} frames "
+            f"at {int(w)}x{int(h)} (budget {MAX_GIF_PIXELS // 1_000_000}MP): "
+            "fewer Frames/Hold, smaller canvas, or WebP/MP4 instead")
+
+
 def save_gif(
     frames: list[Image.Image],
     path: str | Path,
@@ -704,18 +723,25 @@ def save_gif(
 
     The first frame donates a 128-color palette; the rest quantize
     against it with dither=NONE so the dither look stays intact.
+    Quantizes incrementally (no RGB double-list: peak ~1/3 + 1 frame);
+    the first frame's palette is reused, not recomputed. Byte-identical
+    to the old double-list build for the same inputs.
     """
     if not frames:
         raise ValueError("no frames")
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(fps)))
-    rgb = [f.convert("RGB") for f in frames]
-    # Shared palette: median-cut on the first frame, reused by all.
-    base_pal = rgb[0].quantize(colors=128, method=Image.MEDIANCUT, dither=Image.NONE)
-    paletted = [rgb[0].quantize(colors=128, method=Image.MEDIANCUT, dither=Image.NONE)]
-    for f in rgb[1:]:
-        paletted.append(f.quantize(palette=base_pal, dither=Image.NONE))
+    w0, h0 = frames[0].size
+    _check_gif_budget(len(frames), w0, h0)
+    first = frames[0] if frames[0].mode == "RGB" else frames[0].convert("RGB")
+    base_pal = first.quantize(colors=128, method=Image.MEDIANCUT, dither=Image.NONE)
+    paletted = [base_pal]
+    for f in frames[1:]:
+        rgb = f if f.mode == "RGB" else f.convert("RGB")
+        paletted.append(rgb.quantize(palette=base_pal, dither=Image.NONE))
+        del rgb
+    del first
     paletted[0].save(
         str(out), save_all=True, append_images=paletted[1:],
         duration=max(1, int(1000 / fps)), loop=int(loop), optimize=True,
@@ -753,7 +779,7 @@ def save_webp(
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(fps)))
-    rgb = [f.convert("RGB") for f in frames]
+    rgb = [f if f.mode == "RGB" else f.convert("RGB") for f in frames]
     rgb[0].save(
         str(out), save_all=True, append_images=rgb[1:],
         duration=max(1, int(1000 / fps)), loop=int(loop),

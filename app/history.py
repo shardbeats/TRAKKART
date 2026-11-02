@@ -46,12 +46,16 @@ class HistoryStore:
             ),
         )
         self.conn.commit()
-        # Prune: history never grows unbounded (cap 500).
-        self.conn.execute(
-            "DELETE FROM exports WHERE id NOT IN "
-            "(SELECT id FROM exports ORDER BY id DESC LIMIT 500)"
-        )
-        self.conn.commit()
+        # Prune: history never grows unbounded (cap 500). Count first:
+        # the common case stays one INSERT + one commit (fsync-bound disks
+        # feel every extra commit).
+        n = self.conn.execute("SELECT COUNT(*) FROM exports").fetchone()[0]
+        if int(n or 0) > 500:
+            self.conn.execute(
+                "DELETE FROM exports WHERE id NOT IN "
+                "(SELECT id FROM exports ORDER BY id DESC LIMIT 500)"
+            )
+            self.conn.commit()
         return int(cur.lastrowid)
 
     def list_exports(self, limit: int = 50) -> list[dict]:

@@ -1,37 +1,36 @@
 """Optional TRAKKART accelerator (MIT).
 
 If numba is installed, ED kernels use @njit (10-50x). Otherwise,
-automatic fallback to pure numpy. The base exe does NOT bundle numba.
+automatic fallback to pure numpy. numba imports LAZILY (P1): the
+0.4s import cost moves from startup to the first ED render (which
+compiles anyway), so the app opens fast everywhere.
 """
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 
-try:
-    from numba import njit, prange  # noqa: F401
-
-    _NUMBA = True
-except ImportError:  # pragma: no cover - environment without numba
-    _NUMBA = False
-
-    def njit(*args, **kwargs):  # type: ignore[no-redef]
-        def decorator(fn):
-            return fn
-
-        if len(args) == 1 and callable(args[0]):
-            return args[0]
-        return decorator
-
-    prange = range  # type: ignore[no-redef]
+_NUMBA = None  # None = undecided (probe on first use); tests may force True/False
+_compiled: dict[str, object] = {}
+_lock = threading.Lock()
 
 
 def has_numba() -> bool:
-    return _NUMBA
+    """Cached import probe (one import ever; monkeypatchable via _NUMBA)."""
+    global _NUMBA
+    if _NUMBA is None:
+        try:
+            import numba  # noqa: F401
+
+            _NUMBA = True
+        except ImportError:
+            _NUMBA = False
+    return bool(_NUMBA)
 
 
-@njit(cache=True, nogil=True)
-def ed_bw(lum, dys, dxs, wts, threshold):  # pragma: no cover - numba nopython: invisible to coverage.py, verified by parity tests
+def _ed_bw_impl(lum, dys, dxs, wts, threshold):
     """B&W diffusion over float32 in-place. Returns uint8 0/255."""
     h, w = lum.shape
     n = dys.shape[0]
@@ -55,8 +54,7 @@ def ed_bw(lum, dys, dxs, wts, threshold):  # pragma: no cover - numba nopython: 
     return out
 
 
-@njit(cache=True, nogil=True)
-def ed_color(arr, pal, dys, dxs, wts):  # pragma: no cover - numba nopython: invisible to coverage.py, verified by parity tests
+def _ed_color_impl(arr, pal, dys, dxs, wts):
     """Palette diffusion over float32 in-place. Returns uint8 RGB."""
     h, w, _ = arr.shape
     p = pal.shape[0]
@@ -101,9 +99,41 @@ def ed_color(arr, pal, dys, dxs, wts):  # pragma: no cover - numba nopython: inv
     return out
 
 
+_IMPLS = {"bw": _ed_bw_impl, "color": _ed_color_impl}
+
+
+def _dispatch(name: str, args: tuple):
+    """njit-compiled impl (cached, first ED render) or pure python fallback."""
+    if not has_numba():
+        return _IMPLS[name](*args)
+    fn = _compiled.get(name)
+    if fn is None:
+        with _lock:
+            fn = _compiled.get(name)
+            if fn is None:
+                from numba import njit
+
+                fn = njit(_IMPLS[name], cache=True, nogil=True)
+                _compiled[name] = fn
+    return fn(*args)
+
+
+def ed_bw(lum, dys, dxs, wts, threshold):
+    """B&W diffusion entry point (numba when present, else pure python)."""
+    return _dispatch("bw", (lum, dys, dxs, wts, threshold))
+
+
+def ed_color(arr, pal, dys, dxs, wts):
+    """Palette diffusion entry point (numba when present, else pure python)."""
+    return _dispatch("color", (arr, pal, dys, dxs, wts))
+
+
 def coeffs_to_arrays(coeffs: list[tuple[int, int, float]]):
     """Convert [(dy,dx,w),...] tables to numpy arrays for njit."""
     dys = np.array([c[0] for c in coeffs], dtype=np.int64)
     dxs = np.array([c[1] for c in coeffs], dtype=np.int64)
     wts = np.array([c[2] for c in coeffs], dtype=np.float64)
     return dys, dxs, wts
+
+
+__all__ = ["coeffs_to_arrays", "ed_bw", "ed_color", "has_numba"]

@@ -24,6 +24,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Morph F1 (§7.7): 11 particle fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks) × 5 staggers (joint-pinned) × 3 eases; legacy wind/off/sine byte-identical; MORPH combos; Gherkin 55.
 - Morph F2 (§7.7): elastic/bounce eases + dot-size swell (`dissolve_dotsize` 1-4, joints at 1px) + bundled EMBER_RISE/GRAVITY_DROP/POUR_FAKE; Gherkin 56.
 - Engine roster frozen at 36 (R14 decision, exact-list test; particle fields are a separate axis).
+- Perf round (measured): streaming `save_gif` (peak ~-70%, byte-identical) + GIF RAM budget guard (`MAX_GIF_PIXELS`, fail-fast MemoryError); lazy numba import (startup 0.86→0.39s, parity intact); history prune-when-needed + fast prune test (29→0.8s); bilinear MP4 downscale (~5s per long export); dropped duplicate `-pix_fmt` (warning-only).
 - Polish (R12+R13): 9:16 safe-area chrome guides (still preview + crop editor, View toggle, display-only) + wipe compare slider (ORIGINAL/result divider, aligned canvas, survives refreshes).
 
 ## v1.0.1

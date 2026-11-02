@@ -53,10 +53,11 @@ def write_mp4(frames: list[Image.Image], path: str | Path, fps: int = 24) -> Pat
     out.parent.mkdir(parents=True, exist_ok=True)
     fps = max(MIN_MP4_FPS, min(MAX_MP4_FPS, int(fps)))
     arr = [np.asarray(f.convert("RGB"), dtype=np.uint8) for f in frames]
+    # No explicit -pix_fmt: imageio adds yuv420p itself (passing it twice
+    # only spams ffmpeg's "Multiple -pix_fmt options specified" warning).
     iio.imwrite(str(out), arr, fps=fps, codec="libx264", quality=8,
                 macro_block_size=2,
-                ffmpeg_params=["-pix_fmt", "yuv420p",
-                               "-movflags", "+faststart"])
+                ffmpeg_params=["-movflags", "+faststart"])
     return out
 
 
@@ -77,8 +78,7 @@ def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24) -> tuple[Path, i
     n = 0
     writer = iio2.get_writer(str(out), fps=fps, codec="libx264", quality=8,
                              macro_block_size=2,
-                             ffmpeg_params=["-pix_fmt", "yuv420p",
-                                            "-movflags", "+faststart"])
+                             ffmpeg_params=["-movflags", "+faststart"])
     try:
         for frame in frame_iter:
             if frame is None:

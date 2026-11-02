@@ -67,10 +67,24 @@ def test_batch_cancel_before_start(tmp_path):
 
 
 def test_history_prune(tmp_path):
-    from app.history import HistoryStore
+    import sqlite3
 
-    s = HistoryStore(tmp_path / "h.db")
-    for i in range(505):
-        s.log_export(f"b{i}", "P", {}, [])
+    from app.history import SCHEMA, HistoryStore
+
+    # Seed 500 rows in ONE transaction (fsync-bound disks feel every
+    # commit; the point under test is the cap, not 505 slow inserts).
+    db = tmp_path / "h.db"
+    con = sqlite3.connect(str(db))
+    con.execute(SCHEMA)
+    con.executemany(
+        "INSERT INTO exports (base, preset, params_json, files_json, created_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [(f"b{i}", "P", "{}", "[]", "2026-01-01T00:00:00+00:00") for i in range(500)],
+    )
+    con.commit()
+    con.close()
+    s = HistoryStore(db)
+    for i in range(5):
+        s.log_export(f"c{i}", "P", {}, [])
     assert len(s.list_exports(limit=1000)) == 500
     s.close()

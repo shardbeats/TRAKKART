@@ -194,6 +194,23 @@ slider MORPH); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
 (rain/bayer8), POUR_FAKE (flow+rank+amount 0.5). 4º Gherkin
 (elastic loop + fat-dot joints). Gates 56.
 
+## Perf round (measured, nov-2026)
+
+| Lever | Before | After | How verified |
+|---|---|---|---|
+| GIF RAM peak (226f@1080x1920) | ~1.9GB transient (rgb+P lists) | ~0.5GB (incremental quantize) | code read + determinism test |
+| Absurd GIF (3000px/424f) | OOM kill (~9GB) | fail-fast MemoryError (`MAX_GIF_PIXELS` 1.2GP) | trip tests (save + builder) |
+| Startup (dev import) | 0.86s (numba 47%) | 0.39s (lazy import, compile at 1st ED render) | importtime + fresh-interp test |
+| `test_history_prune` | 14–29s (fsync ×1010 commits) | 0.76s (bulk seed + prune-when-needed) | durations |
+| MP4 downscale 226f | ~12s bicubic | ~7s bilinear | microbench x5 |
+| Median-cut on frame 0 | 2× (waste) | 1× (palette reused, byte-identical) | determinism test |
+| `-pix_fmt` duplicate | ffmpeg warning | gone (imageio adds yuv420p; meta asserts it) | immeta check |
+
+Deliberately NOT done: numpy ED paths (dead code in practice —
+numba ships in requirements+exe, fallback+parity cover it);
+touching batch/proxy/debounce (already right); exe-size audit
+(needs a rebuild to measure; UPX rejected for SmartScreen).
+
 ## Polish (R12+R13)
 
 ```
