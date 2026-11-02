@@ -19,7 +19,12 @@ from pathlib import Path
 
 from PIL import Image
 
-GIF_MODES = ("phase", "hue", "both", "glitch", "mix", "dissolve", "morph")
+from app.anim.limits import (GIF_FRAMES_SUGGESTED, GIF_FPS_SUGGESTED, GIF_LIMIT_SIDE,  # noqa: F401
+                             GIF_MAX_FPS, GIF_MAX_FRAMES, GIF_MAX_SIDE, GIF_MIN_FPS,  # noqa: F401
+                             GIF_MIN_FRAMES, GIF_MIN_SIDE, GIF_MODES,  # noqa: F401
+                             MAX_GIF_PIXELS, MAX_MP4_FRAMES, MAX_TOTAL_FRAMES,  # noqa: F401
+                             MP4_BYTES_PER_PX_HOLD, MP4_BYTES_PER_PX_TRANS, MP4_SIZES,  # noqa: F401
+                             VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE)  # noqa: F401
 
 # Human-facing labels + one-line explanations (ids stay stable for presets).
 GIF_MODE_INFO: dict[str, tuple[str, str]] = {
@@ -49,20 +54,7 @@ def mode_desc(mode: str) -> str:
     return GIF_MODE_INFO.get(str(mode), ("?", ""))[1]
 
 
-GIF_MAX_SIDE = 480
-GIF_MIN_SIDE = 240
-GIF_LIMIT_SIDE = 8000  # canvas rules: the anim ships at document size
-GIF_MIN_FPS = 2
-GIF_MAX_FPS = 60
-GIF_MIN_FRAMES = 2
-GIF_MAX_FRAMES = 64
-# Suggested (editable combos: the list guides, the value is free).
-GIF_FPS_SUGGESTED = (8, 12, 24, 30, 48, 60)
-GIF_FRAMES_SUGGESTED = (4, 6, 8, 12, 24, 32, 48, 64, 96, 128, 256)
-# Full-canvas video preview (customizable, default 1200).
-VIDEO_DEFAULT_SIZE = 1200
-VIDEO_MIN_SIZE = 480
-VIDEO_MAX_SIZE = 1920
+#: Size/preview caps re-exported from app.anim.limits (single home).
 
 
 def _fit_small(img: Image.Image, max_side: int = GIF_MAX_SIDE) -> Image.Image:
@@ -316,12 +308,7 @@ def gif_frames(
     return out
 
 
-#: Hard cap on total built frames (transitions + holds + pads).
-#: GIF/preview stay here (RAM + format + browsers choke past ~25MB).
-MAX_TOTAL_FRAMES = 256
-#: MP4 streams frame by frame (O(1) RAM), so long hold-heavy clips
-#: still export: 60s * 60fps = 3600 frames max.
-MAX_MP4_FRAMES = 3600
+#: Frame budget caps re-exported from app.anim.limits (single home).
 
 
 def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
@@ -789,11 +776,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     return out
 
 
-#: RAM budget for a GIF frame list (pixels): beyond this save_gif would
-#: transiently hold ~4 bytes/px (caller list + paletted copy) and OOM a
-#: typical machine. Checked with planned totals (builders, approx) and
-#: exact dims (save_gif): fewer Frames/Hold, smaller canvas, or WebP/MP4.
-MAX_GIF_PIXELS = 1_200_000_000
+#: GIF RAM budget re-exported from app.anim.limits (single home).
 
 
 def _check_gif_budget(n_frames: int, w: int, h: int) -> None:
@@ -886,14 +869,7 @@ def estimate_webp(n_trans: int, w: int, h: int, n_hold_forms: int = 0) -> int:
     return estimate_gif(n_trans, w, h, n_hold_forms) // 3
 
 
-#: Calibrated H.264 cost at quality=8 (measured 256px bayer8, x264/yuv420p):
-#: dithered transition frames are near-incompressible noise (~0.43 B/px),
-#: duplicated assembled holds collapse to near-zero (~0.011 B/px, ~40x).
-MP4_BYTES_PER_PX_TRANS = 0.43
-MP4_BYTES_PER_PX_HOLD = 0.011
-
-#: MP4 long-side choices (main image always stays at canvas size).
-MP4_SIZES = ("Canvas", "1080p", "720p")
+#: H.264 costs + MP4 sizes re-exported from app.anim.limits (single home).
 
 
 def _even_down(n: int) -> int:

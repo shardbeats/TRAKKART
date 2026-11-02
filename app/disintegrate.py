@@ -17,16 +17,8 @@ import numpy as np
 from PIL import Image
 
 from app.ordered_maps import BAYER_8X8
-
-DISINTEGRATE_MODES = ("wind", "random", "burst", "suction", "vortex",
-                      "rain", "rise", "wave", "ripple", "flow", "blocks")
-#: Release stagger: per-particle phase shift (loop-safe via %1).
-STAGGER_MODES = ("off", "rank", "radial", "scan", "sweep")
-#: Loop envelope shape (all close at the joints: env(0) == env(1) == 0).
-EASE_MODES = ("sine", "cubic", "linear", "elastic", "bounce")
-
-#: Hard cap on rasterized points per frame (perf: vectorized scatter).
-MAX_POINTS = 120_000
+from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, MAX_MORPH_IMAGES,
+                                 MAX_POINTS, MAX_TRAIL, STAGGER_MODES, TRAVEL_SPAN)
 
 
 def dither_bw(img: Image.Image, method: str = "bayer8",
@@ -365,9 +357,7 @@ def block_visible(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
     return rank >= np.asarray(env, dtype=np.float64) * 0.85
 
 
-#: Stagger window for destination travel: qi spans q*(1+S)-d*S so
-#: particles pour in waves while both joints stay exact (q=0 -> 0, q=1 -> 1).
-TRAVEL_SPAN = 0.5
+#: Stagger window re-exported from app.particles.modes (single home).
 
 
 def _smootherstep(t: np.ndarray) -> np.ndarray:
@@ -588,8 +578,7 @@ def tint_dots(base_col: np.ndarray, strength: float) -> np.ndarray | None:
     return np.clip(np.round(cols), 0, 255).astype(np.uint8)
 
 
-#: Motion-trail buffer cap (frames of ghost dots per render).
-MAX_TRAIL = 8
+#: Motion-trail buffer cap re-exported from app.particles.modes.
 
 
 def trail_decay(age: int, length: int) -> float:
@@ -942,8 +931,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
     return chained
 
 
-#: Hard cap on chain length (A + up to 5 more).
-MAX_MORPH_IMAGES = 6
+#: Hard cap on chain length re-exported from app.particles.modes.
 
 
 def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
