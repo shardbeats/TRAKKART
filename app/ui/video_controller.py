@@ -150,48 +150,6 @@ def duration_changed(win) -> None:
     sync_duration_ui(win)
 
 
-def apply_bpm(win) -> None:
-    """R3: BPM + bars -> Hold so the derived total lands on the beat grid.
-
-    Target Length = bars * 240 / bpm (4/4 time). The loop will not start
-    on a downbeat (the store loops on its own clock) but the inner pulse
-    matches the theme. Dissolve/morph only; Hold caps at 3.0s.
-    """
-    try:
-        from app.gif import hold_for_target
-
-        mode = str(win.cmb_video_mode.currentText())
-    except Exception:  # noqa: BLE001
-        return
-    if mode not in ("dissolve", "morph"):
-        try:
-            win._status("♫ BPM needs dissolve/morph mode")
-        except Exception:  # noqa: BLE001
-            pass
-        return
-    try:
-        bpm = max(40, min(250, int(win.spn_bpm.value())))
-        bars = max(1, min(16, int(win.spn_bars.value())))
-        plan = planned_total(win)
-    except Exception:  # noqa: BLE001
-        return
-    target = bars * 240.0 / max(1, bpm)
-    hold, actual, fits = hold_for_target(
-        plan["n_trans"], plan["segs"], plan["fps"], target,
-        loop=bool(plan.get("loop", False)))
-    try:
-        win.sld_dissolve_hold.setValue(int(round(hold * 10.0)))
-    except Exception:  # noqa: BLE001
-        pass
-    msg = f"♫ {bpm}BPM x{bars} = {target:.2f}s → Hold {hold:.1f}s (= {actual:.1f}s)"
-    if not fits:
-        msg += " — short: add Frames/chain or lower FPS"
-    try:
-        win._status(msg)
-    except Exception:  # noqa: BLE001
-        pass
-
-
 def sync_duration_ui(win) -> None:
     """Refresh the duration label + Length readout (both derived)."""
     try:

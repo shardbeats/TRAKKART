@@ -295,20 +295,6 @@ def test_hold_caps_gif_streams_mp4():
     assert n == 424
 
 
-def test_hold_for_target_solves_bpm_grid():
-    # R3: target = bars*240/bpm lands on Hold; caps and overshoots report fits.
-    from app.gif import hold_for_target
-
-    hold, actual, fits = hold_for_target(64, 1, 30, 7.5)
-    assert (round(hold, 2), round(actual, 2), fits) == (2.7, 7.53, True)
-    hold, actual, fits = hold_for_target(64, 1, 30, 60.0)
-    assert hold == 3.0 and fits is False  # Hold clamps: add Frames/chain
-    hold, actual, fits = hold_for_target(64, 1, 30, 0.5)
-    assert hold == 0.0 and fits is False  # transitions alone overshoot
-    hold, actual, fits = hold_for_target(6, 1, 24, 4.0)
-    assert abs(actual - 4.0) < 0.01 and fits is True
-
-
 def test_morph_hold_shared_across_forms():
     from app.gif import gif_morph_frames, plan_dissolve
     from app.presets import Preset

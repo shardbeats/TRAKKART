@@ -483,11 +483,6 @@ class MainWindow(QMainWindow):
 
         _vc.duration_changed(self)
 
-    def _on_bpm_apply(self) -> None:
-        from app.ui import video_controller as _vc
-
-        _vc.apply_bpm(self)
-
     def _on_video_mode_changed(self) -> None:
         from app.ui import params_controller as _par
 

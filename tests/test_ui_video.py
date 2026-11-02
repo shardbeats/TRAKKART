@@ -237,21 +237,3 @@ def test_canvas_check_warns_outside_3_to_8s(window):
     window.sld_dissolve_hold.setValue(27)
     window._sync_duration_ui()
     assert "Canvas wants" not in window.lbl_duration.text()
-
-
-def test_bpm_apply_sets_hold_on_grid(window):
-    # R3: 120BPM x2 bars = 4s -> Hold solves it (dissolve 6f/24fps).
-    from app.ui import video_controller as vc
-
-    window.cmb_video_mode.setCurrentText("dissolve")
-    window.cmb_video_frames.setCurrentText("6")
-    window.cmb_video_fps.setCurrentText("24")
-    window.spn_bpm.setValue(120)
-    window.spn_bars.setValue(2)
-    vc.apply_bpm(window)
-    assert window.sld_dissolve_hold.value() == 19  # 1.875s -> ticks
-    assert "4.00s" in window.lbl_status.text()
-    # Non-particle modes refuse honestly.
-    window.cmb_video_mode.setCurrentText("mix")
-    vc.apply_bpm(window)
-    assert "needs dissolve/morph" in window.lbl_status.text()

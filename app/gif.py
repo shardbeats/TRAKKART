@@ -384,31 +384,6 @@ def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
             "capped": capped, "actual_s": total / fps_v, "loop": loop_v}
 
 
-def hold_for_target(n_req: int, segs: int, fps: int, target_s: float,
-                    loop: bool = False) -> tuple[float, float, bool]:
-    """Hold per form (seconds) so the derived total reaches target_s.
-
-    BPM->Length solver (R3): target = bars * 240 / bpm (4/4). Hold is
-    capped at 3.0s; transitions alone may already overshoot a tiny
-    target (then hold 0 and fits=False: fewer Frames needed).
-    Returns (hold_s, actual_s, fits).
-    """
-    from math import ceil
-
-    fps_v = max(1, int(fps or 8))
-    want = int(round(max(0.0, float(target_s or 0.0)) * fps_v))
-    base = plan_dissolve(n_req, segs, fps_v, 0.0, None, loop=loop)
-    nt = int(base["n_trans"])
-    forms = max(1, int(segs or 1) + 1)
-    need = want - nt
-    if need <= 0:
-        return (0.0, nt / fps_v, nt <= want)
-    per = min(int(ceil(need / forms)), 3 * fps_v)
-    hold = per / fps_v
-    plan = plan_dissolve(n_req, segs, fps_v, hold, None, loop=loop)
-    return (hold, float(plan["actual_s"]), int(plan["total"]) >= want)
-
-
 def _canvas_a(img: Image.Image, preset, side: int) -> Image.Image:
     """A image for dissolve/morph: pipeline canvas when preset, else raw fit.
 

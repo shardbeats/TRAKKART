@@ -122,7 +122,7 @@ shrink against the output cap (256 GIF/preview, 3600 MP4 streaming);
 transitions always win. Trade-off: the 60s extreme is no longer reachable
 (max ≈ transitions + forms×3s); long hold-heavy clips still stream via MP4.
 
-## Social delivery (R1+R2+R3, Spotify Canvas shaped)
+## Social delivery (R1+R2, Spotify Canvas shaped)
 
 - R1 recipe `CANVAS_916`: 9:16, export long side 1920 (= 1080x1920),
   dissolve 64f/30fps/Hold 2.7s → 226f = 7.53s closed loop (inside the
@@ -131,9 +131,9 @@ transitions always win. Trade-off: the 60s extreme is no longer reachable
 - R2 Canvas check (split by data locality): VIDEO duration label warns
   when a 9:16 particle clip lands outside 3–8s; the export dialog warns
   when a 9:16 doc would export MP4 at full-doc size or outside 3–8s.
-- R3 beat grid: VIDEO ♫ row (BPM 40–250 + Bars 1–16 + Set Hold) solves
-  Hold = f(bars*240/BPM) via `hold_for_target` (caps at 3.0s, reports
-  short honestly: add Frames/chain or lower FPS). Dissolve/morph only.
+- R3 beat grid REMOVED (too fiddly): no more ♫ BPM/Bars row, no
+  `hold_for_target`. Length stays derived (transitions + holds);
+  set it directly with Frames/FPS/Hold.
 
 ## Animated WebP (R7)
 

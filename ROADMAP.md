@@ -583,6 +583,9 @@ chrome arriba/abajo ~250px).
   con el tema. Coste S, encaje total con beatmakers.
   Done (Hold-manda era): `hold_for_target()` resuelve Hold para el target
   (capped 3.0s, fits honesto); VIDEO suma fila ♫ BPM/Bars + Set Hold.
+  REMOVED (nov-2026, post-v1.2.0): too fiddly, Length stays derived
+  (Frames/FPS/Hold direct). Row + `apply_bpm()` + `hold_for_target()`
+  deleted; no preset fields involved (Hold is and stays the preset).
 - [x] R4 — Social recipe presets (bundled JSON): YT thumb 1280x720, square
   1080x1080, portrait 4:5 1080x1350, master 9:16 1080x1920 (un master cubre
   Reels/Stories/TikTok/Shorts). Coste S.
