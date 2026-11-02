@@ -67,6 +67,15 @@ def _no_leak_scan() -> list[str]:
     return hits
 
 
+def _has_plugin(module: str) -> bool:
+    """True if an optional test plugin (xdist/pytest-cov) is installed."""
+    try:
+        __import__(module)
+    except ImportError:
+        return False
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-cov", action="store_true")
@@ -74,22 +83,28 @@ def main() -> int:
     args = ap.parse_args()
     py = sys.executable
 
+    # xdist (fast: full suite ~1min instead of ~30min); legacy path without
+    # it still works, just slow. pytest-cov combines xdist workers; plain
+    # `coverage run` collects nothing under xdist (workers are subprocesses).
+    xdist = ["-n", "auto"] if _has_plugin("xdist") else []
+    use_cov_plugin = not args.no_cov and _has_plugin("pytest_cov")
+
     # 1) pytest (+ coverage) — no -q so the "N passed" summary always shows
-    if args.no_cov:
-        cmd = [py, "-m", "pytest", "tests", "-p", "no:cacheprovider"]
+    if args.no_cov or not use_cov_plugin:
+        cmd = [py, "-m", "pytest", "tests", "-p", "no:cacheprovider", *xdist]
         if args.m:
             cmd += ["-m", args.m]
         r = _run(cmd)
         cov = None
     else:
-        cmd = [py, "-m", "coverage", "run", "-m", "pytest", "tests", "-p", "no:cacheprovider"]
+        covf = DATA / "coverage.json"
+        cmd = [py, "-m", "pytest", "tests", "-p", "no:cacheprovider", *xdist,
+               "--cov=app", "--cov-branch", f"--cov-report=json:{covf}"]
         if args.m:
             cmd += ["-m", args.m]
         r = _run(cmd)
-        r2 = _run([py, "-m", "coverage", "json", "-o", str(DATA / "coverage.json")])
         cov = None
-        covf = DATA / "coverage.json"
-        if r2.returncode == 0 and covf.exists():
+        if covf.exists():
             try:
                 cov = json.loads(covf.read_text(encoding="utf-8"))["totals"]["percent_covered"]
             except Exception:

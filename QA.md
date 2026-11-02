@@ -19,11 +19,11 @@ when using the central one.
 
 ```
 .venv\Scripts\python -m pytest tests -q -n auto
-.venv\Scripts\python -m coverage run -m pytest tests -q -n auto
-.venv\Scripts\python -m coverage report
-.venv\Scripts\python -m coverage html   :: data/quality_html
+.venv\Scripts\python -m pytest tests -q -n auto --cov=app --cov-branch --cov-report=term-missing --cov-report=html:data/quality_html
 .venv\Scripts\python -m flake8 app tests tools main.py build_exe.py build_installer.py
 ```
+
+> `coverage run` misses xdist workers (separate processes) — always go through `pytest-cov` as above.
 
 ## Gates (release)
 
