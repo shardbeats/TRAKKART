@@ -33,11 +33,23 @@ def downscale_for_preview(img: Image.Image, max_side: int = PREVIEW_LONG_SIDE) -
 
 
 def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
-    """Fast render for preview: downscale + compensated pixel."""
+    """Fast render for preview: downscale + compensated pixel units.
+
+    pixel_size is a block size in source pixels, so it grows as 1/f to
+    keep the dither readable. Radius-like FX (glow, border, scanlines,
+    grille, halftone, letterbox) are pixel distances, so they shrink
+    with f to keep proportions. Amount-like FX (grain, vignette, wave)
+    are left untouched.
+    """
     small, f = downscale_for_preview(img)
     kwargs = preset_to_render_kwargs(preset)
     if f < 1.0:
         kwargs["pixel_size"] = max(1, round(int(kwargs["pixel_size"]) / f))
+        for key in ("glow_radius", "border", "scanlines", "grille", "halftone", "letterbox"):
+            try:
+                kwargs[key] = max(0, round(float(kwargs[key]) * f))
+            except (TypeError, ValueError):
+                continue
     return render(small, **kwargs)
 
 

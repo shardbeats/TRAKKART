@@ -237,6 +237,36 @@ class RenderSpec:
                    "post_sharpen": int(getattr(self, "post_sharpen", 0) or 0),
                    "stack": (__import__("copy").deepcopy(self.fx_stack)
                              if self.fx_stack is not None else None)},
+            "grade": {
+                "duotone": [str(getattr(self, "duotone_dark", "")),
+                            str(getattr(self, "duotone_light", "")),
+                            float(getattr(self, "duotone_mid", 50.0))],
+                "posterize": int(getattr(self, "posterize", 0) or 0),
+                "split_tone": float(getattr(self, "split_tone", 0.0) or 0.0),
+                "fade": float(getattr(self, "fade", 0.0) or 0.0),
+                "glow_threshold": int(getattr(self, "glow_threshold", 0) or 0),
+            },
+            "texture": {
+                "halftone": int(getattr(self, "halftone", 0) or 0),
+                "halftone_shape": str(getattr(self, "halftone_shape", "dots")),
+                "dust": float(getattr(self, "dust", 0.0) or 0.0),
+                "border": int(getattr(self, "border", 0) or 0),
+                "border_color": str(getattr(self, "border_color", "#000000")),
+                "letterbox": int(getattr(self, "letterbox", 0) or 0),
+            },
+            "drift": {
+                "pattern": str(getattr(self, "drift_pattern", "off") or "off"),
+                "amount": float(getattr(self, "drift_amount", 0.0) or 0.0),
+                "loops": float(getattr(self, "drift_loops", 1.0) or 1.0),
+                "position": float(getattr(self, "drift_position", 50.0)),
+            },
+            "paste": {
+                "mode": str(getattr(self, "paste_mode", "off") or "off"),
+                "opacity": float(getattr(self, "paste_opacity", 0.0) or 0.0),
+                "blend": str(getattr(self, "paste_blend", "overlay") or "overlay"),
+            },
+            "motif": (__import__("copy").deepcopy(self.motif)
+                      if self.motif is not None else None),
         }
 
 

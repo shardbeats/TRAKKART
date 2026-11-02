@@ -9,6 +9,10 @@ and reordering visibly changes the result (commutativity tested).
 
 from __future__ import annotations
 
+import logging
+
+log = logging.getLogger("trakkart")
+
 # Legacy order = pipeline.render_spec order before the stack.
 # brand (replace_white) stays pinned right after the dither (not reordered:
 # it is brand mapping, not creative FX).
@@ -80,8 +84,12 @@ def normalize_stack(raw: list | tuple | None) -> list[dict]:
             fid = entry.get("id", "")
             enabled = bool(entry.get("enabled", True))
         else:
+            log.warning("fx_stack: ignoring unsupported entry %r", entry)
             continue
-        if fid not in FX_IDS or fid in seen:
+        if fid not in FX_IDS:
+            log.warning("fx_stack: ignoring unknown effect id %r", fid)
+            continue
+        if fid in seen:
             continue
         seen.add(fid)
         items.append({"id": fid, "enabled": enabled})
