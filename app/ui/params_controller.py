@@ -408,7 +408,7 @@ def sync_anim_ui(win) -> None:
             legs_c = segs + (1 if (loop_c and chain) else 0)
             floor = legs_c * max(8, int(_math.ceil(0.8 * fps)))
             if chain and n < floor:
-                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // legs_c}f / {n / legs_c / fps:.1f}s per form — raise Length for slower morphs)")
+                win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // legs_c}f / {n / legs_c / fps:.1f}s per form — raise Hold or Frames for slower morphs)")
         except Exception:  # noqa: BLE001
             pass
 
@@ -940,7 +940,7 @@ def ensure_morph_budget(win) -> bool:
     """Grow total Frames so every chain segment keeps watchable time.
 
     Per-segment floor: 8 frames AND ~0.8s at current fps. Only grows
-    (never shrinks the user's Length), capped at 64. Returns True when
+    (never shrinks below the floor), capped at 64. Returns True when
     Frames were bumped. Call on chain growth and on switch to morph mode.
     """
     try:

@@ -141,6 +141,12 @@ class ExportDialog(QDialog):
         self.chk_vector.setToolTip("Vector for logos/merch (no post-fx)")
         self.chk_anim.setChecked(sel.anim)
         self.chk_anim.setToolTip("Animation for socials (Pillow only)")
+        self.chk_webp = QCheckBox("Animation WebP")
+        self.chk_webp.setChecked(False)
+        self.chk_webp.setToolTip("Same frames as the GIF, ~1/3 the weight, full color (Pillow only)")
+        self.chk_sep = QCheckBox("Ink separations (print)")
+        self.chk_sep.setChecked(False)
+        self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
         self.chk_meta.setChecked(sel.metadata)
         self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
         from app.video_io import has_video as _has_video
@@ -154,7 +160,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_meta,
+                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_sep, self.chk_meta,
                     self.chk_black, self.chk_mp4):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
@@ -244,6 +250,25 @@ class ExportDialog(QDialog):
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
             return
+        # R8: particle GIF plan once (256f cap, chain unknown -> 1 segment):
+        # transitions + forms feed the hold-collapse-aware anim estimate
+        # below AND the WebP line (same capped list).
+        go_d = self._gif_opts()
+        gif_trans = None
+        gif_forms = None
+        try:
+            mode_d = str(go_d.get("mode", "both"))
+            if mode_d in ("dissolve", "morph") and getattr(self, "_preset", None) is not None:
+                from app.gif import MAX_TOTAL_FRAMES, plan_dissolve as _plan_d
+
+                p_d = getattr(self, "_preset", None)
+                hold_d = float(getattr(p_d, "dissolve_hold", 0.0) or 0.0)
+                plan_d = _plan_d(int(go_d["frames"]),
+                                 1, max(2, min(60, int(go_d.get("fps", 8)))),
+                                 hold_d, None, cap=MAX_TOTAL_FRAMES)
+                gif_trans, gif_forms = int(plan_d["n_trans"]), 2
+        except Exception:  # noqa: BLE001
+            gif_trans, gif_forms = None, None
         try:
             w, h = self._doc_wh()
             self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
@@ -261,8 +286,9 @@ class ExportDialog(QDialog):
                 self._img, opts, meta=self._meta,
                 has_vector=True, has_gif=True,
                 extra={"vector_cells": self._vector_cells or (0, 0),
-                       "gif_frames": int(self._gif_opts()["frames"]),
-                       "gif_size": int(self._gif_opts()["size"])},
+                       "gif_frames": int(go_d["frames"]),
+                       "gif_size": int(go_d["size"]),
+                       "gif_trans": gif_trans, "gif_forms": gif_forms},
             )
         except ValueError:
             plan = []
@@ -272,6 +298,7 @@ class ExportDialog(QDialog):
             self.list_files.addItem(f"{fname}  ({_fmt_size(est)})")
             total += est
         n = len(plan)
+        webp_fname = ""
         mp4_fname = ""
         mp4_hint = ""
         if self.chk_mp4.isChecked() and self._video_ok:
@@ -289,12 +316,11 @@ class ExportDialog(QDialog):
 
                         p = getattr(self, "_preset", None)
                         hold_m = float(getattr(p, "dissolve_hold", 0.0) or 0.0)
-                        target_m = float(getattr(p, "dissolve_length", 0.0) or 0.0)
                         # Chain length unknown here (session-only); 1 segment
                         # is the conservative estimate for the plan line.
+                        # Hold-manda: derived total, no Length target.
                         plan_m = plan_dissolve(nf, 1, fps_m, hold_m,
-                                               target_m if target_m > 0 else None,
-                                               cap=MAX_MP4_FRAMES)
+                                               None, cap=MAX_MP4_FRAMES)
                         total_m = int(plan_m["total"])
                         n_trans_m = int(plan_m["n_trans"])
                     except Exception:  # noqa: BLE001
@@ -309,10 +335,50 @@ class ExportDialog(QDialog):
                 n += 1
                 if est > 400 * 1024 * 1024:
                     mp4_hint = (f"⚠ MP4 ~{_fmt_size(est)} — heavy: pick 720p, "
-                                "30fps or shorter Length.")
+                                "30fps, less Hold or fewer frames.")
                 elif est > 100 * 1024 * 1024:
                     mp4_hint = (f"MP4 ~{_fmt_size(est)} — consider 720p / "
-                                "30fps / shorter Length.")
+                                "30fps / less Hold.")
+                # R2 Canvas check (size half lives here: mp4_size is dialog-local).
+                actual_m = total_m / max(1, fps_m)
+                if abs(dw / max(1, dh) - 9 / 16) < 0.01 and (
+                        str(go.get("mp4_size", "1080p")) == "Canvas"
+                        or actual_m < 3.0 or actual_m > 8.0):
+                    note = "· Canvas: 9:16 wants 720p/1080p and 3–8s."
+                    mp4_hint = f"{mp4_hint} {note}" if mp4_hint else note
+            except Exception:  # noqa: BLE001
+                pass
+        if self.chk_webp.isChecked():
+            try:
+                from app.gif import estimate_webp
+                from app.exporter import webp_name
+
+                dw, dh = self._doc_wh()
+                if gif_trans is None:
+                    go = self._gif_opts()
+                    n_trans_w, forms_w = int(go["frames"]), 0
+                else:
+                    n_trans_w, forms_w = gif_trans, gif_forms
+                est_w = estimate_webp(n_trans_w, dw, dh, forms_w)
+                webp_fname = webp_name(sanitize_base(self.edit_base.text().strip() or "cover"))
+                self.list_files.addItem(f"{webp_fname}  ({_fmt_size(est_w)} · {dw}×{dh})")
+                total += est_w
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
+        if self.chk_sep.isChecked():
+            # R9: plate hexes need the render (SOURCE extracts); the plan
+            # shows the count line, the post-accept alert lists exact files.
+            try:
+                from app.separations import estimate_sep, plate_count
+
+                dw, dh = self._doc_wh()
+                n_plates = plate_count(getattr(self, "_preset", None))
+                est_s = estimate_sep(dw, dh, n_plates)
+                safe = sanitize_base(self.edit_base.text().strip() or "cover")
+                self.list_files.addItem(f"{safe}_sep_*.png  ({n_plates} plates · {_fmt_size(est_s)})")
+                total += est_s
+                n += 1
             except Exception:  # noqa: BLE001
                 pass
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
@@ -322,6 +388,14 @@ class ExportDialog(QDialog):
             clashing = sum(1 for _, fname, _ in plan if (dest / fname).exists())
             if mp4_fname and (dest / mp4_fname).exists():
                 clashing += 1
+            if webp_fname and (dest / webp_fname).exists():
+                clashing += 1
+            if self.chk_sep.isChecked():
+                try:
+                    safe = sanitize_base(self.edit_base.text().strip() or "cover")
+                    clashing += sum(1 for _ in dest.glob(f"{safe}_sep_*.png"))
+                except OSError:
+                    pass
         except OSError:
             clashing = 0
         notes = []
@@ -346,9 +420,9 @@ class ExportDialog(QDialog):
         extra = ""
         if m in ("dissolve", "morph") and getattr(self, "_preset", None) is not None:
             try:
-                target = float(getattr(self._preset, "dissolve_length", 0.0) or 0.0)
-                if target > 0:
-                    extra = f" · Length {target:.1f}s (GIF capped 256f, MP4 full)"
+                hold = float(getattr(self._preset, "dissolve_hold", 0.0) or 0.0)
+                if hold > 0:
+                    extra = f" · Hold {hold:.1f}s/form (GIF capped 256f, MP4 full)"
             except (TypeError, ValueError):
                 extra = ""
         self.lbl_gifspec.setText(
@@ -363,6 +437,8 @@ class ExportDialog(QDialog):
         g["size"] = self._current_size()  # canvas rules the still + GIF
         g["pingpong"] = bool(g.get("pingpong", False))
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
+        g["webp"] = bool(self.chk_webp.isChecked())
+        g["sep"] = bool(self.chk_sep.isChecked())
         try:
             g["mp4_size"] = str(self.cmb_mp4_size.currentText())
         except Exception:  # noqa: BLE001

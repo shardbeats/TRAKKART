@@ -61,6 +61,20 @@ File → Batch folder (Ctrl+B): pick input/output, Jobs 1-8
 operation. With `Drop=Batch` on, dropping a folder asks directly
 whether to process it.
 
+## Command line (no UI)
+
+Same engine, no window — for labels batching many singles:
+
+```
+TRAKKART.exe --cli --list-presets
+TRAKKART.exe --cli --preset SLIME_FS --in cover.png --out out\
+TRAKKART.exe --cli --preset SLIME_FS --in covers\ --out out\
+```
+
+`--out` is always a folder. Same bundle as Batch (image + thumb +
+metadata, SVG/GIF per preset). MP4/WebP/separations stay dialog-only.
+Exit 0 = done, 1 = some file failed, 2 = usage error.
+
 ## Presets & Settings
 
 - **Presets:** the combo saves the current recipe (Save…), Export/Import

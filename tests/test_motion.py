@@ -77,6 +77,32 @@ def test_write_mp4_roundtrip(tmp_path):
     assert out.exists() and out.stat().st_size > 1000
 
 
+def test_write_mp4_exact_dims_and_faststart(tmp_path):
+    # R5+R6: no macro-block-16 rescale (108x192 stays 108x192, was 112x192),
+    # moov before mdat (faststart) on both writers.
+    import pytest
+
+    from app.video_io import has_video, write_mp4, write_mp4_iter
+
+    if not has_video():
+        pytest.skip("video extra missing: mp4 write not testable here")
+    import imageio.v3 as iio
+
+    im = Image.new("RGB", (108, 192), (200, 50, 50))
+    out = write_mp4([im, im], tmp_path / "exact.mp4", fps=12)
+    props = iio.improps(str(out))
+    assert (props.shape[2], props.shape[1]) == (108, 192)
+    raw = out.read_bytes()
+    assert 0 <= raw.find(b"moov") < raw.find(b"mdat")
+
+    out2, n = write_mp4_iter(iter([im, im]), tmp_path / "exact_iter.mp4", fps=12)
+    assert n == 2
+    props2 = iio.improps(str(out2))
+    assert (props2.shape[2], props2.shape[1]) == (108, 192)
+    raw2 = out2.read_bytes()
+    assert 0 <= raw2.find(b"moov") < raw2.find(b"mdat")
+
+
 def test_gif_drift_animates_frames():
     from app.gif import gif_frames
     from app.presets import Preset

@@ -3,11 +3,23 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- MP4 Canvas-exacto (R5): `mp4_dims` siempre par + `macro_block_size=2` en
+  ambos writers — 1080x1920 sale 1080x1920 (era 1088x1920), 404x720 intacto,
+  721x721 -> 720x720.
+- MP4 faststart (R6): `-movflags +faststart` en `write_mp4`/`write_mp4_iter`
+  (moov antes que mdat, playback progresivo).
 - Morph loop closure: new `dissolve_loop` preset field + MORPH "Loop (last → first)" checkbox (default ON); the last form morphs back into the first (byte-identical joint), A's hold split across both loop ends; ping-pong skipped when the loop is closed.
 - Equal holds: Length pad shared across every form (≤1 frame apart) instead of all-to-last; per-joint hold lists end-to-end (engine + GIF + streaming + labels).
 - Honest MP4 weight: MP4 size selector (Canvas/1080p/720p, default 1080p; stills stay full-doc) + content-aware estimate (transitions ~0.43 B/px, holds ~0.011 B/px, calibrated) + heavy-file hints.
 - Export dialog fix: animation spec always comes from the live VIDEO section, never stale prefs (morph leaked into mix exports); session chain gated by mode in export + preview.
 - Length 0.5–60s via MP4 streaming (up to 3600f, O(1) RAM); GIF/preview stay capped at 256f with honest labels.
+- Hold-manda: clip total = transitions + holds (no Length pad); Length is now a derived readout (read-only spin); `dissolve_length` kept as ignored compat; holds only yield to the frame cap.
+- Canvas delivery (R1+R2+R3): bundled `CANVAS_916` (9:16 1080x1920, dissolve 64f/30fps/Hold 2.7 = 7.53s loop); Canvas check hints (duration label for 3–8s, export dialog for 720p/1080p); ♫ BPM/Bars row solves Hold for the beat grid (`hold_for_target`).
+- Social recipes (R4): bundled `YT_THUMB` (16:9 1280x720), `SQUARE_11` (1:1 1080x1080), `PORTRAIT_45` (4:5 1080x1350); master = `CANVAS_916`.
+- Animated WebP (R7): `save_webp()` mirrors the GIF frames (full color, ~1/3 weight) to `{base}_anim.webp`; dialog checkbox with plan + collision cover; dialog-only like MP4.
+- Honest GIF/WebP weight (R8): hold-collapse-aware estimates (transitions full cost + 1 frame per still form; measured 12.7x→3.8x over on real 480p dither).
+- Ink separations (R9): one PNG per palette ink + corner registration marks (`{base}_sep_{NN}_{RRGGBB}.png`, dialog-only, pairs with Vector Pro black-ink).
+- Headless CLI (R10): `TRAKKART.exe --cli --preset X --in ... --out ...` (file/folder, batch bundle, skip-existing, exit 0/1/2, Qt-free; MP4/WebP/seps stay dialog-only).
 
 ## v1.0.1
 - New icon: 05_bayer_dots (TRAKK SUITE dark + amber).

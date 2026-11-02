@@ -85,6 +85,43 @@ def test_bundled_dissolve_presets():
         dust.validate()
 
 
+def test_bundled_canvas_recipe():
+    # R1: 9:16 + 1080x1920 + ~7.5s dissolve loop (Spotify Canvas shaped).
+    import tempfile
+    from pathlib import Path
+
+    from app.gif import plan_dissolve
+
+    with tempfile.TemporaryDirectory() as d:
+        ensure_bundled(Path(d))
+        p = load_preset("CANVAS_916", Path(d))
+        p.validate()
+        assert (p.ratio, p.export_size) == ("9:16", 1920)
+        from app.canvas import doc_dimensions
+
+        assert doc_dimensions(p.ratio, p.export_size, p.canvas_w, p.canvas_h) == (1080, 1920)
+        assert (p.gif_mode, p.gif_frames, p.gif_fps) == ("dissolve", 64, 30)
+        plan = plan_dissolve(p.gif_frames, 1, p.gif_fps, p.dissolve_hold, None)
+        assert 3.0 <= plan["actual_s"] <= 7.9
+
+
+def test_bundled_social_recipes():
+    # R4: still-image delivery canvases resolve exact social dims.
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as d:
+        ensure_bundled(Path(d))
+        from app.canvas import doc_dimensions
+
+        for name, dims in (("YT_THUMB", (1280, 720)),
+                           ("SQUARE_11", (1080, 1080)),
+                           ("PORTRAIT_45", (1080, 1350))):
+            p = load_preset(name, Path(d))
+            p.validate()
+            assert doc_dimensions(p.ratio, p.export_size, p.canvas_w, p.canvas_h) == dims
+
+
 def test_roundtrip_extended_fields(pdir: Path):
     p = Preset(name="Full", method="bayer8", palette="EMBER", pixel_size=3, threshold=150,
                brightness=1.2, contrast=0.9, saturation=1.3,

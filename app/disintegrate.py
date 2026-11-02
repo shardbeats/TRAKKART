@@ -136,8 +136,8 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   hold_start: int = 0, hold_end: int = 0):
     """Yield dissolve frames one by one (streaming: O(1) RAM).
 
-    Same pixels as dissolve_frames(), no list kept alive. Lets MP4 honor
-    Length up to 60s (3600f) without the 256-frame list cap blowing RAM.
+    Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
+    long clips (up to 3600f) without the 256-frame list cap blowing RAM.
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 

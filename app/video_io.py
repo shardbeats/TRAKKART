@@ -54,7 +54,9 @@ def write_mp4(frames: list[Image.Image], path: str | Path, fps: int = 24) -> Pat
     fps = max(MIN_MP4_FPS, min(MAX_MP4_FPS, int(fps)))
     arr = [np.asarray(f.convert("RGB"), dtype=np.uint8) for f in frames]
     iio.imwrite(str(out), arr, fps=fps, codec="libx264", quality=8,
-                ffmpeg_params=["-pix_fmt", "yuv420p"])
+                macro_block_size=2,
+                ffmpeg_params=["-pix_fmt", "yuv420p",
+                               "-movflags", "+faststart"])
     return out
 
 
@@ -62,8 +64,8 @@ def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24) -> tuple[Path, i
     """Stream frames to MP4 without holding the list in RAM (O(1) memory).
 
     `frame_iter` yields PIL images. Returns (path, n_written). Lets
-    dissolve/morph honor Length 0.5-60s (up to 3600f) on full-doc canvas:
-    60s @ 3000px would need ~38GB as a list, ~27MB streaming.
+    long hold-heavy dissolve/morph clips export on full-doc canvas:
+    3600 frames stream at ~27MB where a list would need ~38GB at 3000px.
     """
     _require_video()
     import imageio.v2 as iio2
@@ -74,7 +76,9 @@ def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24) -> tuple[Path, i
     fps = max(MIN_MP4_FPS, min(MAX_MP4_FPS, int(fps)))
     n = 0
     writer = iio2.get_writer(str(out), fps=fps, codec="libx264", quality=8,
-                             ffmpeg_params=["-pix_fmt", "yuv420p"])
+                             macro_block_size=2,
+                             ffmpeg_params=["-pix_fmt", "yuv420p",
+                                            "-movflags", "+faststart"])
     try:
         for frame in frame_iter:
             if frame is None:

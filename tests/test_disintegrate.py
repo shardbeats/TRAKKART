@@ -191,22 +191,37 @@ def test_hold_freezes_every_chain_form():
     assert runs == 1 + 2 + 1
 
 
-def test_pad_honors_sacred_total():
+def test_hold_adds_time_no_pad():
+    # Hold-manda: Length is derived, never padded. Hold adds still frames.
     from app.gif import gif_dissolve_frames, gif_morph_frames
     from app.presets import Preset
 
     p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
                dissolve_hold=1.0, gif_fps=8, dissolve_length=5.0)
     g = gif_dissolve_frames(_img(), p, frames=4)
-    assert len(g) == 40  # 5s @ 8fps padded with assembled end frames
+    assert len(g) == 20  # 4 trans + 8 + 8 holds; Length ignored, not 40
     assert tuple(g[0].get_flattened_data()) == tuple(g[-1].get_flattened_data())
     b = Image.new("RGB", (64, 64), (10, 200, 90))
     m = gif_morph_frames(_img(), b, p, frames=4)
-    assert len(m) == 40
-    # Pad capped at 256 even for absurd targets.
+    assert len(m) == 20
+    # Absurd holds are trimmed at the 256 cap (transitions win).
     big = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
-                 dissolve_hold=0.0, gif_fps=60, dissolve_length=32.0)
-    assert len(gif_dissolve_frames(_img(), big, frames=4)) == 256
+                 dissolve_hold=3.0, gif_fps=60, dissolve_length=32.0)
+    assert len(gif_dissolve_frames(_img(), big, frames=64)) == 256
+
+
+def test_hold_slider_is_alive():
+    # Hilo (1): Hold 0.0/1.0/3.0 rendered identical clips under a sacred
+    # Length. Now every tick adds still frames.
+    from app.gif import gif_dissolve_frames
+    from app.presets import Preset
+
+    totals = []
+    for hold in (0.0, 1.0, 3.0):
+        p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
+                   dissolve_hold=hold, gif_fps=8, dissolve_length=5.0)
+        totals.append(len(gif_dissolve_frames(_img(), p, frames=4)))
+    assert totals == [4, 20, 52]
 
 
 def test_morph_chain_odd_canvas_uneven_pixel():
@@ -260,23 +275,38 @@ def test_morph_a_uses_canvas_framing():
     assert tuple(f[0].get_flattened_data()) != tuple(raw[0].convert("RGB").get_flattened_data())
 
 
-def test_length_60s_mp4_streams_full_gif_stays_capped():
+def test_hold_caps_gif_streams_mp4():
     from app.gif import (MAX_MP4_FRAMES, MAX_TOTAL_FRAMES, iter_dissolve_frames,
                          plan_dissolve)
     from app.presets import Preset
 
     p = Preset(name="t", method="bayer8", palette="BW", gif_size=64,
-               dissolve_hold=1.0, gif_fps=30, dissolve_length=60.0)
-    gif_plan = plan_dissolve(6, 1, 30, 1.0, 60.0)
+               dissolve_hold=3.0, gif_fps=60, dissolve_length=60.0)
+    gif_plan = plan_dissolve(64, 1, 60, 3.0, 60.0)
     assert gif_plan["total"] == MAX_TOTAL_FRAMES
     assert gif_plan["capped"] is True
-    mp4_plan = plan_dissolve(6, 1, 30, 1.0, 60.0, cap=MAX_MP4_FRAMES)
-    assert mp4_plan["total"] == 1800
-    assert abs(mp4_plan["actual_s"] - 60.0) < 0.01
+    # dissolve_length is ignored: explicit target behaves like None.
+    assert plan_dissolve(64, 1, 60, 3.0, None) == gif_plan
+    mp4_plan = plan_dissolve(64, 1, 60, 3.0, None, cap=MAX_MP4_FRAMES)
+    assert mp4_plan["total"] == 64 + 360
     assert mp4_plan["capped"] is False
-    # Streaming yields the full 60s without building the list (O(1) RAM).
-    n = sum(1 for _ in iter_dissolve_frames(_img(), p, frames=6, cap=MAX_MP4_FRAMES))
-    assert n == 1800
+    # Streaming yields the full hold-heavy clip without the list (O(1) RAM).
+    n = sum(1 for _ in iter_dissolve_frames(_img(), p, frames=64, cap=MAX_MP4_FRAMES))
+    assert n == 424
+
+
+def test_hold_for_target_solves_bpm_grid():
+    # R3: target = bars*240/bpm lands on Hold; caps and overshoots report fits.
+    from app.gif import hold_for_target
+
+    hold, actual, fits = hold_for_target(64, 1, 30, 7.5)
+    assert (round(hold, 2), round(actual, 2), fits) == (2.7, 7.53, True)
+    hold, actual, fits = hold_for_target(64, 1, 30, 60.0)
+    assert hold == 3.0 and fits is False  # Hold clamps: add Frames/chain
+    hold, actual, fits = hold_for_target(64, 1, 30, 0.5)
+    assert hold == 0.0 and fits is False  # transitions alone overshoot
+    hold, actual, fits = hold_for_target(6, 1, 24, 4.0)
+    assert abs(actual - 4.0) < 0.01 and fits is True
 
 
 def test_morph_hold_shared_across_forms():
@@ -290,7 +320,7 @@ def test_morph_hold_shared_across_forms():
                dissolve_hold=1.0, gif_fps=24, dissolve_length=5.0,
                dissolve_loop=False)
     plan = plan_dissolve(6, 2, 24, 1.0, 5.0)
-    assert plan["total"] == 120
+    assert plan["total"] == 78  # 6 trans + 24 x 3 holds; Length ignored
     assert max(plan["holds"]) - min(plan["holds"]) <= 1
     assert sum(plan["holds"]) + plan["n_trans"] == plan["total"]
     frames = gif_morph_frames(a, [b, c], p, frames=6)
@@ -324,7 +354,7 @@ def test_morph_loop_closes_last_to_first():
                dissolve_hold=1.0, gif_fps=24, dissolve_length=5.0,
                dissolve_loop=True)
     plan = plan_dissolve(9, 2, 24, 1.0, 5.0, loop=True)
-    assert plan["total"] == 120
+    assert plan["total"] == 81  # 9 trans + 24 x 3 holds; Length ignored
     assert len(plan["holds"]) == 4  # A-open, B, C, A-close
     assert plan["holds"][0] + plan["holds"][-1] == plan["holds"][1]
     assert sum(plan["holds"]) + plan["n_trans"] == plan["total"]

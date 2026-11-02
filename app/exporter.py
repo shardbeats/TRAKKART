@@ -43,6 +43,15 @@ def mp4_name(base: str) -> str:
     return f"{base}{MP4_SUFFIX}"
 
 
+# Animated WebP (R7): same frames as the GIF, ~1/3 the weight.
+WEBP_SUFFIX = "_anim.webp"
+
+
+def webp_name(base: str) -> str:
+    """`{base}_anim.webp` (same frames as the GIF)."""
+    return f"{base}{WEBP_SUFFIX}"
+
+
 _FORMAT_EXT = {"png": "png", "jpg": "jpg", "webp": "webp"}
 
 
@@ -157,7 +166,12 @@ def _estimate_bytes(key: str, w: int, h: int, fmt: str, quality: int, extra: dic
         return estimate_bytes(cols, rows)
     if key == "anim":
         n = max(1, int(extra.get("gif_frames", 1)))
-        return int(w * h * 0.5 * n)
+        t = extra.get("gif_trans", None)
+        f = extra.get("gif_forms", None)
+        if t is None or f is None:
+            return int(w * h * 0.5 * n)
+        # R8 hold-collapse aware: transitions full cost + 1 frame per form.
+        return int(w * h * 0.5 * max(0, int(t))) + int(w * h * 0.5 * max(0, int(f)))
     if key == "metadata":
         return 2048
     return 0

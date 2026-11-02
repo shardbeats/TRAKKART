@@ -48,17 +48,23 @@ def export_full(
     mp4: bool = False,
     mp4_fps: int | None = None,
     mp4_size: str | int | None = None,
+    webp: bool = False,
+    sep: bool = False,
     morph_src: Image.Image | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
-    """Render, generate SVG/GIF/MP4 on request, write bundle and log.
+    """Render, generate SVG/GIF/MP4/WebP/separations on request, write bundle and log.
 
     Returns (written paths, keys skipped). Without `selection` it equals
     the classic full bundle. size/format/quality override the preset
     (chosen by the dialog); None = preset value.
-    MP4 is written as an extra `{base}_anim.mp4` file outside the bundle
+    MP4 is written as an extra `{base}_vid.mp4` file outside the bundle
     (single-export; batch keeps the GIF route). Stills stay full-doc;
     MP4 renders at `mp4_size` (Canvas/1080p/720p, default 1080p) so a
     3000px doc at 60fps doesn't ship hundreds of MB.
+    WebP is written as an extra `{base}_anim.webp` with the same frames
+    as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
+    Separations write one `{base}_sep_{NN}_{RRGGBB}.png` plate per
+    palette ink (RISO/screen print) + registration marks. Dialog-only.
     """
     from app.vector import estimate_cells
 
@@ -70,6 +76,8 @@ def export_full(
     want_vector = bool(sel.vector)
     want_gif = bool(sel.anim)
     want_mp4 = bool(mp4)
+    want_webp = bool(webp)
+    want_sep = bool(sep)
     res = render_full(src, preset)
 
     svg = None
@@ -98,7 +106,7 @@ def export_full(
                   else getattr(preset, "gif_pingpong", False))
     mp4_stream_info: dict | None = None
     mp4_size_eff = str(mp4_size) if mp4_size not in (None, "") else "1080p"
-    if want_gif or want_mp4:
+    if want_gif or want_mp4 or want_webp:
         from app.gif import gif_frames as _gif_frames  # alias: no shadowing of the parameter
 
         # GIF (and short MP4s) keep the capped list path (<=256f, ping-pong
@@ -121,13 +129,12 @@ def export_full(
                 segs = max(1, len(chain)) if chain else 1
             loop_eff = bool(getattr(preset, "dissolve_loop", False)) if mode_eff == "morph" else False
             hold = float(getattr(preset, "dissolve_hold", 0.0) or 0.0)
-            target = float(getattr(preset, "dissolve_length", 0.0) or 0.0)
+            # Hold-manda: no Length target (derived total = trans + holds).
             plan_mp4 = plan_dissolve(n_req, segs, int(fps), hold,
-                                     target if target > 0 else None,
-                                     cap=MAX_MP4_FRAMES, loop=loop_eff)
+                                     None, cap=MAX_MP4_FRAMES, loop=loop_eff)
             if int(plan_mp4["total"]) > int(MAX_TOTAL_FRAMES):
-                # Long clip: GIF keeps its capped list; MP4 streams full
-                # Length forward-only (ping-pong a 3600f list = 7k frames in
+                # Long clip: GIF keeps its capped list; MP4 streams the full
+                # clip forward-only (ping-pong a 3600f list = 7k frames in
                 # RAM, so it is intentionally off here).
                 from app.gif import mp4_dims
 
@@ -201,6 +208,41 @@ def export_full(
                               for f in shrunk]
                 write_mp4(shrunk, mp4_path, fps=mp4_fps_eff)
             paths["video"] = mp4_path
+    if want_webp and frames:
+        from app.exporter import WEBP_SUFFIX, webp_name as _webp_name
+        from app.gif import save_webp
+
+        webp_path = Path(out_dir) / _webp_name(options.base)
+        if overwrite == "skip" and webp_path.exists():
+            skipped = [*skipped, "webp"]
+        else:
+            if overwrite == "rename":
+                i = 2
+                while webp_path.exists():
+                    webp_path = Path(out_dir) / f"{options.base}_{i}{WEBP_SUFFIX}"
+                    i += 1
+            save_webp(frames, webp_path, fps=fps)
+            paths["webp"] = webp_path
+    if want_sep:
+        from app.separations import (add_registration_marks,
+                                     effective_palette, sep_name,
+                                     separation_plates)
+
+        colors = effective_palette(preset, res)
+        plates = separation_plates(res, colors)
+        for i, (hexcode, plate) in enumerate(plates):
+            sep_path = Path(out_dir) / sep_name(options.base, i, hexcode)
+            if overwrite == "skip" and sep_path.exists():
+                skipped = [*skipped, f"sep_{hexcode}"]
+                continue
+            if overwrite == "rename":
+                stem = f"{options.base}_sep_{i + 1:02d}_{hexcode}"
+                j = 2
+                while sep_path.exists():
+                    sep_path = Path(out_dir) / f"{stem}_{j}.png"
+                    j += 1
+            add_registration_marks(plate).save(str(sep_path))
+            paths[f"sep_{hexcode}"] = sep_path
     if store is not None and paths:
         try:
             store.log_export(options.base, preset_name, preset.meta(),

@@ -83,7 +83,7 @@ def fps_changed(win) -> None:
     except Exception:  # noqa: BLE001
         mode = ""
     if mode in ("dissolve", "morph"):
-        # Holds/pads are baked per fps: re-render to keep the sacred total.
+        # Holds are baked per fps: re-render so Hold keeps meaning time.
         try:
             win._schedule_refresh()
             return
@@ -95,9 +95,9 @@ def fps_changed(win) -> None:
 
 
 def duration_seconds(win) -> float:
-    """Sacred total clip length (Length spin, seconds)."""
+    """Derived total clip length (Length readout, seconds)."""
     try:
-        return max(0.5, min(60.0, float(win.spn_duration.value())))
+        return max(0.0, float(win.spn_duration.value()))
     except Exception:  # noqa: BLE001
         return 5.0
 
@@ -107,6 +107,8 @@ def planned_total(win) -> dict:
 
     Returns dict(n_trans, hs, he, pad, total, capped, actual_s, target_s,
     fps, segs, particle). Non-particle modes report plain frames/fps.
+    Particle modes derive Length = (transitions + holds) / fps
+    (Hold-manda: target_s mirrors actual_s, no sacred target).
     """
     from app.gif import plan_dissolve
 
@@ -118,10 +120,9 @@ def planned_total(win) -> dict:
         n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 64))
         fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
         hold = max(0.0, min(3.0, float(win.sld_dissolve_hold.value()) / 10.0))
-        target = max(0.5, min(60.0, float(win.spn_duration.value())))
     except Exception:  # noqa: BLE001
         return {"n_trans": 6, "hs": 0, "he": 0, "pad": 0, "total": 6,
-                "capped": False, "actual_s": 1.0, "target_s": 5.0,
+                "capped": False, "actual_s": 1.0, "target_s": 1.0,
                 "fps": 8, "segs": 1, "particle": False}
     if mode not in ("dissolve", "morph"):
         return {"n_trans": n_req, "hs": 0, "he": 0, "pad": 0, "total": n_req,
@@ -137,25 +138,71 @@ def planned_total(win) -> dict:
         loop = bool(win.chk_morph_loop.isChecked())
     except Exception:  # noqa: BLE001
         loop = True if mode == "morph" else False
-    plan = plan_dissolve(n_req, segs, fps, hold, target, loop=loop if mode == "morph" else False)
+    plan = plan_dissolve(n_req, segs, fps, hold, None, loop=loop if mode == "morph" else False)
     legs = segs + (1 if (loop and mode == "morph") else 0)
-    plan.update({"target_s": target, "fps": fps, "segs": segs, "legs": legs, "particle": True})
+    actual = float(plan["total"]) / max(1, fps)
+    plan.update({"target_s": actual, "fps": fps, "segs": segs, "legs": legs, "particle": True})
     return plan
 
 
 def duration_changed(win) -> None:
-    """Length spin edited: target total changed, just re-render."""
+    """Length readout touched (read-only): just re-sync, no re-render."""
     sync_duration_ui(win)
+
+
+def apply_bpm(win) -> None:
+    """R3: BPM + bars -> Hold so the derived total lands on the beat grid.
+
+    Target Length = bars * 240 / bpm (4/4 time). The loop will not start
+    on a downbeat (the store loops on its own clock) but the inner pulse
+    matches the theme. Dissolve/morph only; Hold caps at 3.0s.
+    """
     try:
-        win._schedule_refresh()
+        from app.gif import hold_for_target
+
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        return
+    if mode not in ("dissolve", "morph"):
+        try:
+            win._status("♫ BPM needs dissolve/morph mode")
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    try:
+        bpm = max(40, min(250, int(win.spn_bpm.value())))
+        bars = max(1, min(16, int(win.spn_bars.value())))
+        plan = planned_total(win)
+    except Exception:  # noqa: BLE001
+        return
+    target = bars * 240.0 / max(1, bpm)
+    hold, actual, fits = hold_for_target(
+        plan["n_trans"], plan["segs"], plan["fps"], target,
+        loop=bool(plan.get("loop", False)))
+    try:
+        win.sld_dissolve_hold.setValue(int(round(hold * 10.0)))
+    except Exception:  # noqa: BLE001
+        pass
+    msg = f"♫ {bpm}BPM x{bars} = {target:.2f}s → Hold {hold:.1f}s (= {actual:.1f}s)"
+    if not fits:
+        msg += " — short: add Frames/chain or lower FPS"
+    try:
+        win._status(msg)
     except Exception:  # noqa: BLE001
         pass
 
 
 def sync_duration_ui(win) -> None:
-    """Refresh the duration label: sacred target vs actual built total."""
+    """Refresh the duration label + Length readout (both derived)."""
     try:
         plan = planned_total(win)
+        try:
+            spin = win.spn_duration
+            spin.blockSignals(True)
+            spin.setValue(round(plan["total"] / max(1, plan["fps"]), 1))
+            spin.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
         n_eff = plan["total"]
         pp = bool(win.chk_video_pingpong.isChecked())
         if pp and n_eff > 2 and not bool(plan.get("loop", False)):
@@ -164,10 +211,9 @@ def sync_duration_ui(win) -> None:
         fps = plan["fps"]
         if plan["particle"]:
             actual = n_eff / max(1, fps)
-            target = plan["target_s"]
-            if abs(actual - target) < 0.05 and not plan["capped"]:
+            if not plan["capped"]:
                 text = f"= {actual:.1f}s total"
-            elif plan["capped"]:
+            else:
                 try:
                     from app.gif import MAX_MP4_FRAMES, plan_dissolve as _plan2
 
@@ -180,21 +226,27 @@ def sync_duration_ui(win) -> None:
                     except Exception:  # noqa: BLE001
                         loop_m = False
                     mp4_plan = _plan2(plan["n_trans"], plan["segs"], fps,
-                                      hold_s, target, cap=MAX_MP4_FRAMES,
+                                      hold_s, None, cap=MAX_MP4_FRAMES,
                                       loop=loop_m)
                     mp4_s = float(mp4_plan["actual_s"])
                 except Exception:  # noqa: BLE001
-                    mp4_s = target
-                text = (f"= {actual:.1f}s preview/GIF (target {target:.1f}s — GIF capped "
+                    mp4_s = actual
+                text = (f"= {actual:.1f}s preview/GIF (holds trimmed "
                         f"at {plan['cap']}f · MP4 exports full ~{mp4_s:.1f}s)")
-            else:
-                text = f"= {actual:.1f}s total (target {target:.1f}s — content overflows, raise Length)"
             try:
                 holds_total = sum(plan.get("holds", [])) if plan.get("holds") else (plan["hs"] + plan["he"])
             except Exception:  # noqa: BLE001
                 holds_total = plan["hs"] + plan["he"]
             if holds_total > 0:
                 text += f" · {holds_total / max(1, fps):.1f}s hold"
+            try:
+                from app.ui import params_controller as _par2
+
+                is_916 = str(_par2.ratio_value_of(win)) == "9:16"
+            except Exception:  # noqa: BLE001
+                is_916 = False
+            if is_916 and (actual < 3.0 or actual > 8.0):
+                text += " · Canvas wants 3–8s (Hold/FPS/Frames)"
         else:
             secs = plan["actual_s"]
             text = f"= {secs:.1f}s loop"
@@ -237,16 +289,26 @@ def sync_duration_ui(win) -> None:
                 per_seg = plan["n_trans"] / max(1, legs)
                 if per_seg < 8 or per_seg / max(1, plan["fps"]) < 0.8:
                     text += (f" · {per_seg:.0f}f/{per_seg / max(1, plan['fps']):.1f}s per form"
-                             " — raise Length for slower morphs")
+                             " — raise Hold or Frames for slower morphs")
             except Exception:  # noqa: BLE001
                 pass
         # Weight estimate at document size (export cost, not proxy).
+        # R8 hold-collapse aware: transitions full cost + 1 frame per form
+        # (mirrored ping-pong duplicates fuse, so n_eff is NOT doubled).
         try:
             from app.gif import estimate_gif
             from app.ui import params_controller as _par
 
+            try:
+                vmode = str(win.cmb_video_mode.currentText())
+            except Exception:  # noqa: BLE001
+                vmode = ""
+            if plan.get("particle") and vmode in ("dissolve", "morph"):
+                forms = int(plan.get("segs", 1)) + 1
+            else:
+                forms = 0
             w, h = _par.doc_dims(win)
-            weight_mb = estimate_gif(n_eff, w, h) / 1_000_000.0
+            weight_mb = estimate_gif(plan["n_trans"], w, h, forms) / 1_000_000.0
             if plan.get("actual_s", 0) > 4.0 or weight_mb > 25.0:
                 text += f" · ~{weight_mb:.0f}MB GIF est. · prefer MP4"
             elif weight_mb > 10.0:

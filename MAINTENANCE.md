@@ -32,6 +32,7 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 ```
 main.py                  :: entry
 app/__init__.py          :: version
+app/cli.py               :: headless --cli (no Qt): preset over file/folder, exit 0/1/2
 app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert + cmyk/ascii/edges/motif (36 methods)
 app/kernels.py           :: COEFFS (11 kernels) + diffuse_* (numpy/numba) + Hilbert order/diffusion
 app/ordered_maps.py      :: ordered threshold maps
@@ -65,6 +66,7 @@ app/names.py             :: filename sanitizers (single home)
 app/recent.py            :: recent files (capped, prefs-backed)
 app/vector.py            :: grid re-render + RLE + SVG
 app/gif.py               :: GIF modes phase/hue/both/glitch/mix (2-24f, 2-60fps, Pillow only)
+app/separations.py       :: RISO/screen spot plates (nearest-color + register marks + effective palette)
 app/video_io.py          :: MP4 backend (imageio-ffmpeg, ships in the bundle)
 app/viewport.py          :: Full/Live/Still modes + fast/slow debounce
 app/tutorial.py          :: tour steps + offline sample pack

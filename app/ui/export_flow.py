@@ -98,7 +98,9 @@ def export(win, quick: bool = False) -> None:
         options, out_dir, gopts = dlg.options()
         dlg.deleteLater()
         choice = resolve_collision(win, out_dir, options,
-                                   want_mp4=bool(gopts.get("mp4", False)))
+                                   want_mp4=bool(gopts.get("mp4", False)),
+                                   want_webp=bool(gopts.get("webp", False)),
+                                   want_sep=bool(gopts.get("sep", False)))
         if choice is None:
             win._status("Export cancelled")
             return
@@ -108,6 +110,8 @@ def export(win, quick: bool = False) -> None:
             size=options.size, format=options.format, quality=options.quality,
             mp4=bool(gopts.get("mp4", False)),
             mp4_size=str(gopts.get("mp4_size", "1080p")),
+            webp=bool(gopts.get("webp", False)),
+            sep=bool(gopts.get("sep", False)),
         )
         save_prefs(ExportPrefs(
             out_dir=str(out_dir), base=options.base,
@@ -127,7 +131,8 @@ def export(win, quick: bool = False) -> None:
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
 
 
-def resolve_collision(win, out_dir, options, want_mp4: bool = False) -> str | None:
+def resolve_collision(win, out_dir, options, want_mp4: bool = False,
+                      want_webp: bool = False, want_sep: bool = False) -> str | None:
     """Post-accept collision check: "overwrite" | "rename" | None (cancel).
 
     No collision -> "rename" without asking (rename of a free base is a
@@ -136,13 +141,22 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False) -> str | No
     """
     from pathlib import Path
 
-    from app.exporter import _unique_base, bundle_filenames, mp4_name
+    from app.exporter import _unique_base, bundle_filenames, mp4_name, webp_name
 
     out_dir = Path(out_dir)
     sel = options.selection
     names = bundle_filenames(options, has_vector=bool(sel.vector), has_gif=bool(sel.anim))
     if want_mp4:
         names["video"] = mp4_name(options.base)
+    if want_webp:
+        names["webp"] = webp_name(options.base)
+    if want_sep:
+        # Plate hexes need the render; glob the family's exact files.
+        try:
+            for i, p in enumerate(sorted(out_dir.glob(f"{options.base}_sep_*.png"))):
+                names[f"sep{i}"] = p.name
+        except OSError:
+            pass
     try:
         existing = [f for f in names.values() if (out_dir / f).exists()]
     except OSError:
@@ -238,9 +252,11 @@ def morph_src_for_mode(win, mode: str) -> list | None:
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
                quality: int, mp4: bool = False,
-               mp4_size: str = "1080p") -> None:
-    """Render full-res + bundle (+MP4) per options. Stills always full-res;
-    MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs."""
+               mp4_size: str = "1080p", webp: bool = False,
+               sep: bool = False) -> None:
+    """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
+    MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
+    WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink."""
     from dataclasses import replace
     from pathlib import Path
 
@@ -266,6 +282,8 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
             mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
             mp4_size=str(go.get("mp4_size", mp4_size)),
+            webp=bool(webp),
+            sep=bool(sep),
             morph_src=morph_src_for_mode(win, mode_go),
         )
     except VideoBackendMissing as e:

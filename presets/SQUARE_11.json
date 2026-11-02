@@ -1,0 +1,9 @@
+{
+  "name": "SQUARE_11",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "ratio": "1:1",
+  "export_size": 1080
+}

@@ -14,16 +14,13 @@
   (limpio). Venv: `.venv` local o `C:\venvs\dev` (CENTRAL_VEN). CI usa
   `QT_QPA_PLATFORM=offscreen`; pin `pytest<9.2` por pytest-bdd (ver
   MAINTENANCE.md: no levantar sin upgrade de pytest-bdd).
-- Hilos abiertos: (1) Hold slider muerto cuando Length domina (medido:
-  0.0/1.0/3.0 idénticos): opciones (a) Hold manda + Length derivado,
-  (b) Length sagrada pero crecen transiciones antes que holds. SIN DECIDIR,
-  no tocar modelo hasta que el usuario elija. (2) Loop default True solo
-  afecta con chain en sesión; tests al día. (3) R5 sin corregir.
-- Siguiente paso recomendado: **R5+R6** (bug real + gratis):
-  `macro_block_size=2` + even-guard en `mp4_dims` (`app/gif.py`) +
-  `-movflags +faststart` en `write_mp4`/`write_mp4_iter` (`app/video_io.py`);
-  test: MP4 pedido 1080x1920 debe salir 1080x1920 (hoy sale 1088x1920) y
-  721x721 par, no 736x736. Después: R1+R2+R3 (Canvas) o morph F1 (§7.7).
+- Hilos abiertos: (1) Hold slider muerto cuando Length domina — RESUELTO con
+  Hold-manda: total = transiciones + holds, Length derivada (readout, no
+  spin); `dissolve_length` queda como compat ignorada. (2) Loop default True solo
+  afecta con chain en sesión; tests al día. (3) R5+R6 hechos. (4) R1+R2+R3
+  hechos (CANVAS_916 + Canvas check + BPM->Hold).
+- Siguiente paso recomendado: **R7 (WebP) o R9 (separaciones)** según tiren
+  más social o print; o morph F1 (§7.7).
 
 ## 1. Vision
 
@@ -315,6 +312,8 @@ frames/fps son calidad.
 ### v1.15 — Loop cerrado + holds iguales + MP4 honesto + diálogo vivo (done)
 - Loop: `dissolve_loop` (preset, default True) + checkbox MORPH "Loop (last → first)"; pierna de cierre con still/coords exactos de A (joint byte-idéntico); holds: reparto igual por forma con A partida en apertura/cierre; ping-pong se omite con loop cerrado; presupuesto/budget/hints cuentan la pierna extra.
 - MP4: streaming hasta 60s (3600f, O(1) RAM), tamaño MP4 Canvas/1080p/720p (default 1080p, stills full-doc), estima por contenido (trans 0.43 / hold 0.011 B/px, calibrada con x264) + avisos >100/400MB.
+- R5+R6: `mp4_dims` siempre par + `macro_block_size=2` (1080x1920 exacto, 721→720) + `-movflags +faststart` en ambos writers.
+- Hold-manda: total = transiciones + holds (sin pad a Length); Length pasa a readout derivado (spin read-only); `dissolve_length` queda como compat ignorada; holds solo ceden ante el cap (transiciones mandan).
 - Holds iguales: el pad de Length se reparte entre todas las formas (≤1f de diferencia) en vez de ir todo a la última; `hold_joint` acepta lista por tramo de punta a punta.
 - Export: spec animada siempre del preset vivo (las prefs rancias ya no hacen bypass: morph se colaba en exports mix); chain de sesión solo alimenta dissolve/morph (export + preview).
 - Tests nuevos: loop abre/cierra en A, reparto de holds, estima MP4, diálogo vivo vs prefs rancias, gate por modo (+7).
@@ -395,8 +394,8 @@ form appears at least assembled), joints meet assembled (q=j/(nk-1)).
 - dissolve_mode wind | random: directional + turbulence vs all directions.
 - dissolve_speed 0.25-4.0 (1): traversals per clip.
 - dissolve_wind_x/y -500..500 px (120, -40): displacement at full disperse.
-- dissolve_hold 0-3s (1.0): still pause per form (assembled duplicates, Length pad shared equally across all forms).
-- dissolve_length 0.5-60s (default 5.0): sacred total; plan_dissolve pads with end duplicates to honor it (GIF/preview cap 256 frames, MP4 streams full Length up to 3600f via write_mp4_iter).
+- dissolve_hold 0-3s (1.0): still pause per form (assembled duplicates, shared equally across all forms). Every tick adds time: total = transitions + holds.
+- dissolve_length: legacy request, IGNORED since Hold-manda (kept for preset compat); Length is derived = total / fps, shown as readout.
 - dissolve_loop true (default): closed loop, last form morphs back into A; A's share split across both loop ends; ping-pong ignored when closed.
 - Chain: playlist order = play order; per-image Crop X/Y 0-100 + Zoom 1-4x
   (session-only, covers B..F; A comes from the canvas).
@@ -533,48 +532,81 @@ guías de specs sep/oct-2026 (Reels/Stories/TikTok/Shorts = 1080x1920 9:16;
 YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas con
 chrome arriba/abajo ~250px).
 
-- [ ] R1 — Canvas recipe preset: 9:16 + 1080x1920 + 24/30fps + Length 7.5s
+- [x] R1 — Canvas recipe preset: 9:16 + 1080x1920 + 24/30fps + Length 7.5s
   (H.264 + faststart). A 8.000 exactos hay reportes de rechazo: apuntar
   ≤7.9s. Nuestros 3 modos ya mapean 1:1 con la taxonomía Spotify
   (Continuous=loop, Rebound=ping-pong, Hard Cut=loop off). Coste S.
-- [ ] R2 — "Canvas check": si ratio 9:16 y (Length fuera de 3-8s o MP4 size
+  Done (Hold-manda era): `CANVAS_916` bundled (9:16, export 1920,
+  dissolve 64f/30fps/Hold 2.7 → 226f = 7.53s, loop) + R5/R6 (dims exactas,
+  faststart) debajo.
+- [x] R2 — "Canvas check": si ratio 9:16 y (Length fuera de 3-8s o MP4 size
   fuera de 720p/1080p), hint en el duration label. Coste S.
-- [ ] R3 — BPM -> Length: inputs BPM + compases -> Length = bars*240/BPM
+  Done repartido por localidad de datos: duration label avisa duración
+  (ratio 9:16 + actual fuera de 3-8s); export dialog avisa tamaño
+  (9:16 + mp4_size Canvas o actual fuera de 3-8s).
+- [x] R3 — BPM -> Length: inputs BPM + compases -> Length = bars*240/BPM
   (120BPM/2 compases = 4s; 140BPM/4 compases = 6.86s). El loop no arranca
   en downbeat (Spotify loopea por su reloj) pero el pulso interno coincide
   con el tema. Coste S, encaje total con beatmakers.
-- [ ] R4 — Social recipe presets (bundled JSON): YT thumb 1280x720, square
+  Done (Hold-manda era): `hold_for_target()` resuelve Hold para el target
+  (capped 3.0s, fits honesto); VIDEO suma fila ♫ BPM/Bars + Set Hold.
+- [x] R4 — Social recipe presets (bundled JSON): YT thumb 1280x720, square
   1080x1080, portrait 4:5 1080x1350, master 9:16 1080x1920 (un master cubre
   Reels/Stories/TikTok/Shorts). Coste S.
+  Done: `YT_THUMB` (16:9/1280), `SQUARE_11` (1:1/1080),
+  `PORTRAIT_45` (4:5/1350); master = `CANVAS_916` (R1).
 
 ### 8.2 Formato/codec (medido, coste bajo)
 
-- [ ] R5 — macro_block_size=2 + even-guard en mp4_dims (BUG verificado hoy:
+- [x] R5 — macro_block_size=2 + even-guard en mp4_dims (BUG verificado hoy:
   1080x1920 -> 1088x1920, 404x720 -> 416x720; H.264/yuv420p solo exige
   múltiplos de 2). Sin esto ningún MP4 es Canvas-válido. Coste XS, hacerlo ya.
-- [ ] R6 — faststart (`-movflags +faststart`) en write_mp4/write_mp4_iter:
+  Done: `mp4_dims` redondea a par hacia abajo + `macro_block_size=2` en
+  `write_mp4`/`write_mp4_iter`; 1080x1920 sale exacto, 721x721 -> 720x720.
+- [x] R6 — faststart (`-movflags +faststart`) en write_mp4/write_mp4_iter:
   playback progresivo en web/stores, coste ~cero. Hacer con R5.
-- [ ] R7 — Animated WebP export (promueve §7.6): Pillow save_all + duration
+  Done: en ambos writers; test afirma moov antes que mdat.
+- [x] R7 — Animated WebP export (promueve §7.6): Pillow save_all + duration
   (int o lista) + loop=0 + minimize_size, sin deps nuevas, ~1/3 del GIF a
   igual calidad y full color; todos los browsers lo reproducen. Nuevo
   `save_webp()` espejo de save_gif + checkbox en diálogo + bundle
   `*_anim.webp`. Coste S/M.
-- [ ] R8 — GIF estimate v2 (hold-collapse aware): la estima actual
+  Done: `save_webp()` (full color, minimize_size, quality 80) +
+  `estimate_webp` (GIF//3) + `{base}_anim.webp` vía `webp_name()` +
+  checkbox "Animation WebP" en diálogo (plan + colisiones) + `webp=True`
+  en `export_full` (reusa los frames del GIF; dialog-only como MP4,
+  batch sigue GIF).
+- [x] R8 — GIF estimate v2 (hold-collapse aware): la estima actual
   (frames*w*h//2) miente 100-1000x en clips con holds porque Pillow
   fusiona frames idénticos. Estimar transiciones a coste completo + 1f
   por forma quieta. Coste S.
+  Done: `estimate_gif(n_trans, w, h, n_hold_forms=0)` (+ `estimate_webp`
+  espejo); migran video_controller (label, ping-pong ya no duplica),
+  diálogo GIF+WebP (plan 256f una vez) y `_estimate_bytes` (extra
+  gif_trans/gif_forms, default = forma vieja). Medido 480p real:
+  12.7x→3.8x over, misma dirección segura.
 
 ### 8.3 Print (encaja con Vector Pro)
 
-- [ ] R9 — Separaciones por tinta (RISO/serigrafía): un PNG por color de
+- [x] R9 — Separaciones por tinta (RISO/serigrafía): un PNG por color de
   paleta (spot separations) + marcas de registro. Flujo real de
   print-shops, sin OpenCV. Coste M.
+  Done: `app/separations.py` (nearest-color plates L + crosshair-in-circle
+  por esquina + `effective_palette` espejo del pipeline + `plate_count`
+  sin render); `{base}_sep_{NN}_{RRGGBB}.png` vía `export_full(sep=True)`
+  (dialog-only); diálogo con checkbox + plan + colisiones (glob exacto
+  post-accept). Pareja del flujo Vector Pro black-ink.
 
 ### 8.4 Workflow/automatización
 
-- [ ] R10 — CLI headless (`TRAKKART.exe --cli --preset X --in ... --out ...`):
+- [x] R10 — CLI headless (`TRAKKART.exe --cli --preset X --in ... --out ...`):
   sellos con 20 singles/mes lo agradecen; UI y engine ya están separados
   por servicios. Coste M.
+  Done: `app/cli.py` (`run_cli` → exit 0/1/2, `--list-presets`, file +
+  folder vía batch bundle, skip-existing, safety guard, stateless sin
+  history); `main.py` despacha `--cli` antes de importar Qt (verificado
+  sin PySide6 en intérprete fresco); MP4/WebP/seps quedan dialog-only;
+  MANUAL con sección.
 - [ ] R11 — Watch-folder (carpeta vigilada -> auto-batch con preset fijo).
   Coste M. Alternativa barata: "re-batch last folder" en 1 click (S).
 
@@ -595,8 +627,7 @@ chrome arriba/abajo ~250px).
 - IA en nube, cuentas, uploads, login, auto-update/store: rompen
   offline-first y el §6. Text layer in-app: ya se quitó en v0.14.
 
-### Recomendado (siguiente trilogía)
+### Recomendado (siguiente)
 
-1. R5+R6 (bug real + gratis) → 2. R1+R2+R3 (Canvas: el caso de uso que
-   paga el producto) → 3. R7 (WebP) o R9 (separaciones) según tiren
-   más social o print.
+1. R5+R6 HECHO + Hold-manda HECHO + R1+R2+R3 HECHO → 2. R7 (WebP) o
+   R9 (separaciones) según tiren más social o print → 3. morph F1 (§7.7).

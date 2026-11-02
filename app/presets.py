@@ -48,6 +48,16 @@ BUNDLED: dict[str, dict] = {
     "DUST_RANDOM": {"method": "floyd", "palette": "BW", "pixel_size": 2, "threshold": 128,
                     "dissolve_mode": "random", "dissolve_amount": 1.0, "dissolve_seed": 12345,
                     "dissolve_speed": 1.0},
+    "CANVAS_916": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                   "ratio": "9:16", "export_size": 1920,
+                   "gif_mode": "dissolve", "gif_frames": 64, "gif_fps": 30,
+                   "dissolve_hold": 2.7, "dissolve_loop": True},
+    "YT_THUMB": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                 "ratio": "16:9", "export_size": 1280},
+    "SQUARE_11": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                  "ratio": "1:1", "export_size": 1080},
+    "PORTRAIT_45": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                    "ratio": "4:5", "export_size": 1350},
 }
 
 
@@ -209,7 +219,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_mode", "str", ("oneof", ("wind", "random"))),
     _Field("dissolve_speed", "float", ("range", 0.25, 4.0)),
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
-    _Field("dissolve_length", "float", ("range", 0.5, 60.0)),
+    _Field("dissolve_length", "float", ("range", 0.0, 99.9)),
     _Field("dissolve_loop", "bool"),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
@@ -324,7 +334,8 @@ class Preset:
     dissolve_mode: str = "wind"  # wind | random
     dissolve_speed: float = 1.0  # traversals per clip 0.25-4.0
     dissolve_hold: float = 1.0  # still pause per end, seconds 0-3
-    dissolve_length: float = 5.0  # sacred total clip length, seconds
+    dissolve_length: float = 5.0  # legacy total-length request (compat only:
+    # Hold-manda ignores it; Length is derived = (trans + holds) / fps)
     dissolve_loop: bool = True  # morph closes the loop (last -> first, no hard cut)
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off

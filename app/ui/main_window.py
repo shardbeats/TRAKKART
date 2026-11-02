@@ -460,6 +460,11 @@ class MainWindow(QMainWindow):
 
         _vc.duration_changed(self)
 
+    def _on_bpm_apply(self) -> None:
+        from app.ui import video_controller as _vc
+
+        _vc.apply_bpm(self)
+
     def _on_video_mode_changed(self) -> None:
         from app.ui import params_controller as _par
 
@@ -1014,9 +1019,10 @@ class MainWindow(QMainWindow):
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
                     quality: int, mp4: bool = False,
-                    mp4_size: str = "1080p") -> None:
+                    mp4_size: str = "1080p", webp: bool = False,
+                    sep: bool = False) -> None:
         """Render full-res + bundle per options. Stills full-res, MP4 sized."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
-                       overwrite, size, format, quality, mp4, mp4_size)
+                       overwrite, size, format, quality, mp4, mp4_size, webp, sep)

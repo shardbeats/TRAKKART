@@ -151,6 +151,74 @@ def test_export_service_mp4(window, qt_app, tmp_path):
     assert any(str(p).endswith(".gif") for p in paths.values())
 
 
+def test_save_webp_roundtrip_and_estimate(tmp_path):
+    # R7: animated WebP mirrors the GIF frames at ~1/3 the weight.
+    from PIL import Image
+
+    from app.gif import estimate_gif, estimate_webp, save_webp
+
+    frames = [Image.new("RGB", (64, 64), (i * 40, 100, 150)) for i in range(3)]
+    out = save_webp(frames, tmp_path / "anim.webp", fps=12)
+    assert out.exists() and out.stat().st_size > 100
+    back = Image.open(out)
+    assert back.n_frames == 3
+    assert estimate_webp(12, 3000, 3000) == estimate_gif(12, 3000, 3000) // 3
+
+
+def test_export_service_webp(window, qt_app, tmp_path):
+    # R7: dialog-only WebP rides the GIF frames ({base}_anim.webp).
+    from app.exporter import ExportSelection, webp_name
+    from app.services.export_service import export_full
+    from app.presets import Preset
+
+    window.src = _img(64, 64)
+    preset = Preset(
+        name="t", method="bayer4", palette="SLIME", gif_export=False,
+        gif_frames=2, export_size=64)
+    sel = ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False)
+    paths, skipped = export_full(
+        window.src, preset, tmp_path / "ow", base="m",
+        selection=sel, webp=True, gif_frames=2, gif_size=64)
+    assert paths["webp"].name == webp_name("m")
+    assert paths["webp"].exists() and paths["webp"].stat().st_size > 100
+    assert not any(str(p).endswith(".gif") for p in paths.values())
+
+
+def test_gif_estimate_hold_collapse_aware(tmp_path):
+    # R8: transitions full cost + 1 frame per still form (no flat-frames lie).
+    from app.gif import estimate_gif, gif_dissolve_frames, save_gif
+    from app.presets import Preset
+
+    assert estimate_gif(4, 480, 480, 2) == 6 * 480 * 480 // 2
+    assert estimate_gif(6, 120, 120) == 6 * 120 * 120 // 2  # transition-only shape kept
+    p = Preset(name="t", method="bayer8", palette="BW", gif_size=96,
+               dissolve_hold=1.0, gif_fps=8, dissolve_length=0.0)
+    frames = gif_dissolve_frames(_img(96, 96), p, frames=4)  # 4 trans + 16 holds, 2 forms
+    out = tmp_path / "h.gif"
+    save_gif(frames, out, fps=8)
+    actual = out.stat().st_size
+    honest = estimate_gif(4, 96, 96, 2)
+    assert honest < 20 * 96 * 96 // 2  # the flat-frames lie is gone, directionally
+    assert actual <= honest  # a warning never under-promises
+    assert honest <= actual * 20  # stays in a sane band on real dither
+
+
+def test_mp4_dims_even_and_canvas_exact():
+    # R5: H.264/yuv420p needs multiples of 2; imageio default (block 16)
+    # used to rescale 1080x1920 -> 1088x1920 and 404x720 -> 416x720.
+    from app.gif import mp4_dims
+
+    assert mp4_dims(1080, 1920, "Canvas") == (1080, 1920)
+    assert mp4_dims(404, 720, "Canvas") == (404, 720)
+    w, h = mp4_dims(721, 721, "Canvas")
+    assert (w, h) == (720, 720) and w % 2 == 0 and h % 2 == 0
+    w, h = mp4_dims(1081, 1921, "Canvas")
+    assert w % 2 == 0 and h % 2 == 0
+    w, h = mp4_dims(3000, 2000, "1080p")
+    assert w % 2 == 0 and h % 2 == 0 and max(w, h) <= 1080
+
+
 def test_mp4_estimate_and_size_opt():
     from app.gif import estimate_mp4, mp4_dims
 
@@ -224,6 +292,12 @@ def test_export_dialog_extras(window, qt_app, monkeypatch, tmp_path):
         assert dlg.cmb_format.isEnabled() is False
         dlg.chk_lossless.setChecked(False)
         assert dlg.cmb_format.isEnabled() is True
+        # R7: WebP checkbox rides the GIF frames into the plan + gopts.
+        assert dlg.chk_webp.isChecked() is False
+        dlg.chk_webp.setChecked(True)
+        assert dlg._gif_opts()["webp"] is True
+        assert any("anim.webp" in dlg.list_files.item(i).text()
+                   for i in range(dlg.list_files.count()))
     finally:
         close_dialog(dlg)
 

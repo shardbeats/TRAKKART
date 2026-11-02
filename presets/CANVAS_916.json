@@ -1,0 +1,14 @@
+{
+  "name": "CANVAS_916",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "ratio": "9:16",
+  "export_size": 1920,
+  "gif_mode": "dissolve",
+  "gif_frames": 64,
+  "gif_fps": 30,
+  "dissolve_hold": 2.7,
+  "dissolve_loop": true
+}

@@ -9,10 +9,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from PySide6.QtWidgets import QApplication
-
 from app import __version__
-from app.ui.main_window import MainWindow
 
 
 def install_crash_hook(log_path):
@@ -27,7 +24,7 @@ def install_crash_hook(log_path):
         except Exception:  # noqa: BLE001
             pass
         try:
-            from PySide6.QtWidgets import QMessageBox
+            from PySide6.QtWidgets import QApplication, QMessageBox
 
             if QApplication.instance() is not None:
                 QMessageBox.critical(
@@ -43,6 +40,14 @@ def install_crash_hook(log_path):
 
 
 def main() -> int:
+    if "--cli" in sys.argv[1:]:
+        # Headless: never import Qt on this path (fast, display-free).
+        from app.cli import run_cli
+
+        return run_cli([a for a in sys.argv[1:] if a != "--cli"])
+    from PySide6.QtWidgets import QApplication
+
+    from app.ui.main_window import MainWindow
     from app.log import setup_logging
 
     log_file = setup_logging()

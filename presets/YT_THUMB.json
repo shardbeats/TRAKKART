@@ -1,0 +1,9 @@
+{
+  "name": "YT_THUMB",
+  "method": "bayer8",
+  "palette": "BW",
+  "pixel_size": 3,
+  "threshold": 128,
+  "ratio": "16:9",
+  "export_size": 1280
+}

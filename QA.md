@@ -104,12 +104,81 @@ sliders bound to the selected chain row; session-only (not in preset).
 Research: ImageMagick `-set delay "%[fx:(t==0||t==n-1) ? 150 : 8]"` (pause only
 assembled ends), ComfyUI `still_image_delay_ms` (default 2500ms per end),
 Pillow per-frame `duration=[...]` list.
-Here: `dissolve_hold` seconds per end (MORPH Hold slider 0-3s, default 1.0)
+Here (v1.9–v1.15, sacred Length): `dissolve_hold` seconds per end (MORPH Hold slider 0-3s, default 1.0)
 -> duplicated assembled frames (GIF uniform fps + MP4 + preview scrub all work,
 no duration-list quirks). Transition budget: morph reserves 2 frames minimum per
 segment so every form appears assembled; joints sample `q=j/(nk-1)` (no pop);
 holds shrink to fit the 64-frame cap (transitions win). Duration label shows
 loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
+
+## Hold-manda (Length derived, no pad)
+
+The sacred total made the Hold slider dead (0.0/1.0/3.0 rendered identical
+clips: the pad compensated every change). New rule: total = transitions +
+requested holds; Length is a read-only readout (`= Xs total · Ys hold`).
+`dissolve_length` stays in presets for compat but is ignored. Holds only
+shrink against the output cap (256 GIF/preview, 3600 MP4 streaming);
+transitions always win. Trade-off: the 60s extreme is no longer reachable
+(max ≈ transitions + forms×3s); long hold-heavy clips still stream via MP4.
+
+## Social delivery (R1+R2+R3, Spotify Canvas shaped)
+
+- R1 recipe `CANVAS_916`: 9:16, export long side 1920 (= 1080x1920),
+  dissolve 64f/30fps/Hold 2.7s → 226f = 7.53s closed loop (inside the
+  3–8s window, under the ~7.9s rejection reports). Faststart + exact
+  dims come from R5+R6 underneath.
+- R2 Canvas check (split by data locality): VIDEO duration label warns
+  when a 9:16 particle clip lands outside 3–8s; the export dialog warns
+  when a 9:16 doc would export MP4 at full-doc size or outside 3–8s.
+- R3 beat grid: VIDEO ♫ row (BPM 40–250 + Bars 1–16 + Set Hold) solves
+  Hold = f(bars*240/BPM) via `hold_for_target` (caps at 3.0s, reports
+  short honestly: add Frames/chain or lower FPS). Dissolve/morph only.
+
+## Animated WebP (R7)
+
+```
+.venv\Scripts\python -m pytest tests/test_gaps.py::test_save_webp_roundtrip_and_estimate tests/test_gaps.py::test_export_service_webp -q -p no:cacheprovider --no-cov
+```
+
+`save_webp()` = `save_gif()` espejo a full color (sin quantize 128);
+`estimate_webp` = GIF//3 (hold-aware desde R8). Dialog-only como
+MP4 (batch sigue GIF): checkbox + plan + colisiones + `export_full(webp=True)`.
+Unit-covered, sin escenarios Gherkin nuevos (gates siguen 52).
+
+## Honest weight (R8)
+
+`estimate_gif(n_trans, w, h, n_hold_forms)` = transiciones a coste
+completo + 1f por forma quieta (Pillow fusiona holds idénticos; medido
+114f→1f). Migran: duration label (ping-pong espejado ya no duplica),
+diálogo (plan 256f una vez para GIF+WebP) y `_estimate_bytes`
+(extra gif_trans/gif_forms, default = forma vieja para batch).
+
+## Ink separations (R9)
+
+```
+.venv\Scripts\python -m pytest tests/test_separations.py -q -p no:cacheprovider --no-cov
+```
+
+`app/separations.py`: nearest-color plates (L, tinta negra sobre
+blanco, row-chunked) + crosshair-in-circle por esquina en todas las
+tintas + `effective_palette` (misma resolución que el pipeline:
+custom > SOURCE extraída > BW > named+depth). Se separan del main
+exportado ("separate what you see", mismo tamaño). Dialog-only
+(checkbox + plan + colisiones); batch no. Unit-covered, Gherkin 52.
+
+## Headless CLI (R10)
+
+```
+python main.py --cli --list-presets
+python main.py --cli --preset SLIME_FS --in cover.png --out out
+python main.py --cli --preset SLIME_FS --in covers --out out
+.venv\Scripts\python -m pytest tests/test_cli.py -q -p no:cacheprovider --no-cov
+```
+
+`--out` siempre carpeta; bundle = batch UI; skip-existing;
+safety guard en single; stateless (sin history); jobs=1 fijo
+(spawn-free en exe). `--cli` se despacha antes de importar Qt
+(test en intérprete fresco lo afirma). Exit 0/1/2.
 
 ## Morph loop + equal holds + honest MP4 (v1.15)
 
@@ -117,8 +186,9 @@ loop + hold (`= 5.3s loop + 2.0s hold`); hint when a segment gets < 8 frames.
   last form morphs back into A through one cloud; opening and closing
   frames are byte-identical A; A's hold share splits across both ends.
   With loop closed, ping-pong is skipped (already seamless).
-- Holds are shared equally across forms (Length pad included, ≤1f apart);
-  `hold_joint` accepts a per-joint list end-to-end.
+- Holds are shared equally across forms (≤1f apart);
+  `hold_joint` accepts a per-joint list end-to-end. (Length pad removed
+  since Hold-manda: total = transitions + holds.)
 - MP4 size (Export dialog): Canvas/1080p/720p, default 1080p (stills stay
   full-doc). Estimate is content-aware (noisy transitions vs duplicated
   holds, calibrated with x264); hints above ~100MB, warning above ~400MB.
