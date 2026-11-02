@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## Unreleased
+## v1.2.0 — 2026-11-02
 - Morph F3 travel/pour (§7.6): `dissolve_travel` 0-1 preset field + MORPH Travel slider; non-blocks legs pour src→dst through seeded-greedy 1:1 matching (uneven counts padded, empties fall back to legacy); leg joints stay byte-exact, stagger shifts the pour, ease gates the cloud; travel=0 keeps the legacy cloud path byte-identical; strict 0=off still hard-cuts. Gherkin 57.
 - Morph F4 color particles (§7.6): `dissolve_tint` 0-1 preset field + MORPH Tint slider; dots carry their source colors mid-flight (travel legs lerp src→dst hues), gated by the loop envelope so joints land black = byte-exact stills; tint=0 keeps the legacy BW path byte-identical; strict 0=off freezes tint too; blocks tints its pops. Gherkin 58.
 - Morph F5 motion trails (§7.6): `dissolve_trail` 0-8 preset field + MORPH Trail slider; past dots linger as fading ghosts (BW gray / tinted hues), strength = decay(age) x loop envelope so joints stay ghost-free = byte-exact stills; trail=0 keeps the legacy path byte-identical; strict 0=off skips ghosts; works in dissolve, morph legs, travel and blocks. Gherkin 59.
