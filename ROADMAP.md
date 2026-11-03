@@ -4,7 +4,7 @@
 
 ## 0. Handoff — continuar en otra sesión (nov-2026)
 
-- Estado: `main` en `64e5d0c` (fix CI: `cwd` portable en `test_accelerate`/`test_cli`, sin ruta local hardcodeada). Suite real: 572 tests (440 fast + 132 slow) + 61 escenarios Gherkin; `tools/quality_metrics.py` exige 61. Docs sincronizados (README/MAINTENANCE/QA). Último bloque: loop cerrado (`dissolve_loop`),
+- Estado: `main` en `64e5d0c` (fix CI: `cwd` portable en `test_accelerate`/`test_cli`, sin ruta local hardcodeada). Suite real: 572 collected (440 fast + 132 slow, último report: 571 passed / 0 failed) + 61 escenarios Gherkin; `tools/quality_metrics.py` exige 61. Docs sincronizados (README/MAINTENANCE/QA). Último bloque: loop cerrado (`dissolve_loop`),
   holds iguales, MP4 1080p/720p + estima honesta, diálogo vivo vs prefs
   rancias, Length 60s por streaming; docs en CHANGELOG Unreleased + QA
   v1.15 + MANUAL; research sin implementar en §7.7 (modos morph) y §8.

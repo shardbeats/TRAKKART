@@ -10,7 +10,7 @@ def about_text() -> str:
         f"TRAKKART v{__version__}\n"
         "Offline cover art studio · ShardBeats TRAKK SUITE\n"
         "\n"
-        "MIT licensed.\n"
+        "MIT licensed (see LICENSE + NOTICE.md + THIRD-PARTY-NOTICES.md).\n"
         "Portable and offline: settings live next to the app.\n"
         "\n"
         "Image → method + palette + pixel → preview → bundle."

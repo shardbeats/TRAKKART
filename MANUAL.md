@@ -11,7 +11,7 @@ nothing is tracked. Your data lives on your machine (the app's data folder).
 - **First launch:** Windows SmartScreen may warn if the build is unsigned:
   *More info → Run anyway*.
 - **Requirements:** 64-bit Windows 10/11. No internet, no Python install.
-  For MP4 video: `pip install -r requirements-video.txt` (optional extra).
+  Video (MP4) and acceleration ship inside — no extra download.
 
 ## Quick start (5 steps)
 
@@ -96,8 +96,8 @@ Exit 0 = done, 1 = some file failed, 2 = usage error.
 The `.exe` ships everything: numba acceleration (10-50x on large Floyd)
 and MP4. Nothing to install, nothing to pick.
 
-- In dev builds, if something is missing: Settings → Extras shows it
-  and installs via pip (takes minutes, needs internet and restart).
+- Running from source: `pip install -r requirements.txt` already
+  includes acceleration + video.
 - In the `.exe`, the Extras group is informational only: everything ships
   inside.
 
@@ -143,7 +143,7 @@ with your `data` folder.
 - **App won't open an image:** unsupported format (use PNG/JPG/WebP/
   BMP) or giant image (8000px limit / see the exact message).
 - **It's slow:** switch to the Still viewport or lower the CANVAS size.
-- **MP4 disabled:** install the video extra (above).
+- **MP4 disabled (source runs only):** `pip install -r requirements.txt` then restart.
 - **Something broke:** every failure writes a numbered report
   (`[E0007]`: what you did + full technical detail) to `trakkart.log`,
   and the app shows a plain-language hint plus that code instead of

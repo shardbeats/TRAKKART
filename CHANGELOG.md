@@ -3,6 +3,9 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
+- (empty — add next changes here)
+
+## v1.3.0 — 2026-11-03
 - CI fix: subprocess tests used a hardcoded local `cwd` (`<repo>`) and failed on runners with `NotADirectoryError`; both now use the repo root (`Path(__file__).parents[1]`).
 - Docs synced to reality: 572 tests (440 fast + 132 slow) + 61 Gherkin scenarios + 13 bundled presets (`README.md`, `MAINTENANCE.md`, `QA.md`, `ROADMAP.md` handoff); numba ships in the bundle with numpy fallback (was documented as optional).
 - Correctness (R4): `normalize_stack` warns on unknown effect ids instead of dropping them silently; preview compensates pixel-unit FX (`glow_radius/border/scanlines/grille/halftone/letterbox`) by the downscale factor; `RenderSpec.meta()` now includes grade/texture/drift/paste/motif blocks.

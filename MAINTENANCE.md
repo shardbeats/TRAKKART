@@ -124,4 +124,5 @@ tools/quality_metrics.py :: gates → data/quality_report.json
 ## Distribution
 
 Portable: `py build_exe.py` → `dist\TRAKKART.exe` (windowed one-file).
-No installer shipped. The app is offline, no admin rights needed.
+Installer: `py build_installer.py` → `dist\TRAKKART-Setup-<version>.exe` (Inno Setup 6).
+The app is offline, no admin rights needed.

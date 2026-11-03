@@ -1,10 +1,10 @@
 ; TRAKKART installer (Inno Setup 6).
-; Version comes from the command line: ISCC /DMyVersion=0.18.0 installer/trakkart.iss
+; Version comes from the command line: ISCC /DMyVersion=1.3.0 installer/trakkart.iss
 ; (build_installer.py does this automatically from app.__version__).
 ; Expects dist/TRAKKART.exe already built (python build_exe.py --skip-tests).
 
 #ifndef MyVersion
-  #define MyVersion "0.18.0"
+  #define MyVersion "1.3.0"
 #endif
 
 [Setup]
@@ -12,7 +12,7 @@ AppName=TRAKKART
 AppVersion={#MyVersion}
 AppVerName=TRAKKART {#MyVersion}
 AppPublisher=ShardBeats
-AppPublisherURL=https://github.com/anomalyco/opencode
+AppPublisherURL=https://github.com/shardbeats/TRAKKART
 DefaultDirName={autopf}\TRAKKART
 DefaultGroupName=TRAKKART
 DisableProgramGroupPage=yes
@@ -37,6 +37,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\dist\TRAKKART.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\MANUAL.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
