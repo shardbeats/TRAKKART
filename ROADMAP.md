@@ -2,25 +2,25 @@
 
 > Context for continued development. Single source of truth for state and next steps.
 
-## 0. Handoff — continuar en otra sesión (nov-2026)
+## 0. Handoff — continue in another session (nov-2026, historical)
 
-- Estado: `main` en `64e5d0c` (fix CI: `cwd` portable en `test_accelerate`/`test_cli`, sin ruta local hardcodeada). Suite real: 572 collected (440 fast + 132 slow, último report: 571 passed / 0 failed) + 61 escenarios Gherkin; `tools/quality_metrics.py` exige 61. Docs sincronizados (README/MAINTENANCE/QA). Último bloque: loop cerrado (`dissolve_loop`),
-  holds iguales, MP4 1080p/720p + estima honesta, diálogo vivo vs prefs
-  rancias, Length 60s por streaming; docs en CHANGELOG Unreleased + QA
-  v1.15 + MANUAL; research sin implementar en §7.7 (modos morph) y §8.
-- Verificar al abrir: `git log --oneline -3` y
+- State: `main` at `64e5d0c` (CI fix: portable `cwd` in `test_accelerate`/`test_cli`, no hardcoded local path). Real suite: 572 collected (440 fast + 132 slow, last report: 571 passed / 0 failed) + 61 Gherkin scenarios; `tools/quality_metrics.py` requires 61. Docs synced (README/MAINTENANCE/QA). Last block: closed loop (`dissolve_loop`),
+  equal holds, 1080p/720p MP4 + honest estimate, live dialog vs stale
+  prefs, 60s Length via streaming; docs in CHANGELOG Unreleased + QA
+  v1.15 + MANUAL; unimplemented research in §7.7 (morph modes) and §8.
+- Verify on open: `git log --oneline -3` and
   `.venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow" -n auto`
-  (verde) + `flake8 app tests tools main.py build_exe.py build_installer.py`
-  (limpio). Venv: `.venv` local o `C:\venvs\dev` (CENTRAL_VEN). CI usa
-  `QT_QPA_PLATFORM=offscreen`; pin `pytest<9.2` por pytest-bdd (ver
-  MAINTENANCE.md: no levantar sin upgrade de pytest-bdd).
-- Hilos abiertos: (1) Hold slider muerto cuando Length domina — RESUELTO con
-  Hold-manda: total = transiciones + holds, Length derivada (readout, no
-  spin); `dissolve_length` queda como compat ignorada. (2) Loop default True solo
-  afecta con chain en sesión; tests al día. (3) R5+R6 hechos. (4) R1+R2+R3
-  hechos (CANVAS_916 + Canvas check + BPM->Hold).
-- Siguiente paso recomendado: **R7 (WebP) o R9 (separaciones)** según tiren
-  más social o print; o morph F1 (§7.7).
+  (green) + `flake8 app tests tools main.py build_exe.py build_installer.py`
+  (clean). Venv: local `.venv`. CI uses
+  `QT_QPA_PLATFORM=offscreen`; pin `pytest<9.2` for pytest-bdd (see
+  MAINTENANCE.md: do not lift without a pytest-bdd upgrade).
+- Open threads: (1) dead Hold slider when Length dominates — RESOLVED with
+  Hold-manda: total = transitions + holds, derived Length (readout, no
+  spin); `dissolve_length` stays as ignored compat. (2) Loop default True only
+  matters with an in-session chain; tests current. (3) R5+R6 done. (4) R1+R2+R3
+  done (CANVAS_916 + Canvas check + BPM->Hold).
+- Recommended next step: **R7 (WebP) or R9 (separations)** depending on
+  social vs print pull; or morph F1 (§7.7).
 
 ## 1. Vision
 
@@ -171,11 +171,11 @@ TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each
 ### v1.1 — Color Pro (done)
 Gap: auto-extracted palettes, depth control, lock/shuffle per swatch, Source category.
 - [x] Auto-extract palette from image (`app/palette_extract.py`: median-cut numpy-only, N=2..16, deterministic seed) + "From image" button.
-- [x] `Source` palette mode: retiene color original como punto de partida editable (no re-mapea a BW/SLIME).
-- [x] Depth slider: nº de niveles/steps usados de la paleta (mapeo previo al dither, vive en `RenderSpec` + `FIELDS`).
+- [x] `Source` palette mode: keeps the original color as an editable starting point (no re-map to BW/SLIME).
+- [x] Depth slider: number of levels/steps used from the palette (pre-dither mapping, lives in `RenderSpec` + `FIELDS`).
 - [x] Per-swatch lock + shuffle + per-adjust lock/randomize (UI en palette dialog + Adjust row).
 - [x] Midtones/highlights adjust (in addition to brightness/contrast/saturation) in `app/adjust.py` + UI.
-- [x] Palette import/export/share `.json`/`.gpl` offline (misma UX que preset share). Gherkin 40/40.
+- [x] Palette import/export/share `.json`/`.gpl` offline (same UX as preset share). Gherkin 40/40.
 
 ### v1.2 — Stackable FX (done)
 Gap: fixed pipeline `canvas→pre→grade→dither→brand→post`; goal is add-with-`+` and reorder.
@@ -190,15 +190,15 @@ Gap: grow the roster (glitch + special + pattern/ordered extras + CMYK + ASCII +
 - [x] 13 new engines: granular `bayer32/lines/columns/diag/grid` + glitch-dither `white_noise/blocks/scan_bayer/wave_map` + special `cmyk/ascii/edges` + `motif`. 36 methods.
 - [x] ASCII mode (`app/ascii.py`: charset ramp, Pillow-only, animatable via `phase`, vector-compatible via rects).
 - [x] Motif: custom pattern builder (`app/motif.py`: 4 bands -> shape/size, 6 shapes, stored in preset as dict). Simple MOTIF panel.
-- [x] Vector Pro: black-vector print (`vector_black` + `ink_only`, sin rects de papel) + lossless toggle (force PNG en export/batch) + estimate calibrado (~58B/celda). Embroidery OUT.
-- [x] Arrow-stepping (botones + Alt+Left/Right, `step_method` ciclico) + Gherkin 45/45.
+- [x] Vector Pro: black-vector print (`vector_black` + `ink_only`, no paper rects) + lossless toggle (force PNG on export/batch) + calibrated estimate (~58B/cell). Embroidery OUT.
+- [x] Arrow-stepping (buttons + Alt+Left/Right, cyclic `step_method`) + Gherkin 45/45.
 
 ### v1.4 — Motion from stills + signal drift (done, trimmed)
 Animation always runs over the still image (GIF modes + drift + phase).
 Timeline layers and clip import were cut on purpose (Oct 2026 trim):
 they added a model + locks + file pipeline far from the core job
 (dither stills, make videos OF those stills).
-- [x] Video export MP4 (`imageio-ffmpeg` SOLO como extra opcional, `requirements-video.txt`, nunca en base exe; fallback con mensaje claro si falta). Same frame→dither→stack pipeline, shared anti-flicker palette.
+- [x] MP4 video export (`imageio-ffmpeg` ONLY as an opt-in extra at the time — video ships in the base exe/requirements since v1.0; clear fallback message when missing). Same frame→dither→stack pipeline, shared anti-flicker palette.
 - [x] Signal Drift: 9 animated retro-screen noise patterns (`app/drift.py`, seeded, deterministic, works with any method). UI lives in VIDEO (pattern + amount).
 - [x] Paste-Up (image/texture overlay with blend + opacity, in-app, e.g. paper grain / riso dust) as `pasteup` FX stack item (neutral when off).
 - [x] Gherkin 51/51 (drift determinism + paste-up neutral + motion freeze + backend-missing skips clean).
@@ -210,29 +210,29 @@ they added a model + locks + file pipeline far from the core job
 - [x] In-app tutorial (`Help → Quick tour`, 5 steps, first-run once + `data/samples/` pack generated offline) + batch menu entry verified (File → Batch folder Ctrl+B since v0.2, no duplicate menu).
 - [x] App themes (Dark/Light/Handheld green/Pink) via single-source token swap over `theme.qss` + View menu radio. Gherkin 50/50.
 
-### v1.6 — Dither-boy particle disperse, solo dispersión (done)
-Scope frozen: single-image disperse/reassemble loop (no morph A->B yet).
+### v1.6 — Dither-boy particle disperse, dispersion only (done)
+Scope frozen: single-image disperse/reassemble loop (no A->B morph yet).
 Style: offline, Pillow+numpy only, deterministic seed, strict 0=off, loop-perfect.
-- [x] Fase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, seed determinista, dissolve 0 = identidad).
-- [x] Fase 2 (done): `gif_dissolve_frames()` + export GIF/MP4 manual.
-- [x] Fase 3 (done): preset fields (`dissolve_*`) + 2 presets bundled (`ASH_WIND`, `DUST_RANDOM`).
-- [x] Fase 4 (done): docs (`QA.md`, gates `tools/quality_metrics.py`, `MANUAL.md`) + cierre.
+- [x] Phase 1 (done): `app/disintegrate.py` + unit tests (wind vs random, deterministic seed, dissolve 0 = identity).
+- [x] Phase 2 (done): `gif_dissolve_frames()` + manual GIF/MP4 export.
+- [x] Phase 3 (done): preset fields (`dissolve_*`) + 2 bundled presets (`ASH_WIND`, `DUST_RANDOM`).
+- [x] Phase 4 (done): docs (`QA.md`, `tools/quality_metrics.py` gates, `MANUAL.md`) + closeout.
   Note: gates stay at 52 Gherkin (no new scenarios; unit-covered); suite 438 -> 450.
 
 ### v1.7 — Morph A->B + UI dissolve (done)
 Scope: swap between two images via shared particle cloud + MOTION controls.
-- [x] Fase 5 (done): `morph_frames()` + `gif_morph_frames()` + tests.
-- [x] Fase 6 (done): UI MOTION (modo dissolve/morph, segunda imagen) + export + docs.
+- [x] Phase 5 (done): `morph_frames()` + `gif_morph_frames()` + tests.
+- [x] Phase 6 (done): MOTION UI (dissolve/morph mode, second image) + export + docs.
   Modes `dissolve`/`morph` in `GIF_MODES`; `gif_frames(img_b=...)` dispatch;
   preview/export/batch share the path; strict 0=off holds.
 
-### v1.8 — Morph cadena (hasta 6) + página MORPH (done)
-Scope: playlist A->B->C... (A = src + hasta 5) con lista Add/Remove/Up/Down;
-controles dissolve+morph mudados de MOTION a página MORPH propia.
-- [x] Fase 1 (done): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
-- [x] Fase 2 (done): página MORPH + playlist UI (mover controles de MOTION).
-  `MORPH` page (panels/morph.py) con dissolve params + lista Add/Remove/Up/Down/Clear (tope 6: A + 5); `win.morph_list` + alias `morph_src` compat.
-- [x] Fase 3 (done): preview/export wiring + docs + cierre.
+### v1.8 — Morph chain (up to 6) + MORPH page (done)
+Scope: A->B->C... playlist (A = src + up to 5) with Add/Remove/Up/Down list;
+dissolve+morph controls moved from MOTION to their own MORPH page.
+- [x] Phase 1 (done): `morph_chain_frames()` + `gif_morph_frames(list)` + tests.
+- [x] Phase 2 (done): MORPH page + playlist UI (moved controls out of MOTION).
+  `MORPH` page (panels/morph.py) with dissolve params + Add/Remove/Up/Down/Clear list (cap 6: A + 5); `win.morph_list` + `morph_src` alias compat.
+- [x] Phase 3 (done): preview/export wiring + docs + closeout.
   Chain flows through `gif_frames(img_b=list)`; preview (`VideoWorker`),
   export (`export_full`) and batch (dissolve fallback) share the path;
   suite 453 -> 457.
@@ -240,36 +240,36 @@ controles dissolve+morph mudados de MOTION a página MORPH propia.
 ### v1.9 — Morph timing: holds + presupuesto por tramo (done)
 Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 `still_image_delay_ms`, Pillow per-frame duration list.
-- [x] Fase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` en engine + tests.
-- [x] Fase 2 (done): presupuesto (mín 2/tramo, holds caben en 64) + `fps`
-  threading + `dissolve_hold` preset + Hold slider + duration con holds + hint <8f.
-- [x] Fase 3 (done): suite + docs + cierre. Suite 457 -> 460.
+- [x] Phase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` in engine + tests.
+- [x] Phase 2 (done): budget (min 2/segment, holds fit in 64) + `fps`
+  threading + `dissolve_hold` preset + Hold slider + duration with holds + <8f hint.
+- [x] Phase 3 (done): suite + docs + closeout. Suite 457 -> 460.
 
-### v1.10 — Morph aspect fit + recorte por imagen (done)
-Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
-(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
-Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
+### v1.10 — Morph aspect fit + per-image crop (done)
+Mixed-aspect chain: per-image cover-fit with own focus/zoom
+(same IMAGE `crop_cover`); A honors the preset canvas. MORPH: per-row
+Crop X/Y/Zoom sliders + hint. Suite 460 -> 463.
 
 ### v1.14 — MORPH visual crop editor (done)
-Recorte como IMAGE, no sliders: mismo CropEditorDialog con marco bloqueado
-a A (ratio/modo/W/H deshabilitados) + Rotate/Reset; escribe fx/fy/zoom
-(giro opcional) en la entrada seleccionada. Suite 465.
-Cadena con aspectos mezclados: cover-fit por imagen con su propio foco/zoom
-(mismo crop_cover de IMAGE); A respeta el canvas del preset. MORPH: sliders
-Crop X/Y/Zoom por fila + hint. Suite 460 -> 463.
-### v1.11 — Morph timing: auto-presupuesto al alargar cadena (done)
-Research v1.9 confirmada por el uso: con total fijo, añadir imágenes acelera
-cada tramo (6f/5 tramos = tramos de 1f que no muestran nada). Regla nueva:
-más imágenes = más tiempo.
-- Auto-crecer Frames solo hacia arriba al pick/morph-mode: `max(n, tramos*max(8, ~0.8s))`,
-  tope 64, avisado en status; al encoger la cadena no se toca nada.
-- Hint con f/s por forma cuando un tramo queda bajo 8f o 0.8s.
-- Suite 464 -> 465, holds en cada junta, Length hasta 60s.
+Crop like IMAGE, not sliders: same CropEditorDialog with the frame locked
+to A (ratio/mode/W/H disabled) + Rotate/Reset; writes fx/fy/zoom
+(optional rotation) into the selected entry. Suite 465.
+Mixed-aspect chain: per-image cover-fit with own focus/zoom
+(same IMAGE `crop_cover`); A honors the preset canvas. MORPH: per-row
+Crop X/Y/Zoom sliders + hint. Suite 460 -> 463.
+### v1.11 — Morph timing: auto-budget as the chain grows (done)
+Confirmed v1.9 research from usage: with a fixed total, adding images speeds
+each segment up (6f/5 segments = 1f segments showing nothing). New rule:
+more images = more time.
+- Auto-grow Frames only upward on pick/morph-mode: `max(n, segments*max(8, ~0.8s))`,
+  cap 64, announced in status; shrinking the chain touches nothing.
+- Hint with f/s per form when a segment drops under 8f or 0.8s.
+- Suite 464 -> 465, holds at every joint, Length to 60s.
 
-### v1.12 — Techo de 64 frames: ¿subirlo? (investigación, sin implementar)
+### v1.12 — 64-frame cap: raise it? (research, not implemented)
 
-Pregunta: el tope actual es 64. ¿Qué costaría 96/128 para animaciones más
-largas o más fluidas? Medido en este repo (720p proxy, 3000px doc):
+Question: the current cap is 64. What would 96/128 cost for longer
+or smoother animations? Measured in this repo (720p proxy, 3000px doc):
 
 - RAM (frames vivos en lista): 720p = 2.8MB/f → 64f = 177MB, 128f = 354MB.
   Export full-doc 3000px = 27MB/f → 64f = 1.7GB (ya peligroso hoy), 128f = 3.4GB.
@@ -278,45 +278,45 @@ largas o más fluidas? Medido en este repo (720p proxy, 3000px doc):
   (64f = 10-48 min; 128f = 20-96 min, inutilizable).
 - GIF: estimado 29MB @64f/720p, 59MB @128f; browsers recortan a ~50fps
   reales y sufren >25MB (ya avisamos en UI). MP4 aguanta 60fps sin problema.
-- Código: GIF_MAX_FRAMES + ~8 clamps (gif.py, presets, export_prefs,
+- Code: GIF_MAX_FRAMES + ~8 clamps (gif.py, presets, export_prefs,
   dialog_fields, video_controller, params BINDINGS, dialogs) + tests
   que afirman 64 + estimate + spin Length (32s).
 
-Hallazgo clave: fluidez = fps, no frames (60fps ya permitido). Largo =
-segundos, no frames. Subir el techo global empeora RAM/export sin dar
-fluidez por sí solo. Lo que otros hacen: ComfyUI capa transition_frames
-en 60; ImageMagick no capa porque escribe a disco en streaming (nosotros
-retenemos la lista entera en RAM para `save_gif`).
+Key finding: smoothness = fps, not frames (60fps already allowed). Length =
+seconds, not frames. Raising the global cap worsens RAM/export without
+adding smoothness by itself. What others do: ComfyUI caps transition_frames
+at 60; ImageMagick doesn't cap because it streams to disk (we hold
+the whole list in RAM for `save_gif`).
 
-Recomendación (no implementada):
-1. NO subir el techo global. GIF se queda en 64 (formato + RAM + 50fps).
-2. MP4 largo por streaming: `write_mp4` acepta generador y renderiza
-   perezoso (RAM plana); el límite pasa a ser CPU/tiempo, decisión del
-   usuario con aviso de peso. Habilitaría hasta ~128f solo-MP4.
-3. Largo barato sin frames extra: pingpong (duplica duración efectiva),
-   drift loops (repite movimiento) y holds (ya implementados) — cero RAM.
-4. Si se pide suavidad: 30-60fps ya existen; educar vía Hold/duration UI
-   en vez de más frames.
+Recommendation (not implemented):
+1. Do NOT raise the global cap. GIF stays at 64 (format + RAM + 50fps).
+2. Long MP4 via streaming: `write_mp4` takes a generator and renders
+   lazily (flat RAM); the limit becomes CPU/time, the user's call with
+   a weight warning. Would enable ~128f MP4-only.
+3. Cheap length without extra frames: pingpong (doubles effective duration),
+   drift loops (repeat motion) and holds (already implemented) — zero RAM.
+4. If smoothness is asked for: 30-60fps already exist; teach via Hold/duration UI
+   instead of more frames.
 
 
-### v1.13 — Duración total sagrada (done)
-Frames/fps dejaban de mandar: la duración pedida se recortaba en silencio
-(8s @ 24fps → 2.7s por el tope 64). Regla nueva: Length (s) es sagrado,
-frames/fps son calidad.
-- [x] Fase 1 (done): plan_dissolve (mín 2/tramo, holds caben en 64, pad
-  hasta el total, tope 256) + fps threading en gif/export/batch/video.
-- [x] Fase 2 (done): dissolve_length preset + meta/import roundtrip, spin
-  Length ligado, fps re-render solo en dissolve/morph, label honesto con
-  hold y hint por tramo, cap 256 con aviso. Suite 464 -> 465. Follow-up: holds en cada junta interior (cada forma se lee), Length 0.5-60s, cap total 256.
+### v1.13 — Sacred total duration (done)
+Frames/fps stopped ruling: the requested duration was silently clipped
+(8s @ 24fps → 2.7s by the 64 cap). New rule: Length (s) is sacred,
+frames/fps are quality.
+- [x] Phase 1 (done): plan_dissolve (min 2/segment, holds fit in 64, pad
+  to total, cap 256) + fps threading in gif/export/batch/video.
+- [x] Phase 2 (done): dissolve_length preset + meta/import roundtrip, linked
+  Length spin, dissolve/morph-only fps re-render, honest label with
+  hold and per-segment hint, 256 cap with warning. Suite 464 -> 465. Follow-up: holds at every inner joint (each form reads), Length 0.5-60s, 256 total cap.
 
-### v1.15 — Loop cerrado + holds iguales + MP4 honesto + diálogo vivo (done)
-- Loop: `dissolve_loop` (preset, default True) + checkbox MORPH "Loop (last → first)"; pierna de cierre con still/coords exactos de A (joint byte-idéntico); holds: reparto igual por forma con A partida en apertura/cierre; ping-pong se omite con loop cerrado; presupuesto/budget/hints cuentan la pierna extra.
-- MP4: streaming hasta 60s (3600f, O(1) RAM), tamaño MP4 Canvas/1080p/720p (default 1080p, stills full-doc), estima por contenido (trans 0.43 / hold 0.011 B/px, calibrada con x264) + avisos >100/400MB.
-- R5+R6: `mp4_dims` siempre par + `macro_block_size=2` (1080x1920 exacto, 721→720) + `-movflags +faststart` en ambos writers.
-- Hold-manda: total = transiciones + holds (sin pad a Length); Length pasa a readout derivado (spin read-only); `dissolve_length` queda como compat ignorada; holds solo ceden ante el cap (transiciones mandan).
-- Holds iguales: el pad de Length se reparte entre todas las formas (≤1f de diferencia) en vez de ir todo a la última; `hold_joint` acepta lista por tramo de punta a punta.
-- Export: spec animada siempre del preset vivo (las prefs rancias ya no hacen bypass: morph se colaba en exports mix); chain de sesión solo alimenta dissolve/morph (export + preview).
-- Tests nuevos: loop abre/cierra en A, reparto de holds, estima MP4, diálogo vivo vs prefs rancias, gate por modo (+7).
+### v1.15 — Closed loop + equal holds + honest MP4 + live dialog (done)
+- Loop: `dissolve_loop` (preset, default True) + MORPH "Loop (last → first)" checkbox; closing leg with A's exact still/coords (byte-identical joint); holds: equal share per form with A split across open/close; ping-pong skipped when the loop is closed; budget/hints count the extra leg.
+- MP4: streaming to 60s (3600f, O(1) RAM), MP4 size Canvas/1080p/720p (default 1080p, stills full-doc), content-aware estimate (trans 0.43 / hold 0.011 B/px, x264-calibrated) + >100/400MB warnings.
+- R5+R6: `mp4_dims` always even + `macro_block_size=2` (exact 1080x1920, 721→720) + `-movflags +faststart` in both writers.
+- Hold-manda: total = transitions + holds (no Length pad); Length becomes a derived readout (read-only spin); `dissolve_length` stays as ignored compat; holds only yield to the cap (transitions rule).
+- Equal holds: the Length pad splits across every form (≤1f apart) instead of all going to the last; `hold_joint` takes a per-joint list end to end.
+- Export: animation spec always comes from the live VIDEO section; stale prefs can no longer smuggle a morph mode into a mix export; session chain only feeds dissolve/morph (export + preview).
+- New tests: loop opens/closes on A, hold shares, MP4 estimate, live dialog vs stale prefs, per-mode gate (+7).
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -353,7 +353,7 @@ frames/fps son calidad.
 
 - Webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
-- Video BASE: `imageio-ffmpeg` never ships in base exe/requirements (opt-in `requirements-video.txt` only; MP4 single-export only, batch stays GIF, no clip import by design).
+- Video BASE: `imageio-ffmpeg` ships in the base exe/requirements since v1.0 (historical opt-in `requirements-video.txt` era over). MP4 single-export only, batch stays GIF, no clip import by design.
 - Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).
 
 ## 7. MORPH engine — dither-boy particle system (reference)
@@ -482,107 +482,107 @@ Long term (new surfaces):
 
 ### 7.7 New morph modes: fields × stagger × ease (researched nov-2026)
 
-Hoy solo hay `wind` + `random` (`disperse_positions`, `app/disintegrate.py`).
-Sondeo: taxonomías de forces (Gravity/Wind/Turbulence/Vortex/Attractor/
-Spring), burst con varianza de velocidad (muchas lentas, pocas rápidas),
-flow-fields de ruido suave (bake-then-play), release escalonado por mapa
-(graph/axis/rank), ripple/wave/pulse sobre dot-grids, block dissolve por
-celdas. Todo es expresable en nuestro diseño (campo cerrado × envolvente
-periódica, sin integración: por eso somos loop-perfect y deterministas;
-la simulación con velocidades/drag NO entra: rompería el loop).
+Today only `wind` + `random` exist (`disperse_positions`, `app/disintegrate.py`).
+Survey: force taxonomies (Gravity/Wind/Turbulence/Vortex/Attractor/
+Spring), burst with speed variance (many slow, few fast),
+smooth noise flow-fields (bake-then-play), map-driven staggered
+release (graph/axis/rank), ripple/wave/pulse over dot-grids, per-cell
+block dissolve. All of it fits our design (closed field × periodic
+envelope, no integration: that's why we're loop-perfect and deterministic;
+velocity/drag simulation does NOT enter: it would break the loop).
 
-Regla de diseño (no explosión combinatoria, filosofía FX stack): tres ejes
-ortogonales en vez of N modos sueltos. Mismo coste O(n) vectorizado, misma
-RAM (MAX_POINTS), mismos invariantes (seeded, frac%1 loop-perfect).
+Design rule (no combinatorial explosion, FX-stack philosophy): three
+orthogonal axes instead of N loose modes. Same vectorized O(n) cost, same
+RAM (MAX_POINTS), same invariants (seeded, frac%1 loop-perfect).
 
-- DIRECTION (campo de offset, `dissolve_mode` extendido; wind/random intactos):
-  `burst` (radial-out desde centro, speed por rank 0.3+rank para no hacer
-  anillo mecánico), `suction` (radial-in: converge; ideal logo-stings §7.5),
-  `vortex` (tangencial + leve pull outward, ángulo por posición),
-  `rain` (caída con frac² + floor-bounce por plegado: periódico),
-  `rise` (subida: hace real el preset propuesto EMBER_RISE §7.4),
-  `wave` (seno viajero en x, fase lockeada al loop),
-  `ripple` (anillos concéntricos desde centro, seno radial),
-  `flow` (campo de value-noise suave con seed, FIJO por clip como la
-  turbulencia actual: bake once O(HxW), lookup por frame; organic drift),
-  `blocks` (block dissolve por celdas pixel_size con orden por rank: sin
-  nube, pop por bloques; el más barato y el más dither-nativo).
+- DIRECTION (offset field, extended `dissolve_mode`; wind/random intact):
+  `burst` (radial-out from center, rank-based speed 0.3+rank to avoid a
+  mechanical ring), `suction` (radial-in: converges; ideal logo-stings §7.5),
+  `vortex` (tangential + slight outward pull, angle by position),
+  `rain` (fall with frac² + fold floor-bounce: periodic),
+  `rise` (upward: makes the proposed EMBER_RISE preset §7.4 real),
+  `wave` (traveling sine in x, loop-locked phase),
+  `ripple` (concentric rings from center, radial sine),
+  `flow` (smooth seeded value-noise field, FIXED per clip like the
+  current turbulence: bake once O(HxW), lookup per frame; organic drift),
+  `blocks` (per-cell block dissolve in pixel_size with rank order: no
+  cloud, block pops; the cheapest and most dither-native).
 - STAGGER (`dissolve_stagger`: off | rank | radial | scan | sweep):
-  delay por partícula con pin al joint `frac_i=(frac+delay_i·sin(π·frac))%1`
-  (shift puro rompería el ensamblado del joint y los holds harían pop;
-  pineado: cero shift en ambos joints, olas llenas mid-loop, loop intacto
-  por el %1). `rank` usa el mapa Bayer de `ordered_maps.py`
-  (orden de matriz = firma dither); `radial` = ola centro-fuera en el
-  gather; `scan` = filas top-down; `sweep` = reensamblado left-right
-  (converge-to-shape). Determinista, sin RNG extra.
-- EASE (`dissolve_ease`: sine | cubic | linear en F1; elastic | bounce en F2):
-  forma de la envolvente en vez del sin fijo; sine = legacy byte-identical;
-  cubic = sin³ (ataque marcado, dwell largo); linear = tent a velocidad
-  constante. rain/rise pliegan su drop dentro del field y la envolvente
-  lo puerta (el ease siempre manda, ningún control miente).
-- Preset/UI/migración: 3 fields (`mode` oneof extendido + `stagger` +
-  `ease`, defaults wind/off/sine = renders legacy byte-identical);
-  MORPH: combo de modo extendido + 2 combos; plan cuenta igual (el stagger
-  no cambia conteos, solo reparte qué partícula se mueve cuándo).
-- Tests: determinismo (same seed = same pixels) + loop-perfect
-  (frac 0 == 1 por modo/stagger/ease) + joint ensamblado pineado por
-  stagger + legacy byte-identical por defecto + 2-3 escenarios Gherkin
-  (burst determinista, rank neutral con stagger off, blocks en # formas).
-  Done F1: `features/morph_modes.feature` (3) + unit en
-  `tests/test_disintegrate.py` (11 modos × 5 staggers × 3 eases en loop,
-  ancla blocks 9/64, fallback) + combos MORPH (11/5/3). Gates 55.
-  Done F2: elastic/bounce + `dissolve_dotsize` 1-4 (joints a 1px) +
-  pack EMBER_RISE/GRAVITY_DROP/POUR_FAKE + 4º Gherkin. Gates 56.
-- Fases: F1 = fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks;
-  rise entra por simetría con rain, 3 líneas) + stagger (rank/radial/scan/sweep)
-  + ease sine/cubic/linear (linear entra por neutralidad, 1 línea);
-  rain/rise pliegan su drop (frac² + bounce) DENTRO del field y la envolvente
-  lo puerta (el ease sí manda); blocks popea por celdas pixel_size con ancla
-  del 15% denso (sin ancla flashea blanco a pico: medido); stagger pineado
-   al joint (shift puro rompía holds). F2 = elastic/
-   bounce + acople con dot-size (§7.6) + preset pack (EMBER_RISE,
-   GRAVITY_DROP con rain, POUR Fake con flow + stagger rank).
-   Done F2: elastic = sine·(0.65+0.35cos) pico ~0.88, bounce =
-   sine·(0.55+0.45|sin|) pico 1.0; dotsize 1-4 con joints a 1px
-   (slider MORPH + BINDINGS); pack de 3 bundled.
-- No entra: física integrada (springs/drag con velocidad), interactividad
-  hover/explode en export (solo tendría sentido en preview; ver §7.6
-  long-term), nuevos formatos aquí (eso es §8 R7).
+  per-particle delay pinned to the joint `frac_i=(frac+delay_i·sin(π·frac))%1`
+  (pure shift would break joint assembly and holds would pop;
+  pinned: zero shift at both joints, full mid-loop waves, loop intact
+  via %1). `rank` uses the Bayer map from `ordered_maps.py`
+  (matrix order = dither signature); `radial` = center-out wave on
+  gather; `scan` = top-down rows; `sweep` = left-right reassembly
+  (converge-to-shape). Deterministic, no extra RNG.
+- EASE (`dissolve_ease`: sine | cubic | linear in F1; elastic | bounce in F2):
+  envelope shape instead of fixed sin; sine = legacy byte-identical;
+  cubic = sin³ (sharp attack, long dwell); linear = constant-speed tent.
+  rain/rise fold their drop inside the field and the envelope
+  gates it (ease always rules, no control lies).
+- Preset/UI/migration: 3 fields (extended oneof `mode` + `stagger` +
+  `ease`, defaults wind/off/sine = legacy byte-identical renders);
+  MORPH: extended mode combo + 2 combos; plan counts the same (stagger
+  doesn't change counts, only which particle moves when).
+- Tests: determinism (same seed = same pixels) + loop-perfect
+  (frac 0 == 1 per mode/stagger/ease) + pinned assembled joint per
+  stagger + legacy byte-identical by default + 2-3 Gherkin scenarios
+  (deterministic burst, neutral rank with stagger off, blocks on # forms).
+  Done F1: `features/morph_modes.feature` (3) + unit in
+  `tests/test_disintegrate.py` (11 modes × 5 staggers × 3 eases in loop,
+  blocks 9/64 anchor, fallback) + MORPH combos (11/5/3). Gates 55.
+  Done F2: elastic/bounce + `dissolve_dotsize` 1-4 (joints at 1px) +
+  EMBER_RISE/GRAVITY_DROP/POUR_FAKE pack + 4th Gherkin. Gates 56.
+- Phases: F1 = fields (burst/suction/vortex/rain/rise/wave/ripple/flow/blocks;
+  rise enters by symmetry with rain, 3 lines) + stagger (rank/radial/scan/sweep)
+  + ease sine/cubic/linear (linear enters for neutrality, 1 line);
+  rain/rise fold their drop (frac² + bounce) INSIDE the field and the envelope
+  gates it (ease does rule); blocks pops per pixel_size cell with a
+  15%-dense anchor (no anchor flashes white at peak: measured); stagger pinned
+  to the joint (pure shift broke holds). F2 = elastic/
+  bounce + dot-size coupling (§7.6) + preset pack (EMBER_RISE,
+  GRAVITY_DROP with rain, POUR Fake with flow + rank stagger).
+  Done F2: elastic = sine·(0.65+0.35cos) peak ~0.88, bounce =
+  sine·(0.55+0.45|sin|) peak 1.0; dotsize 1-4 with joints at 1px
+  (MORPH slider + BINDINGS); 3-preset bundle.
+- Out: integrated physics (velocity springs/drag), hover/explode
+  interactivity in export (only makes sense in preview; see §7.6
+  long-term), new formats here (that's §8 R7).
 
 ## 8. Research backlog (web, nov-2026) — candidates, not scheduled
 
-Sondeo externo (specs oficiales + docs de Pillow/imageio) cruzado con
-mediciones en este repo. Solo entra lo offline, Pillow/numpy/imageio y
-coherente con TRAKK = stills dither + videos DE esos stills.
-Verificado hoy en código: (1) imageio reescala el MP4 a múltiplos de 16
-(1080x1920 sale como 1088x1920: rompe el 9:16 exacto que exige Canvas);
-(2) Pillow ya colapsa holds idénticos del GIF (medido: 114f -> 1f, 171B).
+External survey (official specs + Pillow/imageio docs) crossed with
+measurements in this repo. Only offline, Pillow/numpy/imageio work that fits
+TRAKK = dithered stills + videos OF those stills.
+Verified today in code: (1) imageio rescales MP4 to multiples of 16
+(1080x1920 comes out as 1088x1920: breaks the exact 9:16 Canvas demands);
+(2) Pillow already collapses identical GIF holds (measured: 114f -> 1f, 171B).
 
-### 8.1 Delivery social (encaje máximo, coste bajo)
+### 8.1 Social delivery (top fit, low cost)
 
-Fuentes: Spotify Canvas guidelines (MP4 o JPG, 9:16, 720-1080px, 3-8s);
-guías de specs sep/oct-2026 (Reels/Stories/TikTok/Shorts = 1080x1920 9:16;
-YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas con
-chrome arriba/abajo ~250px).
+Sources: Spotify Canvas guidelines (MP4 or JPG, 9:16, 720-1080px, 3-8s);
+sep/oct-2026 spec guides (Reels/Stories/TikTok/Shorts = 1080x1920 9:16;
+YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
+~250px top/bottom chrome).
 
 - [x] R1 — Canvas recipe preset: 9:16 + 1080x1920 + 24/30fps + Length 7.5s
-  (H.264 + faststart). A 8.000 exactos hay reportes de rechazo: apuntar
-  ≤7.9s. Nuestros 3 modos ya mapean 1:1 con la taxonomía Spotify
-  (Continuous=loop, Rebound=ping-pong, Hard Cut=loop off). Coste S.
+  (H.264 + faststart). At exactly 8.000 there are rejection reports: aim
+  ≤7.9s. Our 3 modes already map 1:1 to the Spotify taxonomy
+  (Continuous=loop, Rebound=ping-pong, Hard Cut=loop off). Cost S.
   Done (Hold-manda era): `CANVAS_916` bundled (9:16, export 1920,
   dissolve 64f/30fps/Hold 2.7 → 226f = 7.53s, loop) + R5/R6 (dims exactas,
   faststart) debajo.
-- [x] R2 — "Canvas check": si ratio 9:16 y (Length fuera de 3-8s o MP4 size
-  fuera de 720p/1080p), hint en el duration label. Coste S.
-  Done repartido por localidad de datos: duration label avisa duración
-  (ratio 9:16 + actual fuera de 3-8s); export dialog avisa tamaño
-  (9:16 + mp4_size Canvas o actual fuera de 3-8s).
-- [x] R3 — BPM -> Length: inputs BPM + compases -> Length = bars*240/BPM
-  (120BPM/2 compases = 4s; 140BPM/4 compases = 6.86s). El loop no arranca
-  en downbeat (Spotify loopea por su reloj) pero el pulso interno coincide
-  con el tema. Coste S, encaje total con beatmakers.
-  Done (Hold-manda era): `hold_for_target()` resuelve Hold para el target
-  (capped 3.0s, fits honesto); VIDEO suma fila ♫ BPM/Bars + Set Hold.
+- [x] R2 — "Canvas check": with 9:16 ratio and (Length outside 3-8s or MP4 size
+  outside 720p/1080p), hint in the duration label. Cost S.
+  Done split by data locality: duration label warns on duration
+  (9:16 ratio + actual outside 3-8s); export dialog warns on size
+  (9:16 + mp4_size Canvas or actual outside 3-8s).
+- [x] R3 — BPM -> Length: BPM + bars inputs -> Length = bars*240/BPM
+  (120BPM/2 bars = 4s; 140BPM/4 bars = 6.86s). The loop doesn't start
+  on the downbeat (Spotify loops on its own clock) but the inner pulse matches
+  the track. Cost S, total beatmaker fit.
+  Done (Hold-manda era): `hold_for_target()` solves Hold for the target
+  (capped 3.0s, honest fits); VIDEO adds ♫ BPM/Bars row + Set Hold.
   REMOVED (nov-2026, post-v1.2.0): too fiddly, Length stays derived
   (Frames/FPS/Hold direct). Row + `apply_bpm()` + `hold_for_target()`
   deleted; no preset fields involved (Hold is and stays the preset).
@@ -592,95 +592,95 @@ chrome arriba/abajo ~250px).
   Done: `YT_THUMB` (16:9/1280), `SQUARE_11` (1:1/1080),
   `PORTRAIT_45` (4:5/1350); master = `CANVAS_916` (R1).
 
-### 8.2 Formato/codec (medido, coste bajo)
+### 8.2 Format/codec (measured, low cost)
 
-- [x] R5 — macro_block_size=2 + even-guard en mp4_dims (BUG verificado hoy:
-  1080x1920 -> 1088x1920, 404x720 -> 416x720; H.264/yuv420p solo exige
-  múltiplos de 2). Sin esto ningún MP4 es Canvas-válido. Coste XS, hacerlo ya.
+- [x] R5 — macro_block_size=2 + even-guard on mp4_dims (BUG verified today:
+  1080x1920 -> 1088x1920, 404x720 -> 416x720; H.264/yuv420p only requires
+  multiples of 2). Without this no MP4 is Canvas-valid. Cost XS, do now.
   Done: `mp4_dims` redondea a par hacia abajo + `macro_block_size=2` en
   `write_mp4`/`write_mp4_iter`; 1080x1920 sale exacto, 721x721 -> 720x720.
-- [x] R6 — faststart (`-movflags +faststart`) en write_mp4/write_mp4_iter:
-  playback progresivo en web/stores, coste ~cero. Hacer con R5.
+- [x] R6 — faststart (`-movflags +faststart`) on write_mp4/write_mp4_iter:
+  progressive playback on web/stores, ~zero cost. Do with R5.
   Done: en ambos writers; test afirma moov antes que mdat.
-- [x] R7 — Animated WebP export (promueve §7.6): Pillow save_all + duration
-  (int o lista) + loop=0 + minimize_size, sin deps nuevas, ~1/3 del GIF a
-  igual calidad y full color; todos los browsers lo reproducen. Nuevo
-  `save_webp()` espejo de save_gif + checkbox en diálogo + bundle
+- [x] R7 — Animated WebP export (promotes §7.6): Pillow save_all + duration
+  (int or list) + loop=0 + minimize_size, no new deps, ~1/3 of the GIF at
+  equal quality and full color; every browser plays it. New
+  `save_webp()` mirroring save_gif + checkbox in dialog + bundle
   `*_anim.webp`. Coste S/M.
   Done: `save_webp()` (full color, minimize_size, quality 80) +
-  `estimate_webp` (GIF//3) + `{base}_anim.webp` vía `webp_name()` +
-  checkbox "Animation WebP" en diálogo (plan + colisiones) + `webp=True`
+  `estimate_webp` (GIF//3) + `{base}_anim.webp` via `webp_name()` +
+  "Animation WebP" checkbox in dialog (plan + collisions) + `webp=True`
   en `export_full` (reusa los frames del GIF; dialog-only como MP4,
   batch sigue GIF).
-- [x] R8 — GIF estimate v2 (hold-collapse aware): la estima actual
-  (frames*w*h//2) miente 100-1000x en clips con holds porque Pillow
-  fusiona frames idénticos. Estimar transiciones a coste completo + 1f
-  por forma quieta. Coste S.
+- [x] R8 — GIF estimate v2 (hold-collapse aware): the current estimate
+  (frames*w*h//2) lies 100-1000x on clips with holds because Pillow
+  merges identical frames. Estimate transitions at full cost + 1f
+  per still form. Cost S.
   Done: `estimate_gif(n_trans, w, h, n_hold_forms=0)` (+ `estimate_webp`
-  espejo); migran video_controller (label, ping-pong ya no duplica),
-  diálogo GIF+WebP (plan 256f una vez) y `_estimate_bytes` (extra
-  gif_trans/gif_forms, default = forma vieja). Medido 480p real:
-  12.7x→3.8x over, misma dirección segura.
+  mirror); video_controller migrates (label, ping-pong no longer doubles),
+  GIF+WebP dialog (256f plan once) and `_estimate_bytes` (extra
+  gif_trans/gif_forms, default = old shape). Measured real 480p:
+  12.7x→3.8x over, same safe direction.
 
-### 8.3 Print (encaja con Vector Pro)
+### 8.3 Print (pairs with Vector Pro)
 
-- [x] R9 — Separaciones por tinta (RISO/serigrafía): un PNG por color de
-  paleta (spot separations) + marcas de registro. Flujo real de
-  print-shops, sin OpenCV. Coste M.
+- [x] R9 — Ink separations (RISO/screen print): one PNG per palette
+  color (spot separations) + registration marks. Real print-shop
+  flow, no OpenCV. Cost M.
   Done: `app/separations.py` (nearest-color plates L + crosshair-in-circle
-  por esquina + `effective_palette` espejo del pipeline + `plate_count`
-  sin render); `{base}_sep_{NN}_{RRGGBB}.png` vía `export_full(sep=True)`
-  (dialog-only); diálogo con checkbox + plan + colisiones (glob exacto
-  post-accept). Pareja del flujo Vector Pro black-ink.
+  per corner + `effective_palette` mirror of the pipeline + `plate_count`
+  without render); `{base}_sep_{NN}_{RRGGBB}.png` via `export_full(sep=True)`
+  (dialog-only); dialog with checkbox + plan + collisions (exact post-accept
+  glob). Pairs with the Vector Pro black-ink flow.
 
-### 8.4 Workflow/automatización
+### 8.4 Workflow/automation
 
-- [x] R10 — CLI headless (`TRAKKART.exe --cli --preset X --in ... --out ...`):
-  sellos con 20 singles/mes lo agradecen; UI y engine ya están separados
-  por servicios. Coste M.
+- [x] R10 — Headless CLI (`TRAKKART.exe --cli --preset X --in ... --out ...`):
+  labels shipping 20 singles/month thank you for it; UI and engine are already
+  service-separated. Cost M.
   Done: `app/cli.py` (`run_cli` → exit 0/1/2, `--list-presets`, file +
-  folder vía batch bundle, skip-existing, safety guard, stateless sin
-  history); `main.py` despacha `--cli` antes de importar Qt (verificado
-  sin PySide6 en intérprete fresco); MP4/WebP/seps quedan dialog-only;
-  MANUAL con sección.
-- [x] R11 — Watch-folder (carpeta vigilada -> auto-batch con preset fijo).
-  Coste M. Alternativa barata: "re-batch last folder" en 1 click (S).
+  folder via batch bundle, skip-existing, safety guard, stateless without
+  history); `main.py` dispatches `--cli` before importing Qt (verified
+  without PySide6 in a fresh interpreter); MP4/WebP/seps stay dialog-only;
+  MANUAL with a section.
+- [x] R11 — Watch-folder (watched folder -> auto-batch with fixed preset).
+  Cost M. Cheap alternative: "re-batch last folder" in 1 click (S).
   Done: `app/ui/watch_flow.py` (QFileSystemWatcher + 2s debounce +
   skip-existing idempotente + 3s settle anti-copias-parciales + preset
-  fijo por NOMBRE recargado por ciclo + jobs=1 + stateless sin history
-  + cero modales) + `WatchDialog` + File → Watch folder... (checkable).
-  La alternativa barata no hizo falta (el mismo coste cubre el caso).
+  fixed by NAME reloaded per cycle + jobs=1 + stateless without history
+  + zero modals) + `WatchDialog` + File → Watch folder... (checkable).
+  The cheap alternative wasn't needed (same cost covers the case).
 
-### 8.5 Polish UX/motor (solo si sobra ciclo)
+### 8.5 UX/engine polish (only with spare cycles)
 
-- [x] R12 — Safe-area guides 9:16 (franjas top/bottom de chrome
-  IG/TikTok/Shorts) en crop editor + preview. Coste S/M.
-  Done: `app/ui/safeareas.py` (bandas 250/1920 como fracción + overlay
-  Qt, display-only); preview still (sync + async) + crop editor (frame
-  9:16); View → Safe areas 9:16 (default ON). Video frames excluidos
-  (coste por frame, documentado).
-- [x] R13 — Wipe compare (slider antes/después) además de hold-to-compare.
-  Coste S.
-  Done: slider Wipe bajo el preview (ORIGINAL izq / result der,
-  divisor ámbar, 0 = off); original alineado vía canvas vivo;
-  composita a tamaño display; hold manda mientras se pulsa; video lo
-  ignora; sobrevive refreshes (router `redisplay`).
-- [x] R14 — Congelar roster de motores en 36: más difusiones (Ostromoukhov
-  y cía) aportan <5% visible para covers y cada motor es superficie de
-  test/preset para siempre. Decisión propuesta.
-  Done (decisión adoptada): roster congelado con test que afirma la lista
-  exacta (`test_engine_roster_frozen_r14`); añadir un motor exige decisión
-  consciente (lista + docs). NOTA: el roster de PARTÍCULAS (11 fields F1/F2)
-  no entra en este freeze (eje vivo).
+- [x] R12 — 9:16 safe-area guides (IG/TikTok/Shorts chrome top/bottom bands)
+  in crop editor + preview. Cost S/M.
+  Done: `app/ui/safeareas.py` (250/1920 bands as fraction + Qt overlay,
+  display-only); still preview (sync + async) + crop editor (9:16 frame);
+  View → Safe areas 9:16 (default ON). Video frames excluded
+  (per-frame cost, documented).
+- [x] R13 — Wipe compare (before/after slider) besides hold-to-compare.
+  Cost S.
+  Done: Wipe slider under the preview (ORIGINAL left / result right,
+  amber divider, 0 = off); original aligned via live canvas;
+  display-size composite; hold wins while held; video
+  ignores it; survives refreshes (`redisplay` router).
+- [x] R14 — Freeze the 36-engine roster: more diffusions (Ostromoukhov
+  et al.) add <5% visible value for covers and each engine is test/preset
+  surface forever. Proposed decision.
+  Done (decision adopted): frozen roster with a test asserting the exact
+  list (`test_engine_roster_frozen_r14`); adding an engine requires a
+  deliberate decision (list + docs). NOTE: the PARTICLE roster (11 F1/F2
+  fields) is out of this freeze (live axis).
 
-### 8.6 Rechazado explícito (no reabrir sin motivo)
+### 8.6 Explicitly rejected (do not reopen without reason)
 
-- AV1/codecs nuevos: H.264 es el codec universal de Canvas/socials; AV1
-  encode es lento y nada lo exige. Pillow+numpy+imageio bastan.
-- IA en nube, cuentas, uploads, login, auto-update/store: rompen
-  offline-first y el §6. Text layer in-app: ya se quitó en v0.14.
+- AV1/new codecs: H.264 is the universal Canvas/social codec; AV1
+  encoding is slow and nothing requires it. Pillow+numpy+imageio suffice.
+- Cloud AI, accounts, uploads, login, auto-update/store: they break
+  offline-first and §6. In-app text layer: already removed in v0.14.
 
-### Recomendado (siguiente)
+### Recommended (next)
 
-1. R5+R6 HECHO + Hold-manda HECHO + R1+R2+R3 HECHO → 2. R7 (WebP) o
-   R9 (separaciones) según tiren más social o print → 3. morph F1 (§7.7).
+1. R5+R6 DONE + Hold-manda DONE + R1+R2+R3 DONE → 2. R7 (WebP) or
+   R9 (separations) by social vs print pull → 3. morph F1 (§7.7).

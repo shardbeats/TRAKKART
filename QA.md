@@ -4,9 +4,7 @@ Verification procedures (TRAKK standard).
 
 ## Fast loop (dev)
 
-Venv: central `C:\venvs\dev` if present (override with `CENTRAL_VENV`),
-else local `.venv`. The commands below use `.venv`; swap the python path
-when using the central one.
+Local `.venv` only. The commands below use `.venv`.
 
 ```
 .venv\Scripts\python -m pytest tests -q -p no:cacheprovider --no-cov -m "not slow" -n auto
@@ -154,11 +152,11 @@ Unit-covered, sin escenarios Gherkin nuevos (gates siguen 52).
 
 ## Honest weight (R8)
 
-`estimate_gif(n_trans, w, h, n_hold_forms)` = transiciones a coste
-completo + 1f por forma quieta (Pillow fusiona holds idénticos; medido
-114f→1f). Migran: duration label (ping-pong espejado ya no duplica),
-diálogo (plan 256f una vez para GIF+WebP) y `_estimate_bytes`
-(extra gif_trans/gif_forms, default = forma vieja para batch).
+`estimate_gif(n_trans, w, h, n_hold_forms)` = transitions at full
+cost + 1f per still form (Pillow merges identical holds; measured
+114f→1f). Migrated: duration label (mirrored ping-pong no longer doubles),
+dialog (256f plan once for GIF+WebP) and `_estimate_bytes`
+(extra gif_trans/gif_forms, default = old shape for batch).
 
 ## Ink separations (R9)
 
@@ -166,12 +164,12 @@ diálogo (plan 256f una vez para GIF+WebP) y `_estimate_bytes`
 .venv\Scripts\python -m pytest tests/test_separations.py -q -p no:cacheprovider --no-cov
 ```
 
-`app/separations.py`: nearest-color plates (L, tinta negra sobre
-blanco, row-chunked) + crosshair-in-circle por esquina en todas las
-tintas + `effective_palette` (misma resolución que el pipeline:
-custom > SOURCE extraída > BW > named+depth). Se separan del main
-exportado ("separate what you see", mismo tamaño). Dialog-only
-(checkbox + plan + colisiones); batch no. Unit-covered, Gherkin 52.
+`app/separations.py`: nearest-color plates (L, black ink on
+white, row-chunked) + crosshair-in-circle per corner on every
+ink + `effective_palette` (same resolution as the pipeline:
+custom > SOURCE extracted > BW > named+depth). Separated from the
+exported main ("separate what you see", same size). Dialog-only
+(checkbox + plan + collisions); no batch. Unit-covered, Gherkin 52.
 
 ## Morph F1: fields × stagger × ease (§7.7)
 
@@ -184,7 +182,7 @@ wave/ripple/flow/blocks), 5 staggers (off/rank/radial/scan/sweep,
 joint-pinned: joints stay assembled under holds), 3 eases
 (sine/cubic/linear; elastic/bounce = F2). Legacy triple
 wind/off/sine byte-identical (fast path). 3 preset fields with
-migración (defaults = legacy). Gherkin 55 (`morph_modes.feature`).
+migration (defaults = legacy). Gherkin 55 (`morph_modes.feature`).
 Deviations from research noted in §7.7 (rise+linear in F1, flow
 closed-form not baked, blocks 15% peak anchor).
 
@@ -312,10 +310,10 @@ python main.py --cli --preset SLIME_FS --in covers --out out
 .venv\Scripts\python -m pytest tests/test_cli.py -q -p no:cacheprovider --no-cov
 ```
 
-`--out` siempre carpeta; bundle = batch UI; skip-existing;
-safety guard en single; stateless (sin history); jobs=1 fijo
-(spawn-free en exe). `--cli` se despacha antes de importar Qt
-(test en intérprete fresco lo afirma). Exit 0/1/2.
+`--out` is always a folder; bundle = batch UI; skip-existing;
+safety guard on single; stateless (no history); jobs=1 fixed
+(spawn-free in exe). `--cli` dispatches before importing Qt
+(fresh-interpreter test asserts it). Exit 0/1/2.
 
 ## Watch folder (R11)
 
@@ -323,12 +321,12 @@ safety guard en single; stateless (sin history); jobs=1 fijo
 .venv\Scripts\python -m pytest tests/test_watch.py -q -p no:cacheprovider --no-cov
 ```
 
-File → Watch folder… (checkable): input/output + preset fijo por
-nombre (se recarga por ciclo: edítalo y aplica). QFileSystemWatcher
-+ debounce 2s + settle 3s (nunca hornea copias parciales) +
-skip-existing idempotente + BatchWorker jobs=1 + stateless (sin
-history) + cero modales (solo status). Stop: mismo menú, cerrar app,
-o preset borrado. Unit-covered con worker stub síncrono (sin
+File → Watch folder… (checkable): input/output + fixed preset by
+name (reloaded each cycle: edit it and it applies). QFileSystemWatcher
++ 2s debounce + 3s settle (never bakes partial copies) +
+idempotent skip-existing + BatchWorker jobs=1 + stateless (no
+history) + zero modals (status only). Stop: same menu, close app,
+or deleted preset. Unit-covered with synchronous worker stub (no
 event-loop waits), Gherkin 52.
 
 ## Morph loop + equal holds + honest MP4 (v1.15)

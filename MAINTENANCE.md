@@ -9,8 +9,7 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 
 - Runtime: `requirements.txt` (PySide6, Pillow, numpy, numba, imageio-ffmpeg). No OpenCV/GPU. Numba ships in the bundle; numpy fallback stays for safety (`has_numba()` probe, parity tested).
 - Dev: `requirements-dev.txt` (pytest, pytest-bdd, pytest-cov, coverage).
-- Install dev: `<venv>\Scripts\python -m pip install -r requirements-dev.txt`
-  (`<venv>` = central `C:\venvs\dev` or local `.venv`).
+- Install dev: `.venv\Scripts\python -m pip install -r requirements-dev.txt`
 
 ## CI pins (known incident 2026-10-30)
 
