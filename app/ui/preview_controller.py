@@ -10,14 +10,45 @@ from __future__ import annotations
 
 
 def render_still(win) -> None:
-    """One still render: sync when cheap, background thread when heavy."""
-    from app.services.render_service import render_full, should_render_async
+    """One still render: Full = full-res; otherwise a fast 640px proxy.
 
-    if should_render_async(win.src):
-        start_async(win)  # no numba and big: do not freeze
+    Sync when cheap, background thread when heavy (serial diffusion or a
+    large image without numba). The worker renders the same 640px proxy,
+    so sync and async previews agree.
+    """
+    import time
+
+    from app.services.render_service import (
+        PREVIEW_LONG_SIDE,
+        render_full,
+        render_preview_small,
+        should_render_async,
+    )
+    from app.viewport import is_heavy_preset, normalize_mode
+
+    preset = win.current_params()
+    full = normalize_mode(getattr(win, "viewport_mode", "live")) == "full"
+    large = max(win.src.size) > PREVIEW_LONG_SIDE
+    if should_render_async(win.src) or (large and is_heavy_preset(preset)):
+        start_async(win)  # heavy large canvas: never freeze the sliders
         return
-    win.result = render_full(win.src, win.current_params())
+    t0 = time.perf_counter()
+    if full:
+        win.result = render_full(win.src, preset)
+        label = "full-res"
+    else:
+        win.result = render_preview_small(win.src, preset)
+        label = f"{PREVIEW_LONG_SIDE}px"
+    ms = (time.perf_counter() - t0) * 1000.0
     show(win, win.src, win.result)
+    win._status(f"Preview ready · {label} · {ms:.0f}ms")
+
+
+def _restore_cursor(win) -> None:
+    try:
+        win.unsetCursor()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def show(win, orig, res) -> None:
@@ -46,6 +77,12 @@ def start_async(win) -> None:
     win._preview_worker.finished_ok.connect(win._on_preview_done)
     win._preview_worker.finished_err.connect(win._on_preview_error)
     win._status("Rendering heavy preview in the background...")
+    try:
+        from PySide6.QtCore import Qt
+
+        win.setCursor(Qt.WaitCursor)
+    except Exception:  # noqa: BLE001
+        pass
     win._preview_worker.start()
 
 
@@ -93,6 +130,8 @@ def on_done(win, qimg, pil_img, token: int) -> None:
     if win._preview_pending:
         win._preview_pending = False
         start_async(win)
+        return
+    _restore_cursor(win)
 
 
 def on_error(win, msg: str, token: int) -> None:
@@ -120,4 +159,5 @@ def on_error(win, msg: str, token: int) -> None:
         win._preview_pending = False
         start_async(win)
         return
+    _restore_cursor(win)
     win._report_error("Preview error", msg)

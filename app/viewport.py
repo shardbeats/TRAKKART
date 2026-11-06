@@ -20,6 +20,18 @@ LIVE_SLOW_MS = 350
 # Params whose render cost spikes (blur/denoise convolve full-res).
 HEAVY_PARAMS = ("pre_blur", "pre_denoise", "pre_smooth")
 
+try:
+    from app.kernels import ED_METHODS as _ED_METHODS
+except Exception:  # noqa: BLE001
+    _ED_METHODS = (
+        "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki",
+        "stevenson", "shiaufan", "filterlite", "sierralite", "sierra3",
+    )
+
+# Serial diffusion methods: per-pixel dependency, no cheap path even with
+# numba on large canvases, so sliders must not render them synchronously.
+HEAVY_METHODS = tuple(_ED_METHODS) + ("hilbert",)
+
 
 def normalize_mode(mode: str | None) -> str:
     m = str(mode or "").lower()
@@ -37,7 +49,13 @@ def resolve_interval(mode: str | None, fast: bool = False) -> int | None:
 
 
 def is_heavy_preset(preset) -> bool:
-    """True when the preset uses heavy pre-fx (goes to background worker)."""
+    """True when a background thread pays off (pre-FX or serial diffusion)."""
+    try:
+        method = str(getattr(preset, "method", "") or "").lower()
+    except Exception:  # noqa: BLE001
+        method = ""
+    if method in HEAVY_METHODS:
+        return True
     try:
         blur = float(getattr(preset, "pre_blur", 0.0) or 0.0)
         denoise = int(getattr(preset, "pre_denoise", 0) or 0)
@@ -52,6 +70,7 @@ def mode_label(mode: str | None) -> str:
 
 
 __all__ = [
+    "HEAVY_METHODS",
     "HEAVY_PARAMS",
     "LIVE_FAST_MS",
     "LIVE_SLOW_MS",

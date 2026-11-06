@@ -18,6 +18,22 @@ if TYPE_CHECKING:
 
 PREVIEW_LONG_SIDE = 640
 
+# Radius-like FX are pixel distances, so they shrink with f to keep
+# proportions. Amount-like FX (grain, vignette, wave) are untouched.
+RADIUS_KEYS = ("glow_radius", "border", "scanlines", "grille", "halftone", "letterbox")
+
+
+def compensate_preview_params(kwargs: dict, f: float) -> dict:
+    """Scale block/radius params for a preview rendered at factor f (in place)."""
+    if f < 1.0:
+        kwargs["pixel_size"] = max(1, round(int(kwargs.get("pixel_size", 1)) / f))
+        for key in RADIUS_KEYS:
+            try:
+                kwargs[key] = max(0, round(float(kwargs.get(key, 0)) * f))
+            except (TypeError, ValueError):
+                continue
+    return kwargs
+
 
 def downscale_for_preview(img: Image.Image, max_side: int = PREVIEW_LONG_SIDE) -> tuple[Image.Image, float]:
     """Return (downscaled image, factor) keeping aspect ratio."""
@@ -43,13 +59,7 @@ def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
     """
     small, f = downscale_for_preview(img)
     kwargs = preset_to_render_kwargs(preset)
-    if f < 1.0:
-        kwargs["pixel_size"] = max(1, round(int(kwargs["pixel_size"]) / f))
-        for key in ("glow_radius", "border", "scanlines", "grille", "halftone", "letterbox"):
-            try:
-                kwargs[key] = max(0, round(float(kwargs[key]) * f))
-            except (TypeError, ValueError):
-                continue
+    compensate_preview_params(kwargs, f)
     return render(small, **kwargs)
 
 
@@ -67,6 +77,8 @@ def should_render_async(img: Image.Image) -> bool:
 
 __all__ = [
     "PREVIEW_LONG_SIDE",
+    "RADIUS_KEYS",
+    "compensate_preview_params",
     "downscale_for_preview",
     "render_preview_small",
     "render_full",

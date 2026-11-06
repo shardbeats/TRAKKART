@@ -704,8 +704,9 @@ No arch change, no new deps, offline-first intact.
   compensates `pixel_size`/radius FX) except in Full mode; (2) extend
   heavy/async detection to the ED family + `hilbert` + canvas >1MP so
   those go to the worker with token stale-drop; (3) status readout
-  (`Preview 640px · 180ms`) + Wait cursor + Export disabled while a
-  worker is alive.
+  (`Preview 640px · 180ms`) + Wait cursor while a worker is alive
+  (Export stays enabled: it re-renders independently, blocking it
+  would only hurt).
 - Verify: manual drag on a 3000px `floyd` preset stays responsive;
   fast suite green (`-m "not slow"`); no new Gherkin unless the readout
   needs one scenario.

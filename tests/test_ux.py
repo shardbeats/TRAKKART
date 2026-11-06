@@ -23,7 +23,29 @@ def test_heavy_preset_detection():
     assert is_heavy_preset(SimpleNamespace(pre_blur=2.0, pre_denoise=0, pre_smooth=0.0)) is True
     assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=3, pre_smooth=0.0)) is True
     assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=0, pre_smooth=1.0)) is True
+    assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=0, pre_smooth=0.0, method="bayer8")) is False
+    assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=0, pre_smooth=0.0, method="floyd")) is True
+    assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=0, pre_smooth=0.0, method="FLOYD")) is True
+    assert is_heavy_preset(SimpleNamespace(pre_blur=0.0, pre_denoise=0, pre_smooth=0.0, method="hilbert")) is True
     assert is_heavy_preset(None) is False
+
+
+def test_still_preview_uses_proxy_except_full(window):
+    from PIL import Image
+
+    from app.ui import preview_controller as pc
+
+    window._apply_preset("VAPOR_BAYER8")  # ordered: sync path even when large
+    window.src = Image.new("RGB", (1200, 900), (200, 50, 90))
+    window.viewport_mode = "live"
+    pc.render_still(window)  # ordered default: sync 640px proxy
+    assert window.result is not None
+    assert max(window.result.size) <= 640
+    assert "640px" in window.lbl_status.text()
+    window.viewport_mode = "full"
+    pc.render_still(window)  # Full: exact full-res render
+    assert max(window.result.size) > 640
+    assert "full-res" in window.lbl_status.text()
 
 
 def test_tutorial_steps_and_samples(tmp_path):

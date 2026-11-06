@@ -39,11 +39,10 @@ def _copy_morph(morph_src):
 
 def preview_params(img: Image.Image, params: dict, max_side: int = PREVIEW_LONG_SIDE) -> tuple[Image.Image, int]:
     """Return (downscaled image, effective pixel) keeping relative size."""
-    from app.services.render_service import downscale_for_preview
+    from app.services.render_service import compensate_preview_params, downscale_for_preview
 
     small, f = downscale_for_preview(img, max_side)
-    pixel = int(params.get("pixel_size", 1)) if f >= 1.0 else max(1, round(int(params.get("pixel_size", 1)) / f))
-    return small, pixel
+    return small, int(compensate_preview_params(dict(params), f).get("pixel_size", 1))
 
 
 class PreviewWorker(WorkerBase):
@@ -58,11 +57,11 @@ class PreviewWorker(WorkerBase):
 
     def work(self) -> None:
         from app.pipeline import render as _render
+        from app.services.render_service import compensate_preview_params, downscale_for_preview
         from app.ui.qt_image import pil_to_qimage
 
-        small, pixel = preview_params(self.src, self.params)
-        p = dict(self.params)
-        p["pixel_size"] = pixel
+        small, f = downscale_for_preview(self.src)
+        p = compensate_preview_params(dict(self.params), f)
         out = _render(small, **p)
         rgb = out.convert("RGB")
         self.finished_ok.emit(pil_to_qimage(rgb), rgb.copy(), self.token)
