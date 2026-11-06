@@ -684,3 +684,65 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
 
 1. R5+R6 DONE + Hold-manda DONE + R1+R2+R3 DONE → 2. R7 (WebP) or
    R9 (separations) by social vs print pull → 3. morph F1 (§7.7).
+2. New tracks below (§9 pro polish + §10 GPU preview) run after the
+   above; §9 ships first (small, no arch change), §10 needs explicit
+   plan approval before any implementation.
+
+## 9. Professional polish — visual UI + preview fluency (planned)
+
+Goal: feel modern without a rewrite. Two micro-packs, each mergeable
+separately, pytest green after each step, one clean commit per pack.
+No arch change, no new deps, offline-first intact.
+
+### 9.1 Preview fluency (root cause noted, small diff)
+
+- Background: `preview_controller.render_still` uses `render_full` sync
+  except `should_render_async` (no-numba + >480px). A large image + an
+  ED method (`floyd` family) freezes sliders even with numba.
+  `is_heavy_preset` only covers `pre_blur/denoise/smooth`, not the method.
+- Plan: (1) preview at 640px via `render_preview_small` (already
+  compensates `pixel_size`/radius FX) except in Full mode; (2) extend
+  heavy/async detection to the ED family + `hilbert` + canvas >1MP so
+  those go to the worker with token stale-drop; (3) status readout
+  (`Preview 640px · 180ms`) + Wait cursor + Export disabled while a
+  worker is alive.
+- Verify: manual drag on a 3000px `floyd` preset stays responsive;
+  fast suite green (`-m "not slow"`); no new Gherkin unless the readout
+  needs one scenario.
+
+### 9.2 Visual UI micro-polish (cheap, visible)
+
+- Empty-state placeholder with drop guidance (`File → Open / drop /
+  Ctrl+V`) instead of a black canvas; `theme.qss` hover/focus/disabled
+  states + visible slider/combo focus; HiDPI pixmap
+  (`devicePixelRatio` + `SmoothTransformation`).
+- Verify: existing layout test + manual checklist green.
+
+## 10. GPU preview — C1 vs hybrid WGSL (planned, needs approval)
+
+Context (do not reopen without reason): replicating TRAKKART on another
+stack was evaluated and rejected; staying on Qt/PySide6 with GPU for
+pixel-parallel work is the best ROI. Physical rule: per-pixel work goes
+to fragment shaders (grade/adjust, ordered dither, duotone, posterize,
+post FX); serial work stays on CPU (ED Floyd-Steinberg with numba,
+JPEG, pixelsort, numpy particles). Honest dual arch: GPU for iteration,
+numpy CPU for the final render, switchable. Rejected: compute shaders
+for ED/particles (high cost, dubious ROI), native Rust GUI rewrite,
+repackaging everything for web (separate track). Hybrid option to keep
+in mind: portable WGSL kernels (`wgpu-py` today, web tomorrow).
+
+Reference (read-only, do not edit there): the `TRAKKMOTION`
+`src/shaders/{grade,dither,post}.frag.glsl` oracle plus its fixtures
+serve as the transcription reference (bankers rounding, V-flip, phase
+truncation, spread formula, stack order `u_order[19]`).
+
+- Step 1 — direction lock: confirm C1 (GLSL via `QOpenGLWidget` or
+  `moderngl`) or hybrid WGSL (`wgpu-py`). No code yet.
+- Step 2 — SRS `preview GPU`: numbered FRs with `numpy-vs-GPU`
+  verification and a pinned tolerance (<=1 LSB plus documented
+  exceptions: contrast pivot, hue HSV→YIQ, hash vs `default_rng`);
+  non-goals pinned (no ED compute, no Rust, no web repack).
+- Step 3 — afternoon spike: one `Bayer + grade` in `moderngl` inside a
+  minimal PySide6 window, measuring fps vs numpy + pixel parity.
+- Step 4 — full C1 decision only with the spike + SRS green and explicit
+  approval. Never implement the full C1 on this track without it.
