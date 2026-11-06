@@ -744,13 +744,16 @@ truncation, spread formula, stack order `u_order[19]`).
 - Step 2 — SRS `preview GPU`: DONE (`docs/srs-gpu-preview.md`: FR-1..8,
   pinned <=1 LSB tolerance + deviations, FR-7 preview-only wiring,
   FR-8 dependency gate).
-- Step 3 — afternoon spike (next, needs explicit OK to start): one
-  `Bayer + grade` in `moderngl` inside a minimal PySide6 window,
-  measuring fps vs numpy + pixel parity. Notes: `moderngl` is NOT in
-  the venv yet (local install only, never in `requirements.txt` for the
-  spike); the oracle is GLSL ES 1.00, desktop GL needs a mechanical
-  330-core port (keep the per-stage `floor()` + bankers rounding or
-  parity fails); spike lives in `tools/gpu_spike_preview.py` (manual,
-  not a quality gate).
+- Step 3 — afternoon spike: DONE (`tools/gpu_spike_preview.py`, manual,
+  not a gate). One `Bayer + grade` in `moderngl` (GL 330, RTX 3060):
+  parity PASS with maxdiff=0 LSB on both synthetic inputs; bench
+  640x480 23x (65.5ms -> 2.9ms), 1920x1080 24x (362.6ms -> 15.2ms),
+  GPU time incl. readback. Lessons pinned in the spike header:
+  moderngl uploads PIL top-first bytes as-is (no flip), FBO sampling
+  needs a V-flip between passes, contrast pivots on the Pillow
+  int-rounded L-mean of the brightened image (CPU computes it, GPU
+  applies it). `moderngl` stays a local-only install (never in
+  `requirements.txt` for the spike); the oracle GLSL ES 1.00 -> 330
+  port kept per-stage `floor()` + bankers rounding.
 - Step 4 — full C1 decision only with the spike + SRS green and explicit
   approval. Never implement the full C1 on this track without it.
