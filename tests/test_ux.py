@@ -30,6 +30,11 @@ def test_heavy_preset_detection():
     assert is_heavy_preset(None) is False
 
 
+def test_empty_state_placeholder(window):
+    assert "NO IMAGE" in window.lbl_res.text()
+    assert window.lbl_res.wordWrap() is True
+
+
 def test_still_preview_uses_proxy_except_full(window):
     from PIL import Image
 

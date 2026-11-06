@@ -20,6 +20,19 @@ def test_stylesheet_covers_selectors():
         assert sel in css, sel
 
 
+def test_stylesheet_covers_focus_and_disabled():
+    css = THEME_FILE.read_text(encoding="utf-8")
+    for sel in ("QPushButton:focus",
+                "QComboBox:disabled",
+                "QSlider::handle:horizontal:disabled",
+                "QCheckBox:disabled"):
+        assert sel in css, sel
+    css = THEME_FILE.read_text(encoding="utf-8")
+    for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
+                "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
+        assert sel in css, sel
+
+
 def test_window_applies_stylesheet(tmp_path):
     import os
 

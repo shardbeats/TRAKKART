@@ -11,16 +11,33 @@ from PIL import Image
 
 
 def pil_to_pixmap(img: Image.Image, max_side: int = 520):
-    """PIL -> QPixmap, downscaling the long side to max_side. No mutation."""
+    """PIL -> QPixmap, downscaling the long side to max_side. No mutation.
+
+    BICUBIC downscale (smooth on photos, not chunky) with HiDPI backing:
+    on a 2x screen the pixmap carries 2x pixels and reports the ratio, so
+    the label keeps the same logical size, crisp. No-op at ratio 1.
+    """
     from PySide6.QtGui import QImage, QPixmap
 
+    try:
+        from PySide6.QtWidgets import QApplication
+
+        screen = QApplication.primaryScreen()
+        dpr = float(screen.devicePixelRatio()) if screen is not None else 1.0
+    except Exception:  # noqa: BLE001
+        dpr = 1.0
+    if not dpr > 1.0:
+        dpr = 1.0
     rgb = img.convert("RGB")
-    r = max_side / max(rgb.width, rgb.height)
+    r = (max_side * dpr) / max(rgb.width, rgb.height)
     if r < 1.0:
-        rgb = rgb.resize((int(rgb.width * r), int(rgb.height * r)))
+        rgb = rgb.resize((max(1, int(rgb.width * r)), max(1, int(rgb.height * r))), Image.BICUBIC)
     data = rgb.tobytes("raw", "RGB")
     qimg = QImage(data, rgb.width, rgb.height, rgb.width * 3, QImage.Format_RGB888)
-    return QPixmap.fromImage(qimg.copy())
+    pix = QPixmap.fromImage(qimg.copy())
+    if dpr > 1.0:
+        pix.setDevicePixelRatio(dpr)
+    return pix
 
 
 def pil_to_qimage(img: Image.Image):

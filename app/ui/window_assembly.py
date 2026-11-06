@@ -243,7 +243,16 @@ def setup_previews(win, root) -> None:
     win._video_bar_widget.setLayout(win._video_bar)
     win._video_bar_widget.setVisible(False)
     res_col.addWidget(win._video_bar_widget)
-    win.lbl_res = QLabel("NO IMAGE\n\nDrop a file onto the window · Ctrl+O to open\nHelp → Quick tour for the 5-step tour")
+    win.lbl_res = QLabel()
+    win.lbl_res.setTextFormat(Qt.RichText)
+    win.lbl_res.setWordWrap(True)
+    win.lbl_res.setText(
+        "<div style='color:#92959A;'>"
+        "<span style='font-size:28px; font-weight:bold; letter-spacing:4px; color:#E5E5E5;'>"
+        "NO IMAGE</span><br/><br/>"
+        "Drop a file onto the window &middot; Ctrl+O to open"
+        "<br/>Help &rarr; Quick tour for the 5-step tour</div>"
+    )
     win.lbl_res.setObjectName("previewFrame")
     win.lbl_res.setAlignment(Qt.AlignCenter)
     win.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

@@ -305,6 +305,34 @@ QInputDialog QLineEdit {
     color: #E5E5E5;
 }
 
+QPushButton:focus {
+    border: 1px solid #F5A623;
+    outline: none;
+}
+
+QComboBox:disabled, QSpinBox:disabled, QLineEdit:disabled {
+    background-color: #1C1D1F;
+    color: #383B40;
+    border-color: #45474A;
+}
+
+QSlider::handle:horizontal:disabled {
+    background-color: #383B40;
+}
+
+QSlider::handle:horizontal:focus {
+    border: 1px solid #FFB52E;
+}
+
+QCheckBox:disabled {
+    color: #383B40;
+}
+
+QCheckBox::indicator:disabled {
+    background-color: #1C1D1F;
+    border-color: #383B40;
+}
+
 QLabel#previewFrame {
     background-color: #000000;
     border: 1px solid #45474A;

@@ -352,6 +352,17 @@ def test_preview_worker_runs_sync(qt_app):
     assert not got["qimg"].isNull()
 
 
+def test_pixmap_helper_smooth_and_hidpi(qt_app):
+    from PIL import Image as Img
+
+    from app.ui.qt_image import pil_to_pixmap
+
+    pix = pil_to_pixmap(Img.new("RGB", (1200, 800), (9, 9, 9)))
+    assert not pix.isNull()
+    assert pix.width() <= 520 and pix.height() <= 520
+    assert pix.devicePixelRatio() >= 1.0
+
+
 def test_value_slider_dblclick_resets(window, qt_app):
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
