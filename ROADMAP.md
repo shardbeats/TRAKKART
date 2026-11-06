@@ -688,13 +688,13 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
    above; §9 ships first (small, no arch change), §10 needs explicit
    plan approval before any implementation.
 
-## 9. Professional polish — visual UI + preview fluency (planned)
+## 9. Professional polish — visual UI + preview fluency (done)
 
 Goal: feel modern without a rewrite. Two micro-packs, each mergeable
 separately, pytest green after each step, one clean commit per pack.
 No arch change, no new deps, offline-first intact.
 
-### 9.1 Preview fluency (root cause noted, small diff)
+### 9.1 Preview fluency (done)
 
 - Background: `preview_controller.render_still` uses `render_full` sync
   except `should_render_async` (no-numba + >480px). A large image + an
@@ -711,15 +711,16 @@ No arch change, no new deps, offline-first intact.
   fast suite green (`-m "not slow"`); no new Gherkin unless the readout
   needs one scenario.
 
-### 9.2 Visual UI micro-polish (cheap, visible)
+### 9.2 Visual UI micro-polish (done)
 
-- Empty-state placeholder with drop guidance (`File → Open / drop /
-  Ctrl+V`) instead of a black canvas; `theme.qss` hover/focus/disabled
-  states + visible slider/combo focus; HiDPI pixmap
-  (`devicePixelRatio` + `SmoothTransformation`).
-- Verify: existing layout test + manual checklist green.
+- Empty-state rich-text placeholder (`NO IMAGE` + drop guidance);
+  `theme.qss` focus/disabled states (buttons, inputs, sliders,
+  checkboxes); `pil_to_pixmap` BICUBIC + HiDPI backing
+  (`devicePixelRatio`, no-op at 1x).
+- Verify: `test_empty_state_placeholder`, QSS selector + pixmap tests;
+  fast suite + flake8 green.
 
-## 10. GPU preview — C1 vs hybrid WGSL (planned, needs approval)
+## 10. GPU preview — C1-GLSL offscreen (SRS accepted, spike next)
 
 Context (do not reopen without reason): replicating TRAKKART on another
 stack was evaluated and rejected; staying on Qt/PySide6 with GPU for
@@ -737,13 +738,19 @@ Reference (read-only, do not edit there): the `TRAKKMOTION`
 serve as the transcription reference (bankers rounding, V-flip, phase
 truncation, spread formula, stack order `u_order[19]`).
 
-- Step 1 — direction lock: confirm C1 (GLSL via `QOpenGLWidget` or
-  `moderngl`) or hybrid WGSL (`wgpu-py`). No code yet.
-- Step 2 — SRS `preview GPU`: numbered FRs with `numpy-vs-GPU`
-  verification and a pinned tolerance (<=1 LSB plus documented
-  exceptions: contrast pivot, hue HSV→YIQ, hash vs `default_rng`);
-  non-goals pinned (no ED compute, no Rust, no web repack).
-- Step 3 — afternoon spike: one `Bayer + grade` in `moderngl` inside a
-  minimal PySide6 window, measuring fps vs numpy + pixel parity.
+- Step 1 — direction lock: DONE (see `docs/srs-gpu-preview.md` §3):
+  C1-GLSL offscreen (`moderngl` -> `QImage` -> `QLabel` path);
+  `QOpenGLWidget` and `wgpu-py`/WGSL stay documented alternatives.
+- Step 2 — SRS `preview GPU`: DONE (`docs/srs-gpu-preview.md`: FR-1..8,
+  pinned <=1 LSB tolerance + deviations, FR-7 preview-only wiring,
+  FR-8 dependency gate).
+- Step 3 — afternoon spike (next, needs explicit OK to start): one
+  `Bayer + grade` in `moderngl` inside a minimal PySide6 window,
+  measuring fps vs numpy + pixel parity. Notes: `moderngl` is NOT in
+  the venv yet (local install only, never in `requirements.txt` for the
+  spike); the oracle is GLSL ES 1.00, desktop GL needs a mechanical
+  330-core port (keep the per-stage `floor()` + bankers rounding or
+  parity fails); spike lives in `tools/gpu_spike_preview.py` (manual,
+  not a quality gate).
 - Step 4 — full C1 decision only with the spike + SRS green and explicit
   approval. Never implement the full C1 on this track without it.
