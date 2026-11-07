@@ -101,8 +101,11 @@ vec3 nearestColor(vec3 noisy) {
     }
     return best;
 }
-float screenChan(float v, float shift, vec2 c) {
-    vec2 m = mod(c - shift, 8.0);
+float screenChan(float v, float shift, vec2 c, vec2 dims) {
+    // Roll-then-crop like the CPU (_screened rolls the cropped array):
+    // wrap at the image dims first, then at the 8-period. Matters when
+    // dims are not multiples of 8 (angle shifts are nonzero at phase 0).
+    vec2 m = mod(mod(c - shift, dims), 8.0);
     return v > bayer8raw(m) / 64.0 * 255.0 ? 255.0 : 0.0;
 }
 void main() {
@@ -120,11 +123,12 @@ void main() {
         float ch = clamp(255.0 - src.r * 255.0 - (255.0 - mx) + gain, 0.0, 255.0);
         float mg = clamp(255.0 - src.g * 255.0 - (255.0 - mx) + gain, 0.0, 255.0);
         float yl = clamp(255.0 - src.b * 255.0 - (255.0 - mx) + gain, 0.0, 255.0);
-        vec2 c = mod(q - s, vec2(4096.0));
-        float cs = screenChan(ch, 0.0, c);
-        float ms = screenChan(mg, 13.0, c);
-        float ys = screenChan(yl, 29.0, c);
-        float ks = screenChan(k, 47.0, c);
+        vec2 gd = vec2(u_w, u_h);
+        vec2 c = q - s;
+        float cs = screenChan(ch, 0.0, c, gd);
+        float ms = screenChan(mg, 13.0, c, gd);
+        float ys = screenChan(yl, 29.0, c, gd);
+        float ks = screenChan(k, 47.0, c, gd);
         outc = vec3(
             (1.0 - cs / 255.0) * (1.0 - ks / 255.0),
             (1.0 - ms / 255.0) * (1.0 - ks / 255.0),

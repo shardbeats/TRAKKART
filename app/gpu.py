@@ -229,6 +229,19 @@ def render_proxy_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
     pre -> grade -> dither(pixel-aware) -> brand -> stack); only the
     dither engine runs on the GPU. Raises on any GL failure.
     """
+    return _run_chain(img, kwargs, full=False)
+
+
+def render_full_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
+    """Doc-size chain for Full stills: same stages, no 640px downscale
+    and no pixel compensation (pixel units are source pixels at f=1.0).
+    Display-only; export/batch/CLI/video stay on CPU. Raises on any
+    GL failure so the caller falls back to the CPU full render.
+    """
+    return _run_chain(img, kwargs, full=True)
+
+
+def _run_chain(img: Image.Image, kwargs: dict, full: bool) -> Image.Image:
     if not available():
         raise RuntimeError("GPU unavailable")
     if not supports(kwargs):
@@ -249,8 +262,12 @@ def render_proxy_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
 
     fields = [f.name for f in _dc_fields(RenderSpec) if f.name in kwargs]
     spec = RenderSpec(**{name: kwargs[name] for name in fields})
-    small, f = downscale_for_preview(img)
-    k = compensate_preview_params(dict(kwargs), f)
+    if full:
+        small, f = img, 1.0
+        k = dict(kwargs)
+    else:
+        small, f = downscale_for_preview(img)
+        k = compensate_preview_params(dict(kwargs), f)
     canvas = to_canvas(small, ratio=str(k.get("ratio", "1:1")),
                        mode=str(k.get("crop_mode", "cover")),
                        fx=float(k.get("focus_x", 50.0)),
@@ -327,6 +344,26 @@ def render_proxy_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
     return render_preview_small(img, preset), "CPU"
 
 
+def render_full_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
+    """Full-res still preview: GPU when supported and working, else CPU.
+
+    Display-only (export/batch/CLI/video never call this). Never raises.
+    """
+    from app.render_params import preset_to_render_kwargs
+    from app.services.render_service import render_full
+
+    try:
+        kwargs = preset_to_render_kwargs(preset)
+    except Exception:  # noqa: BLE001
+        kwargs = dict(preset) if isinstance(preset, dict) else {}
+    if available() and supports(kwargs):
+        try:
+            return render_full_kwargs(img, kwargs), "GPU"
+        except Exception:  # noqa: BLE001
+            pass
+    return render_full(img, preset), "CPU"
+
+
 def render_kwargs_or_cpu(img: Image.Image, kwargs: dict) -> tuple[Image.Image, str]:
     """Dict-kwargs variant for the background worker. Never raises."""
     from app.pipeline import render
@@ -346,4 +383,5 @@ def render_kwargs_or_cpu(img: Image.Image, kwargs: dict) -> tuple[Image.Image, s
 
 
 __all__ = ["available", "render_kwargs_or_cpu", "render_proxy_or_cpu",
-           "render_proxy_kwargs", "supports"]
+           "render_full_or_cpu", "render_proxy_kwargs", "render_full_kwargs",
+           "supports"]

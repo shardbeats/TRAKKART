@@ -20,7 +20,6 @@ def render_still(win) -> None:
 
     from app.services.render_service import (
         PREVIEW_LONG_SIDE,
-        render_full,
         should_render_async,
     )
     from app.viewport import is_heavy_preset, normalize_mode
@@ -32,12 +31,12 @@ def render_still(win) -> None:
         start_async(win)  # heavy large canvas: never freeze the sliders
         return
     t0 = time.perf_counter()
-    if full:
-        win.result = render_full(win.src, preset)
-        label = "full-res"
-    else:
-        from app import gpu as _gpu
+    from app import gpu as _gpu
 
+    if full:
+        win.result, backend = _gpu.render_full_or_cpu(win.src, preset)
+        label = f"full-res · {backend}"
+    else:
         win.result, backend = _gpu.render_proxy_or_cpu(win.src, preset)
         label = f"{PREVIEW_LONG_SIDE}px · {backend}"
     ms = (time.perf_counter() - t0) * 1000.0

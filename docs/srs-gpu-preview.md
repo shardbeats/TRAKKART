@@ -59,8 +59,10 @@ textures for PIL bytes (integer `u1` sampled as float reads black).
   backend (`GPU`/`CPU`); zero new failure modes.
 - FR-6 Perf target: 640px palette proxy well under the 120ms Live
   budget; measured by the spike (fps vs numpy), not by assertion.
-- FR-7 Preview-only wiring: GPU sits behind the viewport proxy path
-  (`Live`/`Still`); `Full`, export, batch, CLI and video stay CPU.
+- FR-7 Preview-only wiring: GPU sits behind the still preview
+  (`Live`/`Still` 640px proxy + `Full` doc-size stills via
+  `render_full_kwargs`, both with CPU fallback and a `GPU`/`CPU`
+  status suffix); export, batch, CLI and video stay CPU.
 - FR-8 Dependency gate: `moderngl` enters `requirements.txt` only with
   this change (spike + parity + size review all green; ~0.1MB added).
 

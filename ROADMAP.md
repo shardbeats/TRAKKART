@@ -751,9 +751,10 @@ served as the transcription reference.
   `app/gpu_shaders.py` (dither only) + `tests/test_gpu_parity.py`
   (25 ordered maps + cmyk + edges, BW + named palettes, drift set,
   post-FX tail, no-GL fallback; gate maxdiff <= 1 LSB, all green).
-  Wired behind the 640px proxy (`Live`/`Still`) with CPU fallback and
-  a `GPU`/`CPU` status suffix; `moderngl` in `requirements.txt`
-  (+~0.1MB to the exe, reviewed). `Full`/export/batch/CLI/video
-  untouched (CPU).
+   Wired behind the 640px proxy (`Live`/`Still`) plus doc-size `Full`
+   stills (`render_full_kwargs`, display-only) with CPU fallback and
+   a `GPU`/`CPU` status suffix; `moderngl` in `requirements.txt`
+   (+~0.1MB to the exe, reviewed). Export/batch/CLI/video stay
+   untouched (CPU).
 - Step 4b — GPU post-FX: NOT started (future work; post runs on CPU
   today, fast enough at proxy size for v1).

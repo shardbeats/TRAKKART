@@ -138,3 +138,74 @@ def test_post_fx_tail_matches_cpu():
                         replace_color="#123456"))
     _check(img, _kwargs("bluenoise", posterize=0, pre_blur=1.0,
                         split_tone=40.0, fade=20.0, halftone_shape="lines"))
+
+
+def test_cmyk_non_multiple_of_8_dims():
+    """Angle shifts roll the cropped array: dims % 8 != 0 must match too."""
+    _needs_gl()
+    from app.pipeline import render
+
+    rng = np.random.default_rng(0xC14)
+    img = Image.fromarray(rng.integers(0, 256, (100, 100, 3)).astype(np.uint8))
+    kwargs = _kwargs("cmyk")
+    got = gpu.render_proxy_kwargs(img, kwargs)
+    ref = render(img, **kwargs)
+    assert got.size == ref.size == img.size
+    d = np.abs(np.asarray(got).astype(int) - np.asarray(ref).astype(int))
+    assert d.max() <= 1, f"cmyk 100px maxdiff {d.max()}"
+
+
+def _big() -> Image.Image:
+    """Above the 640px proxy: the Full chain must not downscale."""
+    rng = np.random.default_rng(0x60F)
+    noise = rng.integers(0, 256, (700, 900, 3)).astype(np.uint8)
+    return Image.fromarray(noise)
+
+
+def _check_full(img: Image.Image, kwargs: dict) -> None:
+    from app.pipeline import render
+
+    assert gpu.supports(kwargs) is True
+    got = gpu.render_full_kwargs(img, kwargs)
+    ref = render(img, **kwargs)
+    assert got.size == ref.size
+    assert max(got.size) == 700  # doc size, not the 640px proxy
+    d = np.abs(np.asarray(got).astype(int) - np.asarray(ref).astype(int))
+    assert d.max() <= 1, f"full maxdiff {d.max()} for {kwargs.get('method')}"
+
+
+def test_full_matches_cpu_within_1lsb():
+    _needs_gl()
+    img = _big()
+    _check_full(img, _kwargs("bayer8", palette="SLIME", posterize=0))
+    _check_full(img, _kwargs("bayer8", pixel_size=2))
+    _check_full(img, _kwargs("halftone", palette="VAPOR", posterize=0))
+    _check_full(img, _kwargs("cmyk"))
+    _check_full(img, _kwargs("edges", palette="SLIME", posterize=0))
+
+
+def test_full_or_cpu_backend_and_fallback(monkeypatch):
+    """Full stills: GPU when working, CPU sized identically otherwise."""
+    from app.pipeline import render
+    from app.presets import Preset
+
+    img = _big()
+    preset = Preset(name="t", method="bayer8", palette="SLIME")
+    kwargs = _kwargs("bayer8", palette="SLIME", posterize=0)
+    if gpu.available():
+        out, backend = gpu.render_full_or_cpu(img, preset)
+        assert backend == "GPU"
+        ref = render(img, **kwargs)
+        assert out.size == ref.size
+        assert max(out.size) == 700
+    monkeypatch.setattr(gpu, "available", lambda: False)
+    out, backend = gpu.render_full_or_cpu(img, preset)
+    assert backend == "CPU" and max(out.size) == 700
+
+    def _boom(*a, **k):
+        raise RuntimeError("no GL today")
+
+    monkeypatch.setattr(gpu, "render_full_kwargs", _boom)
+    monkeypatch.setattr(gpu, "available", lambda: True)
+    out, backend = gpu.render_full_or_cpu(img, preset)
+    assert backend == "CPU" and max(out.size) == 700
