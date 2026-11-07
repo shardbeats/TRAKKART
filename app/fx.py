@@ -118,6 +118,34 @@ def apply_grain(img: Image.Image, amount: float = 0.0, seed: int = 0x7A4B) -> Im
     return Image.fromarray(np.clip(arr + noise, 0, 255).astype(np.uint8))
 
 
+def sheen_sweep(img: Image.Image, progress: float = 0.0,
+                amount: float = 0.0, loops: float = 1.0) -> Image.Image:
+    """Traveling soft light band (diagonal sheen), loop-perfect.
+
+    A gaussian brightness lift sweeps corner to corner, completing
+    `loops` traversals per clip; progress 0 == 1 by construction
+    (position wraps mod 1, band parked off-frame at the joints, so
+    there is no pop). amount = peak lift in percent; 0 = off.
+    Deterministic, no RNG; works on any method, BW or palette.
+    """
+    amp = float(amount)
+    if amp <= 0:
+        return img
+    try:
+        p = float(progress) % 1.0
+        n_loops = max(1, int(round(float(loops))))
+    except (TypeError, ValueError):
+        return img
+    arr = np.asarray(_rgb(img), dtype=np.float32)
+    h, w = arr.shape[:2]
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    d = (xs + ys) / float(w + h)  # 0..~1 along the diagonal
+    pos = (p * n_loops % 1.0) * 1.5 - 0.25  # travels past both edges
+    band = np.exp(-((d - pos) / 0.18) ** 2)
+    lift = 1.0 + (amp / 100.0) * band
+    return Image.fromarray(np.clip(arr * lift[..., None], 0, 255).astype(np.uint8))
+
+
 def apply_vignette(img: Image.Image, strength: float = 0.0) -> Image.Image:
     """Radial darkening. strength 0-100."""
     if float(strength) <= 0:

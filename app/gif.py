@@ -2,10 +2,10 @@
 
 Modes:
   phase  = dither-matrix march (clean, ordered methods)
-  hue    = hue cycle (sinus, loops perfectly) + palette ink cycling
+  hue    = hue cycle (sinus, loops perfectly) + soft light sweep
   both   = phase + hue (legacy default)
   glitch = CRT glitch anim (chroma + slice + wave) + phase march
-   mix    = phase + hue + glitch + color cycle + grain shimmer (all together)
+   mix    = phase + hue + glitch + light sweep + grain shimmer (all together)
 
 ED methods (floyd/atkinson/...) ignore `phase`, so glitch/mix keep
 them alive via post-fx animation. Everything deterministic:

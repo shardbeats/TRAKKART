@@ -166,55 +166,27 @@ def test_gif_end_to_end_bundle(tmp_path):
     assert info["params"]["gif"]["export"] is True
 
 
-def _render_kwargs(**kw):
-    from app.render_params import preset_to_render_kwargs
+def test_sheen_off_and_loop_perfect():
+    from app.fx import sheen_sweep
 
-    d = preset_to_render_kwargs(_preset())
-    d.update(kw)
-    return d
-
-
-def _flat(im):
-    return list(im.get_flattened_data())
-
-
-def test_palette_cycle_default_byte_identical():
-    from app.pipeline import render
-
-    assert _flat(render(_img(), **_render_kwargs())) == \
-        _flat(render(_img(), **_render_kwargs(palette_cycle=0.0)))
+    img = _img()
+    flat = list(img.get_flattened_data())
+    assert list(sheen_sweep(img, progress=0.37, amount=0.0).get_flattened_data()) == flat
+    a = sheen_sweep(img, progress=0.0, amount=8.0)
+    b = sheen_sweep(img, progress=1.0, amount=8.0)
+    assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+    mid = sheen_sweep(img, progress=0.5, amount=8.0)
+    assert list(mid.get_flattened_data()) != flat
 
 
-def test_palette_cycle_full_rotation_is_identity():
-    from app.pipeline import render
-
-    still = _flat(render(_img(), **_render_kwargs()))
-    for rot in (1.0, 2.0, -1.0):
-        assert _flat(render(_img(), **_render_kwargs(palette_cycle=rot))) == still
-
-
-def test_palette_cycle_quarter_turn_moves_and_repeats():
-    # SLIME has 4 inks: 0.25 rotations = 1-ink shift, 1.25 repeats it.
-    from app.pipeline import render
-
-    still = _flat(render(_img(), **_render_kwargs()))
-    quarter = _flat(render(_img(), **_render_kwargs(palette_cycle=0.25)))
-    assert quarter != still
-    assert _flat(render(_img(), **_render_kwargs(palette_cycle=1.25))) == quarter
-
-
-def test_palette_cycle_skips_bw_and_cmyk():
-    from app.pipeline import render
-    from app.render_params import preset_to_render_kwargs
-
-    bw = preset_to_render_kwargs(_preset(palette="BW"))
-    assert _flat(render(_img(), **bw)) == \
-        _flat(render(_img(), **dict(bw, palette_cycle=0.37)))
-    cmyk = preset_to_render_kwargs(_preset(method="cmyk"))
-    assert _flat(render(_img(), **cmyk)) == \
-        _flat(render(_img(), **dict(cmyk, palette_cycle=0.37)))
-
-
-def test_mix_frames_cycle_palette():
-    frames = gif_frames(_img(), _preset(), frames=4, mode="mix")
-    assert any(_flat(x) != _flat(y) for x, y in zip(frames[1:], frames[:-1]))
+def test_hue_freezes_with_zero_motion():
+    frozen = gif_frames(_img(), _preset(motion_amount=0.0), frames=3, mode="hue")
+    assert all(
+        list(x.get_flattened_data()) == list(y.get_flattened_data())
+        for x, y in zip(frozen[1:], frozen[:-1])
+    )
+    moving = gif_frames(_img(), _preset(), frames=4, mode="hue")
+    assert any(
+        list(x.get_flattened_data()) != list(y.get_flattened_data())
+        for x, y in zip(moving[1:], moving[:-1])
+    )

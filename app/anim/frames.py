@@ -21,14 +21,14 @@ GIF_MODE_INFO: dict[str, tuple[str, str]] = {
               "Matrix march: the dither pattern crawls. Ordered methods only — "
               "frozen on error-diffusion (floyd, atkinson, …)."),
     "hue": ("Hue cycle",
-            "Color wash: hue swings plus palette inks cycle. Every method."),
+            "Color wash: hue swings plus a soft light sweep. Every method."),
     "both": ("March + Hue",
-             "Matrix march plus hue cycle and palette cycling. "
+             "Matrix march plus hue cycle and light sweep. "
              "March part needs an ordered method."),
     "glitch": ("CRT wobble",
                "Chroma shift + slice offset + wave. Moves on every method."),
     "mix": ("Full mix",
-            "March + hue + wobble + color cycle + grain shimmer. Maximum motion."),
+            "March + hue + wobble + light sweep + grain shimmer. Maximum motion."),
     "dissolve": ("Disperse",
                  "Dither dots burst into particles and reassemble. Loop-perfect."),
     "morph": ("Morph A->B",
@@ -160,7 +160,7 @@ def gif_frames(
     `max_side`/`pingpong` default to the preset values (gif_size/gif_pingpong)
     so batch + UI + service share the same look without extra plumbing.
     Unknown modes fall back to "both" (legacy compat).
-    Animation comes from phase march + hue cycle + palette cycling +
+    Animation comes from phase march + hue cycle + light sweep +
     glitch wobble + drift;
     every frame is deterministic (seed + frame index, no random).
     dissolve/morph dispatch to the particle engine (morph without img_b
@@ -216,12 +216,9 @@ def gif_frames(
     want_phase = mode in ("phase", "both", "glitch", "mix")
     want_hue = mode in ("hue", "both", "mix")
     want_glitch = mode in ("glitch", "mix")
-    # Palette cycling: inks travel instead of flashing (hue/both/mix).
-    # Float rotations completed at this frame; the pipeline rounds to
-    # whole inks against its own resolved palette, so the loop closes
-    # for any palette size. 0 = off (BW/cmyk/ED-frozen all safe).
-    want_cycle = mode in ("hue", "both", "mix")
-    cycle_loops = max(1, int(round(amt))) if amt > 0 else 0
+    # Light sweep: soft traveling sheen (hue/both/mix). Continuous and
+    # subtle, unlike discrete ink jumps; 0 amount freezes with the rest.
+    want_sheen = mode in ("hue", "both", "mix")
 
     # The base render stays static; animation happens per-frame below.
     # Zero the animated channels so the effect does not stack twice.
@@ -239,13 +236,17 @@ def gif_frames(
         kwargs["phase"] = march_offset(march_method, i, n, amt) if want_phase else 0
         # Drift owns its timeline: full traverse per clip, not dither march.
         kwargs["drift_progress"] = float(i) / float(n)
-        kwargs["palette_cycle"] = (cycle_loops * i / n) if want_cycle else 0.0
         if want_hue:
             kwargs["pre_hue"] = base_hue + round(14.0 * amt * math.sin(2.0 * math.pi * i / n), 2)
         frame = render(small, **kwargs)
 
         t = 2.0 * math.pi * i / n
         progress = float(i) / float(n)
+        if want_sheen and amt > 0:
+            from app.fx import sheen_sweep
+
+            frame = sheen_sweep(frame, progress=progress,
+                                amount=8.0 * amt, loops=max(1, int(round(amt))))
         if want_glitch:
             from app.glitch import chromatic_aberration
             from app.glitch import slice_shift_loop, wave_loop
