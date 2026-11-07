@@ -720,40 +720,40 @@ No arch change, no new deps, offline-first intact.
 - Verify: `test_empty_state_placeholder`, QSS selector + pixmap tests;
   fast suite + flake8 green.
 
-## 10. GPU preview — C1-GLSL offscreen (SRS accepted, spike next)
+## 10. GPU preview — C1-GLSL offscreen dither (4a done, 4b future)
 
 Context (do not reopen without reason): replicating TRAKKART on another
 stack was evaluated and rejected; staying on Qt/PySide6 with GPU for
 pixel-parallel work is the best ROI. Physical rule: per-pixel work goes
-to fragment shaders (grade/adjust, ordered dither, duotone, posterize,
-post FX); serial work stays on CPU (ED Floyd-Steinberg with numba,
-JPEG, pixelsort, numpy particles). Honest dual arch: GPU for iteration,
+to fragment shaders (ordered dither, duotone, posterize, post FX);
+serial work stays on CPU (ED Floyd-Steinberg with numba, JPEG,
+pixelsort, numpy particles). Honest dual arch: GPU for iteration,
 numpy CPU for the final render, switchable. Rejected: compute shaders
 for ED/particles (high cost, dubious ROI), native Rust GUI rewrite,
 repackaging everything for web (separate track). Hybrid option to keep
 in mind: portable WGSL kernels (`wgpu-py` today, web tomorrow).
 
+Architecture correction (nov-2026, learned from the spike): the grade
+chain stays on CPU (cheap point ops; keeping the suite code as the
+single implementation kills a whole class of float32-vs-CPU tie bugs
+that dither thresholds amplify). The GPU owns ONLY the dither stage
+(the actual bottleneck: nearest-palette search). See
+`docs/srs-gpu-preview.md` for the accepted shape.
+
 Reference (read-only, do not edit there): the `TRAKKMOTION`
 `src/shaders/{grade,dither,post}.frag.glsl` oracle plus its fixtures
-serve as the transcription reference (bankers rounding, V-flip, phase
-truncation, spread formula, stack order `u_order[19]`).
+served as the transcription reference.
 
-- Step 1 — direction lock: DONE (see `docs/srs-gpu-preview.md` §3):
-  C1-GLSL offscreen (`moderngl` -> `QImage` -> `QLabel` path);
-  `QOpenGLWidget` and `wgpu-py`/WGSL stay documented alternatives.
-- Step 2 — SRS `preview GPU`: DONE (`docs/srs-gpu-preview.md`: FR-1..8,
-  pinned <=1 LSB tolerance + deviations, FR-7 preview-only wiring,
-  FR-8 dependency gate).
-- Step 3 — afternoon spike: DONE (`tools/gpu_spike_preview.py`, manual,
-  not a gate). One `Bayer + grade` in `moderngl` (GL 330, RTX 3060):
-  parity PASS with maxdiff=0 LSB on both synthetic inputs; bench
-  640x480 23x (65.5ms -> 2.9ms), 1920x1080 24x (362.6ms -> 15.2ms),
-  GPU time incl. readback. Lessons pinned in the spike header:
-  moderngl uploads PIL top-first bytes as-is (no flip), FBO sampling
-  needs a V-flip between passes, contrast pivots on the Pillow
-  int-rounded L-mean of the brightened image (CPU computes it, GPU
-  applies it). `moderngl` stays a local-only install (never in
-  `requirements.txt` for the spike); the oracle GLSL ES 1.00 -> 330
-  port kept per-stage `floor()` + bankers rounding.
-- Step 4 — full C1 decision only with the spike + SRS green and explicit
-  approval. Never implement the full C1 on this track without it.
+- Step 1 — direction lock: DONE. C1-GLSL offscreen.
+- Step 2 — SRS: DONE (`docs/srs-gpu-preview.md`, FR-1..8).
+- Step 3 — spike: DONE (`tools/gpu_spike_preview.py`, manual).
+- Step 4a — GPU dither + parity + wiring: DONE. `app/gpu.py` +
+  `app/gpu_shaders.py` (dither only) + `tests/test_gpu_parity.py`
+  (25 ordered maps + cmyk + edges, BW + named palettes, drift set,
+  post-FX tail, no-GL fallback; gate maxdiff <= 1 LSB, all green).
+  Wired behind the 640px proxy (`Live`/`Still`) with CPU fallback and
+  a `GPU`/`CPU` status suffix; `moderngl` in `requirements.txt`
+  (+~0.1MB to the exe, reviewed). `Full`/export/batch/CLI/video
+  untouched (CPU).
+- Step 4b — GPU post-FX: NOT started (future work; post runs on CPU
+  today, fast enough at proxy size for v1).

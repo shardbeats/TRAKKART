@@ -21,7 +21,6 @@ def render_still(win) -> None:
     from app.services.render_service import (
         PREVIEW_LONG_SIDE,
         render_full,
-        render_preview_small,
         should_render_async,
     )
     from app.viewport import is_heavy_preset, normalize_mode
@@ -37,8 +36,10 @@ def render_still(win) -> None:
         win.result = render_full(win.src, preset)
         label = "full-res"
     else:
-        win.result = render_preview_small(win.src, preset)
-        label = f"{PREVIEW_LONG_SIDE}px"
+        from app import gpu as _gpu
+
+        win.result, backend = _gpu.render_proxy_or_cpu(win.src, preset)
+        label = f"{PREVIEW_LONG_SIDE}px · {backend}"
     ms = (time.perf_counter() - t0) * 1000.0
     show(win, win.src, win.result)
     win._status(f"Preview ready · {label} · {ms:.0f}ms")

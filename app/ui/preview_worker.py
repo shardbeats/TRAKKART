@@ -56,13 +56,22 @@ class PreviewWorker(WorkerBase):
         self.token = int(token)
 
     def work(self) -> None:
-        from app.pipeline import render as _render
-        from app.services.render_service import compensate_preview_params, downscale_for_preview
         from app.ui.qt_image import pil_to_qimage
 
-        small, f = downscale_for_preview(self.src)
-        p = compensate_preview_params(dict(self.params), f)
-        out = _render(small, **p)
+        try:
+            from app import gpu as _gpu
+
+            out, _backend = _gpu.render_kwargs_or_cpu(self.src, dict(self.params))
+        except Exception:  # noqa: BLE001
+            from app.pipeline import render as _render
+            from app.services.render_service import (
+                compensate_preview_params,
+                downscale_for_preview,
+            )
+
+            small, f = downscale_for_preview(self.src)
+            p = compensate_preview_params(dict(self.params), f)
+            out = _render(small, **p)
         rgb = out.convert("RGB")
         self.finished_ok.emit(pil_to_qimage(rgb), rgb.copy(), self.token)
 

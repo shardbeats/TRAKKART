@@ -32,7 +32,9 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 main.py                  :: entry
 app/__init__.py          :: version
 app/cli.py               :: headless --cli (no Qt): preset over file/folder, exit 0/1/2
-app/dither.py            :: 11 ordered (incl. checker/ign) + ED + hilbert + cmyk/ascii/edges/motif (36 methods)
+app/dither.py :: 11 ordered (incl. checker/ign) + ED + hilbert + cmyk/ascii/edges/motif (36 methods)
+app/gpu.py :: offscreen GPU dither backend (moderngl): supports() gate + render_proxy_kwargs (CPU grade, GPU ordered/cmyk/edges dither, CPU brand/stack) + CPU fallback
+app/gpu_shaders.py :: VERT_330 + DITHER_330 (procedural ordered maps + baked-mask LUTs + cmyk/edges + nearest-palette)
 app/kernels.py           :: COEFFS (11 kernels) + diffuse_* (numpy/numba) + Hilbert order/diffusion
 app/ordered_maps.py      :: ordered threshold maps
 app/accelerate.py        :: optional njit + fallback (bit-identical parity)
@@ -114,6 +116,7 @@ presets/*.json           :: 13 bundled (never overwritten)
 features/*.feature       :: 61 Gherkin scenarios
 tests/                   :: unit + bdd/ (pytest-bdd por dominio)
 tools/quality_metrics.py :: gates → data/quality_report.json
+tools/gpu_spike_preview.py :: manual GPU spike (Bayer+grade parity/bench/show, not a gate)
 ```
 
 ## Do not commit
