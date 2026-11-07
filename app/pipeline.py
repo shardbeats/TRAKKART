@@ -22,6 +22,45 @@ from app.grade import posterize as _grade_posterize
 from app.palettes import get_palette
 
 
+def cycle_palette(img: Image.Image, palette, rotations: float) -> Image.Image:
+    """Rotate palette-ink assignment (color cycling, not flashing).
+
+    Pixels already matching a palette ink are remapped through the
+    rotated palette (index i shows ink (i + shift) % P); any other
+    pixel (edge lines, brand tints) passes through untouched.
+    `rotations` is float loops completed at this frame; shift rounds
+    to whole inks, so full rotations are the identity and any loop
+    closing on an integer rotation count is seamless. 0/NaN = off.
+    Deterministic, no RNG.
+    """
+    pal = [(int(r), int(g), int(b)) for r, g, b in (palette or [])]
+    p = len(pal)
+    if p < 2:
+        return img
+    try:
+        rot = float(rotations)
+    except (TypeError, ValueError):
+        return img
+    if rot != rot or rot == 0.0:  # NaN or off
+        return img
+    shift = int(round(rot * p)) % p
+    if shift == 0:
+        return img
+    import numpy as np
+
+    arr = np.asarray(img.convert("RGB"), dtype=np.int16)
+    inks = np.asarray(pal, dtype=np.int16)
+    dist = ((arr[:, :, None, :] - inks[None, None, :, :]) ** 2).sum(axis=3)
+    best = dist.argmin(axis=2)
+    exact = dist.min(axis=2) == 0
+    if not bool(exact.any()):
+        return img
+    lut = np.asarray([pal[(j + shift) % p] for j in range(p)], dtype=np.uint8)
+    out = np.array(img.convert("RGB"))  # writable copy (asarray is read-only)
+    out[exact] = lut[best[exact]]
+    return Image.fromarray(out)
+
+
 def resolve_palette(palette_name: str, custom: list | None):
     from app.palette_library import is_bw
 
@@ -106,6 +145,7 @@ class RenderSpec:
     drift_progress: float | None = None
     drift_loops: float = 1.0
     drift_position: float = 50.0
+    palette_cycle: float = 0.0
     paste_mode: str = "off"
     paste_opacity: float = 0.0
     paste_blend: str = "overlay"
@@ -326,6 +366,13 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
         phase=int(s.phase),
         motif=getattr(s, "motif", None),
     )
+    # Palette cycling (animation only): CMYK ignores the palette by
+    # design, BW has no palette; everywhere else the dither output is
+    # palette inks and rotates loop-perfect. Default 0 = untouched.
+    cyc = float(getattr(s, "palette_cycle", 0.0) or 0.0)
+    if cyc and isinstance(pal, (list, tuple)) and len(pal) >= 2 \
+            and str(s.method).lower() != "cmyk":
+        dithered = cycle_palette(dithered, pal, cyc)
     if s.replace_color:
         dithered = replace_white(dithered, color=s.replace_color)
     for entry in normalize_stack(s.fx_stack):

@@ -164,3 +164,57 @@ def test_gif_end_to_end_bundle(tmp_path):
     info = json.loads(paths["metadata"].read_text(encoding="utf-8"))
     assert info["gif"]["frames"] == 3
     assert info["params"]["gif"]["export"] is True
+
+
+def _render_kwargs(**kw):
+    from app.render_params import preset_to_render_kwargs
+
+    d = preset_to_render_kwargs(_preset())
+    d.update(kw)
+    return d
+
+
+def _flat(im):
+    return list(im.get_flattened_data())
+
+
+def test_palette_cycle_default_byte_identical():
+    from app.pipeline import render
+
+    assert _flat(render(_img(), **_render_kwargs())) == \
+        _flat(render(_img(), **_render_kwargs(palette_cycle=0.0)))
+
+
+def test_palette_cycle_full_rotation_is_identity():
+    from app.pipeline import render
+
+    still = _flat(render(_img(), **_render_kwargs()))
+    for rot in (1.0, 2.0, -1.0):
+        assert _flat(render(_img(), **_render_kwargs(palette_cycle=rot))) == still
+
+
+def test_palette_cycle_quarter_turn_moves_and_repeats():
+    # SLIME has 4 inks: 0.25 rotations = 1-ink shift, 1.25 repeats it.
+    from app.pipeline import render
+
+    still = _flat(render(_img(), **_render_kwargs()))
+    quarter = _flat(render(_img(), **_render_kwargs(palette_cycle=0.25)))
+    assert quarter != still
+    assert _flat(render(_img(), **_render_kwargs(palette_cycle=1.25))) == quarter
+
+
+def test_palette_cycle_skips_bw_and_cmyk():
+    from app.pipeline import render
+    from app.render_params import preset_to_render_kwargs
+
+    bw = preset_to_render_kwargs(_preset(palette="BW"))
+    assert _flat(render(_img(), **bw)) == \
+        _flat(render(_img(), **dict(bw, palette_cycle=0.37)))
+    cmyk = preset_to_render_kwargs(_preset(method="cmyk"))
+    assert _flat(render(_img(), **cmyk)) == \
+        _flat(render(_img(), **dict(cmyk, palette_cycle=0.37)))
+
+
+def test_mix_frames_cycle_palette():
+    frames = gif_frames(_img(), _preset(), frames=4, mode="mix")
+    assert any(_flat(x) != _flat(y) for x, y in zip(frames[1:], frames[:-1]))
