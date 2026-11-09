@@ -26,6 +26,23 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
 - To lift the pin: upgrade `pytest-bdd` to a release that supports `pytest>=9.2`,
   then remove the `<9.2` upper bound and watch one `schedule` + one `workflow_dispatch` run.
 
+## CI test seams (known incident 2026-11-08)
+
+- `CI` #148 (`6d0b95c`) failed only in `full` on
+  `tests/test_stability.py::test_debounce_coalesces_renders` with
+  `AssertionError: debounce roto: 0 renders`.
+- Root cause: stale mock. Since `5ea3e58` the still preview renders through
+  `app.gpu.render_proxy_or_cpu` / `render_full_or_cpu`, but the test patched
+  `app.services.render_service.render_full`, so the counter never moved.
+  The debounce itself was healthy.
+- Fix: patch `app.ui.preview_controller.render_still` (the seam `refresh()`
+  calls) and delegate to the real function. Never patch a specific render
+  backend (`render_service.render_full`, `app.gpu.*`): preview routing can
+  move it under you.
+- Tests never hardcode absolute local paths. Subprocess `cwd` is
+  `Path(__file__).resolve().parents[1]` (see `64e5d0c`); a dev path fails CI
+  with `NotADirectoryError`.
+
 ## Layout
 
 ```

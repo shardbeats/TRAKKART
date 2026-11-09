@@ -93,23 +93,30 @@ def test_no_thread_storm_on_rapid_refresh(window, qt_app, monkeypatch):
 
 
 def test_debounce_coalesces_renders(window, qt_app, monkeypatch):
-    """20 back-to-back slider changes → a single render (not 20)."""
-    import app.services.render_service as RS
+    """20 back-to-back slider changes → a single render (not 20).
+
+    Seam: ``preview_controller.render_still``, the one function the debounce
+    calls. Never patch a backend function (``render_service.render_full``,
+    ``app.gpu.render_proxy_or_cpu``…): preview routing changes move those,
+    the counter stays at 0 and CI fails even though the debounce is fine.
+    """
     from PySide6.QtTest import QTest
 
+    from app.ui import preview_controller as PC
+
     calls: list = []
-    real = RS.render_full
+    real = PC.render_still
 
-    def counting(img, preset):
+    def counting(win):
         calls.append(1)
-        return real(img, preset)
+        return real(win)
 
-    monkeypatch.setattr(RS, "render_full", counting)
+    monkeypatch.setattr(PC, "render_still", counting)
+    window.viewport_mode = "live"  # debounce only exists in live mode
     for v in range(100, 120):
         window.sld_thr.setValue(v)  # only arms the timer, no event processing
-    QTest.qWait(800)  # let the debounce (350ms) fire
-    assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
-    assert len(calls) == 1, f"debounce roto: {len(calls)} renders"
+    QTest.qWait(800)  # let the debounce (120-350ms) fire
+    assert len(calls) == 1, f"debounce broken: {len(calls)} renders"
     assert window.result is not None
 
 

@@ -13,6 +13,26 @@ Local `.venv` only. The commands below use `.venv`.
 `-n auto` (pytest-xdist) is the big lever: ~11x faster locally
 (6.4 min → ~35 s). Without it, use `-n 4` or nothing.
 
+### CI rules (test seams)
+
+Two failures that only show up on runners and are easy to reintroduce:
+
+- **No absolute local paths in tests.** Subprocess `cwd`/commands must use the
+  repo root (`Path(__file__).resolve().parents[1]`), never a dev path such as
+  `D:\...`. A local path makes CI fail with `NotADirectoryError`.
+- **Patch stable seams, not moving backends.** UI/debounce tests patch
+  `app.ui.preview_controller.render_still` (the single function `refresh()`
+  calls). Do not patch `render_service.render_full` or `app.gpu.*`: preview
+  routing (CPU ↔ GPU ↔ worker) moves those, the mock counts 0, and CI fails
+  while the feature is healthy (CI #148, `test_debounce_coalesces_renders`).
+  Count the seam and delegate to the real function.
+
+Quick guard:
+
+```
+.venv\Scripts\python -m pytest tests/test_stability.py::test_debounce_coalesces_renders -q
+```
+
 ## Full suite + coverage
 
 ```

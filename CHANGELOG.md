@@ -3,7 +3,12 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## Unreleased
-- (empty — add next changes here)
+- CI fix (#148): `test_debounce_coalesces_renders` mocked
+  `render_service.render_full`, but previews have rendered through `app.gpu.*`
+  since `5ea3e58`, so the counter stayed at 0. The test now patches the stable
+  `preview_controller.render_still` seam and delegates to the real render.
+  `QA.md`/`MAINTENANCE.md` document the rule (and the no-hardcoded-local-paths
+  rule from `64e5d0c`) so it does not come back.
 
 ## v1.3.0 — 2026-11-03
 - CI fix: subprocess tests used a hardcoded local `cwd` (`<repo>`) and failed on runners with `NotADirectoryError`; both now use the repo root (`Path(__file__).parents[1]`).
