@@ -1,10 +1,10 @@
 ; TRAKKART installer (Inno Setup 6).
-; Version comes from the command line: ISCC /DMyVersion=1.3.0 installer/trakkart.iss
+; Version comes from the command line: ISCC /DMyVersion=1.3.1 installer/trakkart.iss
 ; (build_installer.py does this automatically from app.__version__).
-; Expects dist/TRAKKART.exe already built (python build_exe.py --skip-tests).
+; Expects the one-dir build in dist/portable/TRAKKART (python build_portable.py).
 
 #ifndef MyVersion
-  #define MyVersion "1.3.0"
+  #define MyVersion "1.3.1"
 #endif
 
 [Setup]
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\TRAKKART
 DefaultGroupName=TRAKKART
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
-OutputDir=..\dist
+OutputDir=..\dist-installer
 OutputBaseFilename=TRAKKART-Setup-{#MyVersion}
 Compression=lzma2/max
 SolidCompression=yes
@@ -35,12 +35,7 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\dist\TRAKKART.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\MANUAL.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\dist\portable\TRAKKART\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\TRAKKART"; Filename: "{app}\TRAKKART.exe"

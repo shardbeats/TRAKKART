@@ -1,10 +1,10 @@
-"""Build the TRAKKART installer (Inno Setup), separately from the portable exe.
+"""Build the TRAKKART installer (Inno Setup), separately from the portable ZIP.
 
-Portable:  python build_exe.py [--skip-tests] [--console]
+Portable:  python build_portable.py [--skip-tests] [--console]
 Installer: python build_installer.py [--skip-sign]
 
 Reads the version from app.__version__ and signs the setup when TRAKKART_PFX
-is set (same vars as build_exe.py, see installer/SIGNING.md).
+is set (same vars as build_portable.py, see installer/SIGNING.md).
 """
 import argparse
 import shutil
@@ -28,10 +28,14 @@ def main() -> int:
     from app import __version__
 
     exe_name = "TRAKKART.exe"
-    exe = ROOT / "dist" / exe_name
+    exe = ROOT / "dist" / "portable" / "TRAKKART" / exe_name
     if not exe.is_file():
-        print(f"[installer] missing {exe} — run `python build_exe.py --skip-tests` first.")
-        return 2
+        print("[installer] one-dir build missing; running build_portable.py --skip-tests...")
+        rc = subprocess.call([sys.executable, "build_portable.py", "--skip-tests"],
+                             cwd=str(ROOT))
+        if rc != 0 or not exe.is_file():
+            print("[installer] ERROR: could not build the one-dir app.")
+            return 2
     iss = ROOT / "installer" / "trakkart.iss"
     iscc = (
         shutil.which("ISCC")
@@ -47,13 +51,13 @@ def main() -> int:
         return 3
     print("+", iscc, *defines, str(iss))
     subprocess.check_call([iscc, *defines, str(iss)])
-    setup = ROOT / "dist" / f"TRAKKART-Setup-{__version__}.exe"
+    setup = ROOT / "dist-installer" / f"TRAKKART-Setup-{__version__}.exe"
     if not setup.is_file():
         print("[installer] done (setup not found?).")
         return 0
     print(f"[installer] {setup.name} ready.")
     if not args.skip_sign:
-        from build_exe import maybe_sign
+        from build_portable import maybe_sign
 
         maybe_sign(setup)
     return 0

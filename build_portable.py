@@ -1,30 +1,42 @@
-"""Build portable TRAKKART.exe (PyInstaller windowed one-file, all included).
+"""Build the portable TRAKKART (one-dir inside a ZIP).
 
-Single flavor since v1: numba acceleration + MP4 video ship inside.
-Embeds version metadata + MANUAL/icons, optional Authenticode signing
-via env (TRAKKART_PFX path to .pfx, TRAKKART_PFX_PASSWORD,
-optional TRAKKART_TIMESTAMP_URL). See installer/SIGNING.md.
+One-dir starts instantly: nothing is extracted on launch. The portable is
+shipped as a ZIP the user unzips once:
 
-Test gate (industry standard: test job blocks the build, but the gate must
-stay fast or developers bypass it):
-  default          fast gate: pytest -q -n auto -m "not slow" (parallel,
-                   excludes slow; ~2-4 min). Requires pytest-xdist
-                   (requirements-dev.txt); falls back to serial fast gate.
-  --full-tests     full serial suite gate (final release; 30-60+ min).
-  --skip-tests     skip gate (only if HEAD was already validated green,
-                   e.g. same commit passed full suite in CI/dev).
+    dist\\TRAKKART-portable-<version>.zip
+        TRAKKART\\
+            TRAKKART.exe
+            _internal\\   (Qt, numba, imageio-ffmpeg, ...)
+            MANUAL.md / LICENSE / NOTICE.md / THIRD-PARTY-NOTICES.md
+
+Usage (from the project root):
+    python build_portable.py [--skip-tests] [--full-tests] [--console]
+
+Test gate (same as the old build_exe.py):
+  default       fast gate: pytest -q -n auto -m "not slow"
+  --full-tests  full serial suite (final release)
+  --skip-tests  skip gate (only if HEAD already validated green)
+
+The old `build_exe.py` produced a one-file exe that re-extracted the whole
+payload to %TMP% on EVERY launch; it was removed on purpose.
 """
+import argparse
 import os
+import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+EXE_DIR = ROOT / "dist" / "portable" / "TRAKKART"
+DOCS = ("MANUAL.md", "LICENSE", "NOTICE.md", "THIRD-PARTY-NOTICES.md",
+        "icon.ico", "icon.png")
 
 
 def run(cmd: list[str]) -> None:
     print("+", " ".join(cmd))
-    subprocess.check_call(cmd)
+    subprocess.check_call(cmd, cwd=str(ROOT))
 
 
 def app_version() -> str:
@@ -80,9 +92,6 @@ def maybe_sign(exe: Path) -> None:
 
 
 def _has_xdist(py: str) -> bool:
-    """True if the build interpreter can run pytest -n auto."""
-    import subprocess
-
     try:
         r = subprocess.run([py, "-c", "import xdist"],
                            capture_output=True, timeout=60)
@@ -92,8 +101,6 @@ def _has_xdist(py: str) -> bool:
 
 
 def main() -> int:
-    import argparse
-
     ap = argparse.ArgumentParser()
     gate = ap.add_mutually_exclusive_group()
     gate.add_argument("--skip-tests", action="store_true",
@@ -117,22 +124,30 @@ def main() -> int:
     else:
         print("[TRAKKART] test gate skipped (--skip-tests). "
               "Only safe if this HEAD already passed the suite.")
+
     run([py, "-m", "pip", "install", "pyinstaller"])
-    exe_name = "TRAKKART"
     run([py, "-m", "pip", "install", "-r", "requirements.txt"])
+
+    version = app_version()
+    print(f"[TRAKKART] portable version: {version}")
+    if EXE_DIR.exists():
+        shutil.rmtree(EXE_DIR, ignore_errors=True)
+
     cmd = [
         py, "-m", "PyInstaller",
-        "--noconfirm", "--name", exe_name, "--onefile",
+        "--noconfirm", "--clean",
+        "--onedir",
+        "--name", "TRAKKART",
+        "--distpath", "dist/portable",
+        "--workpath", "build/portable",
+        "--specpath", "build/portable",
         *(["--console"] if args.console else ["--windowed"]),
-        # Everything ships inside (numba + imageio-ffmpeg).
-        # copy-metadata: imageio reads its own version via importlib.metadata
-        # AT IMPORT TIME; without dist-info the frozen import raises
-        # PackageNotFoundError (an ImportError) and has_video() goes False.
+        # imageio reads its version via importlib.metadata at import time.
         "--copy-metadata", "imageio",
         "--copy-metadata", "imageio-ffmpeg",
         "--copy-metadata", "numba",
         "--copy-metadata", "llvmlite",
-        "--version-file", str(write_version_info(app_version(), f"{exe_name}.exe")),
+        "--version-file", str(write_version_info(version, "TRAKKART.exe")),
         "main.py",
     ]
     # Bundled at runtime via app.paths.bundle_path (frozen _MEIPASS / dev root).
@@ -140,13 +155,35 @@ def main() -> int:
                  "icon.png", "icon.ico", "app/ui/theme.qss"):
         p = ROOT / name
         if p.exists():
-            cmd[cmd.index("main.py"):cmd.index("main.py")] = ["--add-data", f"{p}{os.pathsep}."]
+            cmd[cmd.index("main.py"):cmd.index("main.py")] = [
+                "--add-data", f"{p}{os.pathsep}."]
     icon = ROOT / "icon.ico"
     if icon.exists():
         cmd[cmd.index("main.py"):cmd.index("main.py")] = ["--icon", str(icon)]
+
     run(cmd)
-    maybe_sign(ROOT / "dist" / f"{exe_name}.exe")
-    print(f"[TRAKKART] dist/{exe_name}.exe ready.")
+
+    exe = EXE_DIR / "TRAKKART.exe"
+    if not exe.is_file():
+        print(f"ERROR: {exe} was not created.")
+        return 1
+    maybe_sign(exe)
+
+    for name in DOCS:
+        src = ROOT / name
+        if src.is_file():
+            shutil.copy2(src, EXE_DIR / name)
+
+    out = ROOT / "dist" / f"TRAKKART-portable-{version}.zip"
+    if out.exists():
+        out.unlink()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        for p in sorted(EXE_DIR.rglob("*")):
+            if p.is_file():
+                zf.write(p, Path("TRAKKART") / p.relative_to(EXE_DIR))
+
+    print(f"OK: {out} ({out.stat().st_size / 1e6:.1f} MB)")
+    print("Unzip once, then run TRAKKART\\TRAKKART.exe.")
     return 0
 
 

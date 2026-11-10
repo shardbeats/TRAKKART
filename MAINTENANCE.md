@@ -2,7 +2,7 @@
 
 ## Versioning
 
-Single source: `app/__init__.py` (`__version__`). `pyproject.toml` and `build_exe.py` read it.
+Single source: `app/__init__.py` (`__version__`). `pyproject.toml` and `build_portable.py` read it.
 Manual bump per release (0.1.0 → 0.2.0 ...).
 
 ## Dependencies
@@ -142,6 +142,8 @@ tools/gpu_spike_preview.py :: manual GPU spike (Bayer+grade parity/bench/show, n
 
 ## Distribution
 
-Portable: `py build_exe.py` → `dist\TRAKKART.exe` (windowed one-file).
-Installer: `py build_installer.py` → `dist\TRAKKART-Setup-<version>.exe` (Inno Setup 6).
+Portable: `build_portable.py` → `dist\TRAKKART-portable-<version>.zip`
+(one-dir: instant startup, nothing extracted to `%TMP%`).
+Installer: `build_installer.py` → `dist-installer\TRAKKART-Setup-<version>.exe`
+(Inno Setup 6, installs the same one-dir folder).
 The app is offline, no admin rights needed.

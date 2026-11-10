@@ -2,6 +2,12 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [1.3.1] - 2026-11-10
+### Changed
+- Portable is now a one-dir ZIP (`TRAKKART-portable-<version>.zip`): instant startup, no per-launch extraction to `%TMP%`.
+- Installer installs the same one-dir build; output moved to `dist-installer/`.
+- Removed the one-file build (`build_exe.py`); use `build_portable.py`.
+
 ## Unreleased
 - CI fix (#148): `test_debounce_coalesces_renders` mocked
   `render_service.render_full`, but previews have rendered through `app.gpu.*`
