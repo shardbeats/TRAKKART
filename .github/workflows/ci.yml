@@ -22,7 +22,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
       - name: Lint
-        run: python -m flake8 app tests tools main.py build_exe.py build_installer.py --max-line-length=120 --count
+        run: python -m flake8 app tests tools main.py build_portable.py build_installer.py --max-line-length=120 --count
 
   full:
     # Heavy suite (video/batch/perf/sleeps): nightly + on demand, not per push.
