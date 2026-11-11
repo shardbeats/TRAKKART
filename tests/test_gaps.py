@@ -597,3 +597,21 @@ def test_about_box_names_the_gplv3_ffmpeg():
     from app.ui.about_dialog import about_text
 
     assert "GPLv3" in about_text()
+
+
+def test_public_docs_have_no_local_paths_or_emails():
+    # The repo is going public: docs must not leak the dev's profile path,
+    # checkout path or personal emails (the no-leak gate now scans docs too).
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    files = sorted((root / "docs").rglob("*.md")) + sorted(root.glob("*.md"))
+    profile = re.compile(r"[A-Za-z]:\\Users\\[^\\\s\"'`]+", re.IGNORECASE)
+    email = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+    checkout = str(root).lower()
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        assert not profile.search(text), f"{f.name}: user profile path"
+        assert not email.search(text), f"{f.name}: email"
+        assert checkout not in text.lower(), f"{f.name}: local checkout path"

@@ -30,11 +30,20 @@ GATES = {
 }
 
 BANNED = [
-    "C:\\Users\\<user>",
     "@gmail.com",
     "@hotmail.com",
     "GPL-3.0 AND",  # only our own MIT is accepted
 ]
+
+#: Personal Windows profile paths (``C:\Users\<name>\...``) and emails in
+#: files that ship with the public repo/docs.
+PROFILE_RE = re.compile(r"[A-Za-z]:\\Users\\[^\\\s\"'`]+", re.IGNORECASE)
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def _public_docs() -> list[Path]:
+    """Docs visible in the public repo (must stay path/email free)."""
+    return sorted((ROOT / "docs").rglob("*.md")) + sorted(ROOT.glob("*.md"))
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess:
@@ -50,7 +59,8 @@ def _count_scenarios() -> int:
 
 def _no_leak_scan() -> list[str]:
     hits: list[str] = []
-    for f in list((ROOT / "app").rglob("*.py")) + [ROOT / "main.py"]:
+    root_low = str(ROOT).lower()
+    for f in list((ROOT / "app").rglob("*.py")) + [ROOT / "main.py"] + _public_docs():
         try:
             txt = f.read_text(encoding="utf-8")
         except Exception:
@@ -59,10 +69,15 @@ def _no_leak_scan() -> list[str]:
         for b in BANNED:
             if b.lower() in low:
                 hits.append(f"{f.relative_to(ROOT)}: {b}")
+        if PROFILE_RE.search(txt):
+            hits.append(f"{f.relative_to(ROOT)}: user profile path")
+        if root_low in low:
+            hits.append(f"{f.relative_to(ROOT)}: local checkout path")
     # seed/data with personal data: presets and tests must not contain emails
-    for f in list((ROOT / "features").glob("*.feature")) + list((ROOT / "tests").glob("*.py")):
+    for f in (list((ROOT / "features").glob("*.feature"))
+              + list((ROOT / "tests").glob("*.py")) + _public_docs()):
         txt = f.read_text(encoding="utf-8")
-        if re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", txt):
+        if EMAIL_RE.search(txt):
             hits.append(f"{f.relative_to(ROOT)}: email?")
     return hits
 

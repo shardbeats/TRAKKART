@@ -104,7 +104,7 @@ and not used as primary evidence.
 
 ## 6. Run environment
 
-* System python (used in the run with F): `python`,
+* System python (used in the run with F): `<system python>` (python.exe),
   Python **3.14.7**, **no numba** (`import numba` fails).
 * Project `.venv`: `<repo>\.venv\Scripts\python.exe`,
   Python **3.14.8**, numba **0.68.0**.

@@ -9,6 +9,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Repo hygiene: redacted the dev profile/checkout paths from
+  `docs/FLAKY_test_no_thread_storm.md` and `CHANGELOG.md`; the no-leak
+  gate now scans `docs/` + top-level markdown for Windows user-profile
+  paths (C:/Users/…), the local checkout path and emails, with a test
+  guarding it.
 - Legal: corrected `THIRD-PARTY-NOTICES.md` — the bundled FFmpeg is a
   **GPLv3** build (gyan.dev “essentials” on Windows, BtbN on Linux/macOS;
   `--enable-gpl --enable-version3`, libx264/libx265), not LGPL. The bundle
@@ -71,7 +76,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   rule from `64e5d0c`) so it does not come back.
 
 ## v1.3.0 — 2026-11-03
-- CI fix: subprocess tests used a hardcoded local `cwd` (`<repo>`) and failed on runners with `NotADirectoryError`; both now use the repo root (`Path(__file__).parents[1]`).
+- CI fix: subprocess tests used a hardcoded local checkout path (`cwd`) and failed on runners with `NotADirectoryError`; both now use the repo root (`Path(__file__).parents[1]`).
 - Docs synced to reality: 572 tests (440 fast + 132 slow) + 61 Gherkin scenarios + 13 bundled presets (`README.md`, `MAINTENANCE.md`, `QA.md`, `ROADMAP.md` handoff); numba ships in the bundle with numpy fallback (was documented as optional).
 - Correctness (R4): `normalize_stack` warns on unknown effect ids instead of dropping them silently; preview compensates pixel-unit FX (`glow_radius/border/scanlines/grille/halftone/letterbox`) by the downscale factor; `RenderSpec.meta()` now includes grade/texture/drift/paste/motif blocks.
 - No more GUI freezes: preview slots no longer `wait(5000)` on the worker (token + `deleteLater`, re-queue on pending); single export runs on an `ExportWorker` thread with snapshotted inputs (tests keep the sync path via `win._export_sync`).
