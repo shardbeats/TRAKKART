@@ -669,7 +669,7 @@ def test_f3_travel_preset_roundtrip_and_gif():
         back = load_preset(save_preset(p, Path(d)).stem, Path(d))
         assert back.dissolve_travel == 0.75
     old = Preset.from_dict({"name": "old", "method": "bayer4"})
-    assert old.dissolve_travel == 0.0
+    assert old.dissolve_travel == 1.0
     import pytest
 
     with pytest.raises(ValueError):

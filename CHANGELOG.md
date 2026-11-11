@@ -9,6 +9,10 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Morph travel is now the default (`dissolve_travel` 1.0 = pour; 0 still
+  selects the legacy cloud-reform path byte-identical). Dots stay on-canvas
+  through the transition instead of bursting off-frame, so color and form
+  return together; MORPH Travel slider initial is 100.
 - ASCII mode integration: `ascii` config in Preset/RenderSpec/metadata
   (charset + presets, columns 20-300, gamma, color mono/source/palette,
   ink/bg, invert, Bayer dither); DITHER page box visible only for `ascii`;

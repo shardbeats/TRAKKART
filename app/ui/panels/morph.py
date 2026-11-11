@@ -53,7 +53,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     erow.addWidget(win.cmb_dissolve_ease, 1)
     g.addLayout(erow)
     win.sld_dissolve_dotsize, _ = labeled_slider(win, g, "Dots:", 1, 4, 1, "Max dot swell 1-4px with the envelope (1 = classic 1px dots)", div=1.0)
-    win.sld_dissolve_travel, _ = labeled_slider(win, g, "Travel:", 0, 100, 0, "Dots pour A->B through destination matching (0 = classic cloud reform)", div=100.0)
+    win.sld_dissolve_travel, _ = labeled_slider(win, g, "Travel:", 0, 100, 100, "Dots pour A->B through destination matching (0 = classic cloud reform)", div=100.0)
     win.cmb_dissolve_path = QComboBox()
     win.cmb_dissolve_path.addItems(list(MORPH_PATHS))
     tight(win.cmb_dissolve_path, 8)

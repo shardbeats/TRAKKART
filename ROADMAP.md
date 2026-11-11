@@ -454,7 +454,7 @@ Mid term (visible leap, needs UI + tests):
   (TesseraUI pour; typexperiments glyph mapping). Keep seeded-greedy for
   determinism. Biggest single visual upgrade on this list.
   Done F3: `match_travel()` seeded-greedy grid matching + `travel_positions()`
-  smootherstep pour (`dissolve_travel` 0-1, default 0 = legacy; MORPH slider;
+  smootherstep pour (`dissolve_travel` 0-1, default 1 = pour, 0 = legacy; MORPH slider;
   joints exact; blocks exempt). Gherkin 57.
 - Color particles: tint each dot with its source pixel/palette color
   (GodUI color=source; halftone-fx multicolor). Huge for SLIME/VAPOR covers;

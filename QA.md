@@ -250,7 +250,7 @@ slider MORPH); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
 .venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f3 or travel"
 ```
 
-`dissolve_travel` 0-1 (default 0 = legacy cloud byte-identical) +
+`dissolve_travel` 0-1 (default 1 = pour; 0 = legacy cloud byte-identical) +
 MORPH Travel slider; `match_travel()` seeded-greedy 1:1 (grid +
 expanding rings, padded counts, empty-safe fallback); pour mixer =
 smootherstep over stagger-shifted q (joints exact, no seam jump),

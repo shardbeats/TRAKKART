@@ -251,7 +251,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
     loop, no hard cut): the closing leg reuses the first form's exact
     dithered still/coords, so the loop joint is byte-identical.
     With travel > 0 (F3, non-blocks legs only) dots pour src -> dst
-    through a seeded-greedy 1:1 assignment instead of cloud-reform;
+    through a seeded spatial-sort 1:1 assignment instead of cloud-reform;
     travel = 0 keeps the legacy path byte-identical.
     With tint > 0 (F4) dots carry their source colors, gated by the
     loop envelope (tint = 0 keeps the legacy BW path byte-identical).
@@ -513,7 +513,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     amount 0 gives hard cuts (strict 0=off). Deterministic per segment
     seed (seed + k). With loop=True the last form morphs back into the
     first (closed loop, no hard cut). With travel > 0 (F3) non-blocks
-    legs pour src -> dst via seeded-greedy matching (0 = legacy cloud).
+    legs pour src -> dst via spatial-sort matching (0 = legacy cloud).
     With tint > 0 (F4) dots carry source colors (0 = legacy BW).
     With trail > 0 (F5) past dots linger as fading ghosts (0 = legacy).
     With shade on (F6) dots swell by source darkness (off = uniform).

@@ -379,7 +379,7 @@ class Preset:
     dissolve_stagger: str = "off"  # release order: off | rank | radial | scan | sweep
     dissolve_ease: str = "sine"  # loop envelope: sine (legacy) | cubic | linear | elastic | bounce
     dissolve_dotsize: int = 1  # max dot swell 1-4px with the envelope (1 = legacy 1px)
-    dissolve_travel: float = 0.0  # F3 destination matching 0-1 (0 = legacy cloud-reform)
+    dissolve_travel: float = 1.0  # F3 destination matching 0-1 (1 = pour, 0 = legacy cloud-reform)
     dissolve_path: str = "pour"  # F3 travel flourish: pour | arc | swirl | braid
     dissolve_tint: float = 0.0  # F4 source-color dots 0-1 (0 = legacy BW)
     dissolve_trail: int = 0  # F5 ghost-dot trail frames 0-8 (0 = legacy)
@@ -524,7 +524,7 @@ class Preset:
             "stagger": str(getattr(self, "dissolve_stagger", "off") or "off"),
             "ease": str(getattr(self, "dissolve_ease", "sine") or "sine"),
             "dotsize": int(getattr(self, "dissolve_dotsize", 1) or 1),
-            "travel": float(getattr(self, "dissolve_travel", 0.0) or 0.0),
+            "travel": float(getattr(self, "dissolve_travel", 1.0) or 0.0),
             "path": str(getattr(self, "dissolve_path", "pour") or "pour"),
             "tint": float(getattr(self, "dissolve_tint", 0.0) or 0.0),
             "trail": int(getattr(self, "dissolve_trail", 0) or 0),
@@ -724,7 +724,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_stagger": str(_get(dissolve, "stagger", "off") or "off"),
         "dissolve_ease": str(_get(dissolve, "ease", "sine") or "sine"),
         "dissolve_dotsize": _get(dissolve, "dotsize", 1),
-        "dissolve_travel": _get(dissolve, "travel", 0.0),
+        "dissolve_travel": _get(dissolve, "travel", 1.0),
         "dissolve_path": str(_get(dissolve, "path", "pour") or "pour"),
         "dissolve_tint": _get(dissolve, "tint", 0.0),
         "dissolve_trail": _get(dissolve, "trail", 0),

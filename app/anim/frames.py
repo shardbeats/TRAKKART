@@ -459,7 +459,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         preset, max_side, seed, wind, mode)
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
-    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
+    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 1.0) or 0.0))) if preset is not None else 0.0
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
@@ -584,7 +584,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
         pp = bool(getattr(preset, "gif_pingpong", False)) if pingpong is None else bool(pingpong)
     stagger_v, ease_v = _dissolve_style(preset)
     dotsize_v = max(1, int(getattr(preset, "dissolve_dotsize", 1) or 1)) if preset is not None else 1
-    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 0.0) or 0.0))) if preset is not None else 0.0
+    travel_v = min(1.0, max(0.0, float(getattr(preset, "dissolve_travel", 1.0) or 0.0))) if preset is not None else 0.0
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
