@@ -237,7 +237,7 @@ def test_rss_does_not_grow_per_render(window):
     for _ in range(5):
         render_full(window.src, preset)
     growth = _rss_mb() - base
-    assert growth < 100, f"posible fuga por render: +{growth:.1f}MB"
+    assert growth < 100, f"possible render leak: +{growth:.1f}MB"
 
 
 def test_pil_to_pixmap_empty_never_crashes(qt_app):

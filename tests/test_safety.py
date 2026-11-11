@@ -74,15 +74,15 @@ def test_history_prune(tmp_path):
     # Seed 500 rows in ONE transaction (fsync-bound disks feel every
     # commit; the point under test is the cap, not 505 slow inserts).
     db = tmp_path / "h.db"
-    con = sqlite3.connect(str(db))
-    con.execute(SCHEMA)
-    con.executemany(
+    conn = sqlite3.connect(str(db))
+    conn.execute(SCHEMA)
+    conn.executemany(
         "INSERT INTO exports (base, preset, params_json, files_json, created_at)"
         " VALUES (?, ?, ?, ?, ?)",
         [(f"b{i}", "P", "{}", "[]", "2026-01-01T00:00:00+00:00") for i in range(500)],
     )
-    con.commit()
-    con.close()
+    conn.commit()
+    conn.close()
     s = HistoryStore(db)
     for i in range(5):
         s.log_export(f"c{i}", "P", {}, [])

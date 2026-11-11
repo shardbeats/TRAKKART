@@ -69,11 +69,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Morph F7 palette following: morph animates the graded still — IMAGE adjust (brightness/contrast/saturation/mid/highlights) grades the dots, COLOR palette prints the inks (chromatic palettes render full-strength dots, joints = ink stills = holds, no pop); BW/SLIME-less presets keep the legacy path byte-identical; strict 0=off holds; works with travel/tint/trail/shade/blocks. Gherkin 61.
 
 ## v1.1.0 — 2026-11-02
-- MP4 Canvas-exacto (R5): `mp4_dims` siempre par + `macro_block_size=2` en
-  ambos writers — 1080x1920 sale 1080x1920 (era 1088x1920), 404x720 intacto,
+- Exact-canvas MP4 (R5): `mp4_dims` always even + `macro_block_size=2` in
+  both writers — 1080x1920 ships as 1080x1920 (was 1088x1920), 404x720 intact,
   721x721 -> 720x720.
-- MP4 faststart (R6): `-movflags +faststart` en `write_mp4`/`write_mp4_iter`
-  (moov antes que mdat, playback progresivo).
+- MP4 faststart (R6): `-movflags +faststart` in `write_mp4`/`write_mp4_iter`
+  (moov before mdat, progressive playback).
 - Morph loop closure: new `dissolve_loop` preset field + MORPH "Loop (last → first)" checkbox (default ON); the last form morphs back into the first (byte-identical joint), A's hold split across both loop ends; ping-pong skipped when the loop is closed.
 - Equal holds: Length pad shared across every form (≤1 frame apart) instead of all-to-last; per-joint hold lists end-to-end (engine + GIF + streaming + labels).
 - Honest MP4 weight: MP4 size selector (Canvas/1080p/720p, default 1080p; stills stay full-doc) + content-aware estimate (transitions ~0.43 B/px, holds ~0.011 B/px, calibrated) + heavy-file hints.

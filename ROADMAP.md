@@ -237,7 +237,7 @@ dissolve+morph controls moved from MOTION to their own MORPH page.
   export (`export_full`) and batch (dissolve fallback) share the path;
   suite 453 -> 457.
 
-### v1.9 — Morph timing: holds + presupuesto por tramo (done)
+### v1.9 — Morph timing: holds + per-leg budget (done)
 Research: ImageMagick end-holds (`t==0||t==n-1 ? 150 : 8`), ComfyUI
 `still_image_delay_ms`, Pillow per-frame duration list.
 - [x] Phase 1 (done): joints `q=j/(nk-1)` + `hold_start/end` in engine + tests.
@@ -271,16 +271,16 @@ more images = more time.
 Question: the current cap is 64. What would 96/128 cost for longer
 or smoother animations? Measured in this repo (720p proxy, 3000px doc):
 
-- RAM (frames vivos en lista): 720p = 2.8MB/f → 64f = 177MB, 128f = 354MB.
-  Export full-doc 3000px = 27MB/f → 64f = 1.7GB (ya peligroso hoy), 128f = 3.4GB.
-- CPU (exe portable SIN numba, peor caso): preview 720p ED ~1-2s/f
-  (64f = 1-2 min en hilo, tolerable); export full-doc ED ~10-45s/f
-  (64f = 10-48 min; 128f = 20-96 min, inutilizable).
-- GIF: estimado 29MB @64f/720p, 59MB @128f; browsers recortan a ~50fps
-  reales y sufren >25MB (ya avisamos en UI). MP4 aguanta 60fps sin problema.
+- RAM (live frames in list): 720p = 2.8MB/f → 64f = 177MB, 128f = 354MB.
+  Full-doc 3000px export = 27MB/f → 64f = 1.7GB (already risky today), 128f = 3.4GB.
+- CPU (portable exe WITHOUT numba, worst case): 720p ED preview ~1-2s/f
+  (64f = 1-2 min threaded, tolerable); full-doc ED export ~10-45s/f
+  (64f = 10-48 min; 128f = 20-96 min, unusable).
+- GIF: estimated 29MB @64f/720p, 59MB @128f; browsers cut to ~50fps
+  real and struggle past 25MB (we already warn in UI). MP4 holds 60fps fine.
 - Code: GIF_MAX_FRAMES + ~8 clamps (gif.py, presets, export_prefs,
   dialog_fields, video_controller, params BINDINGS, dialogs) + tests
-  que afirman 64 + estimate + spin Length (32s).
+  asserting 64 + estimate + Length spin (32s).
 
 Key finding: smoothness = fps, not frames (60fps already allowed). Length =
 seconds, not frames. Raising the global cap worsens RAM/export without
@@ -587,8 +587,8 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
   (Frames/FPS/Hold direct). Row + `apply_bpm()` + `hold_for_target()`
   deleted; no preset fields involved (Hold is and stays the preset).
 - [x] R4 — Social recipe presets (bundled JSON): YT thumb 1280x720, square
-  1080x1080, portrait 4:5 1080x1350, master 9:16 1080x1920 (un master cubre
-  Reels/Stories/TikTok/Shorts). Coste S.
+  1080x1080, portrait 4:5 1080x1350, master 9:16 1080x1920 (one master covers
+  Reels/Stories/TikTok/Shorts). Cost S.
   Done: `YT_THUMB` (16:9/1280), `SQUARE_11` (1:1/1080),
   `PORTRAIT_45` (4:5/1350); master = `CANVAS_916` (R1).
 
@@ -597,21 +597,21 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
 - [x] R5 — macro_block_size=2 + even-guard on mp4_dims (BUG verified today:
   1080x1920 -> 1088x1920, 404x720 -> 416x720; H.264/yuv420p only requires
   multiples of 2). Without this no MP4 is Canvas-valid. Cost XS, do now.
-  Done: `mp4_dims` redondea a par hacia abajo + `macro_block_size=2` en
-  `write_mp4`/`write_mp4_iter`; 1080x1920 sale exacto, 721x721 -> 720x720.
+  Done: `mp4_dims` rounds down to even + `macro_block_size=2` in
+  `write_mp4`/`write_mp4_iter`; 1080x1920 ships exact, 721x721 -> 720x720.
 - [x] R6 — faststart (`-movflags +faststart`) on write_mp4/write_mp4_iter:
   progressive playback on web/stores, ~zero cost. Do with R5.
-  Done: en ambos writers; test afirma moov antes que mdat.
+  Done: in both writers; test asserts moov before mdat.
 - [x] R7 — Animated WebP export (promotes §7.6): Pillow save_all + duration
   (int or list) + loop=0 + minimize_size, no new deps, ~1/3 of the GIF at
   equal quality and full color; every browser plays it. New
   `save_webp()` mirroring save_gif + checkbox in dialog + bundle
-  `*_anim.webp`. Coste S/M.
+  `*_anim.webp`. Cost S/M.
   Done: `save_webp()` (full color, minimize_size, quality 80) +
   `estimate_webp` (GIF//3) + `{base}_anim.webp` via `webp_name()` +
   "Animation WebP" checkbox in dialog (plan + collisions) + `webp=True`
-  en `export_full` (reusa los frames del GIF; dialog-only como MP4,
-  batch sigue GIF).
+  in `export_full` (reuses GIF frames; dialog-only like MP4,
+  batch stays GIF).
 - [x] R8 — GIF estimate v2 (hold-collapse aware): the current estimate
   (frames*w*h//2) lies 100-1000x on clips with holds because Pillow
   merges identical frames. Estimate transitions at full cost + 1f

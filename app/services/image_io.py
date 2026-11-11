@@ -41,7 +41,7 @@ def download_image(url: str, max_bytes: int = MAX_BYTES, timeout: int = 15) -> t
 
 
 def decode_data_url(url: str) -> tuple[Image.Image, int]:
-    """Decodifica data:image/...;base64 sin red. Devuelve (PIL, bytes)."""
+    """Decode data:image/...;base64 offline. Returns (PIL, byte count)."""
     if not is_image_data_url(url):
         raise ValueError("not a data:image")
     _, _, payload = url.partition(",")

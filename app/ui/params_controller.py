@@ -555,12 +555,12 @@ def update_morph_short_hint(win) -> None:
         secs = worst / max(1, fps)
         if worst <= 2:
             label.setText(
-                f"⚠ {worst}f por tramo (~{secs:.1f}s): corte duro, sin transición ni color "
-                f"(transición total {sum(per_leg)}f en {legs} tramos) — sube Frames")
+                f"⚠ {worst}f per leg (~{secs:.1f}s): hard cut, no transition or color "
+                f"(total transition {sum(per_leg)}f over {legs} legs) — raise Frames")
         elif worst <= 4:
             label.setText(
-                f"⚠ {worst}f por tramo (~{secs:.1f}s): transición muy corta, el color apenas "
-                f"se ve (transición total {sum(per_leg)}f) — sube Frames")
+                f"⚠ {worst}f per leg (~{secs:.1f}s): transition too short, color barely "
+                f"shows (total transition {sum(per_leg)}f) — raise Frames")
         else:
             label.setText("")
     except Exception:  # noqa: BLE001

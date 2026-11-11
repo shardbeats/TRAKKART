@@ -191,10 +191,10 @@ transitions always win. Non-particle MP4 over 256f stays capped
 .venv\Scripts\python -m pytest tests/test_gaps.py::test_save_webp_roundtrip_and_estimate tests/test_gaps.py::test_export_service_webp -q -p no:cacheprovider --no-cov
 ```
 
-`save_webp()` = `save_gif()` espejo a full color (sin quantize 128);
-`estimate_webp` = GIF//3 (hold-aware desde R8). Dialog-only como
-MP4 (batch sigue GIF): checkbox + plan + colisiones + `export_full(webp=True)`.
-Unit-covered, sin escenarios Gherkin nuevos (gates siguen 52).
+`save_webp()` = `save_gif()` mirrored to full color (no 128 quantize);
+`estimate_webp` = GIF//3 (hold-aware since R8). Dialog-only like
+MP4 (batch stays GIF): checkbox + plan + collisions + `export_full(webp=True)`.
+Unit-covered, no new Gherkin scenarios (gates stay 52).
 
 ## Honest weight (R8)
 
@@ -238,10 +238,10 @@ closed-form not baked, blocks 15% peak anchor).
 .venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "f2 or preset_pack or elastic"
 ```
 
-elastic/bounce cierran el loop (pico ≤1, joints a 0);
-`dissolve_dotsize` 1-4 hincha dots con la envolvente (joints a 1px,
-slider MORPH); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
-(rain/bayer8), POUR_FAKE (flow+rank+amount 0.5). 4º Gherkin
+elastic/bounce close the loop (peak ≤1, joints at 0);
+`dissolve_dotsize` 1-4 swells dots with the envelope (joints at 1px,
+MORPH slider); bundled EMBER_RISE (rise/floyd), GRAVITY_DROP
+(rain/bayer8), POUR_FAKE (flow+rank+amount 0.5). 4th Gherkin
 (elastic loop + fat-dot joints). Gates 56.
 
 ## Morph F3: travel/pour A->B (§7.6)

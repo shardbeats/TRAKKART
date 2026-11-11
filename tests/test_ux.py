@@ -299,7 +299,7 @@ def test_morph_short_hint_warns_per_leg(window):
     window.cmb_video_frames.setCurrentText("4")
     _par._sync_morph_list_ui(window)
     # 2 segs + loop leg = 3 legs on 6 transition frames -> [2, 2, 2].
-    assert "corte duro" in window.lbl_morph_short.text()
+    assert "hard cut" in window.lbl_morph_short.text()
     assert "Frames" in window.lbl_morph_short.text()
     window.cmb_video_frames.setCurrentText("64")
     window._sync_duration_ui()

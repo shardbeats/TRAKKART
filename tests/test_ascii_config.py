@@ -44,7 +44,7 @@ def test_color_modes_and_mono_bw():
     pal = ascii_render(img, palette=[(0, 0, 0), (255, 255, 255)],
                        config={"columns": 40, "color": "palette"})
     assert mono.size == src.size == pal.size
-    # BW mono real: blanco sobre negro solo usa esos tonos base en fondo/tinta
+    # True BW mono: white-on-black only uses those base bg/ink tones
     bw = ascii_render(Image.new("RGB", (80, 60), (0, 0, 0)), config={"columns": 20})
     assert bw.size == (80, 60)
 

@@ -131,7 +131,7 @@ app/ui/preview_worker.py :: PreviewWorker + VideoWorker (tokens, stale drops)
 app/ui/widgets.py        :: ValueSlider (value + double-click reset)
 presets/*.json           :: 13 bundled (never overwritten)
 features/*.feature       :: 61 Gherkin scenarios
-tests/                   :: unit + bdd/ (pytest-bdd por dominio)
+tests/                   :: unit + bdd/ (pytest-bdd per domain)
 tools/quality_metrics.py :: gates → data/quality_report.json
 tools/gpu_spike_preview.py :: manual GPU spike (Bayer+grade parity/bench/show, not a gate)
 ```

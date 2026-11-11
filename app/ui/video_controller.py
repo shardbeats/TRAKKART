@@ -304,7 +304,7 @@ def sync_duration_ui(win) -> None:
                     float(_val("dust", 0.0) or 0.0) > 0,
                 ])
                 if not glitch_on:
-                    text += " · mix sin FX/DATAMOSH: sube valores"
+                    text += " · mix with every FX/DATAMOSH at 0: raise a value"
         except Exception:  # noqa: BLE001
             pass
         if plan.get("particle"):
