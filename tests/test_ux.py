@@ -284,6 +284,32 @@ def test_morph_budget_grows_with_chain(window, tmp_path, monkeypatch):
     assert "per form" in window.lbl_compat.text()
 
 
+def test_morph_short_hint_warns_per_leg(window):
+    from PIL import Image
+
+    from app.ui import params_controller as _par
+
+    window.morph_list = [
+        {"img": Image.new("RGB", (16, 16), (10, 200, 90)), "name": "b.png",
+         "fx": 50.0, "fy": 50.0, "zoom": 1.0},
+        {"img": Image.new("RGB", (16, 16), (200, 40, 90)), "name": "c.png",
+         "fx": 50.0, "fy": 50.0, "zoom": 1.0},
+    ]
+    window.cmb_video_mode.setCurrentText("morph")
+    window.cmb_video_frames.setCurrentText("4")
+    _par._sync_morph_list_ui(window)
+    # 2 segs + loop leg = 3 legs on 6 transition frames -> [2, 2, 2].
+    assert "corte duro" in window.lbl_morph_short.text()
+    assert "Frames" in window.lbl_morph_short.text()
+    window.cmb_video_frames.setCurrentText("64")
+    window._sync_duration_ui()
+    assert window.lbl_morph_short.text() == ""
+    # Chain cleared -> hint cleared too.
+    window.morph_list = []
+    _par._sync_morph_list_ui(window)
+    assert window.lbl_morph_short.text() == ""
+
+
 def test_tutorial_dialog_walks_all_steps(qt_app):
     from app.tutorial import STEPS
     from app.ui.tutorial_dialog import TutorialDialog

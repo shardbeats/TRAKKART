@@ -31,7 +31,8 @@ from app.anim.limits import (GIF_FRAMES_SUGGESTED, GIF_FPS_SUGGESTED, GIF_LIMIT_
                              MP4_BYTES_PER_PX_HOLD, MP4_BYTES_PER_PX_TRANS, MP4_SIZES,
                              VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE)
 from app.anim.plan import (_check_gif_budget, _clamp_frames, estimate_gif,  # noqa: F401
-                           estimate_mp4, estimate_webp, _even_down, mp4_dims,
+                           estimate_mp4, estimate_webp, _even_down,
+                           leg_transitions, mp4_dims,
                            plan_dissolve, solve_hold_for_length)
 
 
@@ -45,7 +46,7 @@ __all__ = ["GIF_MODES", "GIF_MODE_INFO", "mode_label", "mode_desc",
            "_dissolve_shade", "_dissolve_paint", "_dissolve_adjust",
            "_pingpong", "gif_frames",
            "MAX_TOTAL_FRAMES", "MAX_MP4_FRAMES",
-           "plan_dissolve", "solve_hold_for_length",
+           "plan_dissolve", "solve_hold_for_length", "leg_transitions",
            "_canvas_a", "_split_chain_entries",
            "iter_dissolve_frames", "_morph_loop", "iter_morph_frames",
            "gif_dissolve_frames", "gif_morph_frames",

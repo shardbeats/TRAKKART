@@ -514,6 +514,57 @@ def sync_anim_ui(win) -> None:
                 win.lbl_compat.setText(win.lbl_compat.text() + f" ({n // legs_c}f / {n / legs_c / fps:.1f}s per form — raise Hold or Frames for slower morphs)")
         except Exception:  # noqa: BLE001
             pass
+    update_morph_short_hint(win)
+
+
+def update_morph_short_hint(win) -> None:
+    """MORPH-page warning when a leg is too short to show the transition.
+
+    Uses the exact plan budget (transition frames per leg, same divmod
+    the engine renders): 2 or fewer per leg means joints only, i.e. a
+    hard cut with no pour and no mid-flight color; 3-4 is a flash.
+    Points at Frames on purpose: holds add stills, they never buy
+    transition frames.
+    """
+    try:
+        label = win.lbl_morph_short
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        from app.gif import leg_transitions
+
+        extras = morph_chain_data(win)
+        if not extras:
+            label.setText("")
+            return
+        try:
+            loop = bool(win.chk_morph_loop.isChecked())
+        except Exception:  # noqa: BLE001
+            loop = True
+        legs = len(extras) + (1 if loop else 0)
+        try:
+            n_req = int(win._anim_combo_int(win.cmb_video_frames, 6, 2, 256))
+        except Exception:  # noqa: BLE001
+            n_req = 6
+        try:
+            fps = max(1, int(win._anim_combo_int(win.cmb_video_fps, 8, 2, 60)))
+        except Exception:  # noqa: BLE001
+            fps = 8
+        per_leg = leg_transitions(n_req, legs)
+        worst = min(per_leg)
+        secs = worst / max(1, fps)
+        if worst <= 2:
+            label.setText(
+                f"⚠ {worst}f por tramo (~{secs:.1f}s): corte duro, sin transición ni color "
+                f"(transición total {sum(per_leg)}f en {legs} tramos) — sube Frames")
+        elif worst <= 4:
+            label.setText(
+                f"⚠ {worst}f por tramo (~{secs:.1f}s): transición muy corta, el color apenas "
+                f"se ve (transición total {sum(per_leg)}f) — sube Frames")
+        else:
+            label.setText("")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def current_adjust(win):
@@ -943,6 +994,7 @@ def _sync_morph_list_ui(win) -> None:
         win._sync_anim_ui()
     except Exception:  # noqa: BLE001
         pass
+    update_morph_short_hint(win)
 
 
 def pick_morph_image(win) -> bool:

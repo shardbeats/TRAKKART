@@ -1191,6 +1191,21 @@ def test_multileg_travel_tint_no_budget_shadow():
     assert len(h) == 9
 
 
+def test_leg_transitions_split():
+    from app.gif import leg_transitions
+
+    assert leg_transitions(6, 1) == [6]
+    assert leg_transitions(4, 2) == [2, 2]  # floor: joints only, hard cut
+    assert leg_transitions(8, 3) == [3, 3, 2]
+    assert leg_transitions(2, 1) == [2]
+    assert leg_transitions(100, 2) == [32, 32]  # 64-frame transition cap
+    for n_req, legs in ((6, 1), (9, 2), (4, 3), (30, 4)):
+        got = leg_transitions(n_req, legs)
+        assert len(got) == legs and max(got) - min(got) <= 1
+    # Exact engine split: n_trans spread over legs, first legs take +1.
+    assert leg_transitions(9, 2) == [5, 4]
+
+
 def test_f8_new_fields_deterministic_and_alive():
     from app.disintegrate import DISINTEGRATE_MODES, disperse_positions
 

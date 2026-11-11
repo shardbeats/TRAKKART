@@ -341,6 +341,12 @@ def sync_duration_ui(win) -> None:
             if plan.get("actual_s", 0) > 4.0:
                 text += " · prefer MP4"
         win.lbl_duration.setText(text)
+        try:
+            from app.ui import params_controller as _par3
+
+            _par3.update_morph_short_hint(win)
+        except Exception:  # noqa: BLE001
+            pass
     except Exception:  # noqa: BLE001
         pass
 

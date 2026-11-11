@@ -15,6 +15,20 @@ def _clamp_frames(frames: int) -> int:
     return max(GIF_MIN_FRAMES, min(GIF_MAX_FRAMES, int(frames)))
 
 
+def leg_transitions(n_req: int, legs: int) -> list[int]:
+    """Transition frames per morph leg (exact engine split).
+
+    Same budget the engine renders: n_trans clamped like plan_dissolve
+    (2-per-leg floor so every form appears assembled), split across legs
+    with the same divmod (first legs take the remainder). <=2f/leg means
+    joints only: hard cut, no mid-flight pour or color.
+    """
+    legs_v = max(1, int(legs or 1))
+    n_trans = min(GIF_MAX_FRAMES, max(2 * legs_v, _clamp_frames(n_req)))
+    base, rem = divmod(n_trans, legs_v)
+    return [base + (1 if k < rem else 0) for k in range(legs_v)]
+
+
 def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
                   target_s: float | None = None,
                   cap: int | None = None, loop: bool = False) -> dict:
@@ -176,6 +190,7 @@ def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
                      + max(0, int(n_hold)) * MP4_BYTES_PER_PX_HOLD))
 
 
-__all__ = ["_clamp_frames", "plan_dissolve", "solve_hold_for_length",
+__all__ = ["_clamp_frames", "plan_dissolve", "leg_transitions",
+           "solve_hold_for_length",
            "_check_gif_budget", "estimate_gif", "estimate_webp",
            "_even_down", "mp4_dims", "estimate_mp4"]
