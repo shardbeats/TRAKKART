@@ -63,3 +63,23 @@ def test_cli_dispatch_without_qt():
                        text=True, cwd=str(root))
     assert r.returncode == 0, r.stderr
     assert "SLIME_FS" in r.stdout
+
+
+def test_cli_seeds_bundled_on_empty_data_dir(tmp_path, monkeypatch):
+    # Frozen regression: fresh machine (empty data dir, no repo presets/
+    # in the bundle) must still resolve bundled presets via --cli.
+    import app.paths
+    import app.presets
+
+    ghost = tmp_path / "nobuiltin"  # missing: like _internal/presets frozen
+    monkeypatch.setattr(app.presets, "PRESETS_DIR", ghost)
+    monkeypatch.setattr(app.presets, "_BUNDLED_DIR", ghost)
+    monkeypatch.setattr(app.paths, "get_presets_dir", lambda: tmp_path / "data" / "presets")
+    monkeypatch.setattr(app.paths, "get_palettes_dir", lambda: tmp_path / "data" / "palettes")
+
+    from app.cli import run_cli
+    from app.presets import list_presets
+
+    assert list_presets() == []
+    assert run_cli(["--list-presets"]) == 0
+    assert "SLIME_FS" in list_presets()

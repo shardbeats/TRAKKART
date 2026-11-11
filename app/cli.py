@@ -74,7 +74,15 @@ def _single(src: Path, dst: Path, preset) -> dict:
 def run_cli(argv: list[str] | None = None) -> int:
     """Entry point (no Qt import anywhere on this path). Returns exit code."""
     args = build_parser().parse_args(argv)
-    from app.presets import list_presets, load_preset
+    # Frozen-safe: seed bundled presets/palettes like MainWindow does, so
+    # --cli works on a fresh machine before the GUI ever runs (empty data dir
+    # + no repo presets/ inside the bundle).
+    from app.paths import get_palettes_dir, get_presets_dir
+    from app.palette_library import ensure_bundled_palettes
+    from app.presets import ensure_bundled, list_presets, load_preset
+
+    ensure_bundled(get_presets_dir())
+    ensure_bundled_palettes(get_palettes_dir())
 
     if args.list_presets:
         for name in list_presets():

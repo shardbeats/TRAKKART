@@ -9,7 +9,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## [1.4.0] - 2026-11-11
-- User-facing README: what it is, 4 real app captures, requirements,
+- Frozen CLI fix: `--cli` now seeds bundled presets/palettes like the GUI,
+  so it works on a fresh machine before the first GUI launch (empty data dir
+  + no repo `presets/` inside the bundle used to exit 2 with `have:` empty).
+  Pinned by `test_cli_seeds_bundled_on_empty_data_dir`.
+- User-facing README: real app captures, requirements,
   download/install, SmartScreen note, MANUAL + license links. The former
   developer reference moved intact to `docs/DEVELOPMENT.md`; captures are
   reproducible via `tools/capture_readme_shots.py`.
