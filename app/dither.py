@@ -215,6 +215,7 @@ def apply_method(
     adjust: Adjust | dict | None = None,
     phase: int = 0,
     motif: dict | None = None,
+    ascii: dict | None = None,
 ) -> Image.Image:
     if method in ED_METHODS:
         return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
@@ -230,7 +231,8 @@ def apply_method(
 
         base = apply_adjust(img.convert("RGB"), adjust)
         return ascii_render(base, palette=palette, threshold=float(threshold),
-                            pixel_size=int(pixel_size), phase=int(phase))
+                            pixel_size=int(pixel_size), phase=int(phase),
+                            config=ascii)
     if method == "edges":
         return edges_dither(img, palette=palette, threshold=threshold,
                             pixel_size=pixel_size, adjust=adjust, phase=phase)

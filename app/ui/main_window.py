@@ -351,15 +351,16 @@ class MainWindow(QMainWindow):
         _sf.open_settings(self)
 
     def _sync_motif_visibility(self) -> None:
-        """MOTIF config only matters for method `motif`: hide it otherwise."""
+        """MOTIF/ASCII boxes only matter for their method: hide otherwise."""
         try:
-            box = self._motif_box
-        except AttributeError:
-            return
-        try:
-            box.setVisible(self.cmb_method.currentText() == "motif")
+            method = self.cmb_method.currentText()
         except Exception:  # noqa: BLE001
-            pass
+            return
+        for attr, want in (("_motif_box", "motif"), ("_ascii_box", "ascii")):
+            try:
+                getattr(self, attr).setVisible(method == want)
+            except Exception:  # noqa: BLE001
+                pass
 
     def _maybe_first_run(self) -> None:
         """First launch: samples + tour once. Never blocks tests/headless."""

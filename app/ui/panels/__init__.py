@@ -27,6 +27,7 @@ from app.ui.panels.studio import (
     build_fx_stack_section,
     build_mosh_section,
     build_motif_section,
+    build_ascii_section,
 )
 from app.ui.panels.animate import build_video_section
 from app.ui.panels.morph import build_morph_section
@@ -53,6 +54,7 @@ __all__ = [
     "build_pre_section",
     "build_effects_section",
     "build_motif_section",
+    "build_ascii_section",
     "build_fx_stack_section",
     "build_mosh_section",
     "build_drift_section",

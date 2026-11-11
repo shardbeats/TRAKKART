@@ -30,7 +30,7 @@ nothing is tracked. Your data lives on your machine (the app's data folder).
 | Panel | What it does |
 |---|---|
 | IMAGE | open, rotate, flip, invert, visual crop, CANVAS size |
-| DITHER | preset, method, pixel, motif |
+| DITHER | preset, method, pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | mosh flavors + amount + seed |

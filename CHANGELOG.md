@@ -9,6 +9,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- ASCII mode integration: `ascii` config in Preset/RenderSpec/metadata
+  (charset + presets, columns 20-300, gamma, color mono/source/palette,
+  ink/bg, invert, Bayer dither); DITHER page box visible only for `ascii`;
+  `pixel_size` ignored (columns rule); fonts bundled
+  (`app/fonts/JetBrainsMono-Regular.ttf`, OFL in THIRD-PARTY-NOTICES).
 - Canvas preview redesign: the fixed 520px QLabel is now a fit/zoom/pan
   canvas (`app/ui/preview_canvas.py`). Fit fills the viewport (small images
   up to 3x), 100% is real 1:1 (not 4x), wheel zooms at the cursor, drag pans,

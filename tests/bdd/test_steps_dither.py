@@ -10,6 +10,7 @@ scenarios(
     "../../features/floyd.feature",
     "../../features/kernels.feature",
     "../../features/adjust_text.feature",
+    "../../features/ascii.feature",
 )
 
 
@@ -139,3 +140,18 @@ def metadata_ok(ctx):
     info = json.loads(ctx["paths"]["metadata"].read_text(encoding="utf-8"))
     assert info["app"] == "TRAKKART"
     assert info["params"]["method"] == "floyd"
+
+
+# -- ascii.feature --
+@when("I apply ASCII twice with 32 columns")
+def ascii_twice(ctx):
+    from app.ascii import ascii_render
+    cfg = {"columns": 32}
+    ctx["out_a"] = ascii_render(ctx["img"], config=cfg)
+    ctx["out_b"] = ascii_render(ctx["img"], config=cfg)
+    ctx["out"] = ctx["out_a"]
+
+
+@then("both outputs are identical")
+def both_identical(ctx):
+    assert list(ctx["out_a"].get_flattened_data()) == list(ctx["out_b"].get_flattened_data())

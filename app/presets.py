@@ -216,6 +216,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("post_sharpen", "int", ("oneof", (0, 1, 2, 3))),
     _Field("fx_stack", "stack"),
     _Field("motif", "stack"),
+    _Field("ascii", "stack"),
     _Field("drift_pattern", "str", ("oneof", (
         "off", "hum_bar", "roll", "crawl", "snow",
         "weave", "flicker", "moire", "sweep", "jitter"))),
@@ -340,6 +341,7 @@ class Preset:
     fx_stack: list | None = None  # None = legacy order; else [{id, enabled}]
     # -- v1.3 motif --
     motif: dict | None = None  # None = default_config(); {"bands": [{shape, size}x4]}
+    ascii: dict | None = None  # None = ASCII_DEFAULTS; {"charset", columns, gamma, color, ink, bg, dither, invert}
     # -- v1.4 signal drift + paste-up --
     drift_pattern: str = "off"  # Signal Drift pattern pre-dither
     drift_amount: float = 0.0  # 0-100, 0 = off
@@ -453,6 +455,11 @@ class Preset:
             gif_size=int(getattr(self, "gif_size", 1200)),
             gif_pingpong=bool(getattr(self, "gif_pingpong", False)),
         )
+        from app.ascii import normalize_config as _ascii_norm
+        try:
+            m["ascii"] = _ascii_norm(getattr(self, "ascii", None))
+        except Exception:
+            m["ascii"] = _ascii_norm(None)
         m["export"] = {
             "size": int(self.export_size),
             "format": str(self.export_format),
@@ -730,6 +737,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "post_sharpen": _get(fx, "post_sharpen", _get(post, "sharpen", 0)),
         "fx_stack": _get(params, "fx_stack", None),
         "motif": _get(params, "motif", None),
+        "ascii": _get(params, "ascii", None),
         "vector_export": bool(_get(params, "vector_export", False)),
         "vector_cell": _get(params, "vector_cell", 8),
     }

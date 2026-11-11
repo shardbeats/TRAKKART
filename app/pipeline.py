@@ -101,6 +101,7 @@ class RenderSpec:
     post_sharpen: int = 0
     fx_stack: list | None = None
     motif: dict | None = None
+    ascii: dict | None = None
     drift_pattern: str = "off"
     drift_amount: float = 0.0
     drift_progress: float | None = None
@@ -179,6 +180,8 @@ class RenderSpec:
                       if getattr(preset, "fx_stack", None) is not None else None),
             motif=(__import__("copy").deepcopy(getattr(preset, "motif", None))
                    if getattr(preset, "motif", None) is not None else None),
+            ascii=(__import__("copy").deepcopy(getattr(preset, "ascii", None))
+                   if getattr(preset, "ascii", None) is not None else None),
             drift_pattern=str(getattr(preset, "drift_pattern", "off") or "off"),
             drift_amount=float(getattr(preset, "drift_amount", 0.0) or 0.0),
             drift_progress=(None if drift_progress is None else float(drift_progress)),
@@ -267,6 +270,8 @@ class RenderSpec:
             },
             "motif": (__import__("copy").deepcopy(self.motif)
                       if self.motif is not None else None),
+            "ascii": (__import__("copy").deepcopy(self.ascii)
+                      if getattr(self, "ascii", None) is not None else None),
         }
 
 
@@ -325,6 +330,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
         adjust=s.adjust,
         phase=int(s.phase),
         motif=getattr(s, "motif", None),
+        ascii=getattr(s, "ascii", None),
     )
     if s.replace_color:
         dithered = replace_white(dithered, color=s.replace_color)
@@ -381,6 +387,7 @@ def meta_dict(
     gif_fps: int = 8,
     gif_size: int = 480,
     gif_pingpong: bool = False,
+    ascii: dict | None = None,
 ) -> dict:
     """Compat (positional signature intact for tests): spec + gif/vector extras."""
     spec = RenderSpec(
@@ -393,7 +400,7 @@ def meta_dict(
         glow_radius=glow_radius, glow_intensity=glow_intensity,
         grain=grain, vignette=vignette, scanlines=scanlines,
         replace_color=replace_color, custom_palette=custom_palette,
-        phase=phase, glitch_chroma=glitch_chroma,
+        phase=phase, ascii=ascii, glitch_chroma=glitch_chroma,
         glitch_slice_bands=glitch_slice_bands, glitch_slice_max=glitch_slice_max,
     )
     m = spec.meta()

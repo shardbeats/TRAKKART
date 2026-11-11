@@ -126,6 +126,7 @@ def setup_control_panel(win, panel) -> None:
     P.build_method_section(win, dither, METHODS)
     P.build_pixel_section(win, dither)
     P.build_motif_section(win, dither)
+    P.build_ascii_section(win, dither)
 
     color = add_page("COLOR")
     P.build_color_section(win, color)

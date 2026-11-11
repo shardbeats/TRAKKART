@@ -260,3 +260,81 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.lbl_palette_hint.setWordWrap(True)
     win.lbl_palette_hint.setObjectName("subtitleLabel")
     g.addWidget(win.lbl_palette_hint)
+
+
+def build_ascii_section(win, g) -> None:
+    """ASCII config box: visible only for method `ascii` (like motif)."""
+    from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit
+    from app.ascii import ASCII_DEFAULTS, CHARSET_PRESETS
+    from app.ui.panels.widgets import labeled_slider, spin_row
+
+    box = __import__("PySide6.QtWidgets", fromlist=["QWidget"]).QWidget()
+    lay = __import__("PySide6.QtWidgets", fromlist=["QVBoxLayout"]).QVBoxLayout(box)
+    lay.setSpacing(4)
+    lay.setContentsMargins(0, 0, 0, 0)
+    hlab(lay, "ASCII (columns rule; pixel_size ignored):")
+    win.cmb_ascii_preset = QComboBox()
+    tight(win.cmb_ascii_preset, 12)
+    win.cmb_ascii_preset.addItems(list(CHARSET_PRESETS))
+    win.cmb_ascii_preset.setToolTip("Charset preset (dark to light)")
+    lay.addWidget(win.cmb_ascii_preset)
+    win.txt_ascii_custom = QLineEdit()
+    win.txt_ascii_custom.setPlaceholderText("Custom charset (dark to light, overrides preset)")
+    win.txt_ascii_custom.setToolTip("Custom charset, dark glyphs first")
+    lay.addWidget(win.txt_ascii_custom)
+    win.spn_ascii_cols = spin_row(lay, "Columns:", 20, 300, int(ASCII_DEFAULTS["columns"]),
+                                  "Density in columns (preview = export)")
+    win.sld_ascii_gamma, _ = labeled_slider(win, lay, "Gamma:", 50, 250,
+                                            int(float(ASCII_DEFAULTS["gamma"]) * 100),
+                                            "Luminance gamma x100", div=100.0)
+    win.cmb_ascii_color = QComboBox()
+    tight(win.cmb_ascii_color, 10)
+    win.cmb_ascii_color.addItems(["mono", "source", "palette"])
+    win.cmb_ascii_color.setToolTip("mono = ink | source = cell color | palette = nearest")
+    lay.addWidget(win.cmb_ascii_color)
+    win.txt_ascii_ink = QLineEdit(str(ASCII_DEFAULTS["ink"]))
+    win.txt_ascii_ink.setToolTip("Ink #RRGGBB (mono mode)")
+    lay.addWidget(win.txt_ascii_ink)
+    win.txt_ascii_bg = QLineEdit(str(ASCII_DEFAULTS["bg"]))
+    win.txt_ascii_bg.setToolTip("Background #RRGGBB")
+    lay.addWidget(win.txt_ascii_bg)
+    win.chk_ascii_invert = QCheckBox("Invert ramp")
+    lay.addWidget(win.chk_ascii_invert)
+    win.sld_ascii_dither, _ = labeled_slider(win, lay, "Dither:", 0, 100, 0,
+                                             "Bayer 4x4 between glyphs 0-100")
+    win.lbl_ascii_warn = __import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel("")
+    win.lbl_ascii_warn.setWordWrap(True)
+    lay.addWidget(win.lbl_ascii_warn)
+    win.lbl_ascii_ramp = __import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel("")
+    lay.addWidget(win.lbl_ascii_ramp)
+
+    def _refresh(*_a):
+        try:
+            from app.ascii import CHARSET_PRESETS as _P, unsupported_glyphs as _ug
+            name = win.cmb_ascii_preset.currentText()
+            custom = win.txt_ascii_custom.text().strip()
+            cs = custom or _P.get(name, "")
+            bad = _ug(cs) if cs else []
+            win.lbl_ascii_warn.setText(
+                ("Unsupported glyphs fall back to '?': " + "".join(bad)) if bad else "")
+            win.lbl_ascii_ramp.setText("Ramp: " + (cs or ""))
+        except Exception:
+            pass
+        try:
+            win._schedule_refresh()
+        except Exception:
+            pass
+
+    for w in (win.cmb_ascii_preset, win.cmb_ascii_color):
+        w.currentTextChanged.connect(_refresh)
+    for w in (win.txt_ascii_custom, win.txt_ascii_ink, win.txt_ascii_bg):
+        w.textChanged.connect(_refresh)
+    win.chk_ascii_invert.toggled.connect(_refresh)
+    try:
+        win.cmb_ascii_preset.setCurrentText("Classic")
+        win.cmb_ascii_color.setCurrentText("mono")
+    except Exception:
+        pass
+    g.addWidget(box)
+    win._ascii_box = box
+    _refresh()

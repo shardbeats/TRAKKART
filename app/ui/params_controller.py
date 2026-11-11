@@ -176,6 +176,82 @@ def write_motif(win, cfg: dict | None) -> None:
         pass
 
 
+def read_ascii(win) -> dict | None:
+    """Reads the ASCII panel config. None if widgets are missing (tests)."""
+    try:
+        from app.ascii import CHARSET_PRESETS, normalize_config
+        preset = win.cmb_ascii_preset.currentText()
+        custom = win.txt_ascii_custom.text().strip()
+        return normalize_config({
+            "charset": custom or CHARSET_PRESETS.get(preset, ""),
+            "columns": int(win.spn_ascii_cols.value()),
+            "gamma": float(win.sld_ascii_gamma.value()) / 100.0,
+            "color": win.cmb_ascii_color.currentText(),
+            "ink": win.txt_ascii_ink.text().strip(),
+            "bg": win.txt_ascii_bg.text().strip(),
+            "invert": bool(win.chk_ascii_invert.isChecked()),
+            "dither": float(win.sld_ascii_dither.value()),
+        })
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def write_ascii(win, cfg: dict | None) -> None:
+    """Applies config to the ASCII panel (None = defaults). No signal loops."""
+    try:
+        from app.ascii import ASCII_DEFAULTS, CHARSET_PRESETS, normalize_config
+        norm = normalize_config(cfg) if cfg else dict(ASCII_DEFAULTS)
+        for w, v in ((win.cmb_ascii_preset, None),):
+            pass
+        # preset combo: match charset or fall back to Classic + custom text
+        matched = next((k for k, v in CHARSET_PRESETS.items() if v == norm["charset"]), None)
+        try:
+            win.cmb_ascii_preset.blockSignals(True)
+            win.cmb_ascii_preset.setCurrentText(matched or "Classic")
+        finally:
+            win.cmb_ascii_preset.blockSignals(False)
+        try:
+            win.txt_ascii_custom.blockSignals(True)
+            win.txt_ascii_custom.setText("" if matched else norm["charset"])
+        finally:
+            win.txt_ascii_custom.blockSignals(False)
+        try:
+            win.spn_ascii_cols.blockSignals(True)
+            win.spn_ascii_cols.setValue(int(norm["columns"]))
+        finally:
+            win.spn_ascii_cols.blockSignals(False)
+        try:
+            win.sld_ascii_gamma.blockSignals(True)
+            win.sld_ascii_gamma.setValue(int(float(norm["gamma"]) * 100))
+        finally:
+            win.sld_ascii_gamma.blockSignals(False)
+        try:
+            win.cmb_ascii_color.blockSignals(True)
+            if win.cmb_ascii_color.findText(norm["color"]) >= 0:
+                win.cmb_ascii_color.setCurrentText(norm["color"])
+        finally:
+            win.cmb_ascii_color.blockSignals(False)
+        for attr, val in (("txt_ascii_ink", norm["ink"]), ("txt_ascii_bg", norm["bg"])):
+            try:
+                w = getattr(win, attr)
+                w.blockSignals(True)
+                w.setText(str(val))
+            finally:
+                w.blockSignals(False)
+        try:
+            win.chk_ascii_invert.blockSignals(True)
+            win.chk_ascii_invert.setChecked(bool(norm["invert"]))
+        finally:
+            win.chk_ascii_invert.blockSignals(False)
+        try:
+            win.sld_ascii_dither.blockSignals(True)
+            win.sld_ascii_dither.setValue(int(float(norm["dither"])))
+        finally:
+            win.sld_ascii_dither.blockSignals(False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def doc_size(win) -> int:
     """Long side (compat: prefs, batch legacy, GIF)."""
     w, h = doc_dims(win)
@@ -507,6 +583,7 @@ def build_params(win):
         glitch_slice_max=24,
         fx_stack=normalize_stack(getattr(win, "fx_stack_data", None)),
         motif=read_motif(win),
+        ascii=read_ascii(win),
         **kwargs,
     )
 
@@ -552,6 +629,7 @@ def apply_preset(win, name: str) -> None:
     _fx.set_stack(win, getattr(p, "fx_stack", None))
     # Motif (v1.3): panel config; None = default.
     write_motif(win, getattr(p, "motif", None))
+    write_ascii(win, getattr(p, "ascii", None))
     # Outputs: the preset is the recipe; dialogs apply it per operation.
     win._vector_export = bool(p.vector_export)
     win._vector_cell = int(p.vector_cell)

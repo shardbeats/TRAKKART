@@ -43,3 +43,7 @@ frozen `dist/TRAKKART.exe` / installer.
 
 Last reviewed: v1.3.0, Python 3.11/3.14, PySide6 6.6–6.12, Pillow 10+,
 numpy 1.24+, numba 0.60+, imageio 2.31+, imageio-ffmpeg 0.4.9+.
+
+## JetBrains Mono (OFL-1.1)
+
+Bundled at `app/fonts/JetBrainsMono-Regular.ttf` for the ASCII renderer; license in `app/fonts/OFL.txt`.

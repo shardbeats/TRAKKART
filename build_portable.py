@@ -152,7 +152,8 @@ def main() -> int:
     ]
     # Bundled at runtime via app.paths.bundle_path (frozen _MEIPASS / dev root).
     for name in ("MANUAL.md", "LICENSE", "NOTICE.md", "THIRD-PARTY-NOTICES.md",
-                 "icon.png", "icon.ico", "app/ui/theme.qss"):
+                 "icon.png", "icon.ico", "app/ui/theme.qss",
+                 "app/fonts/JetBrainsMono-Regular.ttf", "app/fonts/OFL.txt"):
         p = ROOT / name
         if p.exists():
             cmd[cmd.index("main.py"):cmd.index("main.py")] = [

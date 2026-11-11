@@ -78,7 +78,7 @@ features/morph_modes.feature :: 4 scenarios (burst determinism, stagger-off lega
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
-Total: 61/61. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Total: 62/62. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
 Current suite: 608 tests (471 fast + 137 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
@@ -312,6 +312,20 @@ per-dot ink colors); `dissolve adjust` grades the dots, COLOR palette
 prints the inks at full strength (joints = ink stills = holds, no
 pop); BW presets keep every byte identical; strict 0=off holds.
 9º Gherkin (ink dots + ink ends). Gates 61.
+
+## ASCII mode integration: columns-rule config end to end
+
+```
+C:\venvs\dev\Scripts\python.exe -m pytest tests/test_ascii_config.py tests/bdd/test_steps_dither.py -q -p no:cacheprovider --no-cov
+```
+
+`ascii` dict on Preset/RenderSpec/meta (`normalize_config` clamps:
+columns 20-300, gamma 0.5-2.5, dither 0-100, mono/source/palette);
+`render_spec` passes it to `ascii_render` (batch/CLI inherit via
+`to_render_kwargs`); DITHER ASCII box (preset + custom, columns,
+gamma, color, ink/bg, invert, dither, ramp preview, unsupported-glyph
+warning) visible only for `ascii`; `pixel_size` ignored by design.
+10º Gherkin (ASCII keeps size + deterministic). Gates 62.
 
 ## Perf round (measured, nov-2026)
 
