@@ -144,6 +144,26 @@ def _field_offset(coords: np.ndarray, h: int, w: int, mode: str,
         dy = (np.sin(2 * math.pi * (-1.1 * xn + 0.9 * yn) + p3)
               + 0.5 * np.sin(2 * math.pi * (0.5 * xn + 2.1 * yn) + p4))
         return (np.stack([dy, dx], axis=1).astype(np.float32) * (55.0 * amt))
+    if mode == "spiral":
+        cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+        dy, dx = ys - cy, xs - cx
+        dist = np.maximum(np.hypot(dx, dy), 1e-9).astype(np.float32)
+        theta = np.arctan2(dy, dx).astype(np.float32)
+        wob = 1.0 + 0.5 * np.sin(3.0 * theta).astype(np.float32)
+        pull = 90.0 * amt
+        tx, ty = (-dy / dist), (dx / dist)
+        ux, uy = (dx / dist), (dy / dist)
+        return np.stack([(ty * wob + 0.5 * uy) * pull,
+                         (tx * wob + 0.5 * ux) * pull], axis=1)
+    if mode == "stream":
+        ph = float(rng.uniform(0.0, 2.0 * math.pi))
+        xn = xs / max(1.0, float(w))
+        yn = ys / max(1.0, float(h))
+        dx = np.full(n, 130.0 * amt, dtype=np.float32)
+        dy = (40.0 * amt * np.sin(2.0 * math.pi * (2.0 * xn + yn) + ph)).astype(np.float32)
+        return np.stack([dy, dx], axis=1)
+    if mode == "scatter":
+        return (rng.uniform(-160.0, 160.0, (n, 2)).astype(np.float32) * amt)
     # wind (general path: stagger/ease variants of the legacy field)
     wx, wy = float(wind[0]), float(wind[1])
     spread = 28.0 * amt

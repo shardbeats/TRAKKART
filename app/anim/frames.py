@@ -94,6 +94,16 @@ def _dissolve_tint(preset) -> float:
     return min(1.0, max(0.0, float(getattr(preset, "dissolve_tint", 0.0) or 0.0)))
 
 
+def _dissolve_path(preset) -> str:
+    """Travel flourish (F3 path, default pour = straight lerp)."""
+    if preset is None:
+        return "pour"
+    from app.disintegrate import MORPH_PATHS
+
+    p = str(getattr(preset, "dissolve_path", "pour") or "pour")
+    return p if p in MORPH_PATHS else "pour"
+
+
 def _dissolve_trail(preset) -> int:
     """Ghost-dot trail frames 0..8 (F5, default 0 = legacy)."""
     if preset is None:
@@ -481,7 +491,8 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                                 shade=_dissolve_shade(preset),
                                 adjust=_dissolve_adjust(preset),
                                 palette=_dissolve_paint(preset),
-                                palette_depth=int(getattr(preset, "palette_depth", 0) or 0))
+                                palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
+                                path=_dissolve_path(preset))
 
 
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -606,7 +617,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                              shade=_dissolve_shade(preset),
                              adjust=_dissolve_adjust(preset),
                              palette=_dissolve_paint(preset),
-                             palette_depth=int(getattr(preset, "palette_depth", 0) or 0))
+                             palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
+                             path=_dissolve_path(preset))
     if pp and not loop_v:
         # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)
@@ -615,7 +627,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
 
 __all__ = ["GIF_MODE_INFO", "mode_label", "mode_desc", "gif_frames",
            "_resolve_anim_spec",
-           "_dissolve_style", "_dissolve_tint", "_dissolve_trail",
+           "_dissolve_style", "_dissolve_tint", "_dissolve_path",
+           "_dissolve_trail",
            "_dissolve_shade", "_dissolve_paint", "_dissolve_adjust",
            "_canvas_a", "_split_chain_entries",
            "iter_dissolve_frames", "_morph_loop", "iter_morph_frames",

@@ -207,7 +207,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  stagger: str = "off", ease: str = "sine",
                  dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                  trail: int = 0, shade: bool = False, adjust=None,
-                 palette=None, palette_depth: int = 0) -> list[Image.Image]:
+                 palette=None, palette_depth: int = 0,
+                 path: str = "pour") -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -224,7 +225,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  stagger=stagger, ease=ease, dotsize=dotsize,
                                  travel=travel, tint=tint, trail=trail,
                                  shade=shade, adjust=adjust, palette=palette,
-                                 palette_depth=palette_depth)
+                                 palette_depth=palette_depth, path=path)
     return chained
 
 
@@ -241,7 +242,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      stagger: str = "off", ease: str = "sine",
                      dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                      trail: int = 0, shade: bool = False, adjust=None,
-                     palette=None, palette_depth: int = 0):
+                     palette=None, palette_depth: int = 0,
+                     path: str = "pour"):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -345,6 +347,10 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         leg_dark_a = leg_dark_b = None
         if travel_on:
             tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k)
+        st_leg = str(stagger or "off")
+        st_leg = st_leg if st_leg in STAGGER_MODES else "off"
+        leg_delays = (stagger_delays(tsrc, h, w, st_leg)
+                      if (travel_on and tsrc is not None) else None)
         shade_on = bool(shade)
         cola_full = col_list[k] if not closing else col_list[-1]
         colb_full = col_list[k + 1] if not closing else col_list[0]
@@ -420,11 +426,12 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                                        seed=int(seed) + k,
                                        wind=wind, mode=mode, loops=1.0,
                                        amount=amount, stagger=stagger,
-                                       ease=ease, travel=travel,
+                                       ease=ease, travel=travel, path=path,
                                        pixel_size=pixel_size)
-                st = str(stagger or "off")
-                st = st if st in STAGGER_MODES else "off"
-                delays = stagger_delays(tsrc, h, w, st)
+                if leg_delays is not None and len(leg_delays) == len(tsrc):
+                    delays = leg_delays
+                else:
+                    delays = stagger_delays(tsrc, h, w, st_leg)
                 qi = np.clip(q * (1.0 + TRAVEL_SPAN) - delays * TRAVEL_SPAN, 0.0, 1.0)
                 sm = _smootherstep(qi).astype(np.float64)[:, None]
                 dark_sm = None
@@ -493,7 +500,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        stagger: str = "off", ease: str = "sine",
                        dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                        trail: int = 0, shade: bool = False, adjust=None,
-                       palette=None, palette_depth: int = 0) -> list[Image.Image]:
+                       palette=None, palette_depth: int = 0,
+                       path: str = "pour") -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -522,7 +530,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 stagger=stagger, ease=ease, dotsize=dotsize,
                 travel=travel, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,
-                palette_depth=palette_depth))
+                palette_depth=palette_depth, path=path))
 
 
 __all__ = ["_fit_cover", "_refit_coords", "iter_dissolve", "dissolve_frames",

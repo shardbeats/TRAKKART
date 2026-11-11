@@ -14,8 +14,8 @@ import numpy as np
 
 from app.particles.fields import (_bayer_rank, _field_offset, _pinned_frac,
                                   ease_env, stagger_delays)
-from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, STAGGER_MODES,
-                                 TRAVEL_SPAN)
+from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, MORPH_PATHS,
+                                 STAGGER_MODES, TRAVEL_SPAN)
 
 
 def _morton_keys(pts: np.ndarray) -> np.ndarray:
@@ -95,6 +95,7 @@ def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
                      mode: str = "wind", loops: float = 1.0,
                      amount: float = 1.0, stagger: str = "off",
                      ease: str = "sine", travel: float = 1.0,
+                     path: str = "pour",
                      pixel_size: int = 1) -> np.ndarray:
     """Pour positions for one morph frame: dots TRAVEL src -> dst.
 
@@ -103,6 +104,9 @@ def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
     the field cloud gated by the loop envelope (zero at both joints).
     travel scales the pour (1 = full destination matching). amount 0
     is handled by the caller (strict 0=off: hard cut, no travel).
+    path adds a mid-flight flourish (pour = straight lerp, arc = lift,
+    swirl = perpendicular bow, braid = per-particle weave), all scaled
+    by sin(pi*s) so the joints stay exact.
     """
     s0 = np.asarray(src, dtype=np.float32)
     d0 = np.asarray(dst, dtype=np.float32)
@@ -121,6 +125,32 @@ def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
     qi = np.clip(q * (1.0 + TRAVEL_SPAN) - delays * TRAVEL_SPAN, 0.0, 1.0)
     s = _smootherstep(qi).astype(np.float32)
     base = (1.0 - s)[:, None] * s0 + s[:, None] * d0
+    pt = str(path or "pour")
+    if pt not in MORPH_PATHS:
+        pt = "pour"
+    if pt != "pour" and tv > 0 and 0.0 < q < 1.0:
+        se = np.sin(np.pi * s).astype(np.float32)
+        if pt == "arc":
+            base[:, 0] = base[:, 0] - se * (0.25 * float(h))
+        elif pt == "swirl":
+            d = d0 - s0
+            ll = np.hypot(d[:, 1], d[:, 0]) + 1e-9
+            px = -d[:, 1] / ll
+            py = d[:, 0] / ll
+            bow = (0.08 * float(max(int(h), int(w))) * se).astype(np.float32)
+            base[:, 0] = base[:, 0] + py * bow
+            base[:, 1] = base[:, 1] + px * bow
+        elif pt == "braid":
+            d = d0 - s0
+            ll = np.hypot(d[:, 1], d[:, 0]) + 1e-9
+            px = -d[:, 1] / ll
+            py = d[:, 0] / ll
+            rng_p = np.random.default_rng(int(seed) + 999)
+            ph = rng_p.uniform(0.0, 2.0 * math.pi, n).astype(np.float32)
+            wv = (np.sin(2.0 * np.pi * s + ph) * se
+                  * (0.12 * float(max(int(h), int(w))))).astype(np.float32)
+            base[:, 0] = base[:, 0] + py * wv
+            base[:, 1] = base[:, 1] + px * wv
     amt = max(0.0, min(2.0, float(amount or 0.0)))
     ce = float(ease_env(np.mod(q, 1.0), ez))
     if amt > 0 and ce > 0 and tv > 0:

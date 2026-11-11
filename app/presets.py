@@ -68,6 +68,27 @@ BUNDLED: dict[str, dict] = {
                   "dissolve_mode": "flow", "dissolve_stagger": "rank",
                   "dissolve_amount": 0.5, "dissolve_seed": 777,
                   "dissolve_speed": 1.0},
+    "POUR_ARC": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                 "dissolve_mode": "wind", "dissolve_stagger": "sweep",
+                 "dissolve_amount": 0.8, "dissolve_seed": 53596,
+                 "dissolve_speed": 1.0, "dissolve_travel": 1.0,
+                 "dissolve_path": "arc"},
+    "INK_SWIRL": {"method": "bayer8", "palette": "SLIME", "pixel_size": 3, "threshold": 128,
+                  "dissolve_mode": "flow", "dissolve_stagger": "rank",
+                  "dissolve_amount": 0.8, "dissolve_seed": 777,
+                  "dissolve_speed": 1.0, "dissolve_travel": 1.0,
+                  "dissolve_path": "swirl", "dissolve_tint": 1.0},
+    "GHOST_BRAID": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                    "dissolve_mode": "stream", "dissolve_stagger": "rank",
+                    "dissolve_amount": 0.8, "dissolve_seed": 4242,
+                    "dissolve_speed": 1.0, "dissolve_travel": 1.0,
+                    "dissolve_path": "braid", "dissolve_trail": 6},
+    "HECKEL_SHADE": {"method": "bayer8", "palette": "BW", "pixel_size": 3, "threshold": 128,
+                     "dissolve_mode": "spiral", "dissolve_stagger": "radial",
+                     "dissolve_amount": 0.8, "dissolve_seed": 53596,
+                     "dissolve_speed": 1.0, "dissolve_travel": 1.0,
+                     "dissolve_path": "pour", "dissolve_dotsize": 3,
+                     "dissolve_shade": True},
 }
 
 
@@ -229,11 +250,13 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_wind_y", "float", ("range", -500.0, 500.0)),
     _Field("dissolve_mode", "str", ("oneof", ("wind", "random", "burst", "suction",
                                               "vortex", "rain", "rise", "wave",
-                                              "ripple", "flow", "blocks"))),
+                                              "ripple", "flow", "blocks",
+                                              "spiral", "stream", "scatter"))),
     _Field("dissolve_stagger", "str", ("oneof", ("off", "rank", "radial", "scan", "sweep"))),
     _Field("dissolve_ease", "str", ("oneof", ("sine", "cubic", "linear", "elastic", "bounce"))),
     _Field("dissolve_dotsize", "int", ("range", 1, 4)),
     _Field("dissolve_travel", "float", ("range", 0.0, 1.0)),
+    _Field("dissolve_path", "str", ("oneof", ("pour", "arc", "swirl", "braid"))),
     _Field("dissolve_tint", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_trail", "int", ("range", 0, 8)),
     _Field("dissolve_shade", "bool"),
@@ -352,11 +375,12 @@ class Preset:
     dissolve_seed: int = 53596  # deterministic pattern
     dissolve_wind_x: float = 120.0  # px at full disperse
     dissolve_wind_y: float = -40.0  # px at full disperse
-    dissolve_mode: str = "wind"  # 11 particle fields (F1); wind = legacy
+    dissolve_mode: str = "wind"  # 14 particle fields (F1+F3); wind = legacy
     dissolve_stagger: str = "off"  # release order: off | rank | radial | scan | sweep
     dissolve_ease: str = "sine"  # loop envelope: sine (legacy) | cubic | linear | elastic | bounce
     dissolve_dotsize: int = 1  # max dot swell 1-4px with the envelope (1 = legacy 1px)
     dissolve_travel: float = 0.0  # F3 destination matching 0-1 (0 = legacy cloud-reform)
+    dissolve_path: str = "pour"  # F3 travel flourish: pour | arc | swirl | braid
     dissolve_tint: float = 0.0  # F4 source-color dots 0-1 (0 = legacy BW)
     dissolve_trail: int = 0  # F5 ghost-dot trail frames 0-8 (0 = legacy)
     dissolve_shade: bool = False  # F6 Heckel dot-size by darkness (off = uniform)
@@ -501,6 +525,7 @@ class Preset:
             "ease": str(getattr(self, "dissolve_ease", "sine") or "sine"),
             "dotsize": int(getattr(self, "dissolve_dotsize", 1) or 1),
             "travel": float(getattr(self, "dissolve_travel", 0.0) or 0.0),
+            "path": str(getattr(self, "dissolve_path", "pour") or "pour"),
             "tint": float(getattr(self, "dissolve_tint", 0.0) or 0.0),
             "trail": int(getattr(self, "dissolve_trail", 0) or 0),
             "shade": bool(getattr(self, "dissolve_shade", False)),
@@ -700,6 +725,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_ease": str(_get(dissolve, "ease", "sine") or "sine"),
         "dissolve_dotsize": _get(dissolve, "dotsize", 1),
         "dissolve_travel": _get(dissolve, "travel", 0.0),
+        "dissolve_path": str(_get(dissolve, "path", "pour") or "pour"),
         "dissolve_tint": _get(dissolve, "tint", 0.0),
         "dissolve_trail": _get(dissolve, "trail", 0),
         "dissolve_shade": bool(_get(dissolve, "shade", False)),

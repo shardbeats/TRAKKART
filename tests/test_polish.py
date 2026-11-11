@@ -133,7 +133,7 @@ def test_f1_morph_combos_cover_modes(window, qt_app):
     from app.presets import Preset
 
     modes = [window.cmb_dissolve_mode.itemText(i) for i in range(window.cmb_dissolve_mode.count())]
-    assert modes == list(DISINTEGRATE_MODES) and len(modes) == 11
+    assert modes == list(DISINTEGRATE_MODES) and len(modes) == 14
     assert [window.cmb_dissolve_stagger.itemText(i)
             for i in range(window.cmb_dissolve_stagger.count())] == list(STAGGER_MODES)
     assert [window.cmb_dissolve_ease.itemText(i)

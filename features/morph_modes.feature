@@ -48,3 +48,13 @@ Feature: Morph particle fields
     Given two flat images
     When I morph them with the SLIME palette
     Then dots carry the palette inks and ends match the ink stills
+
+  Scenario: Spiral field disperses and closes the loop
+    Given a 48x48 gradient image
+    When I disperse it in spiral mode
+    Then the spiral run moves and the joints assemble
+
+  Scenario: Swirl path pours with a flourish and lands exact
+    Given two half black images
+    When I morph them with the swirl path
+    Then the swirl ends assemble and the mid-flight differs from pour

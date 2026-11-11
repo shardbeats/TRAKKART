@@ -7,7 +7,8 @@ here; external callers keep importing from app.disintegrate (shim).
 from __future__ import annotations
 
 DISINTEGRATE_MODES = ("wind", "random", "burst", "suction", "vortex",
-                      "rain", "rise", "wave", "ripple", "flow", "blocks")
+                      "rain", "rise", "wave", "ripple", "flow", "blocks",
+                      "spiral", "stream", "scatter")
 #: Release stagger: per-particle phase shift (loop-safe via %1).
 STAGGER_MODES = ("off", "rank", "radial", "scan", "sweep")
 #: Loop envelope shape (all close at the joints: env(0) == env(1) == 0).
@@ -16,6 +17,10 @@ EASE_MODES = ("sine", "cubic", "linear", "elastic", "bounce")
 #: Hard cap on rasterized points per frame (perf: vectorized scatter).
 MAX_POINTS = 120_000
 
+#: Travel path style for morph legs (F3): pour = straight lerp,
+#: arc/swirl/braid add a mid-flight flourish that is exactly zero at
+#: both joints (joints stay byte-exact).
+MORPH_PATHS = ("pour", "arc", "swirl", "braid")
 #: Stagger window for destination travel: qi spans q*(1+S)-d*S so
 #: particles pour in waves while both joints stay exact (q=0 -> 0, q=1 -> 1).
 TRAVEL_SPAN = 0.5
@@ -27,4 +32,5 @@ MAX_TRAIL = 8
 MAX_MORPH_IMAGES = 6
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
+           "MORPH_PATHS",
            "MAX_POINTS", "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES"]

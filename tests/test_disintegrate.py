@@ -369,7 +369,7 @@ def _coords48():
 def test_f1_modes_deterministic_and_alive():
     from app.disintegrate import DISINTEGRATE_MODES, disperse_positions
 
-    assert len(DISINTEGRATE_MODES) == 11
+    assert len(DISINTEGRATE_MODES) == 14
     coords, h, w = _coords48()
     still = coords.astype("float32")
     for mode in DISINTEGRATE_MODES:
@@ -1189,3 +1189,85 @@ def test_multileg_travel_tint_no_budget_shadow():
     h = morph_chain_frames([a, b, c], frames=9, max_side=64, seed=7,
                            mode="blocks", tint=1.0, loop=False)
     assert len(h) == 9
+
+
+def test_f8_new_fields_deterministic_and_alive():
+    from app.disintegrate import DISINTEGRATE_MODES, disperse_positions
+
+    assert set(("spiral", "stream", "scatter")) <= set(DISINTEGRATE_MODES)
+    coords, h, w = _coords48()
+    still = coords.astype("float32")
+    for mode in ("spiral", "stream", "scatter"):
+        a = disperse_positions(coords, h, w, progress=0.3, seed=5, mode=mode)
+        b = disperse_positions(coords, h, w, progress=0.3, seed=5, mode=mode)
+        assert (a == b).all(), mode
+        assert not (a == still).all(), mode  # new fields must move
+        wnd = disperse_positions(coords, h, w, progress=0.3, seed=5, mode="wind")
+        assert not (a == wnd).all(), mode
+        j0 = disperse_positions(coords, h, w, progress=0.0, seed=5, mode=mode)
+        j1 = disperse_positions(coords, h, w, progress=1.0, seed=5, mode=mode)
+        assert (j0 == j1).all() and (j0 == still).all(), mode
+
+
+def test_f8_path_joints_exact_and_differs():
+    import numpy as np
+
+    from app.disintegrate import (MORPH_PATHS, dither_bw, match_travel,
+                                  points_from_dither, travel_positions)
+
+    assert set(MORPH_PATHS) == {"pour", "arc", "swirl", "braid"}
+    a, b = _halves()
+    ca, h, w = points_from_dither(dither_bw(a))
+    cb, _, _ = points_from_dither(dither_bw(b))
+    s, d = match_travel(ca, cb, h, w, seed=7)
+    mid_pour = travel_positions(s, d, h, w, progress=0.5, seed=7,
+                                travel=1.0, path="pour")
+    for path in ("arc", "swirl", "braid"):
+        p0 = travel_positions(s, d, h, w, progress=0.0, seed=7,
+                              travel=1.0, path=path)
+        p1 = travel_positions(s, d, h, w, progress=1.0, seed=7,
+                              travel=1.0, path=path)
+        assert (p0 == np.asarray(s, dtype=np.float32)).all(), path
+        assert (p1 == np.asarray(d, dtype=np.float32)).all(), path
+        mid = travel_positions(s, d, h, w, progress=0.5, seed=7,
+                               travel=1.0, path=path)
+        assert not (mid == mid_pour).all(), path
+        again = travel_positions(s, d, h, w, progress=0.5, seed=7,
+                                 travel=1.0, path=path)
+        assert (mid == again).all(), path
+    # Unknown path falls back to pour, keeping joints exact.
+    q = travel_positions(s, d, h, w, progress=0.5, seed=7,
+                         travel=1.0, path="nope")
+    assert (q == mid_pour).all()
+
+
+def test_f8_path_morph_chain_and_preset():
+    import tempfile
+    from pathlib import Path
+
+    import pytest
+
+    from app.disintegrate import dither_bw, morph_chain_frames
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="P8", dissolve_path="swirl", dissolve_travel=1.0)
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert (back.dissolve_path, back.dissolve_travel) == ("swirl", 1.0)
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert old.dissolve_path == "pour"
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_path="nope").validate()
+    a, b = _halves()
+    kw = dict(frames=8, max_side=64, seed=7, travel=1.0, loop=False)
+    pour = morph_chain_frames([a, b], path="pour", **kw)
+    swirl = morph_chain_frames([a, b], path="swirl", **kw)
+    assert len(pour) == len(swirl) == 8
+    assert pour[0].tobytes() == swirl[0].tobytes() == dither_bw(a).convert("RGB").tobytes()
+    assert pour[-1].tobytes() == swirl[-1].tobytes() == dither_bw(b).convert("RGB").tobytes()
+    # Flourish peaks at q~=0.33 (stagger-span shifts the mixer), so frame 2
+    # (q=2/7) carries the swirl bow while frame 4 (q=4/7) is nearly landed.
+    assert swirl[2].tobytes() != pour[2].tobytes()
+    again = morph_chain_frames([a, b], path="swirl", **kw)
+    assert [f.tobytes() for f in again] == [f.tobytes() for f in swirl]

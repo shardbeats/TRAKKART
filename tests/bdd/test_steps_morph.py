@@ -296,3 +296,49 @@ def palette_ok(ctx):
             != list(ctx["legacy"][0].get_flattened_data()))
     assert (list(ctx["inked"][4].get_flattened_data())
             != list(ctx["legacy"][4].get_flattened_data()))
+
+
+@when("I disperse it in spiral mode")
+def spiral_runs(ctx):
+    from app.disintegrate import dither_bw, disperse_positions, points_from_dither
+
+    coords, h, w = points_from_dither(dither_bw(ctx["img"]))
+    ctx["coords_hw"] = (coords, h, w)
+    ctx["spiral_a"] = disperse_positions(coords, h, w, progress=0.3, seed=5, mode="spiral")
+    ctx["spiral_b"] = disperse_positions(coords, h, w, progress=0.3, seed=5, mode="spiral")
+    ctx["spiral_wind"] = disperse_positions(coords, h, w, progress=0.3, seed=5, mode="wind")
+    ctx["spiral_j0"] = disperse_positions(coords, h, w, progress=0.0, seed=5, mode="spiral")
+    ctx["spiral_j1"] = disperse_positions(coords, h, w, progress=1.0, seed=5, mode="spiral")
+
+
+@then("the spiral run moves and the joints assemble")
+def spiral_ok(ctx):
+    coords, h, w = ctx["coords_hw"]
+    still = coords.astype("float32")
+    assert (ctx["spiral_a"] == ctx["spiral_b"]).all()
+    assert not (ctx["spiral_a"] == still).all()
+    assert not (ctx["spiral_a"] == ctx["spiral_wind"]).all()
+    assert (ctx["spiral_j0"] == ctx["spiral_j1"]).all()
+    assert (ctx["spiral_j0"] == still).all()
+
+
+@when("I morph them with the swirl path")
+def swirl_morph(ctx):
+    from app.disintegrate import morph_chain_frames
+
+    kw = dict(frames=8, max_side=64, seed=7, travel=1.0, loop=False)
+    ctx["swirl"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]], path="swirl", **kw)
+    ctx["pour"] = morph_chain_frames([ctx["img_a"], ctx["img_b"]], path="pour", **kw)
+
+
+@then("the swirl ends assemble and the mid-flight differs from pour")
+def swirl_ok(ctx):
+    from app.disintegrate import dither_bw
+
+    stills = [tuple(dither_bw(im).convert("RGB").get_flattened_data())
+              for im in (ctx["img_a"], ctx["img_b"])]
+    flats = [tuple(f.get_flattened_data()) for f in ctx["swirl"]]
+    assert flats[0] == stills[0]
+    assert flats[-1] == stills[1]
+    # Flourish peaks at q~=0.33, so frame 2 (q=2/7) carries the bow.
+    assert flats[2] != tuple(ctx["pour"][2].get_flattened_data())
