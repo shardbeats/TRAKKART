@@ -13,7 +13,8 @@ def about_text() -> str:
         "Dither stills · Animate them · Export the bundle.\n"
         "No accounts, no cloud.\n"
         "\n"
-        "MIT licensed (see LICENSE + THIRD-PARTY-NOTICES.md)."
+        "TRAKKART code: MIT (see LICENSE + THIRD-PARTY-NOTICES.md).\n"
+        "Bundled FFmpeg: GPLv3 (licenses/GPL-3.0.txt)."
     )
 
 

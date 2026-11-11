@@ -577,3 +577,23 @@ def test_morph_src_gated_by_mode(window):
     assert ef.morph_src_for_mode(window, "dissolve") is not None
     window.morph_src = None
     assert ef.morph_src_for_mode(window, "morph") is None
+
+
+def test_ffmpeg_license_notice_is_gplv3_not_lgpl():
+    # The bundled ffmpeg is a GPLv3 build (libx264/libx265); the old notice
+    # claimed an LGPL build, which is a compliance bug.
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "THIRD-PARTY-NOTICES.md").read_text(encoding="utf-8")
+    assert "GPLv3" in text
+    assert "LGPL build" not in text
+    assert "FFMPEG-BUILD-INFO" in text
+    assert (root / "licenses" / "GPL-3.0.txt").is_file()
+    assert (root / "licenses" / "LGPL-3.0.txt").is_file()
+
+
+def test_about_box_names_the_gplv3_ffmpeg():
+    from app.ui.about_dialog import about_text
+
+    assert "GPLv3" in about_text()

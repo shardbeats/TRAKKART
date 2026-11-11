@@ -9,6 +9,13 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Legal: corrected `THIRD-PARTY-NOTICES.md` — the bundled FFmpeg is a
+  **GPLv3** build (gyan.dev “essentials” on Windows, BtbN on Linux/macOS;
+  `--enable-gpl --enable-version3`, libx264/libx265), not LGPL. The bundle
+  now ships `licenses/GPL-3.0.txt` + `licenses/LGPL-3.0.txt` and a generated
+  `FFMPEG-BUILD-INFO.txt` (exact binary, configure line, SHA-256, source
+  links, written offer); the About box names the GPLv3 component. Tests
+  guard the notice against the old claim.
 - Particle density is now canvas-relative (`point_cap()`): the 120k budget
   scales with area (1200px reference, 900k hard cap). A 3000px document used
   to get the same fixed 120k dots as a 1600px preview, so it looked 3.5x

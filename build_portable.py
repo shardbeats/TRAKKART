@@ -21,6 +21,7 @@ The old `build_exe.py` produced a one-file exe that re-extracted the whole
 payload to %TMP% on EVERY launch; it was removed on purpose.
 """
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -61,7 +62,7 @@ def write_version_info(version: str, exe_name: str = "TRAKKART.exe") -> Path:
         "    StringStruct('FileDescription', 'TRAKKART - offline cover art studio'),\n"
         "    StringStruct('FileVersion', '%s'),\n"
         "    StringStruct('InternalName', '%s'),\n"
-        "    StringStruct('LegalCopyright', 'MIT'),\n"
+        "    StringStruct('LegalCopyright', 'MIT (app); bundled FFmpeg is GPLv3'),\n"
         "    StringStruct('OriginalFilename', '%s'),\n"
         "    StringStruct('ProductName', 'TRAKKART'),\n"
         "    StringStruct('ProductVersion', '%s')])]),\n"
@@ -71,6 +72,55 @@ def write_version_info(version: str, exe_name: str = "TRAKKART.exe") -> Path:
         encoding="utf-8",
     )
     return out
+
+
+def ffmpeg_build_info(py: str) -> str:
+    """Release record for the bundled GPLv3 FFmpeg (version + hash + sources).
+
+    GPLv3 compliance needs the exact binary identified and its source
+    reachable; never hand-edit the generated file.
+    """
+    exe = subprocess.check_output(
+        [py, "-c", "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"],
+        text=True,
+    ).strip().splitlines()[-1]
+    version = subprocess.check_output(
+        [exe, "-version"], text=True, stderr=subprocess.STDOUT,
+    )
+    digest = hashlib.sha256()
+    with open(exe, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return (
+        "FFmpeg build shipped with this TRAKKART release\n"
+        "================================================\n\n"
+        f"Executable: {Path(exe).name}\n"
+        f"SHA-256: {digest.hexdigest()}\n\n"
+        f"{version}\n"
+        "License: GPLv3 (see licenses/GPL-3.0.txt).\n\n"
+        "Corresponding source\n"
+        "--------------------\n"
+        "FFmpeg (match the version printed above):\n"
+        "  https://ffmpeg.org/releases/\n"
+        "Build provider files (pinned by imageio-ffmpeg):\n"
+        "  https://github.com/imageio/imageio-ffmpeg/blob/main/tools/ffmpeg-sources.json\n"
+        "GPL libraries linked in this build:\n"
+        "  x264: https://code.videolan.org/videolan/x264\n"
+        "  x265: https://bitbucket.org/multicoreware/x265_git\n\n"
+        "Written offer: the corresponding source for this GPLv3 binary is\n"
+        "available on request through https://github.com/shardbeats/TRAKKART\n"
+        "for at least three years from the release date.\n"
+    )
+
+
+def write_ffmpeg_info(py: str) -> None:
+    """Best-effort: write FFMPEG-BUILD-INFO.txt next to the built exe."""
+    try:
+        info = ffmpeg_build_info(py)
+        (EXE_DIR / "FFMPEG-BUILD-INFO.txt").write_text(info, encoding="utf-8")
+        print("[TRAKKART] wrote FFMPEG-BUILD-INFO.txt")
+    except Exception as e:  # noqa: BLE001
+        print(f"[TRAKKART] WARNING: FFMPEG-BUILD-INFO.txt not written: {e}")
 
 
 def maybe_sign(exe: Path) -> None:
@@ -158,6 +208,11 @@ def main() -> int:
         if p.exists():
             cmd[cmd.index("main.py"):cmd.index("main.py")] = [
                 "--add-data", f"{p}{os.pathsep}."]
+    for name in ("GPL-3.0.txt", "LGPL-3.0.txt"):
+        p = ROOT / "licenses" / name
+        if p.exists():
+            cmd[cmd.index("main.py"):cmd.index("main.py")] = [
+                "--add-data", f"{p}{os.pathsep}licenses"]
     icon = ROOT / "icon.ico"
     if icon.exists():
         cmd[cmd.index("main.py"):cmd.index("main.py")] = ["--icon", str(icon)]
@@ -174,6 +229,10 @@ def main() -> int:
         src = ROOT / name
         if src.is_file():
             shutil.copy2(src, EXE_DIR / name)
+    lic_dir = ROOT / "licenses"
+    if lic_dir.is_dir():
+        shutil.copytree(lic_dir, EXE_DIR / "licenses", dirs_exist_ok=True)
+    write_ffmpeg_info(py)
 
     out = ROOT / "dist" / f"TRAKKART-portable-{version}.zip"
     if out.exists():
