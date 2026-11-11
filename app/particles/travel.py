@@ -6,7 +6,9 @@ app.disintegrate re-exports them so existing imports keep working.
 
 from __future__ import annotations
 
+import hashlib
 import math
+from collections import OrderedDict
 
 import numpy as np
 
@@ -14,6 +16,29 @@ from app.particles.fields import (_bayer_rank, _field_offset, _pinned_frac,
                                   ease_env, stagger_delays)
 from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, STAGGER_MODES,
                                  TRAVEL_SPAN)
+
+
+def _morton_keys(pts: np.ndarray) -> np.ndarray:
+    """Morton (Z-order) keys for (y, x) points: vectorized, O(n)."""
+    f = np.asarray(pts, dtype=np.float64)
+    yi = np.clip(np.floor(f[:, 0]), 0, 8191).astype(np.int64)
+    xi = np.clip(np.floor(f[:, 1]), 0, 8191).astype(np.int64)
+    key = np.zeros(len(f), dtype=np.int64)
+    for i in range(13):
+        key |= ((xi >> i) & 1) << (2 * i)
+        key |= ((yi >> i) & 1) << (2 * i + 1)
+    return key
+
+
+_MATCH_CACHE: OrderedDict = OrderedDict()
+_MATCH_CACHE_MAX = 8
+
+
+def _match_cache_key(a: np.ndarray, b: np.ndarray, h: int, w: int,
+                     seed: int) -> tuple:
+    ha = hashlib.sha1(np.ascontiguousarray(a).tobytes()).hexdigest()
+    hb = hashlib.sha1(np.ascontiguousarray(b).tobytes()).hexdigest()
+    return (ha, hb, int(h), int(w), int(seed), int(len(a)), int(len(b)))
 
 
 def _smootherstep(t: np.ndarray) -> np.ndarray:
@@ -24,71 +49,44 @@ def _smootherstep(t: np.ndarray) -> np.ndarray:
 
 def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
                  seed: int = 0xD15C) -> tuple[np.ndarray, np.ndarray]:
-    """Seeded-greedy 1:1 destination assignment A -> B (F3 travel/pour).
+    """Seeded spatial-sort 1:1 destination assignment A -> B (F3 pour).
 
     Returns (src, dst) float32 (y,x) of equal length: the smaller set is
-    padded by seeded resampling of its own points, then A's points (in
-    seeded-shuffle order) each take their nearest free B point via a
-    uniform grid with expanding-ring search (seeded fallback when the
-    ring cap misses, so dense clusters degrade gracefully). Any
-    bijection keeps the leg joints byte-exact; the pairing only shapes
-    the mid-flight pour. Deterministic for a given seed.
+    padded by seeded resampling, then both sets are ordered by Morton
+    (Z-order) keys with a seeded tiebreak and paired in order. O(n log n)
+    and fully vectorized. Any bijection keeps the leg joints byte-exact;
+    the pairing only shapes the mid-flight pour. Deterministic per seed.
+    Results are cached per (contents, h, w, seed) so repeated
+    preview/export rebuilds pay the match once.
     """
     a = np.asarray(ca, dtype=np.float32).reshape(-1, 2)
     b = np.asarray(cb, dtype=np.float32).reshape(-1, 2)
     na, nb = int(len(a)), int(len(b))
     if na == 0 or nb == 0:
         return a.copy(), b.copy()
+    key = _match_cache_key(a, b, h, w, seed)
+    hit = _MATCH_CACHE.get(key)
+    if hit is not None:
+        _MATCH_CACHE.move_to_end(key)
+        return hit[0].copy(), hit[1].copy()
     rng = np.random.default_rng(int(seed))
     if na < nb:
         a = np.concatenate([a, a[rng.integers(0, na, nb - na)]])
     elif nb < na:
         b = np.concatenate([b, b[rng.integers(0, nb, na - nb)]])
     n = int(len(a))
-    ext = max(1.0, float(max(int(h), int(w))))
-    cell = max(2.0, ext / math.sqrt(max(1, n)))
-    inv = 1.0 / cell
-    from collections import defaultdict
-
-    grid: dict[tuple[int, int], list[int]] = defaultdict(list)
-    for i in range(n):
-        grid[(int(b[i, 0] * inv), int(b[i, 1] * inv))].append(i)
-    alive = np.ones(n, dtype=bool)
-    match = np.empty(n, dtype=np.int64)
-    order = rng.permutation(n)
-    rmax = 24
-    for k in (int(v) for v in order):
-        ay, ax = float(a[k, 0]), float(a[k, 1])
-        cy, cx = int(ay * inv), int(ax * inv)
-        best, bestd = -1, float("inf")
-        for r in range(rmax + 1):
-            if r == 0:
-                ring = ((cy, cx),)
-            else:
-                ring = ([(cy - r, cx + dx) for dx in range(-r, r + 1)]
-                        + [(cy + r, cx + dx) for dx in range(-r, r + 1)]
-                        + [(cy + dy, cx - r) for dy in range(-r + 1, r)]
-                        + [(cy + dy, cx + r) for dy in range(-r + 1, r)])
-            for key in ring:
-                for i in grid.get(key, ()):
-                    if not alive[i]:
-                        continue
-                    dy = float(b[i, 0]) - ay
-                    dx = float(b[i, 1]) - ax
-                    d2 = dy * dy + dx * dx
-                    if d2 < bestd:
-                        bestd, best = d2, i
-            if best >= 0 and bestd <= (float(r) * cell) ** 2:
-                break
-        if best < 0:  # dense cluster beyond the ring cap: seeded fallback
-            rest = np.flatnonzero(alive)
-            best = int(rest[int(rng.integers(0, len(rest)))]) if len(rest) else 0
-            if not len(rest):
-                match[k] = 0
-                continue
-        match[k] = best
-        alive[best] = False
-    return a, b[match]
+    ka = _morton_keys(a)
+    kb = _morton_keys(b)
+    ja = rng.random(n)
+    jb = rng.random(n)
+    oa = np.lexsort((ja, ka))
+    ob = np.lexsort((jb, kb))
+    src = np.ascontiguousarray(a[oa], dtype=np.float32)
+    dst = np.ascontiguousarray(b[ob], dtype=np.float32)
+    _MATCH_CACHE[key] = (src, dst)
+    if len(_MATCH_CACHE) > _MATCH_CACHE_MAX:
+        _MATCH_CACHE.popitem(last=False)
+    return src.copy(), dst.copy()
 
 
 def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
