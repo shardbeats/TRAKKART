@@ -33,7 +33,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 
 | Panel | What it does |
 |---|---|
-| IMAGE | open, rotate, flip, invert, visual crop, CANVAS size |
+| IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas) |
 | DITHER | preset, method, pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
@@ -43,7 +43,8 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
 120ms / heavy 350ms); Still = manual only (F5). For slow machines or
-huge canvases use Still.
+huge canvases use Still. "SP-404 OLED preview" shows the still as the
+128×64 1-bit device image (display-only; DITHER threshold tunes it).
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).

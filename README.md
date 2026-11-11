@@ -19,7 +19,8 @@ nothing is uploaded, nothing is tracked.
 - **Motion preview** — still-image preview with fit / zoom / pan + hold-to-compare,
   VIDEO preview (Draft 720p / HD 1080p / Full doc).
 - **Export bundle** — main image at canvas size + optional 1080p thumb,
-  vector SVG, animated GIF / WebP, MP4, `metadata.json`, ink separations.
+  vector SVG, animated GIF / WebP, MP4, `metadata.json`, ink separations,
+  SP-404MKII BMP (128×64 1-bit still for the Roland OLED).
 
 ![Dither controls](docs/screenshots/dither-panel.png)
 ![Export dialog](docs/screenshots/export-dialog.png)

@@ -2,19 +2,22 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [Unreleased]
+## [1.5.0] - 2026-11-11
 ### Added
 - SP-404MKII still export: `app/sp404.py` frames any art to the
   128x64 1-bit OLED (cover-fit + luminance cut, no re-dither, optional
   white-on-black invert); the export dialog writes one `{base}_sp404.bmp`
   for the user to rename/organize on the device.
   Pinned by `tests/test_sp404.py`.
-- Export dialog "SP-404MKII BMP" checkbox: writes one `{base}_sp404.bmp`
-  (128x64 1-bit still) for the user to rename/organize on the device.
 - Live OLED workflow: View > "SP-404 OLED preview" (display-only 128x64
   1-bit still preview, threshold = DITHER slider) + "SP-404 128x64"
-  one-click canvas button in IMAGE. What you see is `sp404_frame` of the
-  result — byte-identical to what the pack writes.
+  one-click canvas button in IMAGE (also enables the 1-bit preview).
+  What you see is `sp404_frame` of the result — byte-identical to the
+  exported BMP.
+- `Dots shape` control: `square` (legacy kxk blocks) or `round`
+  (inscribed discs, needs Dots > 1; Dots = 1 identical either way).
+- New preset fields `dissolve_match` (default `smooth`) and
+  `dissolve_dot_shape` (default `square`); old presets load unchanged.
 ### Fixed
 - Morph travel no longer tears the image into Morton Z-order blocks:
   new `Match` control (`smooth` default = organic pour, `hilbert` =
@@ -25,17 +28,13 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Full tint no longer repaints the source mid-flight: dot color now fades
   with displacement (dots at home keep full color, dispersed clouds go
   abstract; joints stay black = byte-exact stills).
-### Added
-- `Dots shape` control: `square` (legacy kxk blocks) or `round`
-  (inscribed discs, needs Dots > 1; Dots = 1 identical either way).
-- New preset fields `dissolve_match` (default `smooth`) and
-  `dissolve_dot_shape` (default `square`); old presets load unchanged.
-
-## [1.3.1] - 2026-11-10
 ### Changed
 - Export dialog: no output is pre-ticked anymore (was: main + thumb +
   metadata). The user picks; every box persists through prefs
   (dialog + Quick), including WebP/separations/SP-404/MP4.
+
+## [1.3.1] - 2026-11-10
+### Changed
 - Portable is now a one-dir ZIP (`TRAKKART-portable-<version>.zip`): instant startup, no per-launch extraction to `%TMP%`.
 - Installer installs the same one-dir build; output moved to `dist-installer/`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.

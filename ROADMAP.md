@@ -318,7 +318,7 @@ frames/fps are quality.
 - Export: animation spec always comes from the live VIDEO section; stale prefs can no longer smuggle a morph mode into a mix export; session chain only feeds dissolve/morph (export + preview).
 - New tests: loop opens/closes on A, hold shares, MP4 estimate, live dialog vs stale prefs, per-mode gate (+7).
 
-### vNext — SP-404MKII image pack (next, researched nov-2026)
+### vNext — SP-404MKII image export (done in v1.5.0, spec kept for reference)
 Goal: make TRAKKART the fastest way to put custom art on a Roland
 SP-404MKII (startup logo + screensaver). Source: Roland's official
 "Ultimate Guide: Customizing the SP-404MKII" (articles.roland.com).
@@ -340,6 +340,8 @@ SP-404MKII (startup logo + screensaver). Source: Roland's official
   checkbox writing one `{base}_sp404.bmp` (user renames/organizes);
   (4) tests (1-bit 128x64 BMP, dialog, preview, service) + hardware QA
   by owner (copy > import > watch).
+  Shipped in v1.5.0 as a single `{base}_sp404.bmp` (no multi-file pack
+  per owner request); live OLED preview + canvas button included.
 - Out of scope: the SP-404MKII desktop-app background/slideshow (takes
   plain PNGs, already exportable today).
 
