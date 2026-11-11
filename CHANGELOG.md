@@ -3,6 +3,12 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## [Unreleased]
+### Added
+- SP-404MKII image pack foundation: `app/sp404.py` frames any art to the
+  128x64 1-bit OLED (cover-fit + luminance cut, no re-dither, optional
+  white-on-black invert) and writes a ready-to-copy pack (`startup_1/2.bmp`
+  + up to 16 `screen_saver_N.bmp` + `README-SP404.txt` install sheet).
+  Pinned by `tests/test_sp404.py` (5 tests).
 ### Fixed
 - Morph travel no longer tears the image into Morton Z-order blocks:
   new `Match` control (`smooth` default = organic pour, `hilbert` =
