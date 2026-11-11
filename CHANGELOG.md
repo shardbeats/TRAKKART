@@ -9,6 +9,15 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Output pixel budget (soft): docs above 36 MP (`OUTPUT_MP_BUDGET`) show an
+  amber `⚠ <n> MP` in the Document panel and the export dialog with a
+  tooltip explaining the render time/RAM cost. Nothing is blocked.
+- Tiny-source canvas: stretch/blur frames resize with NEAREST when the
+  source is 64px or less (a stretched checkerboard keeps its inks) and the
+  blur radius is now `max(1, min(w, h) / 24)` instead of an 8px floor, so a
+  small canvas no longer becomes one flat smear.
+- The preview zoom badge is clickable: Fit <-> 100% (same flags as the
+  View menu).
 - Morph travel is now the default (`dissolve_travel` 1.0 = pour; 0 still
   selects the legacy cloud-reform path byte-identical). Dots stay on-canvas
   through the transition instead of bursting off-frame, so color and form

@@ -29,6 +29,15 @@ CUSTOM_RATIO = "custom"
 MIN_DIM = 64
 MAX_DIM = 8000
 
+#: Soft ceiling for a still export, in megapixels. Above this the Document
+#: panel and the export dialog warn (RAM + render time); nothing is blocked.
+#: 36 MP keeps every social/print preset comfortable while flagging 8k docs.
+OUTPUT_MP_BUDGET = 36
+
+#: Sources at or below this side keep hard edges when stretched/blurred:
+#: a tiny logo blown up with BICUBIC turns into mush, NEAREST keeps its inks.
+TINY_SOURCE_SIDE = 64
+
 CROP_MODES = ("cover", "contain", "stretch", "blur")
 
 MODE_TIPS = {
@@ -59,6 +68,27 @@ def ratio_value(label: str) -> str:
 def canvas_ratios() -> list[str]:
     """Combo entries: presets + free Custom (display; see ratio_value)."""
     return [*RATIOS.keys(), CUSTOM_LABEL]
+
+
+def output_megapixels(w: int, h: int) -> float:
+    """Document size in megapixels (one decimal), 0.0 for empty/invalid dims."""
+    try:
+        return round(max(0, int(w)) * max(0, int(h)) / 1_000_000.0, 1)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def output_budget_note(w: int, h: int) -> str | None:
+    """Warning line when the document exceeds OUTPUT_MP_BUDGET, else None.
+
+    Soft guard only: the export still runs (the user asked for that size),
+    but the UI tells them why a big still is slow and RAM-heavy.
+    """
+    mp = output_megapixels(w, h)
+    if mp <= OUTPUT_MP_BUDGET:
+        return None
+    return (f"{mp:g} MP is above the {OUTPUT_MP_BUDGET} MP output budget: "
+            "rendering and export may be slow and RAM-heavy.")
 
 
 def canvas_size_for(ratio: str, long_side: int = 3000) -> tuple[int, int]:
@@ -201,15 +231,28 @@ def fit_contain(
     return canvas
 
 
+def _resample(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Resize a canvas frame, keeping hard edges for tiny sources.
+
+    Stretching a 32px logo with BICUBIC blends its inks into mush; NEAREST
+    keeps the original colors (the dither dots stay readable). Normal-size
+    sources keep the smooth BICUBIC path.
+    """
+    w, h = int(size[0]), int(size[1])
+    if (w, h) == img.size:
+        return img
+    if max(img.size) <= TINY_SOURCE_SIDE:
+        return img.resize((w, h), Image.NEAREST)
+    return img.resize((w, h), Image.BICUBIC)
+
+
 def fit_stretch(
     img: Image.Image, ratio: str, canvas_w: int = 0, canvas_h: int = 0,
 ) -> Image.Image:
     """Distort to the exact ratio at source magnitude (no crop, no bars)."""
     rgb = img.convert("RGB")
     w, h = _scaled_frame(ratio, canvas_w, canvas_h, max(rgb.width, rgb.height))
-    if (rgb.width, rgb.height) == (w, h):
-        return rgb.copy()
-    return rgb.resize((w, h), Image.BICUBIC)
+    return _resample(rgb, (w, h))
 
 
 def fit_blur(
@@ -218,16 +261,16 @@ def fit_blur(
     """Fit the whole image over a blurred cover fill (no crop, no black bars)."""
     rgb = img.convert("RGB")
     w, h = _scaled_frame(ratio, canvas_w, canvas_h, max(rgb.width, rgb.height))
-    bg = crop_cover(rgb, ratio, canvas_w=canvas_w, canvas_h=canvas_h).resize((w, h), Image.BICUBIC)
-    bg = bg.filter(ImageFilter.GaussianBlur(radius=max(8, min(w, h) // 24)))
+    bg = _resample(crop_cover(rgb, ratio, canvas_w=canvas_w, canvas_h=canvas_h), (w, h))
+    # Radius proportional to the canvas: the old 8px floor erased tiny frames
+    # (a 64x36 canvas became a flat smear); 1px keeps it safe on any size.
+    radius = max(1.0, min(w, h) / 24.0)
+    bg = bg.filter(ImageFilter.GaussianBlur(radius=radius))
     dim = Image.new("RGB", (w, h), (0, 0, 0))
     bg = Image.blend(bg, dim, 0.15)
     r = min(w / rgb.width, h / rgb.height)
     nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
-    if (nw, nh) != (rgb.width, rgb.height):
-        fg = rgb.resize((nw, nh), Image.BICUBIC)
-    else:
-        fg = rgb
+    fg = _resample(rgb, (nw, nh))
     bg.paste(fg, ((w - nw) // 2, (h - nh) // 2))
     return bg
 

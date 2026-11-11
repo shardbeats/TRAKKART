@@ -3,7 +3,37 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSlider
+from PySide6.QtWidgets import QLabel, QSlider
+
+
+def set_warning(widget, on: bool) -> None:
+    """Amber flag via a dynamic property (QSS: QLabel[warning=\"true\"])."""
+    if bool(widget.property("warning")) == bool(on):
+        return
+    widget.setProperty("warning", bool(on))
+    try:
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+class ClickableLabel(QLabel):
+    """QLabel that reports left clicks (zoom badge: Fit <-> 100%)."""
+
+    def __init__(self, text: str = "", parent=None) -> None:
+        super().__init__(text, parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self._on_click = None
+
+    def onClick(self, callback) -> None:  # noqa: N802
+        """Register the left-click callback (keeps the widget API tiny)."""
+        self._on_click = callback
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton and self._on_click is not None:
+            self._on_click()
+        super().mouseReleaseEvent(event)
 
 
 class ValueSlider(QSlider):

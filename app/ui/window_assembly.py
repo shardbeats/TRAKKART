@@ -214,6 +214,7 @@ def setup_previews(win, root) -> None:
     )
 
     from app.ui.preview_canvas import PreviewCanvas
+    from app.ui.widgets import ClickableLabel
 
     previews = QHBoxLayout()
     previews.setSpacing(8)
@@ -223,12 +224,13 @@ def setup_previews(win, root) -> None:
     win.lbl_res_title.setObjectName("previewTitle")
     win.lbl_res_title.setAlignment(Qt.AlignCenter)
     title_row.addWidget(win.lbl_res_title, 1)
-    # Zoom badge: the canvas shows Fit / real 100% / manual %.
-    win.lbl_zoom = QLabel("Fit")
+    # Zoom badge: the canvas shows Fit / real 100% / manual %; click toggles.
+    win.lbl_zoom = ClickableLabel("Fit")
     win.lbl_zoom.setObjectName("subtitleLabel")
     win.lbl_zoom.setMinimumWidth(48)
     win.lbl_zoom.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-    win.lbl_zoom.setToolTip("Canvas zoom: wheel to zoom, drag to pan, double-click to fit")
+    win.lbl_zoom.setToolTip("Click: Fit / 100% · wheel: zoom · drag: pan · double-click: fit")
+    win.lbl_zoom.onClick(lambda: win._toggle_zoom())
     title_row.addWidget(win.lbl_zoom)
     # Hold-to-compare: hold (or Space) = ORIGINAL.
     win.btn_compare = QPushButton("Hold to compare")

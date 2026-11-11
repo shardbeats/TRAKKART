@@ -40,6 +40,11 @@ QLabel#vecLabel {
     color: #92959A;
 }
 
+/* Soft warnings (output pixel budget): amber, never blocks the action. */
+QLabel[warning="true"] {
+    color: #F5A623;
+}
+
 QGroupBox {
     background-color: #1C1D1F;
     border: 1px solid #45474A;

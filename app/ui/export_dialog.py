@@ -270,8 +270,19 @@ class ExportDialog(QDialog):
         except Exception:  # noqa: BLE001
             gif_trans, gif_forms = None, None
         try:
+            from app.canvas import output_budget_note, output_megapixels
+            from app.ui.widgets import set_warning
+
             w, h = self._doc_wh()
+            note = output_budget_note(w, h)
             self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
+            self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
+            if note:
+                self.lbl_dims.setText(
+                    f"{w}×{h} (from CANVAS) · ⚠ {output_megapixels(w, h):g} MP")
+                self.lbl_dims.setToolTip(
+                    "Main image renders at the CANVAS document size\n" + note)
+            set_warning(self.lbl_dims, bool(note))
             safe = sanitize_base(self.edit_base.text().strip() or "cover")
             self.lbl_basename.setText(f"Files start with: {safe}")
             opts = ExportOptions(

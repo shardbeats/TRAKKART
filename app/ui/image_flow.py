@@ -72,6 +72,14 @@ def zoom_full(win) -> None:
         win.refresh()
 
 
+def toggle_zoom(win) -> None:
+    """Zoom badge click: Fit <-> real 100% (same flags as the View menu)."""
+    if win.lbl_res.is_fit():
+        zoom_full(win)
+    else:
+        zoom_fit(win)
+
+
 def copy_result(win) -> None:
     if win.result is None:
         return

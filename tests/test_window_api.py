@@ -30,6 +30,29 @@ def test_window_api_sweep(window, qt_app, monkeypatch, tmp_path):
     assert window.lbl_zoom.text() == "100%"
     window._zoom_step(100)
     assert window.zoom == 8.0  # clamped at the canvas max
+    # Zoom badge: a left click toggles Fit <-> real 100%.
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    window._zoom_fit()
+    QTest.mouseClick(window.lbl_zoom, Qt.LeftButton)
+    assert window.lbl_zoom.text() == "100%"
+    assert window.lbl_res.is_fit() is False
+    QTest.mouseClick(window.lbl_zoom, Qt.LeftButton)
+    assert window.lbl_zoom.text() == "Fit"
+    assert window.lbl_res.is_fit() is True
+    # Output pixel budget: only documents above 36 MP get the amber flag.
+    window.spn_canvas_w.setValue(3000)
+    window.spn_canvas_h.setValue(3000)
+    assert "⚠" not in window.lbl_docdims.text()
+    assert not window.lbl_docdims.property("warning")
+    window.spn_canvas_w.setValue(8000)
+    window.spn_canvas_h.setValue(8000)
+    assert "64 MP" in window.lbl_docdims.text()
+    assert window.lbl_docdims.property("warning") is True
+    window.spn_canvas_w.setValue(3000)
+    window.spn_canvas_h.setValue(3000)
+    assert not window.lbl_docdims.property("warning")
     window.copy_result()  # no result: silent
     window.paste_image()  # empty/invalid clipboard: status, no crash
     assert window.lbl_status.text() != ""

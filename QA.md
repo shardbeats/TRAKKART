@@ -109,6 +109,25 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 - Crop editor contain/stretch/blur cache their canvas + pixmap (repaints
   are ~1-4ms on a 12MP photo instead of 160-520ms).
 
+## Output budget, tiny sources, zoom badge (nov-2026)
+
+```
+.venv\Scripts\python -m pytest tests/test_canvas.py tests/test_window_api.py -q -p no:cacheprovider --no-cov
+```
+
+- `OUTPUT_MP_BUDGET` (36 MP): the Document panel and the export dialog show
+  an amber `⚠ <n> MP` and a tooltip when the doc is bigger. Soft warning
+  only: the render/export still runs (the user asked for that size).
+  `output_megapixels()` / `output_budget_note()` are the single source.
+- Sources at or below `TINY_SOURCE_SIDE` (64px) use NEAREST in
+  stretch/blur frames, so a 4px checkerboard keeps its two ink colors
+  instead of blending into intermediate hues.
+- Blur radius is `max(1, min(w, h) / 24)` instead of the old 8px floor:
+  a 16x9 canvas no longer becomes one flat smear and the backdrop stays
+  readable behind the sharp foreground.
+- The zoom badge in the preview title row is clickable: Fit <-> 100%
+  (same `_full_preview` flags as View -> Fit / 100%).
+
 ## Particle disperse (v1.6, solo dispersion)
 
 ```

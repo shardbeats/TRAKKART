@@ -443,10 +443,20 @@ BINDINGS: tuple = (
 
 def sync_docdims(win) -> None:
     try:
+        from app.canvas import output_budget_note, output_megapixels
+        from app.ui.widgets import set_warning
+
         w, h = doc_dims(win)
         label = win.cmb_ratio.currentText()
-        win.lbl_docdims.setText(f"{w}×{h} · {label}")
-        win.lbl_docdims.setToolTip(f"{w}×{h} px · {label}")
+        note = output_budget_note(w, h)
+        text = f"{w}×{h} · {label}"
+        tip = f"{w}×{h} px · {label}"
+        if note:
+            text = f"{w}×{h} · {label} · ⚠ {output_megapixels(w, h):g} MP"
+            tip = f"{w}×{h} px · {label}\n{note}"
+        win.lbl_docdims.setText(text)
+        win.lbl_docdims.setToolTip(tip)
+        set_warning(win.lbl_docdims, bool(note))
         try:
             win.lbl_video_size.setText(f"{w}×{h}")
             win.lbl_video_size.setToolTip(f"{w}×{h} px (canvas)")

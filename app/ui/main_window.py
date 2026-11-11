@@ -1023,6 +1023,11 @@ class MainWindow(QMainWindow):
 
         _im.zoom_full(self)
 
+    def _toggle_zoom(self) -> None:
+        from app.ui import image_flow as _im
+
+        _im.toggle_zoom(self)
+
     def copy_result(self) -> None:
         from app.ui import image_flow as _im
 

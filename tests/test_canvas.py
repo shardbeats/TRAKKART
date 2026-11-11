@@ -161,3 +161,39 @@ def test_crop_zoom_reaches_corners_not_just_center():
     left = to_canvas(halves, ratio="1:1", fx=0, fy=50, zoom=2.0)
     right = to_canvas(halves, ratio="1:1", fx=100, fy=50, zoom=2.0)
     assert list(left.get_flattened_data()) != list(right.get_flattened_data())
+
+
+def test_output_budget_flags_only_large_documents():
+    from app.canvas import (OUTPUT_MP_BUDGET, output_budget_note,
+                            output_megapixels)
+
+    assert OUTPUT_MP_BUDGET == 36
+    assert output_megapixels(3000, 3000) == 9.0
+    assert output_megapixels(0, 0) == 0.0
+    assert output_budget_note(3000, 3000) is None
+    note = output_budget_note(8000, 8000)
+    assert note is not None and "64 MP" in note and "36 MP" in note
+
+
+def test_tiny_stretch_keeps_hard_source_colors():
+    # A 4px checkerboard stretched no longer blends into intermediate hues.
+    src = Image.new("RGB", (4, 4))
+    for x in range(4):
+        for y in range(4):
+            red = (255, 0, 0) if (x + y) % 2 == 0 else (0, 0, 255)
+            src.putpixel((x, y), red)
+    out = to_canvas(src, ratio="9:16", mode="stretch")
+    assert out.size == (2, 4)
+    assert set(out.get_flattened_data()) <= {(255, 0, 0), (0, 0, 255)}
+
+
+def test_tiny_blur_radius_keeps_the_backdrop_readable():
+    # Old 8px floor smeared a 16x9 canvas into one purple; radius scales now.
+    src = Image.new("RGB", (16, 16), (200, 30, 30))
+    src.paste(Image.new("RGB", (8, 16), (30, 30, 200)), (8, 0))
+    out = to_canvas(src, ratio="16:9", mode="blur")
+    w, h = out.size
+    left = out.getpixel((0, h // 2))
+    right = out.getpixel((w - 1, h // 2))
+    assert left[0] > left[2]  # red half survives behind the foreground
+    assert right[2] > right[0]  # blue half survives too
