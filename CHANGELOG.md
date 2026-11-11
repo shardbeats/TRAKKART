@@ -5,7 +5,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 ## [Unreleased]
 ### Fixed
 - Morph travel no longer tears the image into Morton Z-order blocks:
-  new `Match` control (`smooth` default = organic pour, `morton` = legacy).
+  new `Match` control (`smooth` default = organic pour, `hilbert` =
+  thread flow, `radial` = center-out bloom, `morton` = legacy).
 - Long trails no longer repaint the source photo: ghost strength is now
   normalized by trail length (joints stay ghost-free, short trails read
   as before).

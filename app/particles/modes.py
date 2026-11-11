@@ -33,9 +33,11 @@ def point_cap(side: int) -> int:
 
 #: Travel pairing for morph legs (F3): morton = legacy Z-order 1:1
 #: (tears in spatial blocks mid-flight); smooth = jittered locality
-#: pairing (organic pour, no block tear). Joints stay byte-exact either
-#: way (any bijection lands assembled).
-MATCH_MODES = ("morton", "smooth")
+#: pairing (organic pour, no block tear); hilbert = Hilbert-curve order
+#: (thread-like flow, better locality than morton); radial = center-out
+#: order (bloom). Joints stay byte-exact under all modes (any bijection
+#: lands assembled).
+MATCH_MODES = ("morton", "smooth", "hilbert", "radial")
 #: Rasterized dot shape for dotsize >= 2 (F2): square = legacy kxk
 #: blocks; round = inscribed disc. Dotsize 1 is one pixel either way,
 #: so joints stay byte-exact under both shapes.

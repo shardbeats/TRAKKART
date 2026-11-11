@@ -66,7 +66,7 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.cmb_dissolve_match = QComboBox()
     win.cmb_dissolve_match.addItems(list(MATCH_MODES))
     tight(win.cmb_dissolve_match, 8)
-    win.cmb_dissolve_match.setToolTip("Travel pairing: smooth = organic pour (no block tear) · morton = legacy Z-order matching")
+    win.cmb_dissolve_match.setToolTip("Travel pairing: smooth = organic pour · hilbert = thread flow · radial = center-out bloom · morton = legacy Z-order")
     win.cmb_dissolve_match.currentTextChanged.connect(lambda _: win._schedule_refresh())
     matchrow = QHBoxLayout()
     matchrow.addWidget(QLabel("Match:"))

@@ -257,7 +257,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_dotsize", "int", ("range", 1, 4)),
     _Field("dissolve_travel", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_path", "str", ("oneof", ("pour", "arc", "swirl", "braid"))),
-    _Field("dissolve_match", "str", ("oneof", ("morton", "smooth"))),
+    _Field("dissolve_match", "str", ("oneof", ("morton", "smooth", "hilbert", "radial"))),
     _Field("dissolve_dot_shape", "str", ("oneof", ("square", "round"))),
     _Field("dissolve_tint", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_trail", "int", ("range", 0, 8)),

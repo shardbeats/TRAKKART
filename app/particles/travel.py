@@ -34,6 +34,48 @@ _MATCH_CACHE: OrderedDict = OrderedDict()
 _MATCH_CACHE_MAX = 8
 
 
+def _hilbert_keys(pts: np.ndarray, h: int, w: int) -> np.ndarray:
+    """Hilbert-curve indices for (y, x) points: vectorized, O(n log S).
+
+    Quantizes to a 2**bits grid covering the canvas (bits <= 13, like
+    the Morton keys). Neighbors on the curve are neighbors on canvas,
+    so pairing in this order pours like a thread instead of jumping
+    across Z-blocks.
+    """
+    import math
+
+    f = np.asarray(pts, dtype=np.float64)
+    side = max(2, int(h), int(w))
+    bits = max(1, min(13, int(math.ceil(math.log2(side)))))
+    span = 1 << bits
+    x = np.clip(np.floor(f[:, 1]), 0, span - 1).astype(np.int64)
+    y = np.clip(np.floor(f[:, 0]), 0, span - 1).astype(np.int64)
+    d = np.zeros(len(f), dtype=np.int64)
+    s = span >> 1
+    while s >= 1:
+        rx = ((x // s) % 2).astype(np.int64)
+        ry = ((y // s) % 2).astype(np.int64)
+        d += ((3 * rx) ^ ry) * (s * s)
+        x = x % s
+        y = y % s
+        flip = (ry == 0)
+        xi = np.where(flip & (rx == 1), (s - 1) - x, x)
+        yi = np.where(flip & (rx == 1), (s - 1) - y, y)
+        x = np.where(flip, yi, xi)
+        y = np.where(flip, xi, yi)
+        s >>= 1
+    return d
+
+
+def _radial_keys(pts: np.ndarray, h: int, w: int,
+                 rng: np.random.Generator) -> np.ndarray:
+    """Center-out order with a seeded tiebreak (bloom pairing)."""
+    f = np.asarray(pts, dtype=np.float64)
+    dist = np.hypot(f[:, 1] - (float(w) - 1.0) / 2.0,
+                    f[:, 0] - (float(h) - 1.0) / 2.0)
+    return dist + rng.normal(0.0, 0.5, len(f))
+
+
 def _match_cache_key(a: np.ndarray, b: np.ndarray, h: int, w: int,
                      seed: int, match: str = "morton") -> tuple:
     ha = hashlib.sha1(np.ascontiguousarray(a).tobytes()).hexdigest()
@@ -56,9 +98,10 @@ def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
     padded by seeded resampling, then both sets are ordered and paired.
     `match` selects the ordering: "morton" pairs Z-order curves (legacy,
     tears in spatial blocks mid-flight); "smooth" pairs by jittered
-    locality order (organic pour, no block tear). Any bijection keeps
-    the leg joints byte-exact; the pairing only shapes the mid-flight
-    pour. Deterministic per seed. Results are cached per
+    locality order (organic pour); "hilbert" pairs along a Hilbert curve
+    (thread-like flow); "radial" pairs center-out (bloom). Any bijection
+    keeps the leg joints byte-exact; the pairing only shapes the
+    mid-flight pour. Deterministic per seed. Results are cached per
     (contents, h, w, seed, match) so repeated preview/export rebuilds
     pay the match once.
     """
@@ -91,6 +134,18 @@ def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
         jb = rng.normal(0.0, span / 6.0, n)
         ka = (a[:, 0] * float(w) + a[:, 1] + ja).astype(np.float64)
         kb = (b[:, 0] * float(w) + b[:, 1] + jb).astype(np.float64)
+        oa = np.argsort(ka, kind="stable")
+        ob = np.argsort(kb, kind="stable")
+    elif m == "hilbert":
+        ka = _hilbert_keys(a, h, w)
+        kb = _hilbert_keys(b, h, w)
+        ja = rng.random(n)
+        jb = rng.random(n)
+        oa = np.lexsort((ja, ka))
+        ob = np.lexsort((jb, kb))
+    elif m == "radial":
+        ka = _radial_keys(a, h, w, rng)
+        kb = _radial_keys(b, h, w, rng)
         oa = np.argsort(ka, kind="stable")
         ob = np.argsort(kb, kind="stable")
     else:
@@ -272,5 +327,6 @@ def block_visible(coords: np.ndarray, h: int, w: int, progress: float = 0.0,
     return rank >= np.asarray(env, dtype=np.float64) * 0.85
 
 
-__all__ = ["_smootherstep", "match_travel", "travel_positions",
+__all__ = ["_smootherstep", "_hilbert_keys", "_radial_keys",
+           "match_travel", "travel_positions",
            "disperse_positions", "block_visible"]

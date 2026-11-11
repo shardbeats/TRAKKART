@@ -38,7 +38,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | mosh flavors + amount + seed |
-| MORPH | particle chain (Add/Remove/Up/Down) + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth = organic pour, morton = legacy), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
+| MORPH | particle chain (Add/Remove/Up/Down) + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
 | MOTION | video preview + Signal Drift |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast

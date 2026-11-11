@@ -1317,7 +1317,7 @@ def test_f3_match_smooth_deterministic_joints_exact():
 
     from app.disintegrate import MATCH_MODES, match_travel
 
-    assert set(MATCH_MODES) == {"morton", "smooth"}
+    assert set(MATCH_MODES) == {"morton", "smooth", "hilbert", "radial"}
     rng = np.random.default_rng(3)
     ca = (rng.uniform(0, 64, (200, 2))).astype(np.float32)
     cb = (rng.uniform(0, 64, (150, 2))).astype(np.float32)
@@ -1333,6 +1333,49 @@ def test_f3_match_smooth_deterministic_joints_exact():
     # Unknown mode falls back to morton.
     fb, _ = match_travel(ca, cb, 64, 64, seed=7, match="nope")
     assert (fb == sm).all()
+
+
+def test_f3_match_hilbert_keys_thread_order():
+    import numpy as np
+
+    from app.particles.travel import _hilbert_keys, _morton_keys
+
+    # 8x8 lattice: Hilbert visits consecutive cells (mean step 1),
+    # Morton jumps across Z-blocks (mean step > 1).
+    g = np.stack(np.meshgrid(np.arange(8), np.arange(8),
+                             indexing="ij"), axis=-1).reshape(-1, 2)
+    g = g.astype(np.float32)
+    hk = _hilbert_keys(g, 8, 8)
+    mk = _morton_keys(g)
+    assert len(set(hk.tolist())) == 64
+    assert len(set(mk.tolist())) == 64
+    # In curve order, Hilbert steps are always edge-adjacent...
+    oh = np.argsort(hk, kind="stable")
+    steps_h = np.abs(np.diff(g[oh], axis=0)).sum(axis=1)
+    assert set(steps_h.tolist()) == {1}
+    # ...while Morton jumps across Z-blocks.
+    om = np.argsort(mk, kind="stable")
+    steps_m = np.abs(np.diff(g[om], axis=0)).sum(axis=1)
+    assert set(steps_m.tolist()) != {1} and steps_m.max() > 2
+
+
+def test_f3_match_all_modes_deterministic_joints_exact():
+    from app.disintegrate import morph_chain_frames
+
+    a = _solid((200, 40, 40))
+    b = _solid((40, 180, 60))
+    outs = {}
+    for m in ("morton", "smooth", "hilbert", "radial"):
+        outs[m] = morph_chain_frames([a, b], frames=8, max_side=64, seed=7,
+                                     travel=1.0, loop=False, match=m)
+        again = morph_chain_frames([a, b], frames=8, max_side=64, seed=7,
+                                   travel=1.0, loop=False, match=m)
+        assert [f.tobytes() for f in outs[m]] == [f.tobytes() for f in again]
+    assert all(o[0].tobytes() == outs["morton"][0].tobytes()
+               for o in outs.values())
+    assert all(o[-1].tobytes() == outs["morton"][-1].tobytes()
+               for o in outs.values())
+    assert len({o[3].tobytes() for o in outs.values()}) == 4
 
 
 def test_f3_match_smooth_no_block_tear():
