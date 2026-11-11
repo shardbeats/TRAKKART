@@ -147,6 +147,9 @@ class ExportDialog(QDialog):
         self.chk_sep = QCheckBox("Ink separations (print)")
         self.chk_sep.setChecked(False)
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
+        self.chk_sp404 = QCheckBox("SP-404MKII pack (128×64 BMP)")
+        self.chk_sp404.setChecked(False)
+        self.chk_sp404.setToolTip("Roland SP-404MKII startup + screensaver: 128×64 1-bit BMPs (startup_1/2 + up to 16 screen_saver_N) + install sheet, from the still + animation frames")
         self.chk_meta.setChecked(sel.metadata)
         self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
         from app.video_io import has_video as _has_video
@@ -161,7 +164,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
                     self.chk_vector, self.chk_anim, self.chk_webp, self.chk_sep, self.chk_meta,
-                    self.chk_black, self.chk_mp4):
+                    self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
         from PySide6.QtWidgets import QComboBox as _Cmb
@@ -392,6 +395,13 @@ class ExportDialog(QDialog):
                 n += 1
             except Exception:  # noqa: BLE001
                 pass
+        if self.chk_sp404.isChecked():
+            # 2 startup + up to 16 slideshow BMPs at 128×64 1-bit (~1KB each)
+            # + install sheet: fixed names land in a {base}_sp404/ subfolder.
+            safe = sanitize_base(self.edit_base.text().strip() or "cover")
+            self.list_files.addItem(f"{safe}_sp404_*.bmp (pack · 128×64 1-bit · ~19KB)")
+            total += 19 * 1024
+            n += 1
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
         try:
@@ -450,6 +460,7 @@ class ExportDialog(QDialog):
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         g["webp"] = bool(self.chk_webp.isChecked())
         g["sep"] = bool(self.chk_sep.isChecked())
+        g["sp404"] = bool(self.chk_sp404.isChecked())
         try:
             g["mp4_size"] = str(self.cmb_mp4_size.currentText())
         except Exception:  # noqa: BLE001

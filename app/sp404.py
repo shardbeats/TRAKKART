@@ -48,7 +48,8 @@ def sp404_frame(img: Image.Image, threshold: int = 128,
     src = img.convert("RGB")
     scale = max(SP_W / src.width, SP_H / src.height)
     nw, nh = max(1, round(src.width * scale)), max(1, round(src.height * scale))
-    big = src.resize((nw, nh), Image.LANCZOS)
+    # NEAREST: dither dots stay crisp (no blur) when scaling to the OLED.
+    big = src.resize((nw, nh), Image.NEAREST)
     left = max(0, (nw - SP_W) // 2)
     top = max(0, (nh - SP_H) // 2)
     crop = big.crop((left, top, left + SP_W, top + SP_H))

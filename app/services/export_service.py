@@ -50,6 +50,7 @@ def export_full(
     mp4_size: str | int | None = None,
     webp: bool = False,
     sep: bool = False,
+    sp404: bool = False,
     morph_src: Image.Image | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Render, generate SVG/GIF/MP4/WebP/separations on request, write bundle and log.
@@ -65,6 +66,9 @@ def export_full(
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
     Separations write one `{base}_sep_{NN}_{RRGGBB}.png` plate per
     palette ink (RISO/screen print) + registration marks. Dialog-only.
+    SP-404MKII pack writes `{base}_sp404/` with `startup_*.bmp` +
+    `screen_saver_*.bmp` (128x64 1-bit) + install sheet, from the still
+    plus the animation frames when built. Dialog-only.
     """
     from app.vector import estimate_cells
 
@@ -78,6 +82,7 @@ def export_full(
     want_mp4 = bool(mp4)
     want_webp = bool(webp)
     want_sep = bool(sep)
+    want_sp404 = bool(sp404)
     res = render_full(src, preset)
 
     svg = None
@@ -106,7 +111,7 @@ def export_full(
                   else getattr(preset, "gif_pingpong", False))
     mp4_stream_info: dict | None = None
     mp4_size_eff = str(mp4_size) if mp4_size not in (None, "") else "1080p"
-    if want_gif or want_mp4 or want_webp:
+    if want_gif or want_mp4 or want_webp or want_sp404:
         from app.gif import gif_frames as _gif_frames  # alias: no shadowing of the parameter
 
         # GIF (and short MP4s) keep the capped list path (<=256f, ping-pong
@@ -245,6 +250,19 @@ def export_full(
                     j += 1
             add_registration_marks(plate).save(str(sep_path))
             paths[f"sep_{hexcode}"] = sep_path
+    if want_sp404:
+        from app.sp404 import write_sp404_pack
+
+        pack_dir = Path(out_dir) / f"{options.base}_sp404"
+        if overwrite == "rename":
+            j = 2
+            while pack_dir.exists():
+                pack_dir = Path(out_dir) / f"{options.base}_sp404_{j}"
+                j += 1
+        pack_imgs = [res, *(frames or [])]
+        pack = write_sp404_pack(pack_imgs, pack_dir)
+        for name, path in pack.items():
+            paths[f"sp404_{name}"] = path
     if store is not None and paths:
         try:
             store.log_export(options.base, preset_name, preset.meta(),

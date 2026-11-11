@@ -57,6 +57,11 @@ huge canvases use Still.
   with the canvas, so Full/doc looks as dense as the smaller previews.
 - **Collision:** nothing is ever lost — if the name exists it suggests
   `name_2`, `name_3`… (or Overwrite if you choose).
+- **SP-404MKII pack:** tick "SP-404MKII pack (128×64 BMP)" to also write a
+  `{base}_sp404/` folder: `startup_1/2.bmp` + up to 16 `screen_saver_N.bmp`
+  (1-bit, from your still + animation frames) + `README-SP404.txt` with the
+  SD install steps. Copy the BMPs to `EXPORT/PROJECT/PROJECT_XX/PICTURE`
+  (UTILITY > SYSTEM > Scrn Saver Type = Custom), reimport, power cycle.
 - **Quick export** repeats the last setup without asking. If you switch
   images, it asks again (never reuses the previous name).
 

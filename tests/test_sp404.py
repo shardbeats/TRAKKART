@@ -92,3 +92,46 @@ def test_sp404_pack_deterministic():
         assert a.keys() == b.keys()
         for k in a:
             assert a[k].read_bytes() == b[k].read_bytes()
+
+
+def test_export_full_sp404_pack(tmp_path):
+    from app.exporter import ExportSelection
+    from app.presets import Preset
+    from app.services.export_service import export_full
+
+    preset = Preset(name="t", method="bayer8", palette="BW", export_size=64)
+    sel = ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False)
+    paths, skipped = export_full(
+        _art(64, 64), preset, tmp_path / "os", base="m",
+        selection=sel, sp404=True)
+    bmps = sorted(str(p) for p in paths.values() if str(p).endswith(".bmp"))
+    assert any("startup_1.bmp" in p for p in bmps)
+    assert all("m_sp404" in p for p in bmps)
+    assert skipped == []
+    from PIL import Image as _Image
+
+    with _Image.open(next(
+            p for p in paths.values()
+            if str(p).endswith("startup_1.bmp"))) as im:
+        assert im.size == (128, 64) and im.mode == "1"
+
+
+def test_export_dialog_sp404_checkbox(window, qt_app, tmp_path):
+    from app.presets import Preset
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    window.src = _art(64, 64)
+    preset = Preset(name="t", method="bayer8", palette="BW", export_size=64)
+    dlg = ExportDialog(window.src, preset.meta(), base="m", out_dir=str(tmp_path),
+                       preset=preset, gif_frames=2)
+    try:
+        assert dlg.chk_sp404.isChecked() is False
+        assert dlg._gif_opts()["sp404"] is False
+        dlg.chk_sp404.setChecked(True)
+        assert dlg._gif_opts()["sp404"] is True
+        assert any("_sp404_" in dlg.list_files.item(i).text()
+                   for i in range(dlg.list_files.count()))
+    finally:
+        close_dialog(dlg)

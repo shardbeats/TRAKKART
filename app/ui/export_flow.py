@@ -112,6 +112,7 @@ def export(win, quick: bool = False) -> None:
             mp4_size=str(gopts.get("mp4_size", "1080p")),
             webp=bool(gopts.get("webp", False)),
             sep=bool(gopts.get("sep", False)),
+            sp404=bool(gopts.get("sp404", False)),
         )
         save_prefs(ExportPrefs(
             out_dir=str(out_dir), base=options.base,
@@ -318,7 +319,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      overwrite: str, size: int, format: str,
                      quality: int, mp4: bool = False,
                      mp4_size: str = "1080p", webp: bool = False,
-                     sep: bool = False) -> None:
+                     sep: bool = False, sp404: bool = False) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
     from pathlib import Path
@@ -347,6 +348,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             mp4_size=str(go.get("mp4_size", mp4_size)),
             webp=bool(webp),
             sep=bool(sep),
+            sp404=bool(sp404),
             morph_src=morph_src_for_mode(win, mode_go),
         )
     except VideoBackendMissing as e:
@@ -367,7 +369,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
                quality: int, mp4: bool = False,
                mp4_size: str = "1080p", webp: bool = False,
-               sep: bool = False, _sync: bool = False) -> None:
+               sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
     WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink.
@@ -385,7 +387,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, sep)
+                         mp4_size, webp, sep, sp404)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -432,6 +434,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
         mp4_size=str(go.get("mp4_size", mp4_size)),
         webp=bool(webp), sep=bool(sep), morph_src=morph_snapshot,
+        sp404=bool(sp404),
         parent=win,
     )
     worker.finished_ok.connect(

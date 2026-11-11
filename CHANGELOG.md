@@ -9,6 +9,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   white-on-black invert) and writes a ready-to-copy pack (`startup_1/2.bmp`
   + up to 16 `screen_saver_N.bmp` + `README-SP404.txt` install sheet).
   Pinned by `tests/test_sp404.py` (5 tests).
+- Export dialog gains an "SP-404MKII pack" checkbox: writes
+  `{base}_sp404/` (startup + slideshow BMPs from the still + animation
+  frames when built) alongside the normal bundle.
 ### Fixed
 - Morph travel no longer tears the image into Morton Z-order blocks:
   new `Match` control (`smooth` default = organic pour, `hilbert` =
