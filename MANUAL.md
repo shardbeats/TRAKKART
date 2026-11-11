@@ -3,6 +3,10 @@
 Offline cover-art generator with dithering. 100% local: nothing is uploaded,
 nothing is tracked. Your data lives on your machine (the app's data folder).
 
+Words used in this manual: a **still** is one static dithered image (the main
+product); an **animation** (GIF/MP4) is a loop built from stills. The
+**Viewport** `Still` mode is the manual-refresh still-image preview.
+
 ## Installation
 
 - **Installer:** run `TRAKKART-Setup-<version>.exe` (Start menu shortcut +

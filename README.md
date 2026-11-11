@@ -16,7 +16,7 @@ nothing is uploaded, nothing is tracked.
   auto-extract from source, duotone / posterize / split-tone.
 - **FX + datamosh + particles** — reorderable effect stack, 7 mosh flavors,
   particle morph chain with seamless loop.
-- **Motion preview** — still preview with fit / zoom / pan + hold-to-compare,
+- **Motion preview** — still-image preview with fit / zoom / pan + hold-to-compare,
   VIDEO preview (Draft 720p / HD 1080p / Full doc).
 - **Export bundle** — main image at canvas size + optional 1080p thumb,
   vector SVG, animated GIF / WebP, MP4, `metadata.json`, ink separations.
