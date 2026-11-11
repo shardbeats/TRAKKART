@@ -318,6 +318,31 @@ frames/fps are quality.
 - Export: animation spec always comes from the live VIDEO section; stale prefs can no longer smuggle a morph mode into a mix export; session chain only feeds dissolve/morph (export + preview).
 - New tests: loop opens/closes on A, hold shares, MP4 estimate, live dialog vs stale prefs, per-mode gate (+7).
 
+### vNext — SP-404MKII image pack (next, researched nov-2026)
+Goal: make TRAKKART the fastest way to put custom art on a Roland
+SP-404MKII (startup logo + screensaver). Source: Roland's official
+"Ultimate Guide: Customizing the SP-404MKII" (articles.roland.com).
+- Device spec: OLED 128x64 mono. `.BMP` 1/4/8/24-bit, EXACT 128x64 px
+  (anything else is silently ignored). Names are fixed: `startup_1.bmp`
+  + `startup_2.bmp` (2 max), `screen_saver_1.bmp` … `screen_saver_16.bmp`
+  (16 max per project).
+- Install path (user-side, no code): SD formatted on-device, UTILITY >
+  SYSTEM > Scrn Saver Type = Custom, export project to SD
+  (SHIFT+PAD 14), copy BMPs to `EXPORT/PROJECT/PROJECT_XX/PICTURE`,
+  reimport project. White-on-black reads like the stock images.
+- Fit: TRAKKART Custom canvas already allows 128x64 (MIN_DIM 64);
+  BW dither engines are the ideal source for a 1-bit OLED. Gap is only
+  BMP export: `exporter.py` writes png/jpg/webp today (reads BMP fine).
+- Plan: (1) `bmp` 1-bit writer (Pillow mode "1", BW palette +
+  threshold, no color layers); (2) locked `128x64 SP-404` canvas preset
+  (2:1) for WYSIWYG framing; (3) "SP-404MKII pack" export action:
+  current doc + up to 16 variants (morph/dissolve frames as slideshow),
+  pre-named `startup_*` / `screen_saver_*`, zipped with a
+  `README-SP404.txt` install sheet; (4) tests (1-bit 128x64 BMP,
+  naming, roundtrip) + hardware QA by owner (copy > import > watch).
+- Out of scope: the SP-404MKII desktop-app background/slideshow (takes
+  plain PNGs, already exportable today).
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
