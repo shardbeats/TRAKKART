@@ -161,6 +161,9 @@ def _apply_sp404_canvas(win) -> None:
 
     Setting the spins fires the normal W/H path (flips Ratio to Custom
     + refresh), so this stays in sync with typed edits by construction.
+    It also switches the still preview to 1-bit OLED: the device only
+    takes 1-bit BMPs, so the button shows exactly what the SP-404MKII
+    will show (same sp404_frame the pack writer uses).
     """
     from app.sp404 import SP_H, SP_W
 
@@ -169,6 +172,14 @@ def _apply_sp404_canvas(win) -> None:
         win.spn_canvas_h.setValue(int(SP_H))
     except Exception:  # noqa: BLE001
         pass
+    try:
+        win.act_sp404.setChecked(True)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win.toggle_sp404_preview()
+    except Exception:  # noqa: BLE001
+        win._sp404_preview = True
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:

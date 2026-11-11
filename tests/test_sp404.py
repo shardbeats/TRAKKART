@@ -105,6 +105,9 @@ def test_sp404_canvas_button(window, qt_app):
     assert int(window.spn_canvas_w.value()) == 128
     assert int(window.spn_canvas_h.value()) == 64
     assert str(window.cmb_ratio.currentText()) == "Custom"
+    # The button also shows the device view: 1-bit OLED preview on.
+    assert window._sp404_preview is True
+    assert window.act_sp404.isChecked() is True
 
 
 def test_sp404_pack_deterministic():
