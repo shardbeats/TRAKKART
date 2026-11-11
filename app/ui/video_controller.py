@@ -423,6 +423,7 @@ def show_frame(win, force: bool = False) -> None:
 
     idx = max(0, min(len(win._video_frames) - 1, int(win._video_idx)))
     frame = win._video_frames[idx]
+    win.lbl_res.set_wipe_mode(False)
     win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
     win.lbl_res_title.setText(f"VIDEO · {frame.width}x{frame.height} · f{idx + 1}/{len(win._video_frames)}")
     win.lbl_video_pos.setText(f"{idx + 1}/{len(win._video_frames)}")

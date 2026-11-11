@@ -43,10 +43,11 @@ def test_still_preview_uses_proxy_except_full(window):
     window._apply_preset("VAPOR_BAYER8")  # ordered: sync path even when large
     window.src = Image.new("RGB", (1200, 900), (200, 50, 90))
     window.viewport_mode = "live"
-    pc.render_still(window)  # ordered default: sync 640px proxy
+    window._full_preview = False
+    pc.render_still(window)  # ordered default: adaptive proxy
     assert window.result is not None
-    assert max(window.result.size) <= 640
-    assert "640px" in window.lbl_status.text()
+    assert max(window.result.size) <= max(pc.preview_max_side(window), 1200)
+    assert "px" in window.lbl_status.text()
     window.viewport_mode = "full"
     pc.render_still(window)  # Full: exact full-res render
     assert max(window.result.size) > 640

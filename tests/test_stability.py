@@ -267,3 +267,22 @@ def test_crop_editor_ratio_syncs_canvas_dims(window, qt_app):
     p = window.current_params()
     assert (p.ratio, p.canvas_w, p.canvas_h) == ("9:16", 1688, 3000)
     assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (1688, 3000)
+
+
+def test_zoom_100_renders_document_size(window, qt_app):
+    from PIL import Image
+
+    from app.canvas import CUSTOM_LABEL
+
+    window.src = Image.new("RGB", (256, 256), (90, 60, 140))
+    window.cmb_ratio.setCurrentText(CUSTOM_LABEL)
+    window.spn_canvas_w.setValue(128)
+    window.spn_canvas_h.setValue(128)
+    window._full_preview = False
+    window._zoom_full()
+    assert window.result is not None
+    assert window.result.size == (128, 128)  # doc, not the proxy/source
+    assert window.lbl_res.zoom_text() == "100%"
+    assert "100%" in window.lbl_status.text()
+    window._zoom_fit()
+    assert window._full_preview is False

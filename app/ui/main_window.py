@@ -119,6 +119,9 @@ class MainWindow(QMainWindow):
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
         self.viewport_mode: str = "live"
+        # 100% (Ctrl+1) requests a full/doc render, not the proxy.
+        self._full_preview: bool = False
+        self._last_preview_side: int | None = None
         try:
             from app.export_prefs import load_prefs as _load_prefs
 
@@ -253,9 +256,30 @@ class MainWindow(QMainWindow):
             self._preview_timer.setInterval(interval)
             self._preview_timer.start()
 
+    def _on_preview_resized(self) -> None:
+        """Canvas grew/shrank: re-render only when the adaptive side changes."""
+        if self.src is None or getattr(self, "_full_preview", False):
+            return
+        if (getattr(self, "_export_worker", None) is not None
+                or getattr(self, "_batch_worker", None) is not None):
+            return  # never steal the status while a background job runs
+        last = getattr(self, "_last_preview_side", None)
+        if last is None:
+            return  # first render has not happened yet
+        from app.ui.preview_controller import preview_max_side
+
+        if preview_max_side(self) == last:
+            return
+        from app.viewport import normalize_mode
+
+        if normalize_mode(getattr(self, "viewport_mode", "live")) == "full":
+            return
+        self._schedule_refresh()
+
     def set_viewport_mode(self, mode: str) -> None:
         from app.viewport import mode_label, normalize_mode
 
+        self._full_preview = False
         self.viewport_mode = normalize_mode(mode)
         for m in ("full", "live", "still"):
             try:

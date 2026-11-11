@@ -17,7 +17,7 @@ Contract (kept small on purpose):
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel
 
@@ -34,6 +34,8 @@ class PreviewCanvas(QLabel):
     """QLabel that paints its pixmap with fit/zoom/pan instead of 1:1."""
 
     viewChanged = Signal()
+    viewportResized = Signal()
+    wipeDragged = Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -49,6 +51,14 @@ class PreviewCanvas(QLabel):
         self._manual = 1.0
         self._pan = QPointF(0.0, 0.0)
         self._drag_from: QPointF | None = None
+        self._drag_button = None
+        self._wipe_mode = False
+        self._wipe_drag = False
+        self._last_wipe = -1
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(250)
+        self._resize_timer.timeout.connect(self.viewportResized.emit)
 
     # -- QLabel compatibility ------------------------------------------------
     def minimumSizeHint(self) -> QSize:  # noqa: N802
@@ -182,23 +192,66 @@ class PreviewCanvas(QLabel):
         self._clamp_pan()
         self.update()
 
+    def set_wipe_mode(self, active: bool) -> None:
+        """Left-drag moves the wipe divider instead of panning."""
+        self._wipe_mode = bool(active)
+        self.setToolTip(
+            "Drag: move wipe · middle-drag: pan · wheel: zoom"
+            if self._wipe_mode else
+            "Wheel: zoom · drag: pan · double-click: fit")
+        self._update_cursor()
+
+    def _update_cursor(self) -> None:
+        if self._drag_from is not None:
+            self.setCursor(Qt.ClosedHandCursor)
+        elif self._wipe_drag or self._wipe_mode:
+            self.setCursor(Qt.SplitHCursor)
+        else:
+            self.setCursor(Qt.OpenHandCursor)
+
+    def _emit_wipe(self, pos: QPointF) -> None:
+        rect = self.target_rect()
+        if rect.width() <= 0:
+            return
+        pct = int(round(100.0 * (float(pos.x()) - rect.left()) / rect.width()))
+        pct = max(0, min(100, pct))
+        if pct != self._last_wipe:
+            self._last_wipe = pct
+            self.wipeDragged.emit(pct)
+
     # -- events --------------------------------------------------------------
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
         self._clamp_pan()
         self.update()
+        pm = self.pixmap()
+        if self.isVisible() and pm is not None and not pm.isNull():
+            self._resize_timer.start()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
-        if event.button() == Qt.LeftButton:
+        button = event.button()
+        if button == Qt.LeftButton and self._wipe_mode:
+            self._wipe_drag = True
+            self._last_wipe = -1
+            self._update_cursor()
+            self._emit_wipe(QPointF(event.position()))
+            event.accept()
+            return
+        if button in (Qt.LeftButton, Qt.MiddleButton):
             self._drag_from = QPointF(event.position())
-            self.setCursor(Qt.ClosedHandCursor)
+            self._drag_button = button
+            self._update_cursor()
             event.accept()
             return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        pos = QPointF(event.position())
+        if self._wipe_drag:
+            self._emit_wipe(pos)
+            event.accept()
+            return
         if self._drag_from is not None:
-            pos = QPointF(event.position())
             self.pan_by(pos.x() - self._drag_from.x(), pos.y() - self._drag_from.y())
             self._drag_from = pos
             event.accept()
@@ -206,9 +259,11 @@ class PreviewCanvas(QLabel):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
-        if event.button() == Qt.LeftButton:
+        if event.button() in (Qt.LeftButton, Qt.MiddleButton):
+            self._wipe_drag = False
             self._drag_from = None
-            self.setCursor(Qt.OpenHandCursor)
+            self._drag_button = None
+            self._update_cursor()
             event.accept()
             return
         super().mouseReleaseEvent(event)

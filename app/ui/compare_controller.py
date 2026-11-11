@@ -50,6 +50,7 @@ def paint_orig(win) -> None:
     from app.ui.preview_canvas import PREVIEW_MAX_SIDE
     from app.ui.qt_image import pil_to_pixmap
 
+    win.lbl_res.set_wipe_mode(False)
     win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=PREVIEW_MAX_SIDE))
     win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}x{win.src.height}")
 
@@ -63,6 +64,7 @@ def paint_result(win) -> None:
         from app.ui.preview_canvas import PREVIEW_MAX_SIDE
         from app.ui.qt_image import pil_to_pixmap
 
+        win.lbl_res.set_wipe_mode(False)
         pix = pil_to_pixmap(win.result, max_side=PREVIEW_MAX_SIDE)
         win.lbl_res.setPixmap(guided_pixmap(win, pix, win.result.width, win.result.height))
         kind = "VIDEO" if win._video_on else "DITHER"
@@ -132,6 +134,7 @@ def paint_wipe(win, pos: int | None = None) -> None:
         # Framed original (same geometry as 99%), never the raw uncropped
         # source: the old jump showed a different aspect at the last tick.
         base = _aligned_orig(win).convert("RGB")
+        win.lbl_res.set_wipe_mode(True)
         pix = guided_pixmap(win, pil_to_pixmap(base, max_side=PREVIEW_MAX_SIDE),
                             res.width, res.height)
         win.lbl_res.setPixmap(pix)
@@ -139,6 +142,7 @@ def paint_wipe(win, pos: int | None = None) -> None:
         return
     import numpy as np
 
+    win.lbl_res.set_wipe_mode(True)
     scale = min(1.0, PREVIEW_MAX_SIDE / max(res.width, res.height))
     dw, dh = max(1, int(res.width * scale)), max(1, int(res.height * scale))
     try:

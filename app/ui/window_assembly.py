@@ -264,6 +264,7 @@ def setup_previews(win, root) -> None:
     win.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     win.lbl_res.viewChanged.connect(
         lambda: win.lbl_zoom.setText(win.lbl_res.zoom_text()))
+    win.lbl_res.viewportResized.connect(win._on_preview_resized)
     res_col.addWidget(win.lbl_res, 1)
     # Wipe compare: drag divider (ORIGINAL left, result right). 0 = off.
     wipe_row = QHBoxLayout()
@@ -273,6 +274,7 @@ def setup_previews(win, root) -> None:
     win.sld_wipe.setValue(0)
     win.sld_wipe.setToolTip("Wipe compare: drag to reveal ORIGINAL on the left (0 = off)")
     win.sld_wipe.valueChanged.connect(win._on_wipe_changed)
+    win.lbl_res.wipeDragged.connect(win.sld_wipe.setValue)
     wipe_row.addWidget(win.sld_wipe, 1)
     res_col.addLayout(wipe_row)
     previews.addLayout(res_col, 1)

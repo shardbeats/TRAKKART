@@ -61,11 +61,15 @@ def zoom_step(win, factor: float) -> None:
 
 
 def zoom_fit(win) -> None:
+    win._full_preview = False
     win.lbl_res.fit()
 
 
 def zoom_full(win) -> None:
+    win._full_preview = True
     win.lbl_res.actual_size()
+    if win.src is not None:
+        win.refresh()
 
 
 def copy_result(win) -> None:
@@ -259,6 +263,7 @@ def load_pil(win, img) -> None:
     win.history.clear()
     win.history.push(img)
     win.src = img
+    win._full_preview = False
     win.lbl_res.fit()
     win.refresh()
 

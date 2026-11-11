@@ -48,7 +48,8 @@ def downscale_for_preview(img: Image.Image, max_side: int = PREVIEW_LONG_SIDE) -
     return small, f
 
 
-def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
+def render_preview_small(img: Image.Image, preset: Preset,
+                         max_side: int = PREVIEW_LONG_SIDE) -> Image.Image:
     """Fast render for preview: downscale + compensated pixel units.
 
     pixel_size is a block size in source pixels, so it grows as 1/f to
@@ -57,7 +58,7 @@ def render_preview_small(img: Image.Image, preset: Preset) -> Image.Image:
     with f to keep proportions. Amount-like FX (grain, vignette, wave)
     are left untouched.
     """
-    small, f = downscale_for_preview(img)
+    small, f = downscale_for_preview(img, max_side=max_side)
     kwargs = preset_to_render_kwargs(preset)
     compensate_preview_params(kwargs, f)
     return render(small, **kwargs)

@@ -49,19 +49,37 @@ class PreviewWorker(WorkerBase):
     finished_ok = Signal(object, object, int)  # QImage, PIL, token
     finished_err = Signal(str, int)
 
-    def __init__(self, src: Image.Image, params: dict, token: int, parent=None) -> None:
+    def __init__(self, src: Image.Image, params: dict, token: int, parent=None,
+                 *, full: bool = False, target: tuple[int, int] | None = None,
+                 max_side: int = PREVIEW_LONG_SIDE) -> None:
         super().__init__(parent)
         self.src = src
         self.params = dict(params)
         self.token = int(token)
+        self.full = bool(full)
+        self.target = target
+        self.max_side = int(max_side)
 
     def work(self) -> None:
         from app.ui.qt_image import pil_to_qimage
 
         try:
-            from app import gpu as _gpu
+            if self.full:
+                from app import gpu as _gpu
 
-            out, _backend = _gpu.render_kwargs_or_cpu(self.src, dict(self.params))
+                try:
+                    out = _gpu.render_full_kwargs(self.src, dict(self.params))
+                except Exception:  # noqa: BLE001
+                    from app.pipeline import render as _render
+
+                    out = _render(self.src, **self.params)
+                if self.target is not None and out.size != tuple(self.target):
+                    out = out.resize(tuple(self.target), Image.NEAREST)
+            else:
+                from app import gpu as _gpu
+
+                out, _backend = _gpu.render_kwargs_or_cpu(
+                    self.src, dict(self.params), max_side=self.max_side)
         except Exception:  # noqa: BLE001
             from app.pipeline import render as _render
             from app.services.render_service import (
@@ -69,7 +87,7 @@ class PreviewWorker(WorkerBase):
                 downscale_for_preview,
             )
 
-            small, f = downscale_for_preview(self.src)
+            small, f = downscale_for_preview(self.src, max_side=self.max_side)
             p = compensate_preview_params(dict(self.params), f)
             out = _render(small, **p)
         rgb = out.convert("RGB")
@@ -79,7 +97,8 @@ class PreviewWorker(WorkerBase):
         from app.log import report_error
 
         rid = report_error("still preview", exc,
-                           {"max_side": PREVIEW_LONG_SIDE})
+                           {"max_side": self.max_side, "full": self.full,
+                            "target": self.target})
         self.finished_err.emit(f"[{rid}] {exc}" or type(exc).__name__, self.token)
 
 

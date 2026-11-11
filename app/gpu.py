@@ -222,14 +222,15 @@ def _render_spec_tail(spec, img: Image.Image) -> Image.Image:
     return out
 
 
-def render_proxy_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
+def render_proxy_kwargs(img: Image.Image, kwargs: dict,
+                        max_side: int | None = None) -> Image.Image:
     """Full proxy chain: CPU grade, GPU dither, CPU brand/stack.
 
     Mirrors pipeline.render_spec stage order exactly (canvas -> drift ->
     pre -> grade -> dither(pixel-aware) -> brand -> stack); only the
     dither engine runs on the GPU. Raises on any GL failure.
     """
-    return _run_chain(img, kwargs, full=False)
+    return _run_chain(img, kwargs, full=False, max_side=max_side)
 
 
 def render_full_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
@@ -241,7 +242,8 @@ def render_full_kwargs(img: Image.Image, kwargs: dict) -> Image.Image:
     return _run_chain(img, kwargs, full=True)
 
 
-def _run_chain(img: Image.Image, kwargs: dict, full: bool) -> Image.Image:
+def _run_chain(img: Image.Image, kwargs: dict, full: bool,
+               max_side: int | None = None) -> Image.Image:
     if not available():
         raise RuntimeError("GPU unavailable")
     if not supports(kwargs):
@@ -256,6 +258,7 @@ def _run_chain(img: Image.Image, kwargs: dict, full: bool) -> Image.Image:
     from app.pipeline import RenderSpec, resolve_palette
     from app.render_params import apply_palette_depth
     from app.services.render_service import (
+        PREVIEW_LONG_SIDE,
         compensate_preview_params,
         downscale_for_preview,
     )
@@ -266,7 +269,7 @@ def _run_chain(img: Image.Image, kwargs: dict, full: bool) -> Image.Image:
         small, f = img, 1.0
         k = dict(kwargs)
     else:
-        small, f = downscale_for_preview(img)
+        small, f = downscale_for_preview(img, max_side=max_side or PREVIEW_LONG_SIDE)
         k = compensate_preview_params(dict(kwargs), f)
     canvas = to_canvas(small, ratio=str(k.get("ratio", "1:1")),
                        mode=str(k.get("crop_mode", "cover")),
@@ -327,10 +330,11 @@ def _run_chain(img: Image.Image, kwargs: dict, full: bool) -> Image.Image:
     return _render_spec_tail(spec, dithered)
 
 
-def render_proxy_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
+def render_proxy_or_cpu(img: Image.Image, preset,
+                        max_side: int | None = None) -> tuple[Image.Image, str]:
     """Proxy preview: GPU when supported and working, else CPU. Never raises."""
     from app.render_params import preset_to_render_kwargs
-    from app.services.render_service import render_preview_small
+    from app.services.render_service import PREVIEW_LONG_SIDE, render_preview_small
 
     try:
         kwargs = preset_to_render_kwargs(preset)
@@ -338,10 +342,11 @@ def render_proxy_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
         kwargs = dict(preset) if isinstance(preset, dict) else {}
     if available() and supports(kwargs):
         try:
-            return render_proxy_kwargs(img, kwargs), "GPU"
+            return render_proxy_kwargs(img, kwargs, max_side=max_side), "GPU"
         except Exception:  # noqa: BLE001
             pass
-    return render_preview_small(img, preset), "CPU"
+    return render_preview_small(img, preset,
+                                max_side=max_side or PREVIEW_LONG_SIDE), "CPU"
 
 
 def render_full_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
@@ -364,20 +369,22 @@ def render_full_or_cpu(img: Image.Image, preset) -> tuple[Image.Image, str]:
     return render_full(img, preset), "CPU"
 
 
-def render_kwargs_or_cpu(img: Image.Image, kwargs: dict) -> tuple[Image.Image, str]:
+def render_kwargs_or_cpu(img: Image.Image, kwargs: dict,
+                         max_side: int | None = None) -> tuple[Image.Image, str]:
     """Dict-kwargs variant for the background worker. Never raises."""
     from app.pipeline import render
     from app.services.render_service import (
+        PREVIEW_LONG_SIDE,
         compensate_preview_params,
         downscale_for_preview,
     )
 
     if available() and supports(kwargs):
         try:
-            return render_proxy_kwargs(img, kwargs), "GPU"
+            return render_proxy_kwargs(img, kwargs, max_side=max_side), "GPU"
         except Exception:  # noqa: BLE001
             pass
-    small, f = downscale_for_preview(img)
+    small, f = downscale_for_preview(img, max_side=max_side or PREVIEW_LONG_SIDE)
     k = compensate_preview_params(dict(kwargs), f)
     return render(small, **k), "CPU"
 

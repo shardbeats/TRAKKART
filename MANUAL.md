@@ -107,8 +107,10 @@ and MP4. Nothing to install, nothing to pick.
 - **Compare:** hold Space or *Hold to compare* to see the ORIGINAL.
 - **Zoom:** Ctrl+= / Ctrl+- / Ctrl+0 (fit) / Ctrl+1 (100%). The canvas
   fits to the available area by default; wheel zooms at the cursor and
-  dragging pans when the image is larger than the view. 100% is 1:1 of the
-  preview you are seeing (View → Viewport → Full for document pixels).
+  dragging pans when the image is larger than the view. 100% renders the
+  full preview on demand (document size when the source has enough detail;
+  async when the preset is heavy), so you see real pixels instead of an
+  upscaled proxy.
 
 ## Main shortcuts
 

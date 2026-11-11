@@ -118,6 +118,16 @@ def test_aligned_orig_cache_invalidates_on_canvas_change(window):
     assert cc._aligned_orig(window) is not first
 
 
+def test_canvas_wipe_drag_drives_slider(window, qt_app):
+    window.src = _flat(64, 64, (255, 0, 0))
+    window.result = _flat(64, 64, (0, 0, 255))
+    window.sld_wipe.setValue(50)
+    window._on_wipe_changed()
+    window.lbl_res.wipeDragged.emit(75)
+    assert window.sld_wipe.value() == 75
+    assert window.lbl_res_title.text().startswith("WIPE 75%")
+
+
 def test_f1_morph_combos_cover_modes(window, qt_app):
     from app.disintegrate import DISINTEGRATE_MODES, EASE_MODES, STAGGER_MODES
     from app.presets import Preset

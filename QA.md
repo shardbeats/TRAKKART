@@ -79,7 +79,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 61/61. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 603 tests (467 fast + 136 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 608 tests (471 fast + 137 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -97,10 +97,15 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
   (no partial bundles).
 - Changing ratio inside the crop editor fills W/H (same rule as CANVAS);
   label, export and metadata agree.
-- Preview canvas: Fit fills the viewport, 100% is 1:1 of the rendered
-  preview, wheel zooms at the cursor, drag pans, double-click fits. A big
-  pixmap never drives the window minimum. Wipe 100% keeps the framed
-  original (no raw-source jump) and safe-area guides stay on the wipe.
+- Preview canvas: Fit fills the viewport, 100% renders full/document pixels
+  on demand (async when heavy), wheel zooms at the cursor, drag pans,
+  double-click fits. A big pixmap never drives the window minimum. Wipe
+  100% keeps the framed original (no raw-source jump) and safe-area guides
+  stay on the wipe.
+- Adaptive proxy: 640px floor, viewport-sized up to 1600px (HiDPI aware);
+  resizing the window schedules one debounced re-render in Live.
+- Wipe is draggable on the canvas (left drag; middle-drag pans); the slider
+  and canvas stay in sync.
 - Crop editor contain/stretch/blur cache their canvas + pixmap (repaints
   are ~1-4ms on a 12MP photo instead of 160-520ms).
 

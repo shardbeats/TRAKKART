@@ -14,10 +14,15 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   up to 3x), 100% is real 1:1 (not 4x), wheel zooms at the cursor, drag pans,
   double-click fits, and a big pixmap can no longer force the window wider
   (minimumSizeHint stays 200x200). The title row shows Fit / %.
-- Wipe compare keeps the framed original at 100% (no raw-source geometry
-  jump), safe-area guides stay visible during wipe, and the aligned original
-  is cached per canvas state (wipe ticks ~28ms on a 12MP source, was
-  75-311ms).
+- 100% now renders full/document pixels on demand (async for heavy presets;
+  document size when the source has enough detail) instead of 1:1 of the
+  proxy. The preview proxy is adaptive (640px floor, viewport-sized up to
+  1600px, HiDPI aware) and resizing schedules one debounced Live re-render.
+- Wipe compare is draggable directly on the canvas (left drag; middle-drag
+  pans), keeping the slider in sync. Wipe 100% keeps the framed original
+  (no raw-source geometry jump), safe-area guides stay visible during wipe,
+  and the aligned original is cached per canvas state (wipe ticks ~28ms on
+  a 12MP source, was 75-311ms).
 - Crop editor contain/stretch/blur cache their canvas + pixmap: repaints are
   ~1-4ms on a 12MP photo instead of 160-520ms.
 - Canvas correctness (bug hunt): `contain` no longer inflates the working
