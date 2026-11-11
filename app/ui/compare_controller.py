@@ -65,6 +65,14 @@ def paint_result(win) -> None:
         from app.ui.qt_image import pil_to_pixmap
 
         win.lbl_res.set_wipe_mode(False)
+        if bool(getattr(win, "_sp404_preview", False)):
+            from app.sp404 import SP_H, SP_W, sp404_frame
+
+            oled = sp404_frame(win.result)
+            pix = pil_to_pixmap(oled.convert("RGB"), max_side=PREVIEW_MAX_SIDE)
+            win.lbl_res.setPixmap(guided_pixmap(win, pix, SP_W, SP_H))
+            win.lbl_res_title.setText(f"SP-404 · {SP_W}x{SP_H} 1-bit (preview)")
+            return
         pix = pil_to_pixmap(win.result, max_side=PREVIEW_MAX_SIDE)
         win.lbl_res.setPixmap(guided_pixmap(win, pix, win.result.width, win.result.height))
         kind = "VIDEO" if win._video_on else "DITHER"
@@ -185,6 +193,26 @@ def redisplay(win) -> None:
         paint_wipe(win)
         return
     paint_result(win)
+
+
+def toggle_sp404_preview(win) -> None:
+    """View menu checkbox: 128x64 1-bit OLED preview (display-only)."""
+    try:
+        on = bool(win.act_sp404.isChecked())
+    except Exception:  # noqa: BLE001
+        on = not bool(getattr(win, "_sp404_preview", False))
+        try:
+            win.act_sp404.setChecked(on)
+        except Exception:  # noqa: BLE001
+            pass
+    win._sp404_preview = on
+    if win.src is None or win.result is None or bool(getattr(win, "_video_on", False)):
+        try:
+            win._schedule_refresh()
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    redisplay(win)
 
 
 def toggle_safe_areas(win) -> None:

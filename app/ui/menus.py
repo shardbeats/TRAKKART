@@ -121,6 +121,10 @@ def build_menus(win) -> None:
                         "", "Chrome guides for 9:16 social canvas (crop editor + still preview)")
     win.act_safe.setCheckable(True)
     win.act_safe.setChecked(True)
+    win.act_sp404 = _act(win, m_view, "SP-404 OLED preview", win.toggle_sp404_preview,
+                         "", "Display-only 128x64 1-bit preview for the Roland SP-404MKII (stills)")
+    win.act_sp404.setCheckable(True)
+    win.act_sp404.setChecked(False)
 
     m_help = bar.addMenu("Help")
     _act(win, m_help, "Quick tour...", lambda: win.show_tutorial(manual=True),

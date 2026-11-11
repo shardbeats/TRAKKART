@@ -12,6 +12,10 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Export dialog gains an "SP-404MKII pack" checkbox: writes
   `{base}_sp404/` (startup + slideshow BMPs from the still + animation
   frames when built) alongside the normal bundle.
+- Live OLED workflow: View > "SP-404 OLED preview" (display-only 128x64
+  1-bit still preview, threshold = DITHER slider) + "SP-404 128x64"
+  one-click canvas button in IMAGE. What you see is `sp404_frame` of the
+  result — byte-identical to what the pack writes.
 ### Fixed
 - Morph travel no longer tears the image into Morton Z-order blocks:
   new `Match` control (`smooth` default = organic pour, `hilbert` =

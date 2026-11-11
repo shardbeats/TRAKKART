@@ -80,6 +80,33 @@ def test_sp404_pack_single_image_and_errors():
     assert screen_saver_name(16) == "screen_saver_16.bmp"
 
 
+def test_sp404_oled_preview_toggle(window, qt_app):
+    from app.ui import compare_controller as _cc
+
+    window.src = _art(200, 100)
+    window.result = _art(200, 100)
+    assert bool(getattr(window, "_sp404_preview", False)) is False
+    window.act_sp404.setChecked(True)
+    window.toggle_sp404_preview()
+    assert window._sp404_preview is True
+    _cc.paint_result(window)
+    pm = window.lbl_res.pixmap()
+    assert pm is not None and pm.width() == 128 and pm.height() == 64
+    assert "SP-404" in window.lbl_res_title.text()
+    window.act_sp404.setChecked(False)
+    window.toggle_sp404_preview()
+    assert window._sp404_preview is False
+    _cc.paint_result(window)
+    assert "SP-404" not in window.lbl_res_title.text()
+
+
+def test_sp404_canvas_button(window, qt_app):
+    window.btn_sp404_canvas.click()
+    assert int(window.spn_canvas_w.value()) == 128
+    assert int(window.spn_canvas_h.value()) == 64
+    assert str(window.cmb_ratio.currentText()) == "Custom"
+
+
 def test_sp404_pack_deterministic():
     import tempfile
 

@@ -104,6 +104,8 @@ class MainWindow(QMainWindow):
         self._comparing: bool = False
         # -- safe areas 9:16 (R12, display-only chrome guides) --
         self._show_safe: bool = True
+        # -- SP-404 OLED preview (display-only 128x64 1-bit, stills) --
+        self._sp404_preview: bool = False
         # -- video mode: full canvas preview, 1200px default --
         self._video_on: bool = False
         self._video_frames: list = []
@@ -632,6 +634,11 @@ class MainWindow(QMainWindow):
         from app.ui import compare_controller as _cc
 
         _cc.toggle_safe_areas(self)
+
+    def toggle_sp404_preview(self) -> None:
+        from app.ui import compare_controller as _cc
+
+        _cc.toggle_sp404_preview(self)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
         try:

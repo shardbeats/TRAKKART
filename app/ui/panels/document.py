@@ -156,6 +156,21 @@ def _on_adjust_dice(win) -> None:
     _ca.randomize_adjusts(win)
 
 
+def _apply_sp404_canvas(win) -> None:
+    """One click to the SP-404MKII OLED canvas (Custom 128x64).
+
+    Setting the spins fires the normal W/H path (flips Ratio to Custom
+    + refresh), so this stays in sync with typed edits by construction.
+    """
+    from app.sp404 import SP_H, SP_W
+
+    try:
+        win.spn_canvas_w.setValue(int(SP_W))
+        win.spn_canvas_h.setValue(int(SP_H))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     """Canvas editor-style: ratio fills W/H; editing W/H jumps to Custom."""
     from app.canvas import MAX_DIM, MIN_DIM, MODE_TIPS, canvas_ratios
@@ -205,6 +220,10 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.lbl_docdims.setAlignment(_Qt2.AlignRight | _Qt2.AlignVCenter)
     doc_row.addWidget(win.lbl_docdims)
     g.addLayout(doc_row)
+    win.btn_sp404_canvas = QPushButton("SP-404 128×64")
+    win.btn_sp404_canvas.setToolTip("Custom canvas at the Roland SP-404MKII OLED size (128×64): frame exactly what the device shows")
+    win.btn_sp404_canvas.clicked.connect(lambda: _apply_sp404_canvas(win))
+    g.addWidget(win.btn_sp404_canvas)
     hlab(g, "Crop (visual editor):")
     crop_row = QHBoxLayout()
     win.btn_crop = QPushButton("Adjust crop...")
