@@ -8,7 +8,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Installer installs the same one-dir build; output moved to `dist-installer/`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
-## Unreleased
+## [1.4.0] - 2026-11-11
+- User-facing README: what it is, 4 real app captures, requirements,
+  download/install, SmartScreen note, MANUAL + license links. The former
+  developer reference moved intact to `docs/DEVELOPMENT.md`; captures are
+  reproducible via `tools/capture_readme_shots.py`.
 - Repo hygiene: redacted the dev profile/checkout paths from
   `docs/FLAKY_test_no_thread_storm.md` and `CHANGELOG.md`; the no-leak
   gate now scans `docs/` + top-level markdown for Windows user-profile
