@@ -159,7 +159,7 @@ def travel_positions(src: np.ndarray, dst: np.ndarray, h: int, w: int,
             md = "wind"
         off = _field_offset(s0, h, w, md, wind, amt, int(seed), qi,
                             max(1, int(pixel_size or 1)))
-        base = base + off * (ce * (1.0 - 0.5 * tv))
+        base = base + off * (ce * (1.0 - 0.9 * tv))
     out = base
     out[:, 0] = np.clip(out[:, 0], 0, h - 1)
     out[:, 1] = np.clip(out[:, 1], 0, w - 1)
