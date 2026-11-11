@@ -257,6 +257,8 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_dotsize", "int", ("range", 1, 4)),
     _Field("dissolve_travel", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_path", "str", ("oneof", ("pour", "arc", "swirl", "braid"))),
+    _Field("dissolve_match", "str", ("oneof", ("morton", "smooth"))),
+    _Field("dissolve_dot_shape", "str", ("oneof", ("square", "round"))),
     _Field("dissolve_tint", "float", ("range", 0.0, 1.0)),
     _Field("dissolve_trail", "int", ("range", 0, 8)),
     _Field("dissolve_shade", "bool"),
@@ -381,6 +383,8 @@ class Preset:
     dissolve_dotsize: int = 1  # max dot swell 1-4px with the envelope (1 = legacy 1px)
     dissolve_travel: float = 1.0  # F3 destination matching 0-1 (1 = pour, 0 = legacy cloud-reform)
     dissolve_path: str = "pour"  # F3 travel flourish: pour | arc | swirl | braid
+    dissolve_match: str = "smooth"  # F3 pairing: smooth (organic) | morton (legacy blocks)
+    dissolve_dot_shape: str = "square"  # F2 dot raster: square (legacy) | round
     dissolve_tint: float = 0.0  # F4 source-color dots 0-1 (0 = legacy BW)
     dissolve_trail: int = 0  # F5 ghost-dot trail frames 0-8 (0 = legacy)
     dissolve_shade: bool = False  # F6 Heckel dot-size by darkness (off = uniform)
@@ -526,6 +530,8 @@ class Preset:
             "dotsize": int(getattr(self, "dissolve_dotsize", 1) or 1),
             "travel": float(getattr(self, "dissolve_travel", 1.0) or 0.0),
             "path": str(getattr(self, "dissolve_path", "pour") or "pour"),
+            "match": str(getattr(self, "dissolve_match", "smooth") or "smooth"),
+            "dot_shape": str(getattr(self, "dissolve_dot_shape", "square") or "square"),
             "tint": float(getattr(self, "dissolve_tint", 0.0) or 0.0),
             "trail": int(getattr(self, "dissolve_trail", 0) or 0),
             "shade": bool(getattr(self, "dissolve_shade", False)),
@@ -726,6 +732,8 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_dotsize": _get(dissolve, "dotsize", 1),
         "dissolve_travel": _get(dissolve, "travel", 1.0),
         "dissolve_path": str(_get(dissolve, "path", "pour") or "pour"),
+        "dissolve_match": str(_get(dissolve, "match", "smooth") or "smooth"),
+        "dissolve_dot_shape": str(_get(dissolve, "dot_shape", "square") or "square"),
         "dissolve_tint": _get(dissolve, "tint", 0.0),
         "dissolve_trail": _get(dissolve, "trail", 0),
         "dissolve_shade": bool(_get(dissolve, "shade", False)),

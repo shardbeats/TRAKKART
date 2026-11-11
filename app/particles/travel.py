@@ -35,10 +35,11 @@ _MATCH_CACHE_MAX = 8
 
 
 def _match_cache_key(a: np.ndarray, b: np.ndarray, h: int, w: int,
-                     seed: int) -> tuple:
+                     seed: int, match: str = "morton") -> tuple:
     ha = hashlib.sha1(np.ascontiguousarray(a).tobytes()).hexdigest()
     hb = hashlib.sha1(np.ascontiguousarray(b).tobytes()).hexdigest()
-    return (ha, hb, int(h), int(w), int(seed), int(len(a)), int(len(b)))
+    return (ha, hb, int(h), int(w), int(seed), int(len(a)), int(len(b)),
+            str(match))
 
 
 def _smootherstep(t: np.ndarray) -> np.ndarray:
@@ -48,23 +49,29 @@ def _smootherstep(t: np.ndarray) -> np.ndarray:
 
 
 def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
-                 seed: int = 0xD15C) -> tuple[np.ndarray, np.ndarray]:
-    """Seeded spatial-sort 1:1 destination assignment A -> B (F3 pour).
+                 seed: int = 0xD15C, match: str = "morton") -> tuple[np.ndarray, np.ndarray]:
+    """Seeded 1:1 destination assignment A -> B (F3 pour).
 
     Returns (src, dst) float32 (y,x) of equal length: the smaller set is
-    padded by seeded resampling, then both sets are ordered by Morton
-    (Z-order) keys with a seeded tiebreak and paired in order. O(n log n)
-    and fully vectorized. Any bijection keeps the leg joints byte-exact;
-    the pairing only shapes the mid-flight pour. Deterministic per seed.
-    Results are cached per (contents, h, w, seed) so repeated
-    preview/export rebuilds pay the match once.
+    padded by seeded resampling, then both sets are ordered and paired.
+    `match` selects the ordering: "morton" pairs Z-order curves (legacy,
+    tears in spatial blocks mid-flight); "smooth" pairs by jittered
+    locality order (organic pour, no block tear). Any bijection keeps
+    the leg joints byte-exact; the pairing only shapes the mid-flight
+    pour. Deterministic per seed. Results are cached per
+    (contents, h, w, seed, match) so repeated preview/export rebuilds
+    pay the match once.
     """
+    from app.particles.modes import MATCH_MODES
+
+    m = str(match or "morton")
+    m = m if m in MATCH_MODES else "morton"
     a = np.asarray(ca, dtype=np.float32).reshape(-1, 2)
     b = np.asarray(cb, dtype=np.float32).reshape(-1, 2)
     na, nb = int(len(a)), int(len(b))
     if na == 0 or nb == 0:
         return a.copy(), b.copy()
-    key = _match_cache_key(a, b, h, w, seed)
+    key = _match_cache_key(a, b, h, w, seed, m)
     hit = _MATCH_CACHE.get(key)
     if hit is not None:
         _MATCH_CACHE.move_to_end(key)
@@ -75,12 +82,24 @@ def match_travel(ca: np.ndarray, cb: np.ndarray, h: int, w: int,
     elif nb < na:
         b = np.concatenate([b, b[rng.integers(0, nb, na - nb)]])
     n = int(len(a))
-    ka = _morton_keys(a)
-    kb = _morton_keys(b)
-    ja = rng.random(n)
-    jb = rng.random(n)
-    oa = np.lexsort((ja, ka))
-    ob = np.lexsort((jb, kb))
+    if m == "smooth":
+        # Jittered locality order: mostly-nearby pairing with soft
+        # seeded noise, so early motion drifts locally instead of
+        # tearing along Morton block boundaries.
+        span = float(max(int(h), int(w)))
+        ja = rng.normal(0.0, span / 6.0, n)
+        jb = rng.normal(0.0, span / 6.0, n)
+        ka = (a[:, 0] * float(w) + a[:, 1] + ja).astype(np.float64)
+        kb = (b[:, 0] * float(w) + b[:, 1] + jb).astype(np.float64)
+        oa = np.argsort(ka, kind="stable")
+        ob = np.argsort(kb, kind="stable")
+    else:
+        ka = _morton_keys(a)
+        kb = _morton_keys(b)
+        ja = rng.random(n)
+        jb = rng.random(n)
+        oa = np.lexsort((ja, ka))
+        ob = np.lexsort((jb, kb))
     src = np.ascontiguousarray(a[oa], dtype=np.float32)
     dst = np.ascontiguousarray(b[ob], dtype=np.float32)
     _MATCH_CACHE[key] = (src, dst)

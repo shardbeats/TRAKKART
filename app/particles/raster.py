@@ -70,8 +70,10 @@ def ghost_entries(history, length: int, env: float, color_mode: bool) -> list:
 
     `history` holds (pos float32, base-cols-or-None, sizes-or-None) of
     past frames, newest last. Strength = decay(age) x loop envelope,
-    so joints (env 0) render ghost-free = byte-exact stills. BW ghosts
-    paint flat gray; color ghosts fade base hues toward white.
+    normalized by the trail length so long trails stay subtle echoes
+    instead of accumulating into the source photo; joints (env 0)
+    render ghost-free = byte-exact stills. BW ghosts paint flat gray;
+    color ghosts fade base hues toward white.
     """
     out: list = []
     n = max(0, int(length or 0))
@@ -80,8 +82,9 @@ def ghost_entries(history, length: int, env: float, color_mode: bool) -> list:
         return out
     items = list(history)[-n:]
     total = len(items)
+    share = 1.0 + (max(0, total - 1) / 2.0)
     for idx, (p, base, s) in enumerate(items):
-        st = trail_decay(total - idx, n) * e
+        st = trail_decay(total - idx, n) * e / share
         if st <= 0.0:
             continue
         if color_mode and base is not None:
@@ -99,12 +102,28 @@ def ghost_entries(history, length: int, env: float, color_mode: bool) -> list:
     return out
 
 
+def _disc_offsets(k: int) -> list[tuple[int, int]]:
+    """Offsets of the inscribed disc inside a kxk dot block.
+
+    k=2 keeps all 4 px, k=3 drops the corners (plus), k>=4 a real
+    disc. k<=1 is a single pixel either way.
+    """
+    kk = max(1, int(k))
+    if kk <= 2:
+        return [(dy, dx) for dy in range(kk) for dx in range(kk)]
+    r = kk / 2.0 - 0.25
+    c = (kk - 1) / 2.0
+    return [(dy, dx) for dy in range(kk) for dx in range(kk)
+            if (dy - c) ** 2 + (dx - c) ** 2 <= r * r]
+
+
 def _paint_layer(canvas: np.ndarray, ys: np.ndarray, xs: np.ndarray,
-                 paint, sizes=None) -> None:
+                 paint, sizes=None, dot_shape: str = "square") -> None:
     """Paint one dot layer (core or ghost) onto a BW or RGB canvas.
 
     `paint` is a gray int (BW canvas or RGB flat) or an (m,3) uint8
-    array (RGB canvas). `sizes` reuses the kxk block expansion.
+    array (RGB canvas). `sizes` reuses the kxk block expansion (square)
+    or its inscribed disc (round); dotsize 1 is one pixel either way.
     """
     is_color = canvas.ndim == 3
     n = int(len(ys))
@@ -146,14 +165,20 @@ def _paint_layer(canvas: np.ndarray, ys: np.ndarray, xs: np.ndarray,
             else:
                 canvas[yy, xx] = pp if isinstance(pp, int) else 0
             continue
-        oy, ox = np.meshgrid(np.arange(kk), np.arange(kk), indexing="ij")
-        yyy = np.clip((yy[:, None, None] + oy[None]), 0, h - 1).reshape(-1)
-        xxx = np.clip((xx[:, None, None] + ox[None]), 0, w - 1).reshape(-1)
+        if str(dot_shape or "square") == "round":
+            offs = _disc_offsets(kk)
+        else:
+            offs = [(dy, dx) for dy in range(kk) for dx in range(kk)]
+        rep = len(offs)
+        yyy = np.clip((yy[:, None] + np.array([o[0] for o in offs])[None, :]),
+                      0, h - 1).reshape(-1)
+        xxx = np.clip((xx[:, None] + np.array([o[1] for o in offs])[None, :]),
+                      0, w - 1).reshape(-1)
         if is_color:
             if isinstance(pp, int):
                 canvas[yyy, xxx] = (pp, pp, pp)
             else:
-                canvas[yyy, xxx] = np.repeat(pp, kk * kk, axis=0)
+                canvas[yyy, xxx] = np.repeat(pp, rep, axis=0)
         else:
             if isinstance(pp, int):
                 canvas[yyy, xxx] = pp
@@ -162,17 +187,21 @@ def _paint_layer(canvas: np.ndarray, ys: np.ndarray, xs: np.ndarray,
 
 
 def render_points(positions: np.ndarray, h: int, w: int, sizes=None,
-                  colors=None, trail=None) -> Image.Image:
+                  colors=None, trail=None, dot_shape: str = "square") -> Image.Image:
     """Rasterize float (y,x) points to an RGB image (white bg, black dots).
 
     `sizes` (per-dot ints, None = legacy 1px): dots swell as kxk blocks
-    anchored at the dot, clipped. Grouped fills keep it vectorized.
-    `colors` ((n,3) uint8, None = black): per-dot tint; None keeps the
-    legacy BW path byte-identical, all-black equals it pixel for pixel.
-    `trail` (None or list of (tpos, tpaint, tsizes) oldest -> newest):
-    ghost dots painted before the core; `tpaint` is a gray int (BW) or
-    an (m,3) uint8 array (color). Empty trail renders exactly as None.
+    (square) or inscribed discs (round) anchored at the dot, clipped.
+    Grouped fills keep it vectorized. `colors` ((n,3) uint8, None =
+    black): per-dot tint; None keeps the legacy BW path byte-identical,
+    all-black equals it pixel for pixel. `trail` (None or list of
+    (tpos, tpaint, tsizes) oldest -> newest): ghost dots painted before
+    the core; `tpaint` is a gray int (BW) or an (m,3) uint8 array
+    (color). Empty trail renders exactly as None. `dot_shape` square
+    keeps every legacy pixel byte-identical.
     """
+    shape = str(dot_shape or "square")
+    shape = shape if shape in ("square", "round") else "square"
     if colors is None and not trail:
         canvas = np.full((h, w), 255, dtype=np.uint8)
         if len(positions):
@@ -193,10 +222,12 @@ def render_points(positions: np.ndarray, h: int, w: int, sizes=None,
                         if kk <= 1:
                             canvas[yy, xx] = 0
                             continue
-                        for dy in range(kk):
+                        offs = (_disc_offsets(kk) if shape == "round"
+                                else [(dy, dx) for dy in range(kk)
+                                      for dx in range(kk)])
+                        for dy, dx in offs:
                             yyc = np.clip(yy + dy, 0, h - 1)
-                            for dx in range(kk):
-                                canvas[yyc, np.clip(xx + dx, 0, w - 1)] = 0
+                            canvas[yyc, np.clip(xx + dx, 0, w - 1)] = 0
         return Image.fromarray(canvas, mode="L").convert("RGB")
     if colors is None:
         canvas = np.full((h, w), 255, dtype=np.uint8)
@@ -211,15 +242,15 @@ def render_points(positions: np.ndarray, h: int, w: int, sizes=None,
             continue
         _paint_layer(canvas,
                      np.asarray(tpos)[:, 0], np.asarray(tpos)[:, 1],
-                     tpaint, tsizes)
+                     tpaint, tsizes, shape)
     if len(positions):
         _paint_layer(canvas,
                      np.asarray(positions)[:, 0], np.asarray(positions)[:, 1],
-                     core_paint, sizes)
+                     core_paint, sizes, shape)
     if canvas.ndim == 2:
         return Image.fromarray(canvas, mode="L").convert("RGB")
     return Image.fromarray(canvas, mode="RGB")
 
 
 __all__ = ["dot_sizes", "frame_dot_sizes", "trail_decay", "ghost_entries",
-           "_paint_layer", "render_points"]
+           "_paint_layer", "_disc_offsets", "render_points"]

@@ -13,7 +13,8 @@ from PIL import Image
 from app.particles.color import (_darkness_of, morph_ink, sample_colors,
                                  tint_dots, tint_strength)
 from app.particles.fields import ease_env, stagger_delays
-from app.particles.modes import (EASE_MODES, MAX_MORPH_IMAGES, MAX_TRAIL,
+from app.particles.modes import (DOT_SHAPES, EASE_MODES, MATCH_MODES,
+                                 MAX_MORPH_IMAGES, MAX_TRAIL,
                                  STAGGER_MODES, TRAVEL_SPAN)
 from app.particles.raster import (frame_dot_sizes, ghost_entries,
                                   render_points)
@@ -47,6 +48,46 @@ def _refit_coords(coords: np.ndarray, hh: int, ww: int, h: int, w: int) -> np.nd
     return out
 
 
+def _tint_gate(pos, home, h: int, w: int) -> np.ndarray | float:
+    """Per-dot dispersion gate 0.15..1 for tint strength.
+
+    Dots at home keep full tint; fully displaced dots fade toward
+    0.15 so dispersed clouds go abstract instead of repainting the
+    source photo. Joints (pos == home) gate exactly 1.
+    """
+    try:
+        p = np.asarray(pos, dtype=np.float64)
+        q = np.asarray(home, dtype=np.float64)
+        if p.shape != q.shape or len(p) == 0:
+            return 1.0
+        ref = 0.35 * max(1, int(h), int(w))
+        d = np.linalg.norm(p - q, axis=1) / ref
+        return (1.0 - 0.85 * np.clip(d, 0.0, 1.0)).astype(np.float64)
+    except Exception:  # noqa: BLE001
+        return 1.0
+
+
+def _tint_cols(base, tv: float, env: float, pos=None, home=None,
+               h: int = 0, w: int = 0):
+    """Tinted dot colors with dispersion gating (None = legacy BW).
+
+    `base` None or zero strength returns None so the BW rasterizer
+    runs byte-identical. Palette (chroma) inks are handled by the
+    caller at full strength.
+    """
+    if base is None:
+        return None
+    if max(0.0, min(1.0, float(tv or 0.0))) <= 0.0 or env <= 0.0:
+        return None
+    gate = _tint_gate(pos, home, h, w) if pos is not None else 1.0
+    if isinstance(gate, float):
+        return tint_dots(base, tint_strength(tv, env))
+    st = float(tint_strength(tv, env)) * np.asarray(gate, dtype=np.float64)
+    if len(st) != len(np.asarray(base)):
+        return tint_dots(base, tint_strength(tv, env))
+    return tint_dots(base, st)
+
+
 def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   threshold: float = 128.0, pixel_size: int = 1,
                   frames: int = 8, seed: int = 0xD15C,
@@ -58,7 +99,7 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                   stagger: str = "off", ease: str = "sine",
                   dotsize: int = 1, tint: float = 0.0, trail: int = 0,
                   shade: bool = False, adjust=None, palette=None,
-                  palette_depth: int = 0):
+                  palette_depth: int = 0, dot_shape: str = "square"):
     """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
@@ -111,17 +152,12 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                             np.clip(coords[:, 1], 0, w - 1)].astype(np.float64)
     if shade_on and rgb_src is not None and len(coords):
         home_dark = _darkness_of(rgb_src.astype(np.float64), coords, h, w)
+    shape_v = dot_shape if dot_shape in DOT_SHAPES else "square"
     for _ in range(max(0, int(hold_start))):
         yield still.copy()
     for i in range(n):
         progress = float(i) / float(n)
         env = float(ease_env(np.mod(progress, 1.0), ease if ease in EASE_MODES else "sine"))
-        if home_col is None:
-            cols = None
-        elif chroma:
-            cols = home_col  # palette inks at full strength (joints = holds)
-        else:
-            cols = tint_dots(home_col, tint_strength(tv, env))
         ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
         shade_map = home_dark
         if mode == "blocks":
@@ -133,6 +169,12 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
                                     stagger=stagger, ease=ease, dotsize=dotsize,
                                     shade=shade_map)
             sizes = None if sizes is None else np.asarray(sizes)[mask]
+            if home_col is None:
+                cols = None
+            elif chroma:
+                cols = home_col  # palette inks at full strength (joints = holds)
+            else:
+                cols = tint_dots(home_col, tint_strength(tv, env))
             cols = None if cols is None else np.asarray(cols)[mask]
             ghost_base = None if home_col is None else np.asarray(home_col)[mask]
         else:
@@ -142,12 +184,18 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
             sizes = frame_dot_sizes(coords, h, w, progress=progress, loops=loops,
                                     stagger=stagger, ease=ease, dotsize=dotsize,
                                     shade=shade_map)
+            if home_col is None:
+                cols = None
+            elif chroma:
+                cols = home_col  # palette inks at full strength (joints = holds)
+            else:
+                cols = _tint_cols(home_col, tv, env, pos, coords, h, w)
             ghost_base = home_col
         if trail_on:
             hist.append((np.asarray(pos, dtype=np.float32),
                          None if ghost_base is None else np.asarray(ghost_base),
                          None if sizes is None else np.asarray(sizes)))
-        yield render_points(pos, h, w, sizes, cols, ghosts)
+        yield render_points(pos, h, w, sizes, cols, ghosts, shape_v)
     for _ in range(max(0, int(hold_end))):
         yield still.copy()
 
@@ -163,7 +211,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     stagger: str = "off", ease: str = "sine",
                     dotsize: int = 1, tint: float = 0.0, trail: int = 0,
                     shade: bool = False, adjust=None, palette=None,
-                    palette_depth: int = 0) -> list[Image.Image]:
+                    palette_depth: int = 0, dot_shape: str = "square") -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
@@ -192,7 +240,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                 hold_end=hold_end, stagger=stagger, ease=ease,
                 dotsize=dotsize, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,
-                palette_depth=palette_depth))
+                palette_depth=palette_depth, dot_shape=dot_shape))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -208,7 +256,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                  trail: int = 0, shade: bool = False, adjust=None,
                  palette=None, palette_depth: int = 0,
-                 path: str = "pour") -> list[Image.Image]:
+                 path: str = "pour", match: str = "morton",
+                 dot_shape: str = "square") -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -225,7 +274,8 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  stagger=stagger, ease=ease, dotsize=dotsize,
                                  travel=travel, tint=tint, trail=trail,
                                  shade=shade, adjust=adjust, palette=palette,
-                                 palette_depth=palette_depth, path=path)
+                                 palette_depth=palette_depth, path=path,
+                                 match=match, dot_shape=dot_shape)
     return chained
 
 
@@ -243,7 +293,8 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                      trail: int = 0, shade: bool = False, adjust=None,
                      palette=None, palette_depth: int = 0,
-                     path: str = "pour"):
+                     path: str = "pour", match: str = "morton",
+                     dot_shape: str = "square"):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -346,7 +397,9 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         tsrc_dark = tdst_dark = None
         leg_dark_a = leg_dark_b = None
         if travel_on:
-            tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k)
+            match_v = match if match in MATCH_MODES else "morton"
+            tsrc, tdst = match_travel(ca, cb, h, w, seed=int(seed) + k,
+                                      match=match_v)
         st_leg = str(stagger or "off")
         st_leg = st_leg if st_leg in STAGGER_MODES else "off"
         leg_delays = (stagger_delays(tsrc, h, w, st_leg)
@@ -444,7 +497,18 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 cols = None
                 if tsrc_col is not None and tdst_col is not None:
                     mix = (1.0 - sm) * tsrc_col + sm * tdst_col
-                    cols = mix if chroma else tint_dots(mix, tint_strength(tv, env))
+                    if chroma:
+                        cols = mix
+                    else:
+                        gate = np.maximum(_tint_gate(pos, tsrc, h, w),
+                                          _tint_gate(pos, tdst, h, w))
+                        if isinstance(gate, float):
+                            cols = tint_dots(mix, tint_strength(tv, env))
+                        else:
+                            st = (float(tint_strength(tv, env))
+                                  * np.asarray(gate, dtype=np.float64))
+                            cols = (tint_dots(mix, st) if len(st) == len(mix)
+                                    else tint_dots(mix, tint_strength(tv, env)))
                     ghost_base = np.asarray(mix)
             elif q < 0.5:
                 pos = disperse_positions(ca, h, w, progress=q, seed=int(seed) + k,
@@ -458,7 +522,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 elif chroma:
                     cols = leg_col_a
                 else:
-                    cols = tint_dots(leg_col_a, tint_strength(tv, env))
+                    cols = _tint_cols(leg_col_a, tv, env, pos, ca, h, w)
                 ghost_base = leg_col_a
             else:
                 pos = disperse_positions(cb, h, w, progress=q, seed=int(seed) + k + 1,
@@ -472,13 +536,14 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                 elif chroma:
                     cols = leg_col_b
                 else:
-                    cols = tint_dots(leg_col_b, tint_strength(tv, env))
+                    cols = _tint_cols(leg_col_b, tv, env, pos, cb, h, w)
                 ghost_base = leg_col_b
             if trail_on:
                 hist.append((np.asarray(pos, dtype=np.float32),
                              None if ghost_base is None else np.asarray(ghost_base),
                              None if sizes is None else np.asarray(sizes)))
-            yield render_points(pos, h, w, sizes, cols, ghosts)
+            shape_v = dot_shape if dot_shape in DOT_SHAPES else "square"
+            yield render_points(pos, h, w, sizes, cols, ghosts, shape_v)
         if k < legs - 1:
             hj_k = hj_list[k] if k < len(hj_list) else (hj_list[-1] if hj_list else 0)
             for _ in range(hj_k):
@@ -501,7 +566,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                        trail: int = 0, shade: bool = False, adjust=None,
                        palette=None, palette_depth: int = 0,
-                       path: str = "pour") -> list[Image.Image]:
+                       path: str = "pour", match: str = "morton",
+                       dot_shape: str = "square") -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -530,7 +596,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 stagger=stagger, ease=ease, dotsize=dotsize,
                 travel=travel, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,
-                palette_depth=palette_depth, path=path))
+                palette_depth=palette_depth, path=path,
+                match=match, dot_shape=dot_shape))
 
 
 __all__ = ["_fit_cover", "_refit_coords", "iter_dissolve", "dissolve_frames",

@@ -137,25 +137,36 @@ def darkness_map(img: Image.Image, coords: np.ndarray, h: int, w: int) -> np.nda
                         coords, h, w)
 
 
-def tint_strength(tint: float, env: float) -> float:
+def tint_strength(tint: float, env: float, disp: float = 0.0) -> float:
     """Dot tint weight 0..1: preset tint gated by the loop envelope.
 
     Zero at both joints, so tinted clips open and land on the exact BW
     still (all joint byte-exactness invariants hold with tint on).
+    `disp` (mean normalized displacement 0..1) fades the tint as dots
+    leave home: fully dispersed clouds go abstract instead of
+    repainting the source photo mid-flight.
     """
-    return max(0.0, min(1.0, float(tint or 0.0))) * max(0.0, min(1.0, float(env)))
+    gate = 1.0 - 0.85 * max(0.0, min(1.0, float(disp or 0.0)))
+    return (max(0.0, min(1.0, float(tint or 0.0)))
+            * max(0.0, min(1.0, float(env))) * gate)
 
 
-def tint_dots(base_col: np.ndarray, strength: float) -> np.ndarray | None:
+def tint_dots(base_col: np.ndarray, strength) -> np.ndarray | None:
     """(n,3) uint8 dot colors, or None when strength is 0 (legacy BW path).
 
     strength 0 returns None so the BW rasterizer runs byte-identical;
-    otherwise dots are base_col * strength over black.
+    otherwise dots are base_col * strength over black. `strength` may
+    be a scalar or a per-dot (n,) array (dispersion-gated tint).
     """
-    if not (float(strength) > 0.0):
+    s = np.asarray(strength, dtype=np.float64)
+    if not bool((s > 0.0).any()):
         return None
-    cols = (np.asarray(base_col, dtype=np.float64)
-            * max(0.0, min(1.0, float(strength))))
+    s = np.clip(s, 0.0, 1.0)
+    cols = np.asarray(base_col, dtype=np.float64)
+    if s.ndim == 0:
+        cols = cols * float(s)
+    else:
+        cols = cols * s.reshape(-1, 1)
     return np.clip(np.round(cols), 0, 255).astype(np.uint8)
 
 

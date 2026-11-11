@@ -31,6 +31,15 @@ def point_cap(side: int) -> int:
     return int(min(MAX_POINTS_HARD, max(MAX_POINTS, MAX_POINTS * scale)))
 
 
+#: Travel pairing for morph legs (F3): morton = legacy Z-order 1:1
+#: (tears in spatial blocks mid-flight); smooth = jittered locality
+#: pairing (organic pour, no block tear). Joints stay byte-exact either
+#: way (any bijection lands assembled).
+MATCH_MODES = ("morton", "smooth")
+#: Rasterized dot shape for dotsize >= 2 (F2): square = legacy kxk
+#: blocks; round = inscribed disc. Dotsize 1 is one pixel either way,
+#: so joints stay byte-exact under both shapes.
+DOT_SHAPES = ("square", "round")
 #: Travel path style for morph legs (F3): pour = straight lerp,
 #: arc/swirl/braid add a mid-flight flourish that is exactly zero at
 #: both joints (joints stay byte-exact).
@@ -46,6 +55,6 @@ MAX_TRAIL = 8
 MAX_MORPH_IMAGES = 6
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
-           "MORPH_PATHS",
+           "MORPH_PATHS", "MATCH_MODES", "DOT_SHAPES",
            "MAX_POINTS", "POINT_REF_SIDE", "MAX_POINTS_HARD", "point_cap",
            "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES"]

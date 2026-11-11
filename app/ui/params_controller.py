@@ -428,6 +428,8 @@ BINDINGS: tuple = (
     ("dissolve_dotsize",) + _slider("sld_dissolve_dotsize", 1.0),
     ("dissolve_travel",) + _slider("sld_dissolve_travel", 100.0),
     ("dissolve_path",) + _combo("cmb_dissolve_path"),
+    ("dissolve_match",) + _combo("cmb_dissolve_match"),
+    ("dissolve_dot_shape",) + _combo("cmb_dissolve_dot_shape"),
     ("dissolve_tint",) + _slider("sld_dissolve_tint", 100.0),
     ("dissolve_trail",) + _slider("sld_dissolve_trail", 1.0),
     ("dissolve_shade", _shade_get, _shade_set),

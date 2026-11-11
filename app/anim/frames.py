@@ -113,6 +113,26 @@ def _dissolve_trail(preset) -> int:
     return max(0, min(MAX_TRAIL, int(getattr(preset, "dissolve_trail", 0) or 0)))
 
 
+def _dissolve_match(preset) -> str:
+    """Travel pairing (F3 match, default smooth = organic pour)."""
+    if preset is None:
+        return "morton"
+    from app.disintegrate import MATCH_MODES
+
+    m = str(getattr(preset, "dissolve_match", "smooth") or "smooth")
+    return m if m in MATCH_MODES else "smooth"
+
+
+def _dissolve_dot_shape(preset) -> str:
+    """Dot raster shape (F2, default square = legacy kxk blocks)."""
+    if preset is None:
+        return "square"
+    from app.disintegrate import DOT_SHAPES
+
+    s = str(getattr(preset, "dissolve_dot_shape", "square") or "square")
+    return s if s in DOT_SHAPES else "square"
+
+
 def _dissolve_shade(preset) -> bool:
     """Heckel dot-size by darkness (F6, default off = uniform swell)."""
     if preset is None:
@@ -430,7 +450,8 @@ def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                              shade=_dissolve_shade(preset),
                              adjust=_dissolve_adjust(preset),
                              palette=_dissolve_paint(preset),
-                             palette_depth=int(getattr(preset, "palette_depth", 0) or 0))
+                             palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
+                             dot_shape=_dissolve_dot_shape(preset))
 
 
 def _morph_loop(preset, loop: bool | None) -> bool:
@@ -492,7 +513,9 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                                 adjust=_dissolve_adjust(preset),
                                 palette=_dissolve_paint(preset),
                                 palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
-                                path=_dissolve_path(preset))
+                                path=_dissolve_path(preset),
+                                match=_dissolve_match(preset),
+                                dot_shape=_dissolve_dot_shape(preset))
 
 
 def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -547,7 +570,8 @@ def gif_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
                           shade=_dissolve_shade(preset),
                           adjust=_dissolve_adjust(preset),
                           palette=_dissolve_paint(preset),
-                          palette_depth=int(getattr(preset, "palette_depth", 0) or 0))
+                          palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
+                          dot_shape=_dissolve_dot_shape(preset))
     if pp:
         out = _pingpong(out)
     return out
@@ -618,7 +642,9 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                              adjust=_dissolve_adjust(preset),
                              palette=_dissolve_paint(preset),
                              palette_depth=int(getattr(preset, "palette_depth", 0) or 0),
-                             path=_dissolve_path(preset))
+                             path=_dissolve_path(preset),
+                             match=_dissolve_match(preset),
+                             dot_shape=_dissolve_dot_shape(preset))
     if pp and not loop_v:
         # Closed loop already seamless; mirroring it would just double it.
         out = _pingpong(out)
@@ -628,6 +654,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
 __all__ = ["GIF_MODE_INFO", "mode_label", "mode_desc", "gif_frames",
            "_resolve_anim_spec",
            "_dissolve_style", "_dissolve_tint", "_dissolve_path",
+           "_dissolve_match", "_dissolve_dot_shape",
            "_dissolve_trail",
            "_dissolve_shade", "_dissolve_paint", "_dissolve_adjust",
            "_canvas_a", "_split_chain_entries",

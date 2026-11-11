@@ -1310,3 +1310,138 @@ def test_large_canvas_keeps_particle_density():
 
     # All-black source: pure stride subsample, same dots per image area.
     assert density(2400) == density(1200)
+
+
+def test_f3_match_smooth_deterministic_joints_exact():
+    import numpy as np
+
+    from app.disintegrate import MATCH_MODES, match_travel
+
+    assert set(MATCH_MODES) == {"morton", "smooth"}
+    rng = np.random.default_rng(3)
+    ca = (rng.uniform(0, 64, (200, 2))).astype(np.float32)
+    cb = (rng.uniform(0, 64, (150, 2))).astype(np.float32)
+    s1, d1 = match_travel(ca, cb, 64, 64, seed=7, match="smooth")
+    s2, d2 = match_travel(ca, cb, 64, 64, seed=7, match="smooth")
+    assert len(s1) == len(d1) == 200  # padded to the larger set
+    assert (s1 == s2).all() and (d1 == d2).all()
+    # Bijection: src reorders ca, dst covers cb (padded by resampling).
+    assert sorted(map(tuple, s1)) == sorted(map(tuple, ca))
+    for row in cb:
+        assert any((d1 == row).all(axis=1))
+    sm, _ = match_travel(ca, cb, 64, 64, seed=7, match="morton")
+    # Unknown mode falls back to morton.
+    fb, _ = match_travel(ca, cb, 64, 64, seed=7, match="nope")
+    assert (fb == sm).all()
+
+
+def test_f3_match_smooth_no_block_tear():
+    import numpy as np
+
+    from app.disintegrate import match_travel
+
+    # Grid sources: morton pairs jump across Z-blocks, smooth stays local.
+    g = np.stack(np.meshgrid(np.arange(0, 64, 2), np.arange(0, 64, 2),
+                             indexing="ij"), axis=-1).reshape(-1, 2)
+    g = g.astype(np.float32)
+    sm, _ = match_travel(g, g + 0.5, 64, 64, seed=7, match="morton")
+    ss, _ = match_travel(g, g + 0.5, 64, 64, seed=7, match="smooth")
+    jump_m = float(np.linalg.norm(sm - g[:len(sm)], axis=1).mean())
+    jump_s = float(np.linalg.norm(ss - g[:len(ss)], axis=1).mean())
+    assert jump_s < jump_m  # smooth reorders less violently on grids
+
+
+def test_f2_dot_shape_round_joints_and_discs():
+    import numpy as np
+
+    from app.disintegrate import render_points
+
+    pos = np.array([[10.0, 10.0], [20.0, 20.0]])
+    sq = render_points(pos, 32, 32, np.array([3, 3]), None, None, "square")
+    rd = render_points(pos, 32, 32, np.array([3, 3]), None, None, "round")
+    black_sq = int((np.asarray(sq)[:, :, 0] == 0).sum())
+    black_rd = int((np.asarray(rd)[:, :, 0] == 0).sum())
+    assert black_sq == 18  # 2 dots x 3x3 blocks
+    assert black_rd == 10  # 2 dots x plus-shaped discs
+    assert black_rd < black_sq
+    # Dotsize 1 identical under both shapes (joints stay byte-exact).
+    a = render_points(pos, 32, 32, np.array([1, 1]), None, None, "square")
+    b = render_points(pos, 32, 32, np.array([1, 1]), None, None, "round")
+    assert a.tobytes() == b.tobytes()
+    # Unknown shape falls back to square.
+    c = render_points(pos, 32, 32, np.array([3, 3]), None, None, "nope")
+    assert c.tobytes() == sq.tobytes()
+
+
+def test_f4_tint_dispersion_gate():
+    import pytest
+
+    from app.disintegrate import tint_strength
+
+    assert tint_strength(1.0, 0.5) == 0.5  # legacy scalar path intact
+    assert tint_strength(1.0, 0.5, 0.0) == 0.5
+    assert tint_strength(1.0, 1.0, 1.0) == pytest.approx(0.15)  # dispersed fades
+    mid = tint_strength(1.0, 1.0, 0.5)
+    assert 0.15 < mid < 1.0
+
+
+def test_f4_tint_morph_dispersed_stays_abstract():
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames
+
+    a = _solid((200, 40, 40))
+    b = _solid((40, 180, 60))
+    kw = dict(frames=8, max_side=64, seed=7, travel=1.0, loop=False)
+    t = morph_chain_frames([a, b], tint=1.0, **kw)
+    assert t[0].tobytes() != t[4].tobytes()
+    assert _has_color(t[4])
+    # Dispersed mid-flight must not repaint the raw source: mean color
+    # saturation stays far below the still's.
+    arr = np.asarray(t[4].convert("RGB")).astype(float)
+    sat = float(np.abs(arr - arr.mean(axis=2, keepdims=True)).mean())
+    assert sat < 60.0
+
+
+def test_f5_trail_normalized_stays_subtle():
+    from collections import deque
+
+    import numpy as np
+
+    from app.disintegrate import dissolve_frames, ghost_entries
+
+    a = _solid((200, 50, 90))
+    long = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=8)
+    plain = dissolve_frames(a, frames=8, max_side=64, seed=7, trail=0)
+    assert long[0].tobytes() == plain[0].tobytes()  # joints ghost-free
+    assert long[3].tobytes() != plain[3].tobytes()  # still a visible trail
+    assert _gray_ghost_pixels(long[3]) > 0
+    # Normalized: an 8-long trail paints only whispers (>= 200 gray).
+    p = np.array([[5.0, 5.0]])
+    h8 = deque([(p + float(k), None, None) for k in range(8)], maxlen=8)
+    paints8 = [paint for _, paint, _ in ghost_entries(h8, 8, 1.0, False)]
+    assert len(paints8) == 8 and all(p >= 200 for p in paints8)
+    h2 = deque([(p, None, None), (p + 1.0, None, None)], maxlen=8)
+    paints2 = [paint for _, paint, _ in ghost_entries(h2, 2, 1.0, False)]
+    assert min(paints2) < 200  # short trails still read clearly
+
+
+def test_preset_match_and_dot_shape_roundtrip():
+    import tempfile
+    from pathlib import Path
+
+    import pytest
+
+    from app.presets import Preset, load_preset, save_preset
+
+    p = Preset(name="M9", dissolve_match="smooth", dissolve_dot_shape="round")
+    p.validate()
+    with tempfile.TemporaryDirectory() as d:
+        back = load_preset(save_preset(p, Path(d)).stem, Path(d))
+        assert (back.dissolve_match, back.dissolve_dot_shape) == ("smooth", "round")
+    old = Preset.from_dict({"name": "old", "method": "bayer4"})
+    assert (old.dissolve_match, old.dissolve_dot_shape) == ("smooth", "square")
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_match="nope").validate()
+    with pytest.raises(ValueError):
+        Preset(name="x", dissolve_dot_shape="nope").validate()

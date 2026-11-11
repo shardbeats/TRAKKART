@@ -2,6 +2,22 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased]
+### Fixed
+- Morph travel no longer tears the image into Morton Z-order blocks:
+  new `Match` control (`smooth` default = organic pour, `morton` = legacy).
+- Long trails no longer repaint the source photo: ghost strength is now
+  normalized by trail length (joints stay ghost-free, short trails read
+  as before).
+- Full tint no longer repaints the source mid-flight: dot color now fades
+  with displacement (dots at home keep full color, dispersed clouds go
+  abstract; joints stay black = byte-exact stills).
+### Added
+- `Dots shape` control: `square` (legacy kxk blocks) or `round`
+  (inscribed discs, needs Dots > 1; Dots = 1 identical either way).
+- New preset fields `dissolve_match` (default `smooth`) and
+  `dissolve_dot_shape` (default `square`); old presets load unchanged.
+
 ## [1.3.1] - 2026-11-10
 ### Changed
 - Portable is now a one-dir ZIP (`TRAKKART-portable-<version>.zip`): instant startup, no per-launch extraction to `%TMP%`.
