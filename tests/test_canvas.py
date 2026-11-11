@@ -55,7 +55,29 @@ def test_contain_pads_without_cropping():
     out = fit_contain(_img(), "1:1")
     assert out.size == (400, 400)
     out = to_canvas(_img(), ratio="9:16", mode="contain")
-    assert out.size == (400, 711)
+    # Long side preserved: no longer pads a landscape photo up to 400x711.
+    assert out.size == (225, 400)
+    assert out.getpixel((112, 5)) == (0, 0, 0)  # top bar
+    assert out.getpixel((112, 200)) == (80, 40, 120)  # source, centered
+
+
+def test_contain_caps_working_canvas_to_document():
+    # A landscape source into 9:16 used to become 3000x5333 (bars included).
+    src = _img(3000, 2000)
+    out = to_canvas(src, ratio="9:16", mode="contain", canvas_w=1688, canvas_h=3000)
+    assert out.size == (1688, 3000)  # document long side, not source inflation
+    # Extreme custom canvas: keep the doc, never a 240000x1920 sheet.
+    out = to_canvas(_img(1080, 1920), ratio="custom", mode="contain",
+                    canvas_w=8000, canvas_h=64)
+    assert out.size == (8000, 64)
+
+
+def test_cover_never_returns_zero_dimensions():
+    # 1px sources + extreme custom ratio used to yield (1, 0) / (0, 1).
+    out = to_canvas(_img(1, 1), ratio="custom", canvas_w=8000, canvas_h=64)
+    assert out.width >= 1 and out.height >= 1
+    out = to_canvas(_img(32, 32), ratio="custom", canvas_w=64, canvas_h=8000)
+    assert out.width >= 1 and out.height >= 1
 
 
 def test_invalid_ratio_and_mode_fallback():

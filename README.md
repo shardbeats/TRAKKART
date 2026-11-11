@@ -77,6 +77,7 @@ app/ui/params_controller.py :: widgets <-> Preset (BINDINGS table + doc/anim rea
 app/ui/params_binding.py :: widget get/set factories
 app/ui/video_controller.py  :: animated preview + Draft/HD/Full proxy player + duration label
 app/ui/preview_controller.py:: still preview (sync render or background thread)
+app/ui/preview_canvas.py :: fit/zoom/pan canvas (wheel, drag, 100%, no layout clipping)
 app/ui/compare_controller.py:: hold-to-compare (Space/button shows ORIGINAL) + wipe + safe toggle
 app/ui/safeareas.py        :: R12 chrome guides 9:16 (display-only paint)
 app/ui/watch_flow.py       :: watch folder (debounce + settle + fixed preset, no modals)

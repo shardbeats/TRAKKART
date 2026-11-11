@@ -47,3 +47,20 @@ def test_export_bundle_custom_free_dimensions(tmp_path: Path):
         assert im.size == (1920, 800)
     with Image.open(paths["small"]) as im:
         assert im.size == (960, 400)
+
+
+def test_empty_canvas_export_writes_nothing(tmp_path: Path):
+    import pytest
+    from PIL import Image
+
+    from app.exporter import ExportOptions, ExportSelection, export_with_options
+
+    blank = Image.new("RGB", (1, 0))
+    opts = ExportOptions(
+        base="empty",
+        selection=ExportSelection(image=True, thumb_1080p=True,
+                                  vector=False, anim=False, metadata=False),
+    )
+    with pytest.raises(ValueError, match="empty render"):
+        export_with_options(blank, tmp_path, opts)
+    assert not list(tmp_path.iterdir())  # no partial main file left behind

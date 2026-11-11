@@ -17,12 +17,19 @@ def test_window_api_sweep(window, qt_app, monkeypatch, tmp_path):
     window._op_image(lambda i: i, "noop")  # no src: silent
     window.undo_image()  # pops history or reports empty: no crash either way
     assert window.lbl_status.text() != ""
+    before = window.zoom
     window._zoom_step(1.25)
-    assert abs(window.zoom - 1.25) < 1e-9
+    assert window.zoom > before  # manual zoom multiplies the current view
     window._zoom_fit()
-    assert window.zoom == 1.0
+    assert window.lbl_res.is_fit() is True
+    assert window.lbl_res.zoom_text() == "Fit"
+    assert window.lbl_zoom.text() == "Fit"
     window._zoom_full()
-    assert window.zoom == 4.0
+    assert window.zoom == 1.0  # real 100%, not 4x
+    assert window.lbl_res.zoom_text() == "100%"
+    assert window.lbl_zoom.text() == "100%"
+    window._zoom_step(100)
+    assert window.zoom == 8.0  # clamped at the canvas max
     window.copy_result()  # no result: silent
     window.paste_image()  # empty/invalid clipboard: status, no crash
     assert window.lbl_status.text() != ""

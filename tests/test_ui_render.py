@@ -279,14 +279,17 @@ def test_randomize_runs(window):
 
 
 def test_zoom_controls(window):
+    before = window.zoom
     window._zoom_step(1.25)
-    assert window.zoom == 1.25
+    assert window.zoom > before
     window._zoom_fit()
-    assert window.zoom == 1.0
+    assert window.lbl_res.is_fit() is True
+    assert window.lbl_res.zoom_text() == "Fit"
     window._zoom_full()
-    assert window.zoom == 4.0
+    assert window.zoom == 1.0  # 100% is 1:1, not 4x
+    assert window.lbl_res.zoom_text() == "100%"
     window._zoom_step(100)
-    assert window.zoom == 4.0
+    assert window.zoom == 8.0
 
 
 def test_copy_and_paste(window, qt_app):

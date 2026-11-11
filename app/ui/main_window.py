@@ -43,7 +43,6 @@ class MainWindow(QMainWindow):
         self.src: Image.Image | None = None
         self.src_name: str = "trakkart_cover"
         self.result: Image.Image | None = None
-        self.zoom: float = 1.0
         self.history = ImageHistory()
         self.crop_fx = 50.0
         self.crop_fy = 50.0
@@ -1016,6 +1015,14 @@ class MainWindow(QMainWindow):
     @property
     def lbl_orig_title(self):  # compat: single canvas
         return self.lbl_res_title
+
+    @property
+    def zoom(self) -> float:
+        """Compat: current canvas scale (Fit resolves to its effective scale)."""
+        try:
+            return float(self.lbl_res.effective_scale())
+        except Exception:  # noqa: BLE001
+            return 1.0
 
     def _set_drag_hover(self, on: bool) -> None:
         from app.ui import image_flow as _im

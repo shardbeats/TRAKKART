@@ -446,6 +446,11 @@ def test_crop_editor_programmatic(qt_app):
         assert (dlg.fx, dlg.fy, dlg.zoom) == (50.0, 50.0, 1.0)
         dlg._on_ratio("16:9")
         assert dlg.ratio == "16:9"
+        assert (dlg.doc_w, dlg.doc_h) == (3000, 1688)  # preset fills W/H
+        dlg._on_ratio("9:16")
+        assert (dlg.doc_w, dlg.doc_h) == (1688, 3000)
+        dlg._on_ratio("Custom")
+        assert (dlg.doc_w, dlg.doc_h) == (3000, 3000)  # initial custom dims
         dlg._on_wh()
         assert dlg.doc_w >= 64 and dlg.doc_h >= 64
         dlg._on_mode("contain")
@@ -474,6 +479,12 @@ def test_crop_editor_programmatic(qt_app):
             Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton,
             Qt.KeyboardModifier.NoModifier))
         view.mode = "contain"
+        a = view._layout()["canvas"]
+        b = view._layout()["canvas"]
+        assert a is b  # non-cover canvas cached across repaints
+        view.ratio = "16:9"
+        assert view._layout()["canvas"] is not a
+        view.ratio = "1:1"
 
         def _wheel():
             return QWheelEvent(
@@ -492,5 +503,14 @@ def test_crop_editor_programmatic(qt_app):
             assert bad.ratio == "1:1" and bad.mode == "cover"
         finally:
             bad.close()
+        custom = CropEditorDialog(Image.new("RGB", (64, 48)), ratio="custom",
+                                  canvas_w=1920, canvas_h=800)
+        try:
+            custom._on_ratio("9:16")
+            assert (custom.doc_w, custom.doc_h) == (1080, 1920)
+            custom._on_ratio("Custom")
+            assert (custom.doc_w, custom.doc_h) == (1920, 800)
+        finally:
+            custom.close()
     finally:
         dlg.close()

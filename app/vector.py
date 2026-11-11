@@ -73,6 +73,22 @@ def estimate_cells(canvas_w: int, canvas_h: int, cell: int) -> tuple[int, int]:
     return max(1, canvas_w // cell), max(1, canvas_h // cell)
 
 
+def capped_canvas_dims(canvas_w: int, canvas_h: int,
+                       doc_w: int, doc_h: int) -> tuple[int, int]:
+    """Working dims for the SVG grid: never vectorize past the document.
+
+    Large sources (or contain's padded canvas) used to exceed the cell
+    cap even when the exported document was small. Scale the grid canvas
+    down uniformly to the document (small sources stay untouched).
+    """
+    cw, ch = max(1, int(canvas_w or 1)), max(1, int(canvas_h or 1))
+    dw, dh = max(1, int(doc_w or 1)), max(1, int(doc_h or 1))
+    s = min(1.0, dw / cw, dh / ch)
+    if s >= 1.0:
+        return cw, ch
+    return max(1, round(cw * s)), max(1, round(ch * s))
+
+
 def estimate_bytes(cols: int, rows: int) -> int:
     """Rough weight estimate (~60B per cell without RLE) to warn about huge SVGs."""
     return int(cols) * int(rows) * 60
@@ -80,7 +96,7 @@ def estimate_bytes(cols: int, rows: int) -> int:
 
 def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
     """Build the SVG from a Preset. Returns (svg, cols, rows)."""
-    from app.canvas import to_canvas
+    from app.canvas import doc_dimensions, to_canvas
     from app.safety import check_vector_cells
 
     cell = max(4, min(16, int(preset.vector_cell)))
@@ -88,7 +104,13 @@ def vector_bundle(img: Image.Image, preset) -> tuple[str, int, int]:
     canvas = to_canvas(img.convert("RGB"), ratio=preset.ratio, mode=preset.crop_mode,
                        fx=float(preset.focus_x), fy=float(preset.focus_y),
                        zoom=float(preset.crop_zoom), canvas_w=cw, canvas_h=ch)
-    cols, rows = estimate_cells(canvas.width, canvas.height, cell)
+    try:
+        doc_w, doc_h = doc_dimensions(
+            preset.ratio, int(getattr(preset, "export_size", 3000) or 3000), cw, ch)
+    except (KeyError, ValueError):
+        doc_w, doc_h = canvas.width, canvas.height
+    gw, gh = capped_canvas_dims(canvas.width, canvas.height, doc_w, doc_h)
+    cols, rows = estimate_cells(gw, gh, cell)
     check_vector_cells(cols, rows)  # block monstrous SVGs before rendering
     black = bool(getattr(preset, "vector_black", False))
     raster = render_cells(

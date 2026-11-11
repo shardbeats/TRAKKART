@@ -9,6 +9,25 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Canvas preview redesign: the fixed 520px QLabel is now a fit/zoom/pan
+  canvas (`app/ui/preview_canvas.py`). Fit fills the viewport (small images
+  up to 3x), 100% is real 1:1 (not 4x), wheel zooms at the cursor, drag pans,
+  double-click fits, and a big pixmap can no longer force the window wider
+  (minimumSizeHint stays 200x200). The title row shows Fit / %.
+- Wipe compare keeps the framed original at 100% (no raw-source geometry
+  jump), safe-area guides stay visible during wipe, and the aligned original
+  is cached per canvas state (wipe ticks ~28ms on a 12MP source, was
+  75-311ms).
+- Crop editor contain/stretch/blur cache their canvas + pixmap: repaints are
+  ~1-4ms on a 12MP photo instead of 160-520ms.
+- Canvas correctness (bug hunt): `contain` no longer inflates the working
+  canvas (a 3000x2000 landscape into 9:16 used to render 3000x5333; it now
+  caps at the document long side), `cover` can no longer return a 0-pixel
+  side (1px sources + extreme custom ratios), exports validate empty renders
+  before writing and build the thumbnail first (no partial bundles), vector
+  grids cap at the document size so large sources/`contain` no longer trip
+  the cell limit, and changing the ratio inside the crop editor now keeps
+  W/H in sync with the main canvas (label/export/metadata agree).
 - CI fix (#148): `test_debounce_coalesces_renders` mocked
   `render_service.render_full`, but previews have rendered through `app.gpu.*`
   since `5ea3e58`, so the counter stayed at 0. The test now patches the stable

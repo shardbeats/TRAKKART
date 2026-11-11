@@ -87,26 +87,12 @@ def start_async(win) -> None:
 
 
 def on_done(win, qimg, pil_img, token: int) -> None:
-    from PySide6.QtGui import QPixmap
-
     if token != win._preview_token:
         return  # stale: another render is already on its way
     win.result = pil_img
-    if win._comparing and win.src is not None:
-        from app.ui.qt_image import pil_to_pixmap
+    from app.ui import compare_controller as _cc
 
-        zoomed = int(520 * win.zoom)
-        win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=zoomed))
-        win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}x{win.src.height}")
-    else:
-        from app.ui import compare_controller as _cc
-
-        if _cc.wipe_pos(win) > 0 and win.src is not None:
-            _cc.paint_wipe(win)
-        else:
-            win.lbl_res.setPixmap(_cc.guided_pixmap(
-                win, QPixmap.fromImage(qimg), pil_img.width, pil_img.height))
-            win.lbl_res_title.setText(f"DITHER · {pil_img.width}x{pil_img.height}")
+    _cc.redisplay(win)
     win._status("Preview ready")
     w = win._preview_worker
     win._preview_worker = None

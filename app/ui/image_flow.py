@@ -57,18 +57,15 @@ def randomize(win) -> None:
 
 # -- zoom / clipboard --
 def zoom_step(win, factor: float) -> None:
-    win.zoom = min(4.0, max(0.25, win.zoom * factor))
-    win.refresh()
+    win.lbl_res.zoom_step(factor)
 
 
 def zoom_fit(win) -> None:
-    win.zoom = 1.0
-    win.refresh()
+    win.lbl_res.fit()
 
 
 def zoom_full(win) -> None:
-    win.zoom = 4.0
-    win.refresh()
+    win.lbl_res.actual_size()
 
 
 def copy_result(win) -> None:
@@ -262,6 +259,7 @@ def load_pil(win, img) -> None:
     win.history.clear()
     win.history.push(img)
     win.src = img
+    win.lbl_res.fit()
     win.refresh()
 
 

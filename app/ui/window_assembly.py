@@ -212,6 +212,8 @@ def setup_previews(win, root) -> None:
         QWidget,
     )
 
+    from app.ui.preview_canvas import PreviewCanvas
+
     previews = QHBoxLayout()
     previews.setSpacing(8)
     res_col = QVBoxLayout()
@@ -220,6 +222,13 @@ def setup_previews(win, root) -> None:
     win.lbl_res_title.setObjectName("previewTitle")
     win.lbl_res_title.setAlignment(Qt.AlignCenter)
     title_row.addWidget(win.lbl_res_title, 1)
+    # Zoom badge: the canvas shows Fit / real 100% / manual %.
+    win.lbl_zoom = QLabel("Fit")
+    win.lbl_zoom.setObjectName("subtitleLabel")
+    win.lbl_zoom.setMinimumWidth(48)
+    win.lbl_zoom.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+    win.lbl_zoom.setToolTip("Canvas zoom: wheel to zoom, drag to pan, double-click to fit")
+    title_row.addWidget(win.lbl_zoom)
     # Hold-to-compare: hold (or Space) = ORIGINAL.
     win.btn_compare = QPushButton("Hold to compare")
     win.btn_compare.setToolTip("Hold to see ORIGINAL (or hold Space). Release to go back.")
@@ -243,9 +252,7 @@ def setup_previews(win, root) -> None:
     win._video_bar_widget.setLayout(win._video_bar)
     win._video_bar_widget.setVisible(False)
     res_col.addWidget(win._video_bar_widget)
-    win.lbl_res = QLabel()
-    win.lbl_res.setTextFormat(Qt.RichText)
-    win.lbl_res.setWordWrap(True)
+    win.lbl_res = PreviewCanvas()
     win.lbl_res.setText(
         "<div style='color:#92959A;'>"
         "<span style='font-size:28px; font-weight:bold; letter-spacing:4px; color:#E5E5E5;'>"
@@ -253,10 +260,10 @@ def setup_previews(win, root) -> None:
         "Drop a file onto the window &middot; Ctrl+O to open"
         "<br/>Help &rarr; Quick tour for the 5-step tour</div>"
     )
-    win.lbl_res.setObjectName("previewFrame")
     win.lbl_res.setAlignment(Qt.AlignCenter)
     win.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-    win.lbl_res.setMinimumSize(200, 200)
+    win.lbl_res.viewChanged.connect(
+        lambda: win.lbl_zoom.setText(win.lbl_res.zoom_text()))
     res_col.addWidget(win.lbl_res, 1)
     # Wipe compare: drag divider (ORIGINAL left, result right). 0 = off.
     wipe_row = QHBoxLayout()

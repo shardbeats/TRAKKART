@@ -47,10 +47,10 @@ def released(win) -> None:
 def paint_orig(win) -> None:
     if win.src is None:
         return
+    from app.ui.preview_canvas import PREVIEW_MAX_SIDE
     from app.ui.qt_image import pil_to_pixmap
 
-    zoomed = int(520 * win.zoom)
-    win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=zoomed))
+    win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=PREVIEW_MAX_SIDE))
     win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}x{win.src.height}")
 
 
@@ -60,10 +60,10 @@ def paint_result(win) -> None:
         win._show_video_frame(force=True)
         return
     if win.result is not None:
+        from app.ui.preview_canvas import PREVIEW_MAX_SIDE
         from app.ui.qt_image import pil_to_pixmap
 
-        zoomed = int(520 * win.zoom)
-        pix = pil_to_pixmap(win.result, max_side=zoomed)
+        pix = pil_to_pixmap(win.result, max_side=PREVIEW_MAX_SIDE)
         win.lbl_res.setPixmap(guided_pixmap(win, pix, win.result.width, win.result.height))
         kind = "VIDEO" if win._video_on else "DITHER"
         win.lbl_res_title.setText(f"{kind} · {win.result.width}x{win.result.height}")
@@ -78,7 +78,12 @@ def wipe_pos(win) -> int:
 
 
 def _aligned_orig(win):
-    """Source through the live canvas framing (same WxH as the result)."""
+    """Source through the live canvas framing (same WxH as the result).
+
+    Cached per (src object, framing params): a wipe drag used to rerun
+    to_canvas over the full source on every tick (~75-311ms). The cache
+    lives on the window and is replaced when any key component changes.
+    """
     from app.canvas import to_canvas
     from app.ui import params_controller as _par
 
@@ -91,12 +96,20 @@ def _aligned_orig(win):
         w, h = _par.doc_dims(win)
     except Exception:  # noqa: BLE001
         w, h = (0, 0)
-    return to_canvas(
-        win.src.convert("RGB"), ratio, mode,
-        fx=float(getattr(win, "crop_fx", 50.0) or 50.0),
-        fy=float(getattr(win, "crop_fy", 50.0) or 50.0),
-        zoom=float(getattr(win, "crop_zoom", 1.0) or 1.0),
+    fx = float(getattr(win, "crop_fx", 50.0) or 50.0)
+    fy = float(getattr(win, "crop_fy", 50.0) or 50.0)
+    zoom = float(getattr(win, "crop_zoom", 1.0) or 1.0)
+    key = (ratio, mode, int(w or 0), int(h or 0),
+           round(fx, 3), round(fy, 3), round(zoom, 4))
+    cache = getattr(win, "_aligned_orig_cache", None)
+    if cache is not None and cache[0] is win.src and cache[1] == key:
+        return cache[2]
+    img = to_canvas(
+        win.src.convert("RGB"), ratio=ratio, mode=mode,
+        fx=fx, fy=fy, zoom=zoom,
         canvas_w=int(w or 0), canvas_h=int(h or 0))
+    win._aligned_orig_cache = (win.src, key, img)
+    return img
 
 
 def paint_wipe(win, pos: int | None = None) -> None:
@@ -111,16 +124,22 @@ def paint_wipe(win, pos: int | None = None) -> None:
     if pos <= 0:
         paint_result(win)
         return
-    if pos >= 100:
-        paint_orig(win)
-        return
-    import numpy as np
-
+    from app.ui.preview_canvas import PREVIEW_MAX_SIDE
     from app.ui.qt_image import pil_to_pixmap
 
     res = win.result.convert("RGB")
-    zoomed = int(520 * win.zoom)
-    scale = min(1.0, zoomed / max(res.width, res.height))
+    if pos >= 100:
+        # Framed original (same geometry as 99%), never the raw uncropped
+        # source: the old jump showed a different aspect at the last tick.
+        base = _aligned_orig(win).convert("RGB")
+        pix = guided_pixmap(win, pil_to_pixmap(base, max_side=PREVIEW_MAX_SIDE),
+                            res.width, res.height)
+        win.lbl_res.setPixmap(pix)
+        win.lbl_res_title.setText(f"WIPE 100% · {res.width}x{res.height}")
+        return
+    import numpy as np
+
+    scale = min(1.0, PREVIEW_MAX_SIDE / max(res.width, res.height))
     dw, dh = max(1, int(res.width * scale)), max(1, int(res.height * scale))
     try:
         base = _aligned_orig(win).convert("RGB").resize((dw, dh))
@@ -135,7 +154,8 @@ def paint_wipe(win, pos: int | None = None) -> None:
     comp[:, max(0, x - 1):x + 1] = (245, 166, 35)  # amber divider
     from PIL import Image
 
-    win.lbl_res.setPixmap(pil_to_pixmap(Image.fromarray(comp), max_side=zoomed))
+    pix = pil_to_pixmap(Image.fromarray(comp), max_side=PREVIEW_MAX_SIDE)
+    win.lbl_res.setPixmap(guided_pixmap(win, pix, res.width, res.height))
     win.lbl_res_title.setText(f"WIPE {pos}% · {res.width}x{res.height}")
 
 

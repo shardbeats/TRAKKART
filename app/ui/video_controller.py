@@ -418,12 +418,12 @@ def show_frame(win, force: bool = False) -> None:
     if win._comparing and not force:
         win._paint_compare_orig()
         return
+    from app.ui.preview_canvas import PREVIEW_MAX_SIDE
     from app.ui.qt_image import pil_to_pixmap
 
     idx = max(0, min(len(win._video_frames) - 1, int(win._video_idx)))
     frame = win._video_frames[idx]
-    zoomed = int(520 * win.zoom)
-    win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=zoomed))
+    win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
     win.lbl_res_title.setText(f"VIDEO · {frame.width}x{frame.height} · f{idx + 1}/{len(win._video_frames)}")
     win.lbl_video_pos.setText(f"{idx + 1}/{len(win._video_frames)}")
     if win.sld_video.value() != idx:

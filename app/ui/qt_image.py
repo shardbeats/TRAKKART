@@ -29,6 +29,8 @@ def pil_to_pixmap(img: Image.Image, max_side: int = 520):
     if not dpr > 1.0:
         dpr = 1.0
     rgb = img.convert("RGB")
+    if rgb.width < 1 or rgb.height < 1:
+        return QPixmap()  # empty render: never divide by a zero side
     r = (max_side * dpr) / max(rgb.width, rgb.height)
     if r < 1.0:
         rgb = rgb.resize((max(1, int(rgb.width * r)), max(1, int(rgb.height * r))), Image.BICUBIC)

@@ -79,9 +79,30 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 61/61. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 572 tests (440 fast + 132 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 603 tests (467 fast + 136 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
+
+## Canvas invariants (nov-2026 bug hunt)
+
+```
+.venv\Scripts\python -m pytest tests/test_canvas.py tests/test_vector.py tests/test_export.py -q -p no:cacheprovider --no-cov
+```
+
+- `contain` caps the working canvas at the document long side (or the source
+  long side when no doc is known): no more 4000x7111 sheets of black bars,
+  and SVG grids stay inside the cell cap on large sources.
+- `cover` never returns a 0-pixel side (1px source + extreme custom ratio).
+- Exports reject empty renders before writing and build the thumb first
+  (no partial bundles).
+- Changing ratio inside the crop editor fills W/H (same rule as CANVAS);
+  label, export and metadata agree.
+- Preview canvas: Fit fills the viewport, 100% is 1:1 of the rendered
+  preview, wheel zooms at the cursor, drag pans, double-click fits. A big
+  pixmap never drives the window minimum. Wipe 100% keeps the framed
+  original (no raw-source jump) and safe-area guides stay on the wipe.
+- Crop editor contain/stretch/blur cache their canvas + pixmap (repaints
+  are ~1-4ms on a 12MP photo instead of 160-520ms).
 
 ## Particle disperse (v1.6, solo dispersion)
 

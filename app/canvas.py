@@ -104,11 +104,11 @@ def crop_cover(
     fy = min(100.0, max(0.0, float(fy)))
     zoom = max(1.0, float(zoom))
     if w / h > want:  # wider than needed: bars top/bottom
-        cw, ch = round(h * want), h
+        cw, ch = max(1, round(h * want)), h
         x = round((w - cw) * fx / 100.0)
         base = (x, 0, x + cw, ch)
     else:
-        cw, ch = w, round(w / want)
+        cw, ch = w, max(1, round(w / want))
         y = round((h - ch) * fy / 100.0)
         base = (0, y, cw, y + ch)
     if zoom <= 1.0:
@@ -161,17 +161,43 @@ def fit_contain(
     img: Image.Image, ratio: str, fill: tuple[int, int, int] = (0, 0, 0),
     canvas_w: int = 0, canvas_h: int = 0,
 ) -> Image.Image:
-    """Fit the whole image into the ratio with bars (no cropping)."""
+    """Fit the whole image into the ratio with bars (no cropping).
+
+    The working canvas never grows past the document long side (or the
+    source long side when no document is known): contain used to expand
+    a landscape photo into a 4000x7111 sheet of black bars for a 9:16
+    doc, which burned RAM/time and made SVG grids look monstrous. The
+    image is centered at native detail or scaled down to fit the capped
+    canvas; composition is identical to the old padded result once both
+    are sized to the document.
+    """
     want, _, _ = resolve_frame(ratio, max(img.size), canvas_w, canvas_h)
     w, h = img.size
-    if abs(w / h - want) < 1e-9:
-        return img.copy()
-    if w / h > want:  # wider image: bars top/bottom
-        cw, ch = w, round(w / want)
+    exact = abs(w / h - want) < 1e-9
+    if exact:
+        cw, ch = w, h
+    elif w / h > want:  # wider image: bars top/bottom
+        cw, ch = w, max(1, round(w / want))
     else:  # side bars
-        cw, ch = round(h * want), h
+        cw, ch = max(1, round(h * want)), h
+    try:
+        cap = max(int(canvas_w or 0), int(canvas_h or 0))
+    except (TypeError, ValueError):
+        cap = 0
+    if cap <= 0:
+        cap = max(w, h)
+    if max(cw, ch) > cap:
+        s = cap / float(max(cw, ch))
+        cw, ch = max(1, round(cw * s)), max(1, round(ch * s))
+    if exact and (cw, ch) == (w, h):
+        return img.copy()
+    # Natural contain never needs to upscale; this rescales only when the
+    # capped canvas is smaller than the padded one.
+    r = min(cw / w, ch / h)
+    nw, nh = max(1, round(w * r)), max(1, round(h * r))
+    fg = img.resize((nw, nh), Image.BICUBIC) if (nw, nh) != (w, h) else img
     canvas = Image.new("RGB", (cw, ch), fill)
-    canvas.paste(img, ((cw - w) // 2, (ch - h) // 2))
+    canvas.paste(fg, ((cw - nw) // 2, (ch - nh) // 2))
     return canvas
 
 

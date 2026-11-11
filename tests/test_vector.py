@@ -66,6 +66,26 @@ def test_vector_bundle_end_to_end(tmp_path):
     assert info["params"]["vector_export"] is True
 
 
+def test_vector_large_source_caps_grid_to_document():
+    # 3000x4500 -> 9:16 cover used to be 2531x4500 (316x562 cells > cap)
+    # even though the exported document is only 1688x3000.
+    src = Image.new("RGB", (3000, 4500), (80, 40, 120))
+    p = Preset(name="v", ratio="9:16", crop_mode="cover",
+               canvas_w=1688, canvas_h=3000, export_size=3000,
+               method="bayer4", palette="BW", vector_cell=8, vector_export=True)
+    svg, cols, rows = vector_bundle(src, p)
+    assert (cols, rows) == (210, 375)  # doc grid, not source scale
+    assert cols * rows <= 160_000
+    assert svg.startswith("<svg")
+
+
+def test_capped_canvas_dims_keep_small_sources():
+    from app.vector import capped_canvas_dims
+
+    assert capped_canvas_dims(64, 64, 3000, 3000) == (64, 64)
+    assert capped_canvas_dims(4000, 7111, 1688, 3000) == (1688, 3000)
+
+
 def test_vector_invalid_cell_clamped():
     p = Preset(name="v", vector_cell=99)
     p.vector_cell = 99

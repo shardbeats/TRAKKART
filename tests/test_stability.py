@@ -238,3 +238,32 @@ def test_rss_does_not_grow_per_render(window):
         render_full(window.src, preset)
     growth = _rss_mb() - base
     assert growth < 100, f"posible fuga por render: +{growth:.1f}MB"
+
+
+def test_pil_to_pixmap_empty_never_crashes(qt_app):
+    from PIL import Image
+
+    from app.ui.qt_image import pil_to_pixmap
+
+    pix = pil_to_pixmap(Image.new("RGB", (0, 0)))
+    assert pix.isNull()
+
+
+def test_crop_editor_ratio_syncs_canvas_dims(window, qt_app):
+    from app.ui.crop_editor import CropEditorDialog
+    from tests.conftest import accept_next_dialog
+
+    window.cmb_ratio.setCurrentText("1:1")
+    window._on_ratio_preset()
+    window.spn_canvas_w.setValue(3000)
+    window.spn_canvas_h.setValue(3000)
+
+    def setup(dlg):
+        dlg.cmb_ratio.setCurrentText("9:16")
+        assert (dlg.doc_w, dlg.doc_h) == (1688, 3000)
+
+    accept_next_dialog(CropEditorDialog, setup)
+    window.open_crop_editor()
+    p = window.current_params()
+    assert (p.ratio, p.canvas_w, p.canvas_h) == ("9:16", 1688, 3000)
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (1688, 3000)

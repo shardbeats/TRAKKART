@@ -263,6 +263,8 @@ def export_with_options(
 # ---------------------------------------------------------------------------
 def _thumb_image(rgb: Image.Image, w: int, h: int) -> Image.Image:
     """Cover fitted over a blur background (shared: same algorithm, same bytes)."""
+    if rgb.width < 1 or rgb.height < 1:
+        raise ValueError("cannot build a thumbnail from an empty image")
     bg_src = rgb.resize((w, h)).filter(ImageFilter.GaussianBlur(40))
     dim = Image.new("RGB", (w, h), (0, 0, 0))
     bg = Image.blend(bg_src, dim, 0.25)
@@ -337,17 +339,24 @@ def _write_bundle(
     """Real writing of the set (every variant goes through here)."""
     main_w, main_h = _main_dims(meta, options.size)
     rgb = img.convert("RGB")
+    if rgb.width < 1 or rgb.height < 1:
+        # Guard before any write: a zero-pixel canvas used to leave a bogus
+        # main file behind and then die building the thumbnail.
+        raise ValueError("empty render: canvas produced a 0-pixel image")
     result: dict[str, Path] = {}
+    # Build the thumb before writing anything: a failure there must not
+    # leave a partial bundle on disk.
+    thumb = (_thumb_image(rgb, THUMB_LONG_SIDE, THUMB_SHORT_SIDE)
+             if "thumb_1080p" in keys else None)
     if "image" in keys:
         pmain = out_dir / _raster_name(base, "image", options.format)
         _write_raster(rgb, pmain, main_w, main_h, options.format, options.quality)
         result["image"] = pmain
 
-    if "thumb_1080p" in keys:
+    if thumb is not None:
         # 1080p thumb: cover fitted over a blurred background (works for any ratio)
         p1080 = out_dir / _raster_name(base, "thumb_1080p", options.format)
-        _save_raster(_thumb_image(rgb, THUMB_LONG_SIDE, THUMB_SHORT_SIDE),
-                     p1080, options.format, options.quality)
+        _save_raster(thumb, p1080, options.format, options.quality)
         result["thumb_1080p"] = p1080
 
     files = [result[k].name for k in ("image", "thumb_1080p") if k in result]

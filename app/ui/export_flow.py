@@ -208,17 +208,22 @@ def estimate_vector_cells(win, preset) -> tuple[int, int] | None:
     if win.src is None:
         return None
     try:
-        from app.canvas import to_canvas
-        from app.vector import estimate_cells
+        from app.canvas import doc_dimensions, to_canvas
+        from app.vector import capped_canvas_dims, estimate_cells
 
+        cw = int(getattr(preset, "canvas_w", 0) or 0)
+        ch = int(getattr(preset, "canvas_h", 0) or 0)
         canvas = to_canvas(
             win.src, ratio=preset.ratio, mode=preset.crop_mode,
             fx=float(preset.focus_x), fy=float(preset.focus_y),
             zoom=float(preset.crop_zoom),
-            canvas_w=int(getattr(preset, "canvas_w", 0) or 0),
-            canvas_h=int(getattr(preset, "canvas_h", 0) or 0),
+            canvas_w=cw,
+            canvas_h=ch,
         )
-        return estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
+        doc_w, doc_h = doc_dimensions(
+            preset.ratio, int(getattr(preset, "export_size", 3000) or 3000), cw, ch)
+        gw, gh = capped_canvas_dims(canvas.width, canvas.height, doc_w, doc_h)
+        return estimate_cells(gw, gh, int(preset.vector_cell))
     except Exception:  # noqa: BLE001
         return None
 

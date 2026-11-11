@@ -85,6 +85,39 @@ def test_wipe_divider_and_extremes(window, qt_app):
     window._video_on = False
 
 
+def test_wipe_100_keeps_canvas_geometry_and_guides(window, qt_app):
+    from app.canvas import to_canvas
+    from app.ui import compare_controller as cc
+
+    window._show_safe = True
+    window.cmb_ratio.setCurrentText("9:16")
+    window._on_ratio_preset()
+    window.src = _flat(90, 120, (255, 0, 0))  # raw 3:4
+    window.result = to_canvas(window.src, ratio="9:16")  # framed 9:16
+    cc.paint_wipe(window, 99)
+    p99 = window.lbl_res.pixmap().size().toTuple()
+    cc.paint_wipe(window, 100)
+    assert window.lbl_res_title.text().startswith("WIPE 100%")
+    p100 = window.lbl_res.pixmap().size().toTuple()
+    assert p100 == p99  # framed original, never the raw 90x120 source
+    assert p100 != (90, 120)
+    top = window.lbl_res.pixmap().toImage().pixelColor(30, 2)
+    assert top.red() < 200  # safe-area guides stay on the wipe
+
+
+def test_aligned_orig_cache_invalidates_on_canvas_change(window):
+    from app.ui import compare_controller as cc
+
+    window.cmb_ratio.setCurrentText("9:16")
+    window._on_ratio_preset()
+    window.src = _flat(90, 120, (255, 0, 0))
+    first = cc._aligned_orig(window)
+    again = cc._aligned_orig(window)
+    assert again is first  # wipe drags reuse the aligned frame
+    window.cmb_crop.setCurrentText("contain")
+    assert cc._aligned_orig(window) is not first
+
+
 def test_f1_morph_combos_cover_modes(window, qt_app):
     from app.disintegrate import DISINTEGRATE_MODES, EASE_MODES, STAGGER_MODES
     from app.presets import Preset

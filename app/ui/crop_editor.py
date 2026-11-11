@@ -26,6 +26,7 @@ from app.canvas import (
     MAX_DIM,
     MIN_DIM,
     canvas_ratios,
+    canvas_size_for,
     crop_box_for,
     ratio_label,
     ratio_names,
@@ -70,6 +71,11 @@ class CropView(QWidget):
         # rotate replaces _img, which invalidates automatically.
         self._pix_src: Image.Image | None = None
         self._pix_cache: QPixmap | None = None
+        # Non-cover canvases (contain/stretch/blur) are cached too: they used
+        # to be recomputed on every repaint (160-520ms on a 12MP photo).
+        self._pad_key: tuple | None = None
+        self._pad_canvas: Image.Image | None = None
+        self._pad_pix: QPixmap | None = None
         # Owned box (source px, floats): gestures mutate it directly so the
         # zoom anchor round-trips exactly. fx/fy stay synced for the dialog
         # result + summary; crop_box_for is only the seeder (ratio/mode/
@@ -99,14 +105,24 @@ class CropView(QWidget):
             self.fy = min(100.0, max(0.0, 100.0 * _by / slack_y))
 
     # -- geometry (source px <-> widget px) --
+    def _pad_layer(self) -> tuple[Image.Image, QPixmap]:
+        """Cached (contain/stretch/blur) canvas + pixmap for repaints."""
+        key = (self._img, self.ratio, self.mode, self.canvas_w, self.canvas_h)
+        if self._pad_canvas is None or self._pad_key != key:
+            from app.canvas import to_canvas
+
+            self._pad_canvas = to_canvas(
+                self._img, self.ratio, self.mode,
+                canvas_w=self.canvas_w, canvas_h=self.canvas_h)
+            self._pad_pix = _pil_to_pixmap(self._pad_canvas)
+            self._pad_key = key
+        return self._pad_canvas, self._pad_pix
+
     def _layout(self) -> dict:
         w, h = max(1, self.width()), max(1, self.height())
         iw, ih = self._img.width, self._img.height
         if self.mode != "cover":
-            from app.canvas import to_canvas
-
-            canvas = to_canvas(self._img, self.ratio, self.mode,
-                               canvas_w=self.canvas_w, canvas_h=self.canvas_h)
+            canvas, _pix = self._pad_layer()
             cw, ch = canvas.width, canvas.height
             s = min(w / cw, h / ch)
             dw, dh = cw * s, ch * s
@@ -136,7 +152,7 @@ class CropView(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         p.fillRect(self.rect(), Qt.black)
         if lay["mode"] != "cover":
-            pix = _pil_to_pixmap(lay["canvas"])
+            pix = self._pad_layer()[1]
             p.drawPixmap(lay["img_rect"].toRect(), pix)
         else:
             p.drawPixmap(lay["img_rect"].toRect(), self._cover_pixmap())
@@ -284,6 +300,7 @@ class CropEditorDialog(QDialog):
             mode = "cover"
         self._doc_w = max(MIN_DIM, min(MAX_DIM, int(canvas_w or 0) or 3000))
         self._doc_h = max(MIN_DIM, min(MAX_DIM, int(canvas_h or 0) or 3000))
+        self._custom_w, self._custom_h = self._doc_w, self._doc_h
 
         col = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -372,7 +389,28 @@ class CropEditorDialog(QDialog):
 
     # -- slots --
     def _on_ratio(self, name: str) -> None:
+        was_custom = self.view.ratio == CUSTOM_RATIO
+        if was_custom:
+            # Keep the free W/H so coming back to Custom restores them.
+            self._custom_w, self._custom_h = self.doc_w, self.doc_h
         self.view.ratio = ratio_value(name)
+        if self.view.ratio == CUSTOM_RATIO:
+            w, h = self._custom_w, self._custom_h
+        else:
+            # Presets fill W/H (same rule as the main CANVAS panel) so the
+            # dialog and the window never disagree after Done.
+            long_side = max(self.doc_w, self.doc_h)
+            try:
+                w, h = canvas_size_for(self.view.ratio, long_side)
+            except KeyError:
+                w, h = self.doc_w, self.doc_h
+        for spn, v in ((self.spn_w, w), (self.spn_h, h)):
+            spn.blockSignals(True)
+            try:
+                spn.setValue(int(v))
+            finally:
+                spn.blockSignals(False)
+        self.view.canvas_w, self.view.canvas_h = int(w), int(h)
         self.view._reseed()
         self._sync_wh_enabled()
         self.view.update()
@@ -381,6 +419,7 @@ class CropEditorDialog(QDialog):
     def _on_wh(self) -> None:
         doc_w = int(self.spn_w.value())
         doc_h = int(self.spn_h.value())
+        self._custom_w, self._custom_h = doc_w, doc_h
         self.view.canvas_w = doc_w
         self.view.canvas_h = doc_h
         if self.view.ratio != CUSTOM_RATIO:
