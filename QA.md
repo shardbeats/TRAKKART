@@ -128,6 +128,24 @@ If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` a
 - The zoom badge in the preview title row is clickable: Fit <-> 100%
   (same `_full_preview` flags as View -> Fit / 100%).
 
+## Particle density: canvas-relative cap (nov-2026)
+
+```
+.venv\Scripts\python -m pytest tests/test_disintegrate.py -q -p no:cacheprovider --no-cov -k "point_cap or particle_density"
+```
+
+- Root cause of "color/form lost at Full/doc": `MAX_POINTS` was a fixed
+  120k cap. A 3000px morph dither (~8.4M ink points with a palette) was
+  subsampled to 120k dots = 1.3% of the area, while a 1600px preview used
+  the same 120k on 2.56M px = 4.7% (3.5x denser).
+- `point_cap(side)` keeps the 120k budget at the 1200px reference and scales
+  it by area, clamped at `MAX_POINTS_HARD` (900k, reached at ~3300px).
+  Measured 1:1 ink density: 9.0% (1600px) vs 9.3% (3000px); before it was
+  5.2% vs 1.6%. Render cost at 750k points: ~31ms/frame; travel matching
+  ~240ms per leg (background worker; export sizes <=1080 stay cheap).
+- Small canvases (<=1200px) are byte-identical to the old cap: the floor is
+  `MAX_POINTS`, so GIF/MP4 exports do not change.
+
 ## Particle disperse (v1.6, solo dispersion)
 
 ```

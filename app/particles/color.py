@@ -11,7 +11,7 @@ import math
 import numpy as np
 from PIL import Image
 
-from app.particles.modes import MAX_POINTS
+from app.particles.modes import point_cap
 
 
 def dither_bw(img: Image.Image, method: str = "bayer8",
@@ -32,14 +32,15 @@ def points_from_dither(dithered: Image.Image) -> tuple[np.ndarray, int, int]:
     """Active (black) coords of a BW dithered image.
 
     Returns (coords (N,2) as (y,x) int32, H, W). Deterministic stride
-    subsample when N exceeds MAX_POINTS (keeps spatial distribution).
+    subsample above the canvas density cap (keeps spatial distribution).
     """
     arr = np.asarray(dithered.convert("L"), dtype=np.uint8)
     h, w = arr.shape[:2]
     ys, xs = np.nonzero(arr < 128)
     coords = np.stack([ys.astype(np.int32), xs.astype(np.int32)], axis=1)
-    if len(coords) > MAX_POINTS:
-        step = int(math.ceil(len(coords) / MAX_POINTS))
+    cap = point_cap(max(h, w))
+    if len(coords) > cap:
+        step = int(math.ceil(len(coords) / cap))
         coords = coords[::step].copy()
     return coords, int(h), int(w)
 
@@ -56,7 +57,7 @@ def _darkness_of(arr: np.ndarray, coords: np.ndarray, h: int, w: int) -> np.ndar
 def inked_points(still: Image.Image) -> tuple[np.ndarray, np.ndarray, int, int]:
     """(coords, colors, h, w) of dark pixels of a still (luminance < 128).
 
-    Same stride cap + deterministic order as points_from_dither, plus
+    Same density cap + deterministic order as points_from_dither, plus
     per-dot RGB colors. Only used for chromatic palette stills; BW keeps
     the legacy points_from_dither path byte-identical.
     """
@@ -68,8 +69,9 @@ def inked_points(still: Image.Image) -> tuple[np.ndarray, np.ndarray, int, int]:
     ys, xs = np.nonzero(lum < 128)
     coords = np.stack([ys.astype(np.int32), xs.astype(np.int32)], axis=1)
     cols = arr[ys, xs].astype(np.float64)
-    if len(coords) > MAX_POINTS:
-        step = int(math.ceil(len(coords) / MAX_POINTS))
+    cap = point_cap(max(h, w))
+    if len(coords) > cap:
+        step = int(math.ceil(len(coords) / cap))
         coords = coords[::step].copy()
         cols = cols[::step].copy()
     return coords, cols, int(h), int(w)

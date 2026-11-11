@@ -9,6 +9,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.
 
 ## Unreleased
+- Particle density is now canvas-relative (`point_cap()`): the 120k budget
+  scales with area (1200px reference, 900k hard cap). A 3000px document used
+  to get the same fixed 120k dots as a 1600px preview, so it looked 3.5x
+  sparser and morph color/form washed out at Full/doc; 1:1 ink density is now
+  equal (~9% at both sizes). Also applies to chromatic palette stills.
 - Output pixel budget (soft): docs above 36 MP (`OUTPUT_MP_BUDGET`) show an
   amber `⚠ <n> MP` in the Document panel and the export dialog with a
   tooltip explaining the render time/RAM cost. Nothing is blocked.

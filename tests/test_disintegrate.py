@@ -1286,3 +1286,27 @@ def test_f8_path_morph_chain_and_preset():
     assert swirl[2].tobytes() != pour[2].tobytes()
     again = morph_chain_frames([a, b], path="swirl", **kw)
     assert [f.tobytes() for f in again] == [f.tobytes() for f in swirl]
+
+
+def test_point_cap_scales_with_canvas_density():
+    # Fixed 120k made a 3000px doc 3.5x sparser than its 1600px preview.
+    from app.particles.modes import (MAX_POINTS, MAX_POINTS_HARD,
+                                     POINT_REF_SIDE, point_cap)
+
+    assert POINT_REF_SIDE == 1200
+    assert point_cap(480) == MAX_POINTS  # small canvases keep the floor
+    assert point_cap(1200) == MAX_POINTS
+    assert point_cap(2400) == MAX_POINTS * 4
+    assert point_cap(3000) == 750_000  # parity with the 1200px look
+    assert point_cap(8000) == MAX_POINTS_HARD  # absolute ceiling
+
+
+def test_large_canvas_keeps_particle_density():
+    from app.particles.color import points_from_dither
+
+    def density(side: int) -> float:
+        coords, h, w = points_from_dither(Image.new("L", (side, side), 0))
+        return len(coords) / float(h * w)
+
+    # All-black source: pure stride subsample, same dots per image area.
+    assert density(2400) == density(1200)

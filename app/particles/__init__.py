@@ -15,8 +15,8 @@ from app.particles.engine import (_fit_cover, _refit_coords,  # noqa: F401
 from app.particles.fields import (_bayer_rank, _field_offset, _pinned_frac,  # noqa: F401
                                   _rain_profile, ease_env, stagger_delays)
 from app.particles.modes import (DISINTEGRATE_MODES, EASE_MODES, MAX_MORPH_IMAGES,  # noqa: F401
-                                 MAX_POINTS, MAX_TRAIL, MORPH_PATHS, STAGGER_MODES,
-                                 TRAVEL_SPAN)
+                                 MAX_POINTS, MAX_POINTS_HARD, MAX_TRAIL, MORPH_PATHS,
+                                 POINT_REF_SIDE, STAGGER_MODES, TRAVEL_SPAN, point_cap)
 from app.particles.raster import (_paint_layer, dot_sizes, frame_dot_sizes,  # noqa: F401
                                   ghost_entries, render_points, trail_decay)
 from app.particles.travel import (_smootherstep, block_visible,  # noqa: F401
@@ -26,6 +26,7 @@ from app.particles.travel import (_smootherstep, block_visible,  # noqa: F401
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
            "MORPH_PATHS",
            "MAX_POINTS", "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES",
+           "POINT_REF_SIDE", "MAX_POINTS_HARD", "point_cap",
            "_pinned_frac", "_bayer_rank", "stagger_delays", "ease_env",
            "_rain_profile", "_field_offset", "_fit_cover", "_refit_coords",
            "iter_dissolve", "dissolve_frames", "morph_frames",

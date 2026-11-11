@@ -470,6 +470,12 @@ Mid term (visible leap, needs UI + tests):
 - Trails / motion-blur accumulation (Word Morph trails; Particle Image).
   Done F5: `dissolve_trail` 0-8 + per-leg position deque + envelope-gated
   ghosts (BW gray / tinted hues, joints ghost-free, 0 = legacy). Gherkin 59.
+- Canvas-relative particle density (done nov-2026): `point_cap()` in
+  `app/particles/modes.py` replaces the fixed 120k cap (1200px reference,
+  900k hard ceiling), so Full/doc morph keeps the same dots per image area
+  as the preview. Measured 1:1 ink density 9.0% @1600 vs 9.3% @3000 (old:
+  5.2% vs 1.6%) — this was the real "color/form lost at real size", not
+  tint. Exports <=1200px stay byte-identical.
 
 Long term (new surfaces):
 - Interactive cursor repel in the preview canvas via Qt mouse events

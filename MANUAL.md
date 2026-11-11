@@ -48,7 +48,9 @@ huge canvases use Still.
 - **Include:** main image, 1080p thumb, vector SVG, GIF, MP4, JSON.
   MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
   shows a weight estimate and warns on heavy files. The animation
-  always follows the live VIDEO section.
+  always follows the live VIDEO section. The VIDEO proxy (Draft 720p /
+  HD 1080p / Full doc) never changes the export; particle density scales
+  with the canvas, so Full/doc looks as dense as the smaller previews.
 - **Collision:** nothing is ever lost — if the name exists it suggests
   `name_2`, `name_3`… (or Overwrite if you choose).
 - **Quick export** repeats the last setup without asking. If you switch

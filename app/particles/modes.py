@@ -15,7 +15,21 @@ STAGGER_MODES = ("off", "rank", "radial", "scan", "sweep")
 EASE_MODES = ("sine", "cubic", "linear", "elastic", "bounce")
 
 #: Hard cap on rasterized points per frame (perf: vectorized scatter).
+#: The budget is a *density* at POINT_REF_SIDE: bigger canvases get more
+#: points (same dots per image area), instead of a fixed count that made
+#: a 3000px doc look 3.5x sparser than its 1600px preview.
 MAX_POINTS = 120_000
+POINT_REF_SIDE = 1200
+#: Absolute ceiling (memory/time): reached at 3000px with the 120k budget.
+MAX_POINTS_HARD = 900_000
+
+
+def point_cap(side: int) -> int:
+    """Particle cap for a canvas: MAX_POINTS scaled by area, then clamped."""
+    s = max(1, int(side or 0))
+    scale = (s / float(POINT_REF_SIDE)) ** 2
+    return int(min(MAX_POINTS_HARD, max(MAX_POINTS, MAX_POINTS * scale)))
+
 
 #: Travel path style for morph legs (F3): pour = straight lerp,
 #: arc/swirl/braid add a mid-flight flourish that is exactly zero at
@@ -33,4 +47,5 @@ MAX_MORPH_IMAGES = 6
 
 __all__ = ["DISINTEGRATE_MODES", "STAGGER_MODES", "EASE_MODES",
            "MORPH_PATHS",
-           "MAX_POINTS", "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES"]
+           "MAX_POINTS", "POINT_REF_SIDE", "MAX_POINTS_HARD", "point_cap",
+           "TRAVEL_SPAN", "MAX_TRAIL", "MAX_MORPH_IMAGES"]
