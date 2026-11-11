@@ -333,13 +333,13 @@ SP-404MKII (startup logo + screensaver). Source: Roland's official
 - Fit: TRAKKART Custom canvas already allows 128x64 (MIN_DIM 64);
   BW dither engines are the ideal source for a 1-bit OLED. Gap is only
   BMP export: `exporter.py` writes png/jpg/webp today (reads BMP fine).
-- Plan: (1) `bmp` 1-bit writer (Pillow mode "1", BW palette +
-  threshold, no color layers); (2) locked `128x64 SP-404` canvas preset
-  (2:1) for WYSIWYG framing; (3) "SP-404MKII pack" export action:
-  current doc + up to 16 variants (morph/dissolve frames as slideshow),
-  pre-named `startup_*` / `screen_saver_*`, zipped with a
-  `README-SP404.txt` install sheet; (4) tests (1-bit 128x64 BMP,
-  naming, roundtrip) + hardware QA by owner (copy > import > watch).
+- Plan: (1) `bmp` 1-bit writer (`app/sp404.py`: cover-fit + luminance
+  cut, no re-dither, optional invert); (2) locked `128x64 SP-404` canvas
+  button (2:1) for WYSIWYG framing + View "SP-404 OLED preview" toggle
+  (display-only 1-bit, threshold = DITHER slider); (3) export-dialog
+  checkbox writing one `{base}_sp404.bmp` (user renames/organizes);
+  (4) tests (1-bit 128x64 BMP, dialog, preview, service) + hardware QA
+  by owner (copy > import > watch).
 - Out of scope: the SP-404MKII desktop-app background/slideshow (takes
   plain PNGs, already exportable today).
 

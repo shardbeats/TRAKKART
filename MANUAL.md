@@ -57,10 +57,10 @@ huge canvases use Still.
   with the canvas, so Full/doc looks as dense as the smaller previews.
 - **Collision:** nothing is ever lost — if the name exists it suggests
   `name_2`, `name_3`… (or Overwrite if you choose).
-- **SP-404MKII pack:** tick "SP-404MKII pack (128×64 BMP)" to also write a
-  `{base}_sp404/` folder: `startup_1/2.bmp` + up to 16 `screen_saver_N.bmp`
-  (1-bit, from your still + animation frames) + `README-SP404.txt` with the
-  SD install steps. Copy the BMPs to `EXPORT/PROJECT/PROJECT_XX/PICTURE`
+- **SP-404MKII BMP:** tick "SP-404MKII BMP (128×64 1-bit)" to also write
+  `{base}_sp404.bmp`: the current still as a 1-bit OLED file. Rename it
+  to `startup_N` / `screen_saver_N` yourself and copy to
+  `EXPORT/PROJECT/PROJECT_XX/PICTURE`
   (UTILITY > SYSTEM > Scrn Saver Type = Custom), reimport, power cycle.
 - **SP-404 live framing:** "SP-404 128×64" button in IMAGE sets a Custom
   128×64 canvas; View > "SP-404 OLED preview" shows the 1-bit result the

@@ -147,9 +147,9 @@ class ExportDialog(QDialog):
         self.chk_sep = QCheckBox("Ink separations (print)")
         self.chk_sep.setChecked(False)
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
-        self.chk_sp404 = QCheckBox("SP-404MKII pack (128×64 BMP)")
+        self.chk_sp404 = QCheckBox("SP-404MKII BMP (128×64 1-bit)")
         self.chk_sp404.setChecked(False)
-        self.chk_sp404.setToolTip("Roland SP-404MKII startup + screensaver: 128×64 1-bit BMPs (startup_1/2 + up to 16 screen_saver_N) + install sheet, from the still + animation frames")
+        self.chk_sp404.setToolTip("Roland SP-404MKII still: one 128×64 1-bit BMP of the current image (rename it to startup_N/screen_saver_N yourself)")
         self.chk_meta.setChecked(sel.metadata)
         self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
         from app.video_io import has_video as _has_video
@@ -396,11 +396,11 @@ class ExportDialog(QDialog):
             except Exception:  # noqa: BLE001
                 pass
         if self.chk_sp404.isChecked():
-            # 2 startup + up to 16 slideshow BMPs at 128×64 1-bit (~1KB each)
-            # + install sheet: fixed names land in a {base}_sp404/ subfolder.
+            # One 128x64 1-bit BMP of the current still (~1KB); the user
+            # renames/organizes it (startup_N / screen_saver_N) by hand.
             safe = sanitize_base(self.edit_base.text().strip() or "cover")
-            self.list_files.addItem(f"{safe}_sp404_*.bmp (pack · 128×64 1-bit · ~19KB)")
-            total += 19 * 1024
+            self.list_files.addItem(f"{safe}_sp404.bmp (128×64 1-bit · ~1KB)")
+            total += 2048
             n += 1
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)

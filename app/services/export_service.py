@@ -66,9 +66,8 @@ def export_full(
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
     Separations write one `{base}_sep_{NN}_{RRGGBB}.png` plate per
     palette ink (RISO/screen print) + registration marks. Dialog-only.
-    SP-404MKII pack writes `{base}_sp404/` with `startup_*.bmp` +
-    `screen_saver_*.bmp` (128x64 1-bit) + install sheet, from the still
-    plus the animation frames when built. Dialog-only.
+    SP-404MKII single file writes `{base}_sp404.bmp` (128x64 1-bit,
+    the current still). Dialog-only.
     """
     from app.vector import estimate_cells
 
@@ -251,18 +250,21 @@ def export_full(
             add_registration_marks(plate).save(str(sep_path))
             paths[f"sep_{hexcode}"] = sep_path
     if want_sp404:
-        from app.sp404 import write_sp404_pack
+        from app.sp404 import sp404_frame
 
-        pack_dir = Path(out_dir) / f"{options.base}_sp404"
-        if overwrite == "rename":
-            j = 2
-            while pack_dir.exists():
-                pack_dir = Path(out_dir) / f"{options.base}_sp404_{j}"
-                j += 1
-        pack_imgs = [res, *(frames or [])]
-        pack = write_sp404_pack(pack_imgs, pack_dir)
-        for name, path in pack.items():
-            paths[f"sp404_{name}"] = path
+        sp404_name = f"{options.base}_sp404.bmp"
+        sp404_path = Path(out_dir) / sp404_name
+        if overwrite == "skip" and sp404_path.exists():
+            skipped = [*skipped, "sp404"]
+        else:
+            if overwrite == "rename":
+                j = 2
+                while sp404_path.exists():
+                    sp404_path = Path(out_dir) / f"{options.base}_sp404_{j}.bmp"
+                    j += 1
+            frame = sp404_frame(res)
+            frame.save(str(sp404_path), "BMP")
+            paths["sp404"] = sp404_path
     if store is not None and paths:
         try:
             store.log_export(options.base, preset_name, preset.meta(),

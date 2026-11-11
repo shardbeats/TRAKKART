@@ -1,6 +1,4 @@
-"""Unit tests for the Roland SP-404MKII image pack (startup + screensaver)."""
-
-from pathlib import Path
+"""Unit tests for the Roland SP-404MKII still export (128x64 1-bit BMP)."""
 
 from PIL import Image
 
@@ -39,45 +37,11 @@ def test_sp404_frame_threshold_direction():
     assert set(sp404_frame(light).get_flattened_data()) == {255}
 
 
-def test_sp404_pack_names_counts_and_bmp():
-    import tempfile
+def test_sp404_install_hint():
+    from app.sp404 import install_hint
 
-    from app.sp404 import README_NAME, STARTUP_NAMES, write_sp404_pack
-
-    imgs = [_art(200 + i * 7, 100) for i in range(20)]  # over the caps
-    with tempfile.TemporaryDirectory() as d:
-        out = write_sp404_pack(imgs, Path(d))
-        assert [k for k in out if k.startswith("startup")] == list(STARTUP_NAMES)
-        shots = [k for k in out if k.startswith("screen_saver")]
-        assert len(shots) == 16
-        assert shots[0] == "screen_saver_1.bmp" and shots[-1] == "screen_saver_16.bmp"
-        assert README_NAME in out
-        for name, path in out.items():
-            assert path.exists()
-            if name.endswith(".bmp"):
-                with Image.open(path) as im:
-                    assert im.size == (128, 64)
-                    assert im.mode == "1"
-        assert "SHIFT + PAD 14" in (Path(d) / README_NAME).read_text(encoding="utf-8")
-
-
-def test_sp404_pack_single_image_and_errors():
-    import tempfile
-
-    import pytest
-
-    from app.sp404 import STARTUP_NAMES, screen_saver_name, write_sp404_pack
-
-    with tempfile.TemporaryDirectory() as d:
-        out = write_sp404_pack([_art()], Path(d))
-        assert list(out) == [STARTUP_NAMES[0], "README-SP404.txt"]
-    with pytest.raises(ValueError):
-        write_sp404_pack([], Path("unused"))
-    with pytest.raises(ValueError):
-        screen_saver_name(0)
-    with pytest.raises(ValueError):
-        screen_saver_name(17)
-    assert screen_saver_name(16) == "screen_saver_16.bmp"
+    hint = install_hint()
+    assert "screen_saver_N" in hint and "SHIFT + PAD 14" in hint
 
 
 def test_sp404_oled_preview_toggle(window, qt_app):
@@ -110,21 +74,13 @@ def test_sp404_canvas_button(window, qt_app):
     assert window.act_sp404.isChecked() is True
 
 
-def test_sp404_pack_deterministic():
-    import tempfile
+def test_sp404_frame_deterministic():
+    from app.sp404 import sp404_frame
 
-    from app.sp404 import write_sp404_pack
-
-    imgs = [_art(160, 120), _art(120, 160)]
-    with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
-        a = write_sp404_pack(imgs, Path(d1))
-        b = write_sp404_pack(imgs, Path(d2))
-        assert a.keys() == b.keys()
-        for k in a:
-            assert a[k].read_bytes() == b[k].read_bytes()
+    assert sp404_frame(_art()).tobytes() == sp404_frame(_art()).tobytes()
 
 
-def test_export_full_sp404_pack(tmp_path):
+def test_export_full_sp404_single(tmp_path):
     from app.exporter import ExportSelection
     from app.presets import Preset
     from app.services.export_service import export_full
@@ -135,15 +91,12 @@ def test_export_full_sp404_pack(tmp_path):
     paths, skipped = export_full(
         _art(64, 64), preset, tmp_path / "os", base="m",
         selection=sel, sp404=True)
-    bmps = sorted(str(p) for p in paths.values() if str(p).endswith(".bmp"))
-    assert any("startup_1.bmp" in p for p in bmps)
-    assert all("m_sp404" in p for p in bmps)
+    singles = [p for p in paths.values() if str(p).endswith("_sp404.bmp")]
+    assert len(singles) == 1 and singles[0].name == "m_sp404.bmp"
     assert skipped == []
     from PIL import Image as _Image
 
-    with _Image.open(next(
-            p for p in paths.values()
-            if str(p).endswith("startup_1.bmp"))) as im:
+    with _Image.open(singles[0]) as im:
         assert im.size == (128, 64) and im.mode == "1"
 
 
@@ -161,7 +114,7 @@ def test_export_dialog_sp404_checkbox(window, qt_app, tmp_path):
         assert dlg._gif_opts()["sp404"] is False
         dlg.chk_sp404.setChecked(True)
         assert dlg._gif_opts()["sp404"] is True
-        assert any("_sp404_" in dlg.list_files.item(i).text()
+        assert any("_sp404.bmp" in dlg.list_files.item(i).text()
                    for i in range(dlg.list_files.count()))
     finally:
         close_dialog(dlg)

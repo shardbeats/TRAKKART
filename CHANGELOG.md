@@ -4,14 +4,13 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## [Unreleased]
 ### Added
-- SP-404MKII image pack foundation: `app/sp404.py` frames any art to the
+- SP-404MKII still export: `app/sp404.py` frames any art to the
   128x64 1-bit OLED (cover-fit + luminance cut, no re-dither, optional
-  white-on-black invert) and writes a ready-to-copy pack (`startup_1/2.bmp`
-  + up to 16 `screen_saver_N.bmp` + `README-SP404.txt` install sheet).
-  Pinned by `tests/test_sp404.py` (5 tests).
-- Export dialog gains an "SP-404MKII pack" checkbox: writes
-  `{base}_sp404/` (startup + slideshow BMPs from the still + animation
-  frames when built) alongside the normal bundle.
+  white-on-black invert); the export dialog writes one `{base}_sp404.bmp`
+  for the user to rename/organize on the device.
+  Pinned by `tests/test_sp404.py`.
+- Export dialog "SP-404MKII BMP" checkbox: writes one `{base}_sp404.bmp`
+  (128x64 1-bit still) for the user to rename/organize on the device.
 - Live OLED workflow: View > "SP-404 OLED preview" (display-only 128x64
   1-bit still preview, threshold = DITHER slider) + "SP-404 128x64"
   one-click canvas button in IMAGE. What you see is `sp404_frame` of the
