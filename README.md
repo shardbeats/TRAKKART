@@ -25,8 +25,9 @@ nothing is uploaded, nothing is tracked.
 ![Export dialog](docs/screenshots/export-dialog.png)
 ![Animated preview](docs/screenshots/anim-preview.gif)
 
-> Screenshots are placeholders until the v1.4.0 capture pass lands.
-> See `docs/screenshots/README.md` for the shot list.
+Captured from the real app (SLIME_FS preset on a generated synthwave cover).
+Regenerate with `python tools/capture_readme_shots.py` (isolated data dir,
+neutral `out/` folder, no personal paths).
 
 ## Requirements
 

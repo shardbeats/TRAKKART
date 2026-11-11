@@ -1,16 +1,15 @@
 # docs/screenshots — TRAKKART
 
-Drop the 3–4 user-facing captures referenced by `README.md` here:
+User-facing captures referenced by `README.md`. All four ship with the repo:
 
-| File | What to capture | Size hint |
+| File | What it shows | Size hint |
 |---|---|---|
-| `main-window.png` | Full app window with an image loaded, IMAGE + DITHER panels visible | 1600px wide max |
-| `dither-panel.png` | Close-up of method cycling / palette / pixel controls | 1200px wide max |
-| `export-dialog.png` | Export dialog with plan + format/size row | 1200px wide max |
-| `anim-preview.gif` | Short loop of VIDEO preview or exported GIF (phase/hue/glitch/mix) | ≤5 MB, ≤800px wide |
+| `main-window.png` | Full app window (SLIME_FS on a generated cover) | ≤1600px wide |
+| `dither-panel.png` | Method cycling / pixel / threshold controls | ≤1200px wide |
+| `export-dialog.png` | Export dialog with plan + format/size row | ≤1200px wide |
+| `anim-preview.gif` | Genuine product GIF (March + Hue, 8f) | ≤5 MB, ≤800px wide |
 
-Guidelines:
-- Use a sample image you own or that is freely licensed.
-- Hide personal paths (use a neutral output folder such as `out/`).
-- PNG for stills, GIF for animation. No MP4 here.
-- Keep names exactly as above so `README.md` links keep working.
+Regenerate: `python tools/capture_readme_shots.py`. It uses an isolated
+data dir (`TRAKKART_DATA_DIR`, temp by default, overridable via
+`TRAKKART_SHOT_DIR`), a generated sample image (no licensed assets) and a
+neutral `out/` folder, so no personal paths leak into the shots.
