@@ -32,7 +32,13 @@ def test_e2e_tweak_export(window, qt_app):
     window.sld_bri.setValue(120)
     window.refresh()
     assert window.result is not None
-    accept_next_dialog(ExportDialog)
+
+    def _pick(dlg):
+        dlg.chk_image.setChecked(True)
+        dlg.chk_thumb.setChecked(True)
+        dlg.chk_meta.setChecked(True)
+
+    accept_next_dialog(ExportDialog, _pick)
     window.export()
     out = window.out_dir
     assert (out / "trakkart_cover.png").exists()
@@ -61,7 +67,8 @@ def test_e2e_shortcuts(window, tmp_path: Path, monkeypatch):
     # Ctrl+S is Quick export: with seeded prefs it does not ask
     from app.export_prefs import ExportPrefs, save_prefs
 
-    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="shot"), window._prefs_path)
+    save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="shot",
+                           image=True), window._prefs_path)
     # Ctrl+R randomizes, Ctrl+Z undoes an op, Ctrl+S exports
     assert _trigger(window, "Ctrl+R")
     assert window.result is not None
@@ -180,6 +187,6 @@ def test_e2e_drop_to_export(window, tmp_path: Path, qt_app):
     assert window.src is not None and window.src.size == (40, 40)
     assert window.src_name == "journey"  # default base = source name
     window.refresh()
-    accept_next_dialog(ExportDialog)
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.export()
     assert (window.out_dir / "journey.png").exists()

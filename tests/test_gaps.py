@@ -532,7 +532,8 @@ def test_export_quick_via_dialog(window, qt_app, monkeypatch, tmp_path):
     from tests.conftest import accept_next_dialog
 
     window.src = Image.new("RGB", (64, 64), (90, 100, 140))
-    accept_next_dialog(ExportDialog)
+    # Defaults are all off: the user must pick at least one output.
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.export(quick=False)
     assert (window.out_dir / "trakkart_cover.png").exists()
 

@@ -3,14 +3,15 @@
 from PIL import Image
 from pytest_bdd import given, scenarios, then, when
 
-from app.exporter import ExportOptions, export_with_options
+from app.exporter import ExportOptions, ExportSelection, export_with_options
 from app.palettes import PALETTES, get_palette, palette_names
 
 scenarios("../../features/export.feature", "../../features/canvas.feature")
 
 
 def _bundle(img, tmp, base, ratio="1:1"):
-    opts = ExportOptions(base=base)
+    opts = ExportOptions(base=base, selection=ExportSelection(
+        image=True, thumb_1080p=True, metadata=True))
     paths, _ = export_with_options(img, tmp, opts, meta={"ratio": ratio})
     return paths
 
@@ -65,9 +66,11 @@ def smoke_500(ctx):
 @when('I export the image with 9:16 ratio')
 def export_916(ctx):
     from app.canvas import canvas_size_for
+    from app.exporter import ExportSelection
 
     ctx["expected"] = canvas_size_for("9:16", 3000)
-    opts = ExportOptions(base="v916")
+    opts = ExportOptions(base="v916", selection=ExportSelection(
+        image=True, thumb_1080p=True))
     paths, _ = export_with_options(ctx["img"], ctx["tmp"], opts, meta={"ratio": "9:16"})
     ctx["paths"] = paths
 
@@ -89,9 +92,9 @@ def clamp_crop(ctx):
 
 @when("I export the image with custom 1920x800 canvas")
 def export_custom(ctx):
-    from app.exporter import ExportOptions, export_with_options
+    from app.exporter import ExportOptions, ExportSelection, export_with_options
 
-    opts = ExportOptions(base="vfree")
+    opts = ExportOptions(base="vfree", selection=ExportSelection(image=True))
     paths, _ = export_with_options(
         ctx["img"], ctx["tmp"], opts,
         meta={"ratio": "custom", "canvas": {"w": 1920, "h": 800}},

@@ -16,7 +16,8 @@ def _img(w=64, h=64):
 def test_plan_lists_everything(tmp_path: Path):
     from app.exporter import ExportOptions, ExportSelection, plan_export
 
-    opts = ExportOptions(base="mix", selection=ExportSelection(vector=True, anim=True))
+    opts = ExportOptions(base="mix", selection=ExportSelection(
+        image=True, thumb_1080p=True, vector=True, anim=True, metadata=True))
     plan = plan_export(_img(), opts, meta={"ratio": "1:1"}, has_vector=True, has_gif=True,
                        extra={"vector_cells": (10, 10), "gif_frames": 4})
     keys = [k for k, _, _ in plan]
@@ -38,10 +39,11 @@ def test_plan_skips_unavailable():
 def test_plan_jpg_uses_extension_and_size():
     from PIL import Image
 
-    from app.exporter import ExportOptions, plan_export
+    from app.exporter import ExportOptions, ExportSelection, plan_export
 
     img = Image.new("RGB", (400, 200), (9, 9, 9))
-    opts = ExportOptions(base="j", size=400, format="jpg", quality=80)
+    opts = ExportOptions(base="j", size=400, format="jpg", quality=80,
+                         selection=ExportSelection(image=True, thumb_1080p=True))
     plan = dict((k, (f, e)) for k, f, e in plan_export(img, opts, meta={"ratio": "2:1"}))
     assert plan["image"][0] == "j.jpg"
     assert plan["thumb_1080p"][0] == "j_thumb1080p.jpg"  # same format
@@ -80,11 +82,12 @@ def test_skip_policy_returns_existing(tmp_path: Path):
 def test_format_mapping_writes_real_files(tmp_path: Path):
     from PIL import Image
 
-    from app.exporter import ExportOptions, export_with_options
+    from app.exporter import ExportOptions, ExportSelection, export_with_options
 
     img = Image.new("RGB", (64, 64), (90, 60, 140))
     for fmt, ext in (("png", "png"), ("jpg", "jpg"), ("webp", "webp")):
-        opts = ExportOptions(base=f"f_{fmt}", format=fmt, quality=80)
+        opts = ExportOptions(base=f"f_{fmt}", format=fmt, quality=80,
+                             selection=ExportSelection(image=True))
         paths, _ = export_with_options(img, tmp_path, opts)
         assert paths["image"].suffix == f".{ext}"
         assert paths["image"].stat().st_size > 0
@@ -128,6 +131,39 @@ def test_prefs_roundtrip_and_corrupt(tmp_path: Path):
     assert load_prefs(f).base == "trakkart_cover"  # corrupt: defaults
 
 
+def test_export_dialog_defaults_off_and_persists(window, qt_app, tmp_path):
+    # Fresh start: no output checked (the user must pick). Ticked boxes
+    # persist through prefs (dialog + quick) including webp/sep/sp404/mp4.
+    from app.export_prefs import ExportPrefs, load_prefs, save_prefs
+    from app.ui.export_dialog import ExportDialog
+    from tests.conftest import close_dialog
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d", out_dir=str(tmp_path))
+    try:
+        for chk in (dlg.chk_image, dlg.chk_thumb, dlg.chk_vector, dlg.chk_anim,
+                    dlg.chk_webp, dlg.chk_sep, dlg.chk_meta, dlg.chk_mp4,
+                    dlg.chk_sp404):
+            assert chk.isChecked() is False
+        assert dlg.btn_export.isEnabled() is False  # nothing to write
+        dlg.chk_image.setChecked(True)
+        dlg.chk_sp404.setChecked(True)
+        assert dlg.btn_export.isEnabled() is True
+        gopts = dlg._gif_opts()
+        assert gopts["sp404"] is True and gopts["webp"] is False
+    finally:
+        close_dialog(dlg)
+    prefs = ExportPrefs(out_dir=str(tmp_path), image=True, sp404=True,
+                        webp=True, sep=True, mp4=True)
+    save_prefs(prefs, tmp_path / "p.json")
+    back = load_prefs(tmp_path / "p.json")
+    assert (back.image, back.webp, back.sep, back.sp404, back.mp4) == (True,) * 5
+    assert (back.thumb_1080p, back.vector, back.anim, back.metadata) == (False,) * 4
+    fresh = load_prefs(tmp_path / "nope.json")
+    assert not any(getattr(fresh, k) for k in
+                   ("image", "thumb_1080p", "vector", "anim", "metadata",
+                    "webp", "sep", "sp404", "mp4"))
+
+
 def test_export_dialog_plan_and_options(qt_app):
     from app.exporter import ExportSelection
     from app.ui.export_dialog import ExportDialog
@@ -140,11 +176,11 @@ def test_export_dialog_plan_and_options(qt_app):
     assert dlg.btn_export.isEnabled()
     n0 = dlg.list_files.count()
     assert n0 > 0
-    dlg.chk_thumb.setChecked(False)
-    assert dlg.list_files.count() == n0 - 1
+    dlg.chk_thumb.setChecked(True)  # defaults are all off: ticking adds a line
+    assert dlg.list_files.count() == n0 + 1
     opts, out, gopts = dlg.options()
     assert opts.base == "d" and out == Path("/tmp")
-    assert opts.selection.thumb_1080p is False
+    assert opts.selection.thumb_1080p is True
     assert (gopts["frames"], gopts["mode"]) == (6, "both")
     assert (gopts["fps"], gopts["size"], gopts["pingpong"]) == (8, 3000, False)
     # size + format travel in the options
@@ -157,11 +193,12 @@ def test_export_dialog_plan_and_options(qt_app):
 
 def test_export_dialog_size_and_format(qt_app):
     # Single doc: the size comes from CANVAS, the dialog only shows it.
-    from app.exporter import plan_export
+    from app.exporter import ExportSelection, plan_export
     from app.ui.export_dialog import ExportDialog
     from tests.conftest import close_dialog
 
-    dlg = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80)
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, size=1920, format="jpg", quality=80,
+                       selection=ExportSelection(image=True))
     assert not hasattr(dlg, "cmb_size") and not hasattr(dlg, "spn_size")
     assert dlg.cmb_format.currentText() == "jpg"
     assert "1920×1920" in dlg.lbl_dims.text()  # ratio 1:1, doc 1920
@@ -269,7 +306,7 @@ def test_collision_rename_writes_suffixed(window, qt_app, monkeypatch):
 
     (window.out_dir / "dupe.png").write_bytes(b"old")
     monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "rename")
-    accept_next_dialog(ExportDialog)
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.src_name = "dupe"
     window.export()
     assert (window.out_dir / "dupe.png").read_bytes() == b"old"
@@ -283,7 +320,7 @@ def test_collision_overwrite_replaces(window, qt_app, monkeypatch):
 
     (window.out_dir / "dupe.png").write_bytes(b"old")
     monkeypatch.setattr(_ef, "resolve_collision", lambda *a, **k: "overwrite")
-    accept_next_dialog(ExportDialog)
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.src_name = "dupe"
     window.export()
     assert (window.out_dir / "dupe.png").read_bytes() != b"old"
@@ -308,7 +345,10 @@ def test_plan_warns_about_existing(qt_app, tmp_path):
     from tests.conftest import close_dialog
 
     (tmp_path / "w.png").write_text("old")
-    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="w", out_dir=str(tmp_path))
+    from app.exporter import ExportSelection
+
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="w", out_dir=str(tmp_path),
+                       selection=ExportSelection(image=True))
     try:
         assert "you'll be asked" in dlg.lbl_exists.text()
         dlg.edit_base.setText("free")
@@ -335,10 +375,10 @@ def test_export_dialog_e2e_defaults(window, qt_app):
     from tests.conftest import accept_next_dialog
 
     window.refresh()
-    accept_next_dialog(ExportDialog)
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.export()
     assert (window.out_dir / "trakkart_cover.png").exists()
-    assert (window.out_dir / "trakkart_cover_metadata.json").exists()
+    assert not (window.out_dir / "trakkart_cover_metadata.json").exists()
 
 
 def test_stale_prefs_yield_fresh_name(window, qt_app):
@@ -351,8 +391,12 @@ def test_stale_prefs_yield_fresh_name(window, qt_app):
                            src_name="otherpic"), window._prefs_path)
     window.src_name = "newpic"
     seen = {}
-    accept_next_dialog(ExportDialog, setup=lambda dlg: seen.setdefault(
-        "base", dlg.edit_base.text()))
+
+    def _seen(dlg):
+        seen.setdefault("base", dlg.edit_base.text())
+        dlg.chk_image.setChecked(True)
+
+    accept_next_dialog(ExportDialog, setup=_seen)
     window.export()
     assert seen.get("base") == "newpic"
     assert (window.out_dir / "newpic.png").exists()
@@ -368,7 +412,7 @@ def test_quick_with_new_image_opens_dialog(window, qt_app):
     save_prefs(ExportPrefs(out_dir=str(window.out_dir), base="oldname",
                            src_name="otherpic"), window._prefs_path)
     window.src_name = "newpic"
-    accept_next_dialog(ExportDialog)
+    accept_next_dialog(ExportDialog, lambda dlg: dlg.chk_image.setChecked(True))
     window.export(quick=True)
     assert (window.out_dir / "newpic.png").exists()
     assert not (window.out_dir / "oldname.png").exists()

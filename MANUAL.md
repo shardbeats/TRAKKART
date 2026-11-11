@@ -49,7 +49,9 @@ huge canvases use Still.
 - **File name:** base for all files (weird characters → `_`).
 - **Folder:** destination; Settings default.
 - **Format/Quality/Size:** the document CANVAS dictates size.
-- **Include:** main image, 1080p thumb, vector SVG, GIF, MP4, JSON.
+- **Include:** nothing is pre-ticked — pick what you need (main image,
+  1080p thumb, vector SVG, GIF/WebP/MP4, separations, SP-404 BMP, JSON).
+  The dialog remembers your picks for next time (Quick export repeats them).
   MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
   shows a weight estimate and warns on heavy files. The animation
   always follows the live VIDEO section. The VIDEO proxy (Draft 720p /

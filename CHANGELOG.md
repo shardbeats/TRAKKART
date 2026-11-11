@@ -33,6 +33,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## [1.3.1] - 2026-11-10
 ### Changed
+- Export dialog: no output is pre-ticked anymore (was: main + thumb +
+  metadata). The user picks; every box persists through prefs
+  (dialog + Quick), including WebP/separations/SP-404/MP4.
 - Portable is now a one-dir ZIP (`TRAKKART-portable-<version>.zip`): instant startup, no per-launch extraction to `%TMP%`.
 - Installer installs the same one-dir build; output moved to `dist-installer/`.
 - Removed the one-file build (`build_exe.py`); use `build_portable.py`.

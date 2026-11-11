@@ -61,6 +61,10 @@ class ExportDialog(QDialog):
         format: str = "png",
         quality: int = 90,
         mp4_size: str = "1080p",
+        mp4: bool = False,
+        webp: bool = False,
+        sep: bool = False,
+        sp404: bool = False,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -142,13 +146,13 @@ class ExportDialog(QDialog):
         self.chk_anim.setChecked(sel.anim)
         self.chk_anim.setToolTip("Animation for socials (Pillow only)")
         self.chk_webp = QCheckBox("Animation WebP")
-        self.chk_webp.setChecked(False)
+        self.chk_webp.setChecked(bool(webp))
         self.chk_webp.setToolTip("Same frames as the GIF, ~1/3 the weight, full color (Pillow only)")
         self.chk_sep = QCheckBox("Ink separations (print)")
-        self.chk_sep.setChecked(False)
+        self.chk_sep.setChecked(bool(sep))
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
         self.chk_sp404 = QCheckBox("SP-404MKII BMP (128×64 1-bit)")
-        self.chk_sp404.setChecked(False)
+        self.chk_sp404.setChecked(bool(sp404))
         self.chk_sp404.setToolTip("Roland SP-404MKII still: one 128×64 1-bit BMP of the current image (rename it to startup_N/screen_saver_N yourself)")
         self.chk_meta.setChecked(sel.metadata)
         self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
@@ -156,7 +160,7 @@ class ExportDialog(QDialog):
 
         self._video_ok = bool(_has_video())
         self.chk_mp4 = QCheckBox("Animation MP4")
-        self.chk_mp4.setChecked(False)
+        self.chk_mp4.setChecked(bool(mp4))
         if self._video_ok:
             self.chk_mp4.setToolTip("H.264 clip at MP4 size below (video backend present)")
         else:

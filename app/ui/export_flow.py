@@ -14,7 +14,11 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "fps": getattr(prefs, "gif_fps", 8),
             "size": getattr(prefs, "gif_size", 1200),
             "pingpong": getattr(prefs, "gif_pingpong", False),
-            "mp4_size": getattr(prefs, "mp4_size", "1080p")}
+            "mp4_size": getattr(prefs, "mp4_size", "1080p"),
+            "mp4": getattr(prefs, "mp4", False),
+            "webp": getattr(prefs, "webp", False),
+            "sep": getattr(prefs, "sep", False),
+            "sp404": getattr(prefs, "sp404", False)}
 
 
 def _gif_opts_from_preset(preset) -> dict:
@@ -22,7 +26,8 @@ def _gif_opts_from_preset(preset) -> dict:
             "fps": int(getattr(preset, "gif_fps", 8)),
             "size": int(getattr(preset, "gif_size", 1200)),
             "pingpong": bool(getattr(preset, "gif_pingpong", False)),
-            "mp4_size": "1080p"}
+            "mp4_size": "1080p",
+            "mp4": False, "webp": False, "sep": False, "sp404": False}
 
 
 def export(win, quick: bool = False) -> None:
@@ -49,12 +54,18 @@ def export(win, quick: bool = False) -> None:
         prefs_match = (not getattr(prefs, "src_name", "")) or prefs.src_name == win.src_name
         if quick and prefs.out_dir and prefs_match:
             selection = prefs.to_selection()
+            gopts_prefs = _gif_opts_from_prefs(prefs)
             win._run_export(
                 base=prefs.base or win.src_name, out_dir=Path(prefs.out_dir),
                 selection=selection,
-                gif_opts=_gif_opts_from_prefs(prefs),
+                gif_opts=gopts_prefs,
                 overwrite="rename",  # never lose a file (old prefs may say otherwise)
                 size=prefs.size, format=prefs.format, quality=prefs.quality,
+                mp4=bool(gopts_prefs.get("mp4", False)),
+                mp4_size=str(gopts_prefs.get("mp4_size", "1080p")),
+                webp=bool(gopts_prefs.get("webp", False)),
+                sep=bool(gopts_prefs.get("sep", False)),
+                sp404=bool(gopts_prefs.get("sp404", False)),
             )
             return
         if prefs.out_dir and prefs_match:
@@ -73,6 +84,8 @@ def export(win, quick: bool = False) -> None:
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
+            for key in ("mp4", "webp", "sep", "sp404"):
+                init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
             # pre-checks Animation GIF (still uncheckable, ~MB plan visible).
@@ -89,6 +102,10 @@ def export(win, quick: bool = False) -> None:
             vector_cells=win._estimate_vector_cells(preset),
             preset=preset, size=init_size, format=init_fmt, quality=init_q,
             mp4_size=str(init_gopts.get("mp4_size", "1080p")),
+            mp4=bool(init_gopts.get("mp4", False)),
+            webp=bool(init_gopts.get("webp", False)),
+            sep=bool(init_gopts.get("sep", False)),
+            sp404=bool(init_gopts.get("sp404", False)),
             parent=win,
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
@@ -120,6 +137,10 @@ def export(win, quick: bool = False) -> None:
             thumb_1080p=options.selection.thumb_1080p,
             vector=options.selection.vector, anim=options.selection.anim,
             metadata=options.selection.metadata,
+            webp=bool(gopts.get("webp", False)),
+            sep=bool(gopts.get("sep", False)),
+            sp404=bool(gopts.get("sp404", False)),
+            mp4=bool(gopts.get("mp4", False)),
             gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
             gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
             gif_pingpong=bool(gopts["pingpong"]),

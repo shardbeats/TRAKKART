@@ -20,11 +20,15 @@ PREFS_FILENAME = "export_prefs.json"
 class ExportPrefs:
     out_dir: str = ""
     base: str = "trakkart_cover"
-    image: bool = True
-    thumb_1080p: bool = True
+    image: bool = False
+    thumb_1080p: bool = False
     vector: bool = False
     anim: bool = False
-    metadata: bool = True
+    metadata: bool = False
+    webp: bool = False
+    sep: bool = False
+    sp404: bool = False
+    mp4: bool = False
     gif_frames: int = 6
     gif_mode: str = "both"
     gif_fps: int = 8
@@ -95,6 +99,7 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
     except Exception:  # noqa: BLE001
         prefs.size = _clamp_int(getattr(prefs, "size", 3000), 64, 8000, 3000)
     for flag in ("image", "thumb_1080p", "vector", "anim", "metadata",
+                 "webp", "sep", "sp404", "mp4",
                  "gif_pingpong", "drop_batch", "restore_session"):
         try:
             setattr(prefs, flag, bool(getattr(prefs, flag)))

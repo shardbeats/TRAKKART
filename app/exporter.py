@@ -84,11 +84,11 @@ def _raster_keys() -> tuple[str, ...]:
 
 @dataclass
 class ExportSelection:
-    image: bool = True
-    thumb_1080p: bool = True
+    image: bool = False
+    thumb_1080p: bool = False
     vector: bool = False
     anim: bool = False
-    metadata: bool = True
+    metadata: bool = False
     black_vector: bool = False  # v1.3: modifier (not a file)
 
     def keys(self) -> list[str]:
