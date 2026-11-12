@@ -69,9 +69,21 @@ def test_sp404_canvas_button(window, qt_app):
     assert int(window.spn_canvas_w.value()) == 128
     assert int(window.spn_canvas_h.value()) == 64
     assert str(window.cmb_ratio.currentText()) == "Custom"
-    # The button also shows the device view: 1-bit OLED preview on.
+    # Decoupled (v1.6.0): the canvas preset is document-only, preview unchanged.
+    assert window._sp404_preview is False
+    assert window.act_sp404.isChecked() is False
+
+
+def test_sp404_preview_toggle_button(window, qt_app):
+    assert window._sp404_preview is False
+    window.btn_sp404_preview.click()
     assert window._sp404_preview is True
     assert window.act_sp404.isChecked() is True
+    assert "ON" in window.btn_sp404_preview.text()
+    window.btn_sp404_preview.click()
+    assert window._sp404_preview is False
+    assert window.act_sp404.isChecked() is False
+    assert "OFF" in window.btn_sp404_preview.text()
 
 
 def test_sp404_frame_deterministic():
