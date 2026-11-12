@@ -43,6 +43,26 @@ Manual bump per release (0.1.0 → 0.2.0 ...).
   `Path(__file__).resolve().parents[1]` (see `64e5d0c`); a dev path fails CI
   with `NotADirectoryError`.
 
+## Serial-suite F (known incident 2026-11-11)
+
+- Symptom: `build_portable.py --full-tests` (serial, no xdist) stopped
+  with one `F` around 88% (`tests/test_ui_render.py::
+  test_export_bundle_from_ui`: `assert [] == [trakkart_cover.png, ...]`),
+  then crawled — 4h wall on a loaded machine (Telegram/Spotify/rustdesk/
+  GCC + Defender scanning `dist/`).
+- Root cause: behavior change, not engine. Since "nothing pre-ticked"
+  the accepted dialog exports zero files, so the test's `glob("*.png")`
+  came back empty. The parallel gate stayed green the whole time
+  because xdist isolates files (no shared order).
+- Fix: tick Main image + thumb in the test's dialog hook (commit
+  `6749ead`). Rule going forward: any dialog-accept test must tick the
+  outputs it asserts — empty selection is now a legal state (Export
+  button disables).
+- Note: serial full takes hours under load; the release gate is the
+  parallel suite (`-m "not slow" -n auto`, green). Use `--full-tests`
+  only on an idle machine, and read the F with `-v -u` instead of
+  re-running blind.
+
 ## Layout
 
 ```
