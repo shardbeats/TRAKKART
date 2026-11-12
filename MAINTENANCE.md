@@ -20,6 +20,11 @@ Manual bump per release (1.6.0 → 1.7.0 ...), files to touch:
 - Runtime: `requirements.txt` (PySide6, Pillow, numpy, numba, imageio-ffmpeg). No OpenCV/GPU. Numba ships in the bundle; numpy fallback stays for safety (`has_numba()` probe, parity tested).
 - Dev: `requirements-dev.txt` (pytest, pytest-bdd, pytest-cov, coverage).
 - Install dev: `.venv\Scripts\python -m pip install -r requirements-dev.txt`
+- The gate needs RUNTIME deps too (`requirements.txt`, incl. `numba`):
+  without numba, `should_render_async` goes async on large images and
+  `test_lazy_import_defers_numba` / `test_still_preview_uses_proxy_except_full`
+  fail with F. Env issue, not app regression (fixed 2026-11-12 by installing
+  numba; both tests green again, no code change).
 
 ## CI pins (known incident 2026-10-30)
 
