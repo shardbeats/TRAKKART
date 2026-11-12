@@ -1014,6 +1014,12 @@ class MainWindow(QMainWindow):
 
         _im.randomize(self)
 
+    def surprise_me(self) -> None:
+        """Surprise entry (button/menu/shortcut): fresh seed + randomize."""
+        from app.ui import image_flow as _im
+
+        _im.surprise_me(self)
+
     # -- zoom / clipboard (body in image_flow) --
     def _zoom_step(self, factor: float) -> None:
         from app.ui import image_flow as _im

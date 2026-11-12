@@ -60,6 +60,18 @@ def randomize(win) -> None:
     win._status(f"Random applied (seed {seed}; save the preset if you like it)")
 
 
+def surprise_me(win) -> None:
+    """Button/menu entry: fresh chaos seed, then surprise (iterates)."""
+    import random
+
+    try:
+        seed = random.randint(0, 999999)
+        win.spn_chaos_seed.setValue(seed)
+    except Exception:  # noqa: BLE001
+        pass
+    randomize(win)
+
+
 # -- zoom / clipboard --
 def zoom_step(win, factor: float) -> None:
     win.lbl_res.zoom_step(factor)

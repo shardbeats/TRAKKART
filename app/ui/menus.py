@@ -85,8 +85,8 @@ def build_menus(win) -> None:
          "", "Undo the last image op", action_id="edit_undo")
     _act(win, m_edit, "Redo", win.redo_image,
          "", "Redo the last undone op", action_id="edit_redo")
-    _act(win, m_edit, "Surprise me", win.randomize,
-         "", "Randomize method/palette/params", action_id="edit_randomize")
+    _act(win, m_edit, "Surprise me", win.surprise_me,
+         "", "Randomize method/palette/params (fresh chaos seed)", action_id="edit_randomize")
     m_edit.addSeparator()
     _act(win, m_edit, "Copy result", win.copy_result,
          "", "Copy the dithered result to the clipboard", action_id="edit_copy")

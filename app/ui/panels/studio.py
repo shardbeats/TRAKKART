@@ -237,6 +237,15 @@ def _roll_pal_seed(win) -> None:
         pass
 
 
+def _roll_pal_shuffle(win) -> None:
+    """Fresh seed into the spin, then shuffle (status logs the seed)."""
+    roll_seed_spin(win, "spn_pal_seed", "Palette shuffle")
+    try:
+        win.shuffle_palette()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     # Library: a loaded named palette = editable starting point.
     lib_row = QHBoxLayout()
@@ -257,8 +266,8 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_custom_add.clicked.connect(win.add_custom_color)
     row.addWidget(win.btn_custom_add)
     win.btn_pal_gen = QPushButton("🎲")
-    win.btn_pal_gen.setToolTip("Surprise palette: generate harmonious colors")
-    win.btn_pal_gen.clicked.connect(win.gen_palette)
+    win.btn_pal_gen.setToolTip("Surprise palette: fresh random seed + generate (seed shown below, edit it to replay)")
+    win.btn_pal_gen.clicked.connect(lambda: _roll_pal_seed(win))
     row.addWidget(win.btn_pal_gen)
     win.cmb_palgen = QComboBox()
     tight(win.cmb_palgen, 8)
@@ -286,13 +295,9 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.spn_pal_seed.setRange(0, 999999)
     win.spn_pal_seed.setValue(0)
     win.spn_pal_seed.setFixedWidth(80)
-    win.spn_pal_seed.setToolTip("Palette seed 0-999999: 🎲 generates, 🔀 shuffles (same seed = same result)")
+    win.spn_pal_seed.setToolTip("Palette seed 0-999999: edit + 🎲/🔀 to replay that exact result")
+    win.spn_pal_seed.valueChanged.connect(lambda _: win._schedule_refresh())
     row2.addWidget(win.spn_pal_seed)
-    win.btn_pal_dice = QPushButton("🎲")
-    win.btn_pal_dice.setFixedWidth(36)
-    win.btn_pal_dice.setToolTip("Generate a palette with a fresh random seed")
-    win.btn_pal_dice.clicked.connect(lambda: _roll_pal_seed(win))
-    row2.addWidget(win.btn_pal_dice)
     g.addLayout(row2)
     depth_row = QHBoxLayout()
     depth_row.addWidget(QLabel("Depth:"))
@@ -305,8 +310,8 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     depth_row.addWidget(win.spn_pal_depth)
     win.btn_pal_shuffle = QPushButton("🔀")
     win.btn_pal_shuffle.setFixedWidth(36)
-    win.btn_pal_shuffle.setToolTip("Shuffle unlocked swatches (locked stay)")
-    win.btn_pal_shuffle.clicked.connect(win.shuffle_palette)
+    win.btn_pal_shuffle.setToolTip("Shuffle unlocked swatches with a fresh seed (locked stay)")
+    win.btn_pal_shuffle.clicked.connect(lambda: _roll_pal_shuffle(win))
     depth_row.addWidget(win.btn_pal_shuffle)
     depth_row.addStretch()
     g.addLayout(depth_row)

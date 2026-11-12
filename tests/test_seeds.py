@@ -93,6 +93,26 @@ def test_fx_seed_dice(window, qt_app):
     assert "seed" in window.lbl_status.text()
 
 
+def test_palette_buttons_roll_and_log(window, qt_app):
+    window.btn_pal_gen.click()
+    v = window.spn_pal_seed.value()
+    assert 0 <= v <= 999999
+    assert str(v) in window.lbl_status.text()
+    assert len(window.custom_colors) >= 2
+    window.btn_pal_shuffle.click()
+    assert "seed" in window.lbl_status.text()
+
+
+def test_surprise_and_adjust_buttons_iterate(window, qt_app):
+    from PIL import Image
+
+    window.src = Image.new("RGB", (64, 64), (10, 200, 90))
+    window.btn_random.click()
+    v = window.spn_chaos_seed.value()
+    assert 0 <= v <= 999999
+    assert str(v) in window.lbl_status.text()
+
+
 def test_chaos_seed_replays_surprise(window, qt_app):
     from PIL import Image
 

@@ -41,8 +41,8 @@ def build_image_section(win, g: QVBoxLayout) -> None:
     win.btn_undo.clicked.connect(win.undo_image)
     ops2.addWidget(win.btn_undo)
     win.btn_random = QPushButton("Surprise me")
-    win.btn_random.setToolTip("Random (Ctrl+R)")
-    win.btn_random.clicked.connect(win.randomize)
+    win.btn_random.setToolTip("Random (Ctrl+R): fresh chaos seed + new method/palette/threshold/pixel")
+    win.btn_random.clicked.connect(win.surprise_me)
     ops2.addWidget(win.btn_random)
     g.addLayout(ops2)
     chaos_row = QHBoxLayout()
@@ -176,6 +176,7 @@ def _on_adjust_lock(win, key: str, on: bool, btn) -> None:
 def _on_adjust_dice(win) -> None:
     from app.ui import color_actions as _ca
 
+    _roll_chaos_seed(win)  # fresh seed so every click iterates; spin logs it
     _ca.randomize_adjusts(win)
 
 
