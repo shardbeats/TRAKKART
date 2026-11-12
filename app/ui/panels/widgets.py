@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -131,3 +132,39 @@ def spin_row(parent, label: str, lo: int, hi: int, val: int, tooltip: str = "") 
     row.addWidget(spn, 1)
     parent.addLayout(row)
     return spn
+
+
+def seed_row(parent, win, spin_attr: str, dice_attr: str, label_text: str,
+             value: int, tooltip: str = "", dice_tip: str = "",
+             on_roll=None) -> tuple:
+    """One seed per row: [96px label | 80px spin | 36px dice | stretch].
+
+    Shared geometry so seed rows never overflow the 360-460px panel
+    (the scroll has no horizontal bar: wide rows get hard-clipped).
+    Sets `win.<spin_attr>` / `win.<dice_attr>` and wires valueChanged
+    to the live refresh, like every other seed control.
+    """
+    row = QHBoxLayout()
+    lab = QLabel(label_text)
+    lab.setFixedWidth(96)
+    row.addWidget(lab)
+    spn = QSpinBox()
+    spn.setRange(0, 999999)
+    spn.setValue(int(value))
+    spn.setFixedWidth(80)
+    if tooltip:
+        spn.setToolTip(tooltip)
+    spn.valueChanged.connect(lambda _: win._schedule_refresh())
+    row.addWidget(spn)
+    dice = QPushButton("🎲")
+    dice.setFixedWidth(36)
+    if dice_tip:
+        dice.setToolTip(dice_tip)
+    if on_roll is not None:
+        dice.clicked.connect(on_roll)
+    row.addWidget(dice)
+    row.addStretch()
+    parent.addLayout(row)
+    setattr(win, spin_attr, spn)
+    setattr(win, dice_attr, dice)
+    return spn, dice

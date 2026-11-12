@@ -82,9 +82,11 @@ def test_fx_seed_dice(window, qt_app):
     assert 0 <= window.spn_grain_seed.value() <= 999999
     window.btn_dust_dice.click()
     assert 0 <= window.spn_dust_seed.value() <= 999999
-    window.btn_glitch_dice.click()
+    window.btn_slice_dice.click()
     assert 0 <= window.spn_slice_seed.value() <= 999999
+    window.btn_pixelsort_dice.click()
     assert 0 <= window.spn_pixelsort_seed.value() <= 999999
+    window.btn_wave_dice.click()
     assert 0 <= window.spn_wave_seed.value() <= 999999
     window.btn_drift_dice.click()
     assert window.current_params().drift_seed == window.spn_drift_seed.value()

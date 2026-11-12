@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider
+from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row
 
 
 def build_image_section(win, g: QVBoxLayout) -> None:
@@ -45,21 +45,10 @@ def build_image_section(win, g: QVBoxLayout) -> None:
     win.btn_random.clicked.connect(win.surprise_me)
     ops2.addWidget(win.btn_random)
     g.addLayout(ops2)
-    chaos_row = QHBoxLayout()
-    chaos_row.addWidget(QLabel("Chaos seed:"))
-    win.spn_chaos_seed = QSpinBox()
-    win.spn_chaos_seed.setRange(0, 999999)
-    win.spn_chaos_seed.setValue(0)
-    win.spn_chaos_seed.setFixedWidth(80)
-    win.spn_chaos_seed.setToolTip("Seed for Surprise me + 🎲 Adjust (same seed = same result, replays)")
-    chaos_row.addWidget(win.spn_chaos_seed)
-    win.btn_chaos_dice = QPushButton("🎲")
-    win.btn_chaos_dice.setFixedWidth(36)
-    win.btn_chaos_dice.setToolTip("Fresh random chaos seed")
-    win.btn_chaos_dice.clicked.connect(lambda: _roll_chaos_seed(win))
-    chaos_row.addWidget(win.btn_chaos_dice)
-    chaos_row.addStretch()
-    g.addLayout(chaos_row)
+    seed_row(g, win, "spn_chaos_seed", "btn_chaos_dice", "Chaos seed:", 0,
+             "Seed for Surprise me + 🎲 Adjust (same seed = same result, replays)",
+             "Fresh random chaos seed",
+             lambda: _roll_chaos_seed(win))
 
 
 def _roll_chaos_seed(win) -> None:

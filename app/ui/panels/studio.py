@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider, spin_row
+from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row, spin_row
 
 
 def build_motif_section(win, g: QVBoxLayout) -> None:
@@ -105,23 +105,10 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     paste_row.addWidget(win.cmb_paste_blend, 1)
     g.addLayout(paste_row)
     win.sld_paste_op, _ = labeled_slider(win, g, "Paste:", 0, 100, 0, "Paste-Up opacity 0=off")
-    paste_seed_row = QHBoxLayout()
-    paste_seed_row.addWidget(QLabel("Seed:"))
-    win.spn_paste_seed = QSpinBox()
-    win.spn_paste_seed.setRange(0, 999999)
-    win.spn_paste_seed.setValue(0x9A57)
-    win.spn_paste_seed.setFixedWidth(80)
-    win.spn_paste_seed.setToolTip("Paper fiber pattern 0-999999 (same seed = same fibers)")
-    win.spn_paste_seed.valueChanged.connect(lambda _: win._schedule_refresh())
-    paste_seed_row.addWidget(win.spn_paste_seed)
-    win.btn_paste_dice = QPushButton("🎲")
-    win.btn_paste_dice.setFixedWidth(36)
-    win.btn_paste_dice.setToolTip("Re-roll the paper fibers")
-    win.btn_paste_dice.clicked.connect(
-        lambda: roll_seed_spin(win, "spn_paste_seed", "Paste-Up"))
-    paste_seed_row.addWidget(win.btn_paste_dice)
-    paste_seed_row.addStretch()
-    g.addLayout(paste_seed_row)
+    seed_row(g, win, "spn_paste_seed", "btn_paste_dice", "Seed:", 0x9A57,
+             "Paper fiber pattern 0-999999 (same seed = same fibers)",
+             "Re-roll the paper fibers",
+             lambda: roll_seed_spin(win, "spn_paste_seed", "Paste-Up"))
     win.fx_stack_data: list = []
 
 
@@ -145,22 +132,10 @@ def build_mosh_section(win, g: QVBoxLayout) -> None:
     win.sld_mosh, _ = labeled_slider(win, g, "Amount:", 0, 100, 0, "Datamosh amount 0=off")
     win.sld_mosh_size, _ = labeled_slider(
         win, g, "Size:", 10, 200, 100, "Feature scale % (100 = classic)")
-    seed_row = QHBoxLayout()
-    seed_row.addWidget(QLabel("Variation:"))
-    win.spn_mosh_seed = QSpinBox()
-    win.spn_mosh_seed.setRange(0, 999999)
-    win.spn_mosh_seed.setValue(0)
-    win.spn_mosh_seed.setFixedWidth(80)
-    win.spn_mosh_seed.setToolTip("Seed variation 0-999999: re-rolls the damage")
-    win.spn_mosh_seed.valueChanged.connect(lambda _: win._schedule_refresh())
-    seed_row.addWidget(win.spn_mosh_seed)
-    win.btn_mosh_dice = QPushButton("🎲")
-    win.btn_mosh_dice.setFixedWidth(36)
-    win.btn_mosh_dice.setToolTip("Re-roll the damage pattern")
-    win.btn_mosh_dice.clicked.connect(lambda: _roll_mosh_seed(win))
-    seed_row.addWidget(win.btn_mosh_dice)
-    seed_row.addStretch()
-    g.addLayout(seed_row)
+    seed_row(g, win, "spn_mosh_seed", "btn_mosh_dice", "Variation:", 0,
+             "Seed variation 0-999999: re-rolls the damage",
+             "Re-roll the damage pattern",
+             lambda: _roll_mosh_seed(win))
 
 
 def build_drift_section(win, g: QVBoxLayout) -> None:
@@ -186,23 +161,10 @@ def build_drift_section(win, g: QVBoxLayout) -> None:
                                             div=100.0)
     win.sld_drift_position, _ = labeled_slider(win, g, "Position:", 0, 100, 50,
                                                "Still freeze 0-100 (50 = mid-traverse, visible)")
-    seed_row = QHBoxLayout()
-    seed_row.addWidget(QLabel("Seed:"))
-    win.spn_drift_seed = QSpinBox()
-    win.spn_drift_seed.setRange(0, 999999)
-    win.spn_drift_seed.setValue(0xD81F)
-    win.spn_drift_seed.setFixedWidth(80)
-    win.spn_drift_seed.setToolTip("Drift mask pattern 0-999999 (same seed = same noise)")
-    win.spn_drift_seed.valueChanged.connect(lambda _: win._schedule_refresh())
-    seed_row.addWidget(win.spn_drift_seed)
-    win.btn_drift_dice = QPushButton("🎲")
-    win.btn_drift_dice.setFixedWidth(36)
-    win.btn_drift_dice.setToolTip("Re-roll the drift pattern")
-    win.btn_drift_dice.clicked.connect(
-        lambda: roll_seed_spin(win, "spn_drift_seed", "Drift"))
-    seed_row.addWidget(win.btn_drift_dice)
-    seed_row.addStretch()
-    g.addLayout(seed_row)
+    seed_row(g, win, "spn_drift_seed", "btn_drift_dice", "Seed:", 0xD81F,
+             "Drift mask pattern 0-999999 (same seed = same noise)",
+             "Re-roll the drift pattern",
+             lambda: roll_seed_spin(win, "spn_drift_seed", "Drift"))
 
 
 def _roll_mosh_seed(win) -> None:

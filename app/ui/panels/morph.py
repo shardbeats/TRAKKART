@@ -13,10 +13,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider
+from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row
 
 
 def _roll_dissolve_seed(win) -> None:
@@ -95,22 +94,10 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.sld_dissolve_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100, "Traversals per clip 0.25-4.0x (1 = full sweep)", div=100.0)
     win.sld_dissolve_wind_x, _ = labeled_slider(win, g, "Wind X:", -500, 500, 120, "Horizontal wind px at full disperse")
     win.sld_dissolve_wind_y, _ = labeled_slider(win, g, "Wind Y:", -500, 500, -40, "Vertical wind px at full disperse")
-    seed_row = QHBoxLayout()
-    seed_row.addWidget(QLabel("Seed:"))
-    win.spn_dissolve_seed = QSpinBox()
-    win.spn_dissolve_seed.setRange(0, 999999)
-    win.spn_dissolve_seed.setValue(53596)
-    win.spn_dissolve_seed.setFixedWidth(80)
-    win.spn_dissolve_seed.setToolTip("Deterministic pattern seed (same seed = same particles)")
-    win.spn_dissolve_seed.valueChanged.connect(lambda _: win._schedule_refresh())
-    seed_row.addWidget(win.spn_dissolve_seed)
-    win.btn_dissolve_dice = QPushButton("🎲")
-    win.btn_dissolve_dice.setFixedWidth(36)
-    win.btn_dissolve_dice.setToolTip("Re-roll the particle pattern")
-    win.btn_dissolve_dice.clicked.connect(lambda: _roll_dissolve_seed(win))
-    seed_row.addWidget(win.btn_dissolve_dice)
-    seed_row.addStretch()
-    g.addLayout(seed_row)
+    seed_row(g, win, "spn_dissolve_seed", "btn_dissolve_dice", "Seed:", 53596,
+             "Deterministic pattern seed (same seed = same particles)",
+             "Re-roll the particle pattern",
+             lambda: _roll_dissolve_seed(win))
     win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per form 0-3.0s — adds time, Length is derived (each form reads)", div=10.0)
     from PySide6.QtWidgets import QCheckBox as _Chk
 

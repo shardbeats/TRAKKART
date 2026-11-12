@@ -87,6 +87,7 @@ def setup_ui(win) -> None:
     root.addLayout(left_col, 0)
     win._action_bar = QVBoxLayout()
     win._action_bar.setSpacing(4)
+    win._action_bar.setContentsMargins(0, 8, 0, 0)
     left_col.addLayout(win._action_bar)
 
     setup_control_panel(win, panel)
