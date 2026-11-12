@@ -2,8 +2,18 @@
 
 ## Versioning
 
-Single source: `app/__init__.py` (`__version__`). `pyproject.toml` and `build_portable.py` read it.
-Manual bump per release (0.1.0 → 0.2.0 ...).
+Single source at runtime/build: `app/__init__.py` (`__version__`).
+`main.py`, `app/exporter.py`, `app/ui/about_dialog.py`,
+`app/ui/window_assembly.py`, `build_portable.py` and `build_installer.py`
+read it — do not hardcode the version there.
+
+Manual bump per release (1.6.0 → 1.7.0 ...), files to touch:
+1. `app/__init__.py` → `__version__` (required, what runs and logs).
+2. `pyproject.toml` → `version` (required, package metadata; hardcoded today).
+3. `installer/trakkart.iss` → both `MyVersion` lines (fallback default only;
+   the real build passes `/DMyVersion` from `__version__`, keep in sync anyway).
+4. `CHANGELOG.md` → new `## [X.Y.Z]` entry.
+5. `MANUAL.md` / `ROADMAP.md` → only if the change alters a documented flow.
 
 ## Dependencies
 
