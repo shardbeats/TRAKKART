@@ -67,6 +67,7 @@ class RenderSpec:
     glow_radius: float = 0.0
     glow_intensity: float = 0.0
     grain: float = 0.0
+    grain_seed: int = 0x7A4B
     vignette: float = 0.0
     scanlines: int = 0
     replace_color: str = ""
@@ -76,6 +77,7 @@ class RenderSpec:
     glitch_chroma: int = 0
     glitch_slice_bands: int = 0
     glitch_slice_max: int = 24
+    glitch_slice_seed: int = 0x6A17
     duotone_dark: str = ""
     duotone_light: str = ""
     duotone_mid: float = 50.0
@@ -86,11 +88,14 @@ class RenderSpec:
     halftone: int = 0
     halftone_shape: str = "dots"
     dust: float = 0.0
+    dust_seed: int = 0xD57
     border: int = 0
     border_color: str = "#000000"
     letterbox: int = 0
     pixelsort: int = 0
+    pixelsort_seed: int = 0x9150
     wave: int = 0
+    wave_seed: int = 0x9A9E
     mosh: float = 0.0
     mosh_mode: str = "blocks"
     mosh_seed: int = 0
@@ -107,9 +112,11 @@ class RenderSpec:
     drift_progress: float | None = None
     drift_loops: float = 1.0
     drift_position: float = 50.0
+    drift_seed: int = 0xD81F
     paste_mode: str = "off"
     paste_opacity: float = 0.0
     paste_blend: str = "overlay"
+    paste_seed: int = 0x9A57
 
     @staticmethod
     def from_preset(preset, phase: int = 0, drift_progress: float | None = None) -> "RenderSpec":
@@ -144,6 +151,7 @@ class RenderSpec:
             glow_radius=float(preset.glow_radius),
             glow_intensity=float(preset.glow_intensity),
             grain=float(preset.grain),
+            grain_seed=int(getattr(preset, "grain_seed", 0x7A4B) or 0),
             vignette=float(preset.vignette),
             scanlines=normalize_scanlines(int(preset.scanlines)),
             replace_color=preset.replace_color,
@@ -153,6 +161,7 @@ class RenderSpec:
             glitch_chroma=int(preset.glitch_chroma),
             glitch_slice_bands=normalize_slice_bands(int(preset.glitch_slice_bands)),
             glitch_slice_max=int(preset.glitch_slice_max),
+            glitch_slice_seed=int(getattr(preset, "glitch_slice_seed", 0x6A17) or 0),
             duotone_dark=str(getattr(preset, "duotone_dark", "")),
             duotone_light=str(getattr(preset, "duotone_light", "")),
             duotone_mid=float(getattr(preset, "duotone_mid", 50.0)),
@@ -163,11 +172,14 @@ class RenderSpec:
             halftone=normalize_halftone(int(getattr(preset, "halftone", 0))),
             halftone_shape=str(getattr(preset, "halftone_shape", "dots")),
             dust=float(getattr(preset, "dust", 0.0)),
+            dust_seed=int(getattr(preset, "dust_seed", 0xD57) or 0),
             border=int(getattr(preset, "border", 0)),
             border_color=str(getattr(preset, "border_color", "#000000")),
             letterbox=int(getattr(preset, "letterbox", 0)),
             pixelsort=int(getattr(preset, "pixelsort", 0)),
+            pixelsort_seed=int(getattr(preset, "pixelsort_seed", 0x9150) or 0),
             wave=int(getattr(preset, "wave", 0)),
+            wave_seed=int(getattr(preset, "wave_seed", 0x9A9E) or 0),
             mosh=float(getattr(preset, "mosh", 0.0)),
             mosh_mode=str(getattr(preset, "mosh_mode", "blocks") or "blocks"),
             mosh_seed=int(getattr(preset, "mosh_seed", 0) or 0),
@@ -187,9 +199,11 @@ class RenderSpec:
             drift_progress=(None if drift_progress is None else float(drift_progress)),
             drift_loops=float(getattr(preset, "drift_speed", 1.0) or 1.0),
             drift_position=float(getattr(preset, "drift_position", 50.0)),
+            drift_seed=int(getattr(preset, "drift_seed", 0xD81F) or 0),
             paste_mode=str(getattr(preset, "paste_mode", "off") or "off"),
             paste_opacity=float(getattr(preset, "paste_opacity", 0.0) or 0.0),
             paste_blend=str(getattr(preset, "paste_blend", "overlay") or "overlay"),
+            paste_seed=int(getattr(preset, "paste_seed", 0x9A57) or 0),
         )
 
     def as_kwargs(self) -> dict:
@@ -218,6 +232,7 @@ class RenderSpec:
                 "glow_radius": float(self.glow_radius),
                 "glow_intensity": float(self.glow_intensity),
                 "grain": float(self.grain),
+                "grain_seed": int(getattr(self, "grain_seed", 0x7A4B) or 0),
                 "vignette": float(self.vignette),
                 "scanlines": int(self.scanlines),
             },
@@ -228,8 +243,11 @@ class RenderSpec:
             "glitch": {"chroma": int(self.glitch_chroma),
                        "slice_bands": int(self.glitch_slice_bands),
                        "slice_max": int(self.glitch_slice_max),
+                       "slice_seed": int(getattr(self, "glitch_slice_seed", 0x6A17) or 0),
                        "pixelsort": int(self.pixelsort),
+                       "pixelsort_seed": int(getattr(self, "pixelsort_seed", 0x9150) or 0),
                        "wave": int(self.wave),
+                       "wave_seed": int(getattr(self, "wave_seed", 0x9A9E) or 0),
                        "mosh": float(self.mosh),
                        "mosh_mode": str(getattr(self, "mosh_mode", "blocks")),
                        "mosh_seed": int(getattr(self, "mosh_seed", 0) or 0),
@@ -253,6 +271,7 @@ class RenderSpec:
                 "halftone": int(getattr(self, "halftone", 0) or 0),
                 "halftone_shape": str(getattr(self, "halftone_shape", "dots")),
                 "dust": float(getattr(self, "dust", 0.0) or 0.0),
+                "dust_seed": int(getattr(self, "dust_seed", 0xD57) or 0),
                 "border": int(getattr(self, "border", 0) or 0),
                 "border_color": str(getattr(self, "border_color", "#000000")),
                 "letterbox": int(getattr(self, "letterbox", 0) or 0),
@@ -262,11 +281,13 @@ class RenderSpec:
                 "amount": float(getattr(self, "drift_amount", 0.0) or 0.0),
                 "loops": float(getattr(self, "drift_loops", 1.0) or 1.0),
                 "position": float(getattr(self, "drift_position", 50.0)),
+                "seed": int(getattr(self, "drift_seed", 0xD81F) or 0),
             },
             "paste": {
                 "mode": str(getattr(self, "paste_mode", "off") or "off"),
                 "opacity": float(getattr(self, "paste_opacity", 0.0) or 0.0),
                 "blend": str(getattr(self, "paste_blend", "overlay") or "overlay"),
+                "seed": int(getattr(self, "paste_seed", 0x9A57) or 0),
             },
             "motif": (__import__("copy").deepcopy(self.motif)
                       if self.motif is not None else None),
@@ -294,6 +315,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
             canvas = apply_drift_loop(canvas, pattern=str(s.drift_pattern),
                                       amount=float(s.drift_amount),
                                       progress=float(s.drift_progress),
+                                      seed=int(getattr(s, "drift_seed", 0xD81F) or 0),
                                       loops=float(getattr(s, "drift_loops", 1.0) or 1.0))
         else:
             # Still: frozen traverse at drift_position (50 = mid, visible).
@@ -303,6 +325,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
                 pos = 0.5
             canvas = apply_drift_loop(canvas, pattern=str(s.drift_pattern),
                                       amount=float(s.drift_amount), progress=pos,
+                                      seed=int(getattr(s, "drift_seed", 0xD81F) or 0),
                                       loops=1.0)
     if s.pre_blur or s.pre_sharpen or s.pre_hue or s.pre_denoise or s.pre_smooth:
         canvas = apply_pre(canvas, blur=s.pre_blur, sharpen=s.pre_sharpen, hue=s.pre_hue,

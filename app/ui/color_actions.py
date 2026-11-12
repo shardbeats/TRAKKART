@@ -98,14 +98,22 @@ def add_custom_color(win) -> None:
 
 
 def gen_palette(win) -> None:
-    """🎲 Surprise: generates a harmonious palette (ramp/harmony in Oklch)."""
+    """🎲 Surprise: generates a harmonious palette (ramp/harmony in Oklch).
+
+    Uses the palette seed spin when the dice set it; manual "Generate"
+    clicks keep the current spin value, so any result replays by seed.
+    """
     from app.palette_gen import generate_palette
 
     n = max(2, len(win.custom_colors) or 4)
     style = win.cmb_palgen.currentText().lower() if hasattr(win, "cmb_palgen") else "ramp"
-    set_custom_colors(win, generate_palette(n, style=style))
+    try:
+        seed = int(win.spn_pal_seed.value())
+    except Exception:  # noqa: BLE001
+        seed = 0
+    set_custom_colors(win, generate_palette(n, style=style, seed=seed))
     win.refresh()
-    win._status(f"Generated {style} palette: {len(win.custom_colors)} colors (editable)")
+    win._status(f"Generated {style} palette: {len(win.custom_colors)} colors (seed {seed})")
 
 
 def edit_custom_palette(win) -> None:
@@ -362,7 +370,11 @@ def save_palette_preset(win) -> None:
 
 
 def shuffle_custom_colors(win) -> None:
-    """🔀 Shuffle only unlocked swatches (locks stay in place)."""
+    """🔀 Shuffle only unlocked swatches (locks stay in place).
+
+    Deterministic on the palette seed spin: same seed + same strip =
+    same order. The dice rolls a fresh seed first.
+    """
     import random
 
     colors = list(win.custom_colors)
@@ -373,14 +385,18 @@ def shuffle_custom_colors(win) -> None:
     if len(free_idx) < 2:
         win._status("Nothing to shuffle (lock fewer swatches)")
         return
+    try:
+        seed = int(win.spn_pal_seed.value())
+    except Exception:  # noqa: BLE001
+        seed = 0
     pool = [colors[i] for i in free_idx]
-    random.shuffle(pool)
+    random.Random(seed).shuffle(pool)
     for i, c in zip(free_idx, pool):
         colors[i] = c
     set_custom_colors(win, colors, dirty=True)
     win._palette_locks = locks
     win.refresh()
-    win._status(f"Shuffled {len(pool)} unlocked colors")
+    win._status(f"Shuffled {len(pool)} unlocked colors (seed {seed})")
 
 
 def toggle_palette_lock(win, i: int) -> None:
@@ -392,10 +408,18 @@ def toggle_palette_lock(win, i: int) -> None:
 
 
 def randomize_adjusts(win) -> None:
-    """🎲 Randomizes only unlocked adjusts (B/C/S/M/H)."""
+    """🎲 Randomizes only unlocked adjusts (B/C/S/M/H).
+
+    Draws from the chaos seed spin, so the result replays by seed.
+    """
     import random
 
     locks = dict(getattr(win, "_adjust_locks", {}) or {})
+    try:
+        seed = int(win.spn_chaos_seed.value())
+    except Exception:  # noqa: BLE001
+        seed = 0
+    rng = random.Random(seed)
 
     def _set(slider, value: int):
         try:
@@ -405,15 +429,15 @@ def randomize_adjusts(win) -> None:
             slider.blockSignals(False)
 
     if not locks.get("brightness", False) and hasattr(win, "sld_bri"):
-        _set(win.sld_bri, random.randint(80, 130))
+        _set(win.sld_bri, rng.randint(80, 130))
     if not locks.get("contrast", False) and hasattr(win, "sld_con"):
-        _set(win.sld_con, random.randint(80, 130))
+        _set(win.sld_con, rng.randint(80, 130))
     if not locks.get("saturation", False) and hasattr(win, "sld_sat"):
-        _set(win.sld_sat, random.randint(60, 160))
+        _set(win.sld_sat, rng.randint(60, 160))
     if not locks.get("midtones", False) and hasattr(win, "sld_mid"):
-        _set(win.sld_mid, random.randint(80, 130))
+        _set(win.sld_mid, rng.randint(80, 130))
     if not locks.get("highlights", False) and hasattr(win, "sld_high"):
-        _set(win.sld_high, random.randint(-30, 30))
+        _set(win.sld_high, rng.randint(-30, 30))
     win.refresh()
     locked = sorted(k for k, v in locks.items() if v)
-    win._status(f"Adjusts randomized (locked: {', '.join(locked) or 'none'})")
+    win._status(f"Adjusts randomized (seed {seed}, locked: {', '.join(locked) or 'none'})")

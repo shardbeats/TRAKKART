@@ -930,10 +930,10 @@ class MainWindow(QMainWindow):
         _bf.run_batch_dialog(self)
 
     def run_batch(self, src: Path, dst: Path, jobs: int | None = None,
-                  preset: Preset | None = None) -> None:
+                  preset: Preset | None = None, seed_mode: str = "off") -> None:
         from app.ui import batch_flow as _bf
 
-        _bf.run_batch(self, src, dst, jobs, preset)
+        _bf.run_batch(self, src, dst, jobs, preset, seed_mode=seed_mode)
 
     def cancel_batch(self) -> None:
         from app.ui import batch_flow as _bf

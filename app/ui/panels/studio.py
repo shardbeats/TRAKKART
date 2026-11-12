@@ -105,6 +105,23 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     paste_row.addWidget(win.cmb_paste_blend, 1)
     g.addLayout(paste_row)
     win.sld_paste_op, _ = labeled_slider(win, g, "Paste:", 0, 100, 0, "Paste-Up opacity 0=off")
+    paste_seed_row = QHBoxLayout()
+    paste_seed_row.addWidget(QLabel("Seed:"))
+    win.spn_paste_seed = QSpinBox()
+    win.spn_paste_seed.setRange(0, 999999)
+    win.spn_paste_seed.setValue(0x9A57)
+    win.spn_paste_seed.setFixedWidth(80)
+    win.spn_paste_seed.setToolTip("Paper fiber pattern 0-999999 (same seed = same fibers)")
+    win.spn_paste_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    paste_seed_row.addWidget(win.spn_paste_seed)
+    win.btn_paste_dice = QPushButton("🎲")
+    win.btn_paste_dice.setFixedWidth(36)
+    win.btn_paste_dice.setToolTip("Re-roll the paper fibers")
+    win.btn_paste_dice.clicked.connect(
+        lambda: roll_seed_spin(win, "spn_paste_seed", "Paste-Up"))
+    paste_seed_row.addWidget(win.btn_paste_dice)
+    paste_seed_row.addStretch()
+    g.addLayout(paste_seed_row)
     win.fx_stack_data: list = []
 
 
@@ -131,10 +148,10 @@ def build_mosh_section(win, g: QVBoxLayout) -> None:
     seed_row = QHBoxLayout()
     seed_row.addWidget(QLabel("Variation:"))
     win.spn_mosh_seed = QSpinBox()
-    win.spn_mosh_seed.setRange(0, 99)
+    win.spn_mosh_seed.setRange(0, 999999)
     win.spn_mosh_seed.setValue(0)
-    win.spn_mosh_seed.setFixedWidth(56)
-    win.spn_mosh_seed.setToolTip("Seed variation 0-99: re-rolls the damage")
+    win.spn_mosh_seed.setFixedWidth(80)
+    win.spn_mosh_seed.setToolTip("Seed variation 0-999999: re-rolls the damage")
     win.spn_mosh_seed.valueChanged.connect(lambda _: win._schedule_refresh())
     seed_row.addWidget(win.spn_mosh_seed)
     win.btn_mosh_dice = QPushButton("🎲")
@@ -169,13 +186,55 @@ def build_drift_section(win, g: QVBoxLayout) -> None:
                                             div=100.0)
     win.sld_drift_position, _ = labeled_slider(win, g, "Position:", 0, 100, 50,
                                                "Still freeze 0-100 (50 = mid-traverse, visible)")
+    seed_row = QHBoxLayout()
+    seed_row.addWidget(QLabel("Seed:"))
+    win.spn_drift_seed = QSpinBox()
+    win.spn_drift_seed.setRange(0, 999999)
+    win.spn_drift_seed.setValue(0xD81F)
+    win.spn_drift_seed.setFixedWidth(80)
+    win.spn_drift_seed.setToolTip("Drift mask pattern 0-999999 (same seed = same noise)")
+    win.spn_drift_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    seed_row.addWidget(win.spn_drift_seed)
+    win.btn_drift_dice = QPushButton("🎲")
+    win.btn_drift_dice.setFixedWidth(36)
+    win.btn_drift_dice.setToolTip("Re-roll the drift pattern")
+    win.btn_drift_dice.clicked.connect(
+        lambda: roll_seed_spin(win, "spn_drift_seed", "Drift"))
+    seed_row.addWidget(win.btn_drift_dice)
+    seed_row.addStretch()
+    g.addLayout(seed_row)
 
 
 def _roll_mosh_seed(win) -> None:
     import random
 
-    win.spn_mosh_seed.setValue(random.randint(0, 99))
-    win._status("Mosh variation re-rolled")
+    seed = random.randint(0, 999999)
+    win.spn_mosh_seed.setValue(seed)
+    win._status(f"Mosh re-rolled (seed {seed})")
+
+
+def roll_seed_spin(win, spin_attr: str, label: str) -> None:
+    """Shared dice: random 0-999999 into a seed spin, status logs the seed."""
+    import random
+
+    seed = random.randint(0, 999999)
+    try:
+        getattr(win, spin_attr).setValue(seed)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._status(f"{label} re-rolled (seed {seed})")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _roll_pal_seed(win) -> None:
+    """Fresh seed into the spin, then generate (status logs the seed)."""
+    roll_seed_spin(win, "spn_pal_seed", "Palette")
+    try:
+        win.gen_palette()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
@@ -222,6 +281,18 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     row2.addWidget(win.btn_custom_clear)
     win.lbl_custom = QLabel("0 colors")
     row2.addWidget(win.lbl_custom, 1)
+    row2.addWidget(QLabel("Seed:"))
+    win.spn_pal_seed = QSpinBox()
+    win.spn_pal_seed.setRange(0, 999999)
+    win.spn_pal_seed.setValue(0)
+    win.spn_pal_seed.setFixedWidth(80)
+    win.spn_pal_seed.setToolTip("Palette seed 0-999999: 🎲 generates, 🔀 shuffles (same seed = same result)")
+    row2.addWidget(win.spn_pal_seed)
+    win.btn_pal_dice = QPushButton("🎲")
+    win.btn_pal_dice.setFixedWidth(36)
+    win.btn_pal_dice.setToolTip("Generate a palette with a fresh random seed")
+    win.btn_pal_dice.clicked.connect(lambda: _roll_pal_seed(win))
+    row2.addWidget(win.btn_pal_dice)
     g.addLayout(row2)
     depth_row = QHBoxLayout()
     depth_row.addWidget(QLabel("Depth:"))

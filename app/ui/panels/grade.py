@@ -38,6 +38,38 @@ def build_effects_section(win, g: QVBoxLayout) -> None:
     build_fx_stack_section(win, g)
 
 
+def _roll_fx_seed(win, spin_attr: str, label: str) -> None:
+    """Shared dice for FX seeds: random 0-999999, status logs the seed."""
+    import random
+
+    seed = random.randint(0, 999999)
+    try:
+        getattr(win, spin_attr).setValue(seed)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._status(f"{label} re-rolled (seed {seed})")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _roll_glitch_seeds(win) -> None:
+    import random
+
+    seeds = {a: random.randint(0, 999999)
+             for a in ("spn_slice_seed", "spn_pixelsort_seed", "spn_wave_seed")}
+    for attr, seed in seeds.items():
+        try:
+            getattr(win, attr).setValue(seed)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        win._status(f"Glitch re-rolled (slice {seeds['spn_slice_seed']}, "
+                    f"sort {seeds['spn_pixelsort_seed']}, wave {seeds['spn_wave_seed']})")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def build_tint_section(win, g: QVBoxLayout) -> None:
     """Duotone + brand: live on the COLOR page (extracted from grade)."""
     g.addWidget(QLabel("Duotone:"))
@@ -100,6 +132,37 @@ def build_grade_section(win, g: QVBoxLayout) -> None:
 def build_texture_section(win, g: QVBoxLayout) -> None:
     hlab(g, "Texture / decay:")
     win.sld_grain, _ = labeled_slider(win, g, "Grain:", 0, 50, 0, "Grain 0-50")
+    grain_seed_row = QHBoxLayout()
+    grain_seed_row.addWidget(QLabel("Grain seed:"))
+    win.spn_grain_seed = QSpinBox()
+    win.spn_grain_seed.setRange(0, 999999)
+    win.spn_grain_seed.setValue(0x7A4B)
+    win.spn_grain_seed.setFixedWidth(80)
+    win.spn_grain_seed.setToolTip("Grain pattern 0-999999 (same seed = same grain)")
+    win.spn_grain_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    grain_seed_row.addWidget(win.spn_grain_seed)
+    win.btn_grain_dice = QPushButton("🎲")
+    win.btn_grain_dice.setFixedWidth(36)
+    win.btn_grain_dice.setToolTip("Re-roll the grain pattern")
+    win.btn_grain_dice.clicked.connect(
+        lambda: _roll_fx_seed(win, "spn_grain_seed", "Grain"))
+    grain_seed_row.addWidget(win.btn_grain_dice)
+    grain_seed_row.addWidget(QLabel("Dust seed:"))
+    win.spn_dust_seed = QSpinBox()
+    win.spn_dust_seed.setRange(0, 999999)
+    win.spn_dust_seed.setValue(0xD57)
+    win.spn_dust_seed.setFixedWidth(80)
+    win.spn_dust_seed.setToolTip("Dust pattern 0-999999 (same seed = same scratches)")
+    win.spn_dust_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    grain_seed_row.addWidget(win.spn_dust_seed)
+    win.btn_dust_dice = QPushButton("🎲")
+    win.btn_dust_dice.setFixedWidth(36)
+    win.btn_dust_dice.setToolTip("Re-roll the dust pattern")
+    win.btn_dust_dice.clicked.connect(
+        lambda: _roll_fx_seed(win, "spn_dust_seed", "Dust"))
+    grain_seed_row.addWidget(win.btn_dust_dice)
+    grain_seed_row.addStretch()
+    g.addLayout(grain_seed_row)
     win.sld_vig, _ = labeled_slider(win, g, "Vignette:", 0, 100, 0, "Vignette 0-100")
     half_row = QHBoxLayout()
     half_row.addWidget(QLabel("Halftone:"))
@@ -177,6 +240,38 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
     win.spn_wave.valueChanged.connect(lambda _: win._schedule_refresh())
     fx2_row.addWidget(win.spn_wave)
     g.addLayout(fx2_row)
+    glitch_seed_row = QHBoxLayout()
+    glitch_seed_row.addWidget(QLabel("Seeds — slice:"))
+    win.spn_slice_seed = QSpinBox()
+    win.spn_slice_seed.setRange(0, 999999)
+    win.spn_slice_seed.setValue(0x6A17)
+    win.spn_slice_seed.setFixedWidth(80)
+    win.spn_slice_seed.setToolTip("Slice offsets 0-999999 (same seed = same cuts)")
+    win.spn_slice_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    glitch_seed_row.addWidget(win.spn_slice_seed)
+    glitch_seed_row.addWidget(QLabel("sort:"))
+    win.spn_pixelsort_seed = QSpinBox()
+    win.spn_pixelsort_seed.setRange(0, 999999)
+    win.spn_pixelsort_seed.setValue(0x9150)
+    win.spn_pixelsort_seed.setFixedWidth(80)
+    win.spn_pixelsort_seed.setToolTip("Pixel-sort pattern 0-999999")
+    win.spn_pixelsort_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    glitch_seed_row.addWidget(win.spn_pixelsort_seed)
+    glitch_seed_row.addWidget(QLabel("wave:"))
+    win.spn_wave_seed = QSpinBox()
+    win.spn_wave_seed.setRange(0, 999999)
+    win.spn_wave_seed.setValue(0x9A9E)
+    win.spn_wave_seed.setFixedWidth(80)
+    win.spn_wave_seed.setToolTip("Wave phase 0-999999 (same seed = same wobble)")
+    win.spn_wave_seed.valueChanged.connect(lambda _: win._schedule_refresh())
+    glitch_seed_row.addWidget(win.spn_wave_seed)
+    win.btn_glitch_dice = QPushButton("🎲")
+    win.btn_glitch_dice.setFixedWidth(36)
+    win.btn_glitch_dice.setToolTip("Re-roll slice + sort + wave patterns")
+    win.btn_glitch_dice.clicked.connect(lambda: _roll_glitch_seeds(win))
+    glitch_seed_row.addWidget(win.btn_glitch_dice)
+    glitch_seed_row.addStretch()
+    g.addLayout(glitch_seed_row)
     fx3_row = QHBoxLayout()
     fx3_row.addWidget(QLabel("Grille:"))
     win.spn_grille = QSpinBox()

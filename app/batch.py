@@ -14,9 +14,37 @@ from app.exporter import ExportOptions, ExportSelection, bundle_filenames, expor
 from app.presets import Preset
 from app.vector import vector_bundle
 
-__all__ = ["EXTS", "batch_process", "render_single_image", "build_extras"]
+__all__ = ["EXTS", "SEED_FIELDS", "batch_process", "render_single_image", "build_extras"]
 
 EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+#: Preset seed fields varied by batch seed_mode (per-file variation).
+SEED_FIELDS = ("grain_seed", "dust_seed", "glitch_slice_seed", "pixelsort_seed",
+               "wave_seed", "mosh_seed", "drift_seed", "paste_seed",
+               "dissolve_seed", "pal_seed", "chaos_seed")
+
+
+def seeded_preset(preset: Preset, index: int, mode: str) -> Preset:
+    """Per-file preset copy for batch seed modes.
+
+    mode "increment": every seed field +index (mod 1000000), so each file
+    gets a different but reproducible variation. mode "randomize": fresh
+    random seeds per file. Anything else returns the preset unchanged.
+    """
+    if mode not in ("increment", "randomize"):
+        return preset
+    import random as _random
+    from dataclasses import replace as _replace
+
+    if mode == "randomize":
+        values = {f: _random.randint(0, 999999) for f in SEED_FIELDS}
+    else:
+        values = {f: (int(getattr(preset, f, 0) or 0) + int(index)) % 1000000
+                  for f in SEED_FIELDS}
+    try:
+        return _replace(preset, **values)
+    except Exception:  # noqa: BLE001
+        return preset
 
 
 def options_from_preset(preset: Preset) -> ExportOptions:
@@ -88,7 +116,8 @@ def _render_one(args: tuple) -> dict:
                                         vector_svg=svg, gif_frames=frames,
                                         gif_fps=int(getattr(p, "gif_fps", 8)))
         return {"file": Path(path_str).name, "status": "ok",
-                "outputs": [str(x) for x in paths.values()]}
+                "outputs": [str(x) for x in paths.values()],
+                "seeds": (p.meta().get("seeds", {}) or {})}
     except Exception as e:  # noqa: BLE001
         return {"file": Path(path_str).name, "status": "error", "error": str(e)}
 
@@ -102,9 +131,12 @@ def batch_process(
     store=None,
     jobs: int = 1,
     cancel: list | None = None,
+    seed_mode: str = "off",
 ) -> list[dict]:
     """Process every image in input_dir. jobs>1 uses multiprocessing.
-    cancel=[True] stops between files (Cancel button)."""
+    cancel=[True] stops between files (Cancel button).
+    seed_mode: "off" (same seeds everywhere) | "increment" (seeds +i per
+    file, reproducible) | "randomize" (fresh seeds per file)."""
     import json as _json
     from concurrent.futures import ProcessPoolExecutor
 
@@ -119,15 +151,15 @@ def batch_process(
     total = len(files)
     results: list[dict] = []
 
-    def _log(base: str, r: dict) -> None:
+    def _log(base: str, r: dict, meta=None) -> None:
         if store is not None and r["status"] == "ok":
             try:
-                store.log_export(base, preset.name, preset.meta(), r.get("outputs", []))
+                store.log_export(base, preset.name, meta if meta is not None else preset.meta(), r.get("outputs", []))
             except Exception:
                 pass
 
     pending: list[tuple] = []
-    for f in files:
+    for i, f in enumerate(files):
         base = f.stem
         outs = _outputs_for(dst, base, preset)
         if cancel and cancel[0]:
@@ -137,7 +169,8 @@ def batch_process(
             if progress_cb:
                 progress_cb(len(results), total, f.name)
             continue
-        pending.append((str(f), str(dst), base, _json.dumps(preset.to_dict(), ensure_ascii=False)))
+        per = seeded_preset(preset, i, seed_mode)
+        pending.append((str(f), str(dst), base, _json.dumps(per.to_dict(), ensure_ascii=False)))
 
     if jobs and int(jobs) > 1 and pending:
         pool_ok = False
@@ -157,7 +190,13 @@ def batch_process(
                         break
                     r = fut.result()
                     results.append(r)
-                    _log(Path(r["file"]).stem, r)
+                    _m = preset.meta()
+                    try:
+                        if isinstance(r.get("seeds"), dict) and r["seeds"]:
+                            _m["seeds"] = dict(r["seeds"])
+                    except Exception:  # noqa: BLE001
+                        pass
+                    _log(Path(r["file"]).stem, r, _m)
                     if progress_cb:
                         progress_cb(len(results), total, r["file"])
             pool_ok = True
@@ -168,21 +207,26 @@ def batch_process(
             _sort_results(results, files)
             return results
 
-    for path_str, _, base, _ in pending:
+    for path_str, _, base, preset_json in pending:
         if cancel and cancel[0]:
             break
         f = src / Path(path_str).name
         try:
+            import json as _json2
+
+            from app.presets import Preset as _Preset2
+
+            per = _Preset2.from_dict(_json2.loads(preset_json))
             img = Image.open(f).convert("RGB")
-            res = render_single_image(img, preset)
-            svg, frames = build_extras(img, preset)
-            opts = options_from_preset(preset)
+            res = render_single_image(img, per)
+            svg, frames = build_extras(img, per)
+            opts = options_from_preset(per)
             opts.base = base
-            paths, _ = export_with_options(res, dst, opts, meta=preset.meta(),
+            paths, _ = export_with_options(res, dst, opts, meta=per.meta(),
                                            vector_svg=svg, gif_frames=frames,
-                                           gif_fps=int(getattr(preset, "gif_fps", 8)))
+                                           gif_fps=int(getattr(per, "gif_fps", 8)))
             results.append({"file": f.name, "status": "ok", "outputs": [str(p) for p in paths.values()]})
-            _log(base, results[-1])
+            _log(base, results[-1], per.meta())
         except Exception as e:  # noqa: BLE001
             results.append({"file": f.name, "status": "error", "error": str(e)})
         if progress_cb:

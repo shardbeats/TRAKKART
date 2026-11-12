@@ -19,6 +19,14 @@ from PySide6.QtWidgets import (
 from app.ui.panels.widgets import hlab, tight, labeled_slider
 
 
+def _roll_dissolve_seed(win) -> None:
+    import random
+
+    seed = random.randint(0, 999999)
+    win.spn_dissolve_seed.setValue(seed)
+    win._status(f"Dissolve re-rolled (seed {seed})")
+
+
 def build_morph_section(win, g: QVBoxLayout) -> None:
     """Dissolve params (still single source) + morph image playlist."""
     hlab(g, "Dissolve (particle disperse):")
@@ -96,6 +104,11 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     win.spn_dissolve_seed.setToolTip("Deterministic pattern seed (same seed = same particles)")
     win.spn_dissolve_seed.valueChanged.connect(lambda _: win._schedule_refresh())
     seed_row.addWidget(win.spn_dissolve_seed)
+    win.btn_dissolve_dice = QPushButton("🎲")
+    win.btn_dissolve_dice.setFixedWidth(36)
+    win.btn_dissolve_dice.setToolTip("Re-roll the particle pattern")
+    win.btn_dissolve_dice.clicked.connect(lambda: _roll_dissolve_seed(win))
+    seed_row.addWidget(win.btn_dissolve_dice)
     seed_row.addStretch()
     g.addLayout(seed_row)
     win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per form 0-3.0s — adds time, Length is derived (each form reads)", div=10.0)

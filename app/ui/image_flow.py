@@ -46,13 +46,18 @@ def randomize(win) -> None:
     from app.palette_library import list_palettes
     from app.palettes import palette_names
 
-    win.cmb_method.setCurrentText(random.choice(list(METHODS)))
+    try:
+        seed = int(win.spn_chaos_seed.value())
+    except Exception:  # noqa: BLE001
+        seed = 0
+    rng = random.Random(seed)
+    win.cmb_method.setCurrentText(rng.choice(list(METHODS)))
     names = list_palettes() or palette_names()
-    win._on_palette_preset_changed(random.choice(names))
-    win.sld_thr.setValue(random.randint(80, 180))
-    win.spn_pixel.setValue(random.randint(1, 4))
+    win._on_palette_preset_changed(rng.choice(names))
+    win.sld_thr.setValue(rng.randint(80, 180))
+    win.spn_pixel.setValue(rng.randint(1, 4))
     win.refresh()
-    win._status("Random applied (save the preset if you like it)")
+    win._status(f"Random applied (seed {seed}; save the preset if you like it)")
 
 
 # -- zoom / clipboard --

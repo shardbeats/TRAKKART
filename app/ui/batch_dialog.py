@@ -137,6 +137,14 @@ class BatchDialog(QDialog):
         self.lbl_gifspec.setWordWrap(True)
         gif_row.addWidget(self.lbl_gifspec, 1)
         col.addLayout(gif_row)
+        seed_row = QHBoxLayout()
+        seed_row.addWidget(QLabel("Seeds:"))
+        self.cmb_seed_mode = QComboBox()
+        self.cmb_seed_mode.addItems(["same for all files", "seeds +1 per file",
+                                     "randomize seeds per file"])
+        self.cmb_seed_mode.setToolTip("same = clone the damage · +1 per file = reproducible variation · randomize = fresh seeds per file")
+        seed_row.addWidget(self.cmb_seed_mode, 1)
+        col.addLayout(seed_row)
 
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
@@ -202,7 +210,11 @@ class BatchDialog(QDialog):
         """Vector/gif flags + format chosen for this batch. Only after Accept."""
         g = dict(getattr(self, "_gif_spec", {}))
         fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
+        seed_txt = self.cmb_seed_mode.currentText() if hasattr(self, "cmb_seed_mode") else ""
+        seed_mode = ("increment" if "+1" in seed_txt else
+                     "randomize" if "randomize" in seed_txt else "off")
         return {
+            "seed_mode": seed_mode,
             "vector_export": self.chk_vector.isChecked(),
             "vector_cell": int(self.spn_vcell.value()),
             "vector_black": self.chk_black.isChecked(),

@@ -45,6 +45,29 @@ def build_image_section(win, g: QVBoxLayout) -> None:
     win.btn_random.clicked.connect(win.randomize)
     ops2.addWidget(win.btn_random)
     g.addLayout(ops2)
+    chaos_row = QHBoxLayout()
+    chaos_row.addWidget(QLabel("Chaos seed:"))
+    win.spn_chaos_seed = QSpinBox()
+    win.spn_chaos_seed.setRange(0, 999999)
+    win.spn_chaos_seed.setValue(0)
+    win.spn_chaos_seed.setFixedWidth(80)
+    win.spn_chaos_seed.setToolTip("Seed for Surprise me + 🎲 Adjust (same seed = same result, replays)")
+    chaos_row.addWidget(win.spn_chaos_seed)
+    win.btn_chaos_dice = QPushButton("🎲")
+    win.btn_chaos_dice.setFixedWidth(36)
+    win.btn_chaos_dice.setToolTip("Fresh random chaos seed")
+    win.btn_chaos_dice.clicked.connect(lambda: _roll_chaos_seed(win))
+    chaos_row.addWidget(win.btn_chaos_dice)
+    chaos_row.addStretch()
+    g.addLayout(chaos_row)
+
+
+def _roll_chaos_seed(win) -> None:
+    import random
+
+    seed = random.randint(0, 999999)
+    win.spn_chaos_seed.setValue(seed)
+    win._status(f"Chaos seed {seed} (Surprise me / Adjust will replay it)")
 
 
 def build_preset_section(win, g: QVBoxLayout) -> None:

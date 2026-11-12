@@ -293,17 +293,21 @@ def gif_frames(
                 if dx:
                     frame = chromatic_aberration(frame, dx=dx)
             # Slices: needs bands (>=2) and max offset (>0) from FX.
-            # Loop-perfect: fixed seed + sin envelope (progress 0 == 1).
+            # Loop-perfect: preset seed + sin envelope (progress 0 == 1).
             if base_bands >= 2 and base_max > 0:
                 maxoff = int(round(float(base_max) * amt))
                 if maxoff > 0:
                     frame = slice_shift_loop(frame, bands=int(base_bands), max_offset=maxoff,
-                                             seed=0x6A17, progress=progress)
+                                             seed=int(getattr(preset, "glitch_slice_seed",
+                                                              0x6A17) or 0),
+                                             progress=progress)
             # Wave: only when FX wave >0.
             if base_wave > 0:
                 amp_w = int(round(float(base_wave) * amt))
                 if amp_w > 0:
-                    frame = wave_loop(frame, amplitude=amp_w, seed=0x9A9E, progress=progress)
+                    frame = wave_loop(frame, amplitude=amp_w,
+                                      seed=int(getattr(preset, "wave_seed", 0x9A9E) or 0),
+                                      progress=progress)
             # Mosh: only if the preset asks for it (too chaotic as default).
             # Loop-perfect: fixed seed, periodic amount envelope.
             if base_mosh > 0:
@@ -319,17 +323,19 @@ def gif_frames(
 
         # Grain shimmer in mix: strict 0=off (no forced grain on clean
         # presets). Loop-perfect breathing so the loop point has no jump.
+        g_seed = int(getattr(preset, "grain_seed", 0x7A4B) or 0)
+        d_seed = int(getattr(preset, "dust_seed", 0xD57) or 0)
         if mode == "mix":
             from app.fx import apply_grain
 
             if base_grain > 0:
                 g_eff = float(base_grain) * amt * (0.7 + 0.3 * math.sin(t))
-                frame = apply_grain(frame, amount=max(0.0, g_eff), seed=0x7A4B)
+                frame = apply_grain(frame, amount=max(0.0, g_eff), seed=g_seed)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 
                 d_eff = float(base_dust) * amt * (0.7 + 0.3 * math.sin(t))
-                frame = grain_dust(frame, amount=max(0.0, d_eff), seed=0xD57)
+                frame = grain_dust(frame, amount=max(0.0, d_eff), seed=d_seed)
         elif base_grain > 0 or base_dust > 0:
             # Non-mix modes keep the preset grain but breathing (no freeze,
             # no jump cut).
@@ -338,12 +344,12 @@ def gif_frames(
             t_grain = 2.0 * math.pi * i / n
             if base_grain > 0:
                 g_eff = float(base_grain) * amt * (0.7 + 0.3 * math.sin(t_grain))
-                frame = apply_grain(frame, amount=max(0.0, g_eff), seed=0x7A4B)
+                frame = apply_grain(frame, amount=max(0.0, g_eff), seed=g_seed)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 
                 d_eff = float(base_dust) * amt * (0.7 + 0.3 * math.sin(t_grain))
-                frame = grain_dust(frame, amount=max(0.0, d_eff), seed=0xD57)
+                frame = grain_dust(frame, amount=max(0.0, d_eff), seed=d_seed)
 
         out.append(frame)
 

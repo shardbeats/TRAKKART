@@ -67,7 +67,7 @@ def test_preset_roundtrip_and_old_default():
     assert (back.mosh, back.mosh_mode, back.mosh_seed, back.mosh_size) == (40.0, "smear", 7, 150)
     old = Preset.from_dict({"name": "old"})
     assert (old.mosh_mode, old.mosh_seed, old.mosh_size) == ("blocks", 0, 100)
-    for bad in ({"mosh_mode": "nope"}, {"mosh_seed": 100}, {"mosh_size": 9}):
+    for bad in ({"mosh_mode": "nope"}, {"mosh_seed": 1000000}, {"mosh_size": 9}):
         try:
             Preset(name="x", **bad).validate()
         except ValueError:
@@ -102,8 +102,8 @@ def test_mode_combo_defaults_and_binds(window, qt_app):
     p = window.current_params()
     assert (p.mosh_seed, p.mosh_size) == (42, 150)
     window.btn_mosh_dice.click()
-    assert 0 <= window.spn_mosh_seed.value() <= 99
-    assert window.lbl_status.text() != ""
+    assert 0 <= window.spn_mosh_seed.value() <= 999999
+    assert "seed" in window.lbl_status.text()
 
 
 def test_gif_animates_per_mode_deterministically():

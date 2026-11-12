@@ -59,6 +59,7 @@ def run_batch_dialog(win) -> None:
         return
     src, dst, jobs = dlg.paths()
     outs = dlg.output_options()
+    seed_mode = str(outs.get("seed_mode", "off") or "off")
     preset = replace(
         preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
         vector_black=bool(outs.get("vector_black", False)),
@@ -69,7 +70,7 @@ def run_batch_dialog(win) -> None:
         canvas_w=outs.get("canvas_w", doc_w), canvas_h=outs.get("canvas_h", doc_h),
         export_size=outs["export_size"],
         export_format=outs["export_format"], export_quality=outs["export_quality"])
-    win.run_batch(src, dst, jobs=jobs, preset=preset)
+    win.run_batch(src, dst, jobs=jobs, preset=preset, seed_mode=seed_mode)
 
 
 def _worker_cls():
@@ -79,7 +80,8 @@ def _worker_cls():
     return _mw.BatchWorker
 
 
-def run_batch(win, src, dst, jobs: int | None = None, preset=None) -> None:
+def run_batch(win, src, dst, jobs: int | None = None, preset=None,
+              seed_mode: str = "off") -> None:
     import time
     from pathlib import Path
 
@@ -100,7 +102,16 @@ def run_batch(win, src, dst, jobs: int | None = None, preset=None) -> None:
     win._batch_out = Path(dst)
     win._batch_worker = BatchWorker(
         src, dst, preset, store=win.store,
-        jobs=int(jobs) if jobs else int(win.spn_jobs.value()), cancel=win._batch_cancel)
+        jobs=int(jobs) if jobs else int(win.spn_jobs.value()), cancel=win._batch_cancel,
+        seed_mode=seed_mode)
+    win._batch_worker.progress.connect(win._on_batch_progress)
+    win._batch_worker.finished.connect(win._on_batch_finished)
+    win._batch_worker.error.connect(win._on_batch_error)
+    win.btn_batch.setEnabled(False)
+    win.progress.setValue(0)
+    win.progress.show()
+    win.btn_cancel.show()
+    win._batch_worker.start()
     win._batch_worker.progress.connect(win._on_batch_progress)
     win._batch_worker.finished.connect(win._on_batch_finished)
     win._batch_worker.error.connect(win._on_batch_error)

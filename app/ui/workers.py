@@ -28,6 +28,7 @@ class BatchWorker(WorkerBase):
         jobs: int = 1,
         cancel: list | None = None,
         parent=None,
+        seed_mode: str = "off",
     ) -> None:
         super().__init__(parent)
         self.input_dir = Path(input_dir)
@@ -37,6 +38,7 @@ class BatchWorker(WorkerBase):
         self.store = store
         self.jobs = jobs
         self.cancel = cancel
+        self.seed_mode = seed_mode
 
     def work(self) -> None:
         results = batch_process(
@@ -48,6 +50,7 @@ class BatchWorker(WorkerBase):
             store=self.store,
             jobs=self.jobs,
             cancel=self.cancel,
+            seed_mode=self.seed_mode,
         )
         self.finished.emit(results)
 

@@ -46,7 +46,10 @@ def _glow(s: "RenderSpec", img: Image.Image) -> Image.Image:
 
 
 def _grain(s: "RenderSpec", img: Image.Image) -> Image.Image:
-    return apply_grain(img, amount=s.grain) if s.grain else img
+    if not s.grain:
+        return img
+    return apply_grain(img, amount=s.grain,
+                       seed=int(getattr(s, "grain_seed", 0x7A4B) or 0))
 
 
 def _halftone(s: "RenderSpec", img: Image.Image) -> Image.Image:
@@ -54,7 +57,10 @@ def _halftone(s: "RenderSpec", img: Image.Image) -> Image.Image:
 
 
 def _dust(s: "RenderSpec", img: Image.Image) -> Image.Image:
-    return _grain_dust(img, amount=float(s.dust)) if s.dust else img
+    if not s.dust:
+        return img
+    return _grain_dust(img, amount=float(s.dust),
+                       seed=int(getattr(s, "dust_seed", 0xD57) or 0))
 
 
 def _vignette(s: "RenderSpec", img: Image.Image) -> Image.Image:
@@ -84,16 +90,23 @@ def _chroma(s: "RenderSpec", img: Image.Image) -> Image.Image:
 def _slice(s: "RenderSpec", img: Image.Image) -> Image.Image:
     if s.glitch_slice_bands:
         return slice_shift(img, bands=int(s.glitch_slice_bands),
-                           max_offset=int(s.glitch_slice_max))
+                           max_offset=int(s.glitch_slice_max),
+                           seed=int(getattr(s, "glitch_slice_seed", 0x6A17) or 0))
     return img
 
 
 def _pixelsort(s: "RenderSpec", img: Image.Image) -> Image.Image:
-    return pixel_sort(img, threshold=int(s.pixelsort)) if s.pixelsort else img
+    if not s.pixelsort:
+        return img
+    return pixel_sort(img, threshold=int(s.pixelsort),
+                      seed=int(getattr(s, "pixelsort_seed", 0x9150) or 0))
 
 
 def _wave(s: "RenderSpec", img: Image.Image) -> Image.Image:
-    return _glitch_wave(img, amplitude=int(s.wave)) if s.wave else img
+    if not s.wave:
+        return img
+    return _glitch_wave(img, amplitude=int(s.wave),
+                        seed=int(getattr(s, "wave_seed", 0x9A9E) or 0))
 
 
 def _mosh(s: "RenderSpec", img: Image.Image) -> Image.Image:
@@ -142,7 +155,8 @@ def _pasteup(s: "RenderSpec", img: Image.Image) -> Image.Image:
 
         return apply_paste(img, mode=str(s.paste_mode),
                            opacity=float(s.paste_opacity),
-                           blend=str(getattr(s, "paste_blend", "overlay")))
+                           blend=str(getattr(s, "paste_blend", "overlay")),
+                           seed=int(getattr(s, "paste_seed", 0x9A57) or 0))
     return img
 
 

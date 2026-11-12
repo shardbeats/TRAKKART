@@ -191,6 +191,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("glow_radius", "float", ("range", 0.0, 50.0)),
     _Field("glow_intensity", "float", ("range", 0.0, 100.0)),
     _Field("grain", "float", ("range", 0.0, 100.0)),
+    _Field("grain_seed", "int", ("range", 0, 999999)),
     _Field("vignette", "float", ("range", 0.0, 100.0)),
     _Field("scanlines", "int", ("oneof", (0, 2, 3, 4, 6, 8))),
     _Field("replace_color", "str", ("hex",)),
@@ -199,6 +200,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("vector_cell", "int", ("range", 4, 16)),
     _Field("vector_black", "bool"),
     _Field("glitch_chroma", "int", ("range", 0, 20)),
+    _Field("glitch_slice_seed", "int", ("range", 0, 999999)),
     _Field("glitch_slice_bands", "int", ("oneof", (0, 2, 3, 4, 6, 8, 12, 16))),
     _Field("glitch_slice_max", "int", ("range", 0, 64)),
     _Field("gif_export", "bool"),
@@ -221,15 +223,18 @@ FIELDS: tuple[_Field, ...] = (
     _Field("halftone", "int", ("oneof", (0, *range(3, 13)))),
     _Field("halftone_shape", "str", ("oneof", ("dots", "lines"))),
     _Field("dust", "float", ("range", 0.0, 100.0)),
+    _Field("dust_seed", "int", ("range", 0, 999999)),
     _Field("border", "int", ("range", 0, 64)),
     _Field("border_color", "str", ("hexreq",)),
     _Field("letterbox", "int", ("range", 0, 25)),
     _Field("pixelsort", "int", ("range", 0, 255)),
+    _Field("pixelsort_seed", "int", ("range", 0, 999999)),
     _Field("wave", "int", ("range", 0, 30)),
+    _Field("wave_seed", "int", ("range", 0, 999999)),
     _Field("mosh", "float", ("range", 0.0, 100.0)),
     _Field("mosh_mode", "str", ("oneof", (
         "blocks", "smear", "ghost", "rows", "chroma", "crush", "speckle"))),
-    _Field("mosh_seed", "int", ("range", 0, 99)),
+    _Field("mosh_seed", "int", ("range", 0, 999999)),
     _Field("mosh_size", "int", ("range", 10, 200)),
     _Field("grille", "int", ("oneof", (0, 2, 3))),
     _Field("jpeg", "float", ("range", 0.0, 100.0)),
@@ -244,6 +249,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("drift_amount", "float", ("range", 0.0, 100.0)),
     _Field("drift_speed", "float", ("range", 0.25, 4.0)),
     _Field("drift_position", "float", ("range", 0.0, 100.0)),
+    _Field("drift_seed", "int", ("range", 0, 999999)),
     _Field("dissolve_amount", "float", ("range", 0.0, 2.0)),
     _Field("dissolve_seed", "int", ("range", 0, 999999)),
     _Field("dissolve_wind_x", "float", ("range", -500.0, 500.0)),
@@ -269,6 +275,9 @@ FIELDS: tuple[_Field, ...] = (
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
+    _Field("paste_seed", "int", ("range", 0, 999999)),
+    _Field("pal_seed", "int", ("range", 0, 999999)),
+    _Field("chaos_seed", "int", ("range", 0, 999999)),
 )
 
 
@@ -316,6 +325,7 @@ class Preset:
     glow_radius: float = 0.0
     glow_intensity: float = 0.0
     grain: float = 0.0
+    grain_seed: int = 0x7A4B  # texture grain pattern (re-rollable)
     vignette: float = 0.0
     scanlines: int = 0
     replace_color: str = ""
@@ -324,6 +334,7 @@ class Preset:
     vector_cell: int = 8
     vector_black: bool = False  # v1.3: black ink only over transparent (print)
     glitch_chroma: int = 0
+    glitch_slice_seed: int = 0x6A17  # slice band offsets (re-rollable)
     glitch_slice_bands: int = 0
     glitch_slice_max: int = 24
     gif_export: bool = False
@@ -348,15 +359,18 @@ class Preset:
     halftone: int = 0  # 0 = off, else 3-12 px per cell
     halftone_shape: str = "dots"  # dots | lines
     dust: float = 0.0  # 0-100
+    dust_seed: int = 0xD57  # dust/scratch pattern (re-rollable)
     border: int = 0  # 0-64 px, 0 = off
     border_color: str = "#000000"
     letterbox: int = 0  # 0-25 % per side, 0 = off
     # -- extra glitch (pack C) --
     pixelsort: int = 0  # luminance threshold 0-255, 0 = off
+    pixelsort_seed: int = 0x9150  # sort tie-break pattern (re-rollable)
     wave: int = 0  # px amplitude 0-30, 0 = off
+    wave_seed: int = 0x9A9E  # wave phase pattern (re-rollable)
     mosh: float = 0.0  # 0-100
     mosh_mode: str = "blocks"  # datamosh flavor (app/mosh.py)
-    mosh_seed: int = 0  # variation 0-99 (re-rolls the damage)
+    mosh_seed: int = 0  # variation 0-999999 (re-rolls the damage)
     mosh_size: int = 100  # feature scale % (100 = classic)
     grille: int = 0  # 0 = off, 2 | 3
     # -- v1.2 stackable FX --
@@ -372,6 +386,7 @@ class Preset:
     drift_amount: float = 0.0  # 0-100, 0 = off
     drift_speed: float = 1.0  # traversals per clip 0.25-4.0
     drift_position: float = 50.0  # still freeze 0-100 (50 = mid-traverse)
+    drift_seed: int = 0xD81F  # drift mask pattern (re-rollable)
     # -- v1.6 particle disperse (solo dispersion) --
     dissolve_amount: float = 1.0  # 0-2, 0 = off (identity)
     dissolve_seed: int = 53596  # deterministic pattern
@@ -396,6 +411,9 @@ class Preset:
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen
+    paste_seed: int = 0x9A57  # paper fiber pattern (re-rollable)
+    pal_seed: int = 0  # palette 🎲 seed (replayable generation)
+    chaos_seed: int = 0  # Surprise me / Adjust 🎲 seed (replayable)
 
     def validate(self) -> None:
         for spec in FIELDS:
@@ -504,12 +522,21 @@ class Preset:
             "halftone": int(self.halftone),
             "halftone_shape": str(self.halftone_shape),
             "dust": float(self.dust),
+            "dust_seed": int(getattr(self, "dust_seed", 0xD57) or 0),
+            "grain_seed": int(getattr(self, "grain_seed", 0x7A4B) or 0),
             "border": int(self.border),
             "border_color": str(self.border_color),
             "letterbox": int(self.letterbox),
         }
+        try:
+            m["post"]["grain_seed"] = int(getattr(self, "grain_seed", 0x7A4B) or 0)
+        except Exception:  # noqa: BLE001
+            pass
         m["glitch"]["pixelsort"] = int(self.pixelsort)
+        m["glitch"]["pixelsort_seed"] = int(getattr(self, "pixelsort_seed", 0x9150) or 0)
         m["glitch"]["wave"] = int(self.wave)
+        m["glitch"]["wave_seed"] = int(getattr(self, "wave_seed", 0x9A9E) or 0)
+        m["glitch"]["slice_seed"] = int(getattr(self, "glitch_slice_seed", 0x6A17) or 0)
         m["glitch"]["mosh"] = float(self.mosh)
         m["glitch"]["mosh_mode"] = str(getattr(self, "mosh_mode", "blocks"))
         m["glitch"]["mosh_seed"] = int(getattr(self, "mosh_seed", 0) or 0)
@@ -544,6 +571,19 @@ class Preset:
         }
         m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
         m["motif"] = copy.deepcopy(getattr(self, "motif", None))
+        m["seeds"] = {
+            "grain": int(getattr(self, "grain_seed", 0x7A4B) or 0),
+            "dust": int(getattr(self, "dust_seed", 0xD57) or 0),
+            "slice": int(getattr(self, "glitch_slice_seed", 0x6A17) or 0),
+            "pixelsort": int(getattr(self, "pixelsort_seed", 0x9150) or 0),
+            "wave": int(getattr(self, "wave_seed", 0x9A9E) or 0),
+            "mosh": int(getattr(self, "mosh_seed", 0) or 0),
+            "drift": int(getattr(self, "drift_seed", 0xD81F) or 0),
+            "paste": int(getattr(self, "paste_seed", 0x9A57) or 0),
+            "dissolve": int(getattr(self, "dissolve_seed", 53596) or 0),
+            "palette": int(getattr(self, "pal_seed", 0) or 0),
+            "chaos": int(getattr(self, "chaos_seed", 0) or 0),
+        }
         return m
 
 
@@ -669,6 +709,9 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
     texture = _get(params, "texture", {}) or {}
     fx = _get(params, "fx", {}) or {}
     dissolve = _get(params, "dissolve", {}) or {}
+    drift = _get(params, "drift", {}) or {}
+    paste = _get(params, "paste", {}) or {}
+    seeds = _get(params, "seeds", {}) or {}
     duotone = _get(grade, "duotone", ["", "", 50.0]) or ["", "", 50.0]
 
     raw_palette = str(_get(params, "palette", "SLIME") or "SLIME")
@@ -717,6 +760,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "glitch_chroma": _get(glitch, "chroma", 0),
         "glitch_slice_bands": _get(glitch, "slice_bands", 0),
         "glitch_slice_max": _get(glitch, "slice_max", 24),
+        "glitch_slice_seed": _get(glitch, "slice_seed", 0x6A17),
         "gif_export": bool(_get(gif, "export", False)),
         "gif_frames": _get(gif, "frames", 6),
         "gif_mode": str(_get(gif, "mode", "both") or "both"),
@@ -756,17 +800,32 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "halftone": _get(texture, "halftone", 0),
         "halftone_shape": str(_get(texture, "halftone_shape", "dots") or "dots"),
         "dust": _get(texture, "dust", 0.0),
+        "dust_seed": _get(texture, "dust_seed", 0xD57),
+        "grain_seed": _get(texture, "grain_seed", 0x7A4B),
         "border": _get(texture, "border", 0),
         "border_color": str(_get(texture, "border_color", "#000000") or "#000000"),
         "letterbox": _get(texture, "letterbox", 0),
         "pixelsort": _get(glitch, "pixelsort", 0),
+        "pixelsort_seed": _get(glitch, "pixelsort_seed", 0x9150),
         "wave": _get(glitch, "wave", 0),
+        "wave_seed": _get(glitch, "wave_seed", 0x9A9E),
         "mosh": _get(glitch, "mosh", 0.0),
         "mosh_mode": str(_get(glitch, "mosh_mode", "blocks") or "blocks"),
         "mosh_seed": _get(glitch, "mosh_seed", 0),
         "mosh_size": _get(glitch, "mosh_size", 100),
         "grille": _get(glitch, "grille", 0),
         "jpeg": _get(glitch, "jpeg", _get(fx, "jpeg", 0.0)),
+        "drift_pattern": str(_get(drift, "pattern", "off") or "off"),
+        "drift_amount": _get(drift, "amount", 0.0),
+        "drift_speed": _get(drift, "loops", 1.0),
+        "drift_position": _get(drift, "position", 50.0),
+        "drift_seed": _get(drift, "seed", _get(seeds, "drift", 0xD81F)),
+        "paste_mode": str(_get(paste, "mode", "off") or "off"),
+        "paste_opacity": _get(paste, "opacity", 0.0),
+        "paste_blend": str(_get(paste, "blend", "overlay") or "overlay"),
+        "paste_seed": _get(paste, "seed", _get(seeds, "paste", 0x9A57)),
+        "pal_seed": _get(seeds, "palette", 0),
+        "chaos_seed": _get(seeds, "chaos", 0),
         "post_blur": _get(fx, "post_blur", _get(post, "blur", 0.0)),
         "post_sharpen": _get(fx, "post_sharpen", _get(post, "sharpen", 0)),
         "fx_stack": _get(params, "fx_stack", None),
