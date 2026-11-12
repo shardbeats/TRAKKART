@@ -28,7 +28,12 @@ def test_export_bundle_from_ui(window, qt_app):
 
     window.refresh()
     assert window.result is not None
-    accept_next_dialog(ExportDialog)
+
+    def _pick(dlg):
+        dlg.chk_image.setChecked(True)
+        dlg.chk_thumb.setChecked(True)
+
+    accept_next_dialog(ExportDialog, _pick)
     window.export()
     names = sorted(p.name for p in window.out_dir.glob("*.png"))
     assert names == ["trakkart_cover.png", "trakkart_cover_thumb1080p.png"]
