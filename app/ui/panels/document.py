@@ -159,11 +159,9 @@ def _on_adjust_dice(win) -> None:
 def _apply_sp404_canvas(win) -> None:
     """One click to the SP-404MKII OLED canvas (Custom 128x64).
 
-    Setting the spins fires the normal W/H path (flips Ratio to Custom
-    + refresh), so this stays in sync with typed edits by construction.
-    It also switches the still preview to 1-bit OLED: the device only
-    takes 1-bit BMPs, so the button shows exactly what the SP-404MKII
-    will show (same sp404_frame the pack writer uses).
+    Document-only: setting the spins fires the normal W/H path (flips
+    Ratio to Custom + refresh). The OLED preview is an independent
+    view toggle (btn_sp404_preview / View menu) and is NOT changed here.
     """
     from app.sp404 import SP_H, SP_W
 
@@ -172,14 +170,19 @@ def _apply_sp404_canvas(win) -> None:
         win.spn_canvas_h.setValue(int(SP_H))
     except Exception:  # noqa: BLE001
         pass
+
+
+def _on_sp404_preview_toggled(win, on: bool) -> None:
+    """IMAGE-panel toggle -> same flag as View > SP-404 OLED preview."""
     try:
-        win.act_sp404.setChecked(True)
+        if win.act_sp404.isChecked() != bool(on):
+            win.act_sp404.setChecked(bool(on))
     except Exception:  # noqa: BLE001
         pass
     try:
         win.toggle_sp404_preview()
     except Exception:  # noqa: BLE001
-        win._sp404_preview = True
+        win._sp404_preview = bool(on)
 
 
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
@@ -232,9 +235,15 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     doc_row.addWidget(win.lbl_docdims)
     g.addLayout(doc_row)
     win.btn_sp404_canvas = QPushButton("SP-404 128×64")
-    win.btn_sp404_canvas.setToolTip("Custom canvas at the Roland SP-404MKII OLED size (128×64): frame exactly what the device shows")
+    win.btn_sp404_canvas.setToolTip("Custom canvas at the Roland SP-404MKII OLED size (128×64): document only, preview unchanged")
     win.btn_sp404_canvas.clicked.connect(lambda: _apply_sp404_canvas(win))
     g.addWidget(win.btn_sp404_canvas)
+    win.btn_sp404_preview = QPushButton("SP-404 OLED Preview: OFF")
+    win.btn_sp404_preview.setCheckable(True)
+    win.btn_sp404_preview.setChecked(False)
+    win.btn_sp404_preview.setToolTip("Display-only 128x64 1-bit preview for the Roland SP-404MKII (same as View menu, stills only)")
+    win.btn_sp404_preview.toggled.connect(lambda on: _on_sp404_preview_toggled(win, on))
+    g.addWidget(win.btn_sp404_preview)
     hlab(g, "Crop (visual editor):")
     crop_row = QHBoxLayout()
     win.btn_crop = QPushButton("Adjust crop...")

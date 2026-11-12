@@ -45,6 +45,11 @@ def build_menus(win) -> None:
     bar = win.menuBar()
 
     m_file = bar.addMenu("File")
+    _act(win, m_file, "New project", win.new_project,
+         "", "Empty project: clear image and reset settings", action_id="file_new")
+    _act(win, m_file, "Reset settings (keep image)", win.reset_settings_keep_image,
+         "", "Back to defaults, image kept", action_id="file_reset_settings")
+    m_file.addSeparator()
     _act(win, m_file, "Open image...", win.open_image_dialog,
          "", "Open an image into the canvas", action_id="file_open")
     m_recent = m_file.addMenu("Open recent")

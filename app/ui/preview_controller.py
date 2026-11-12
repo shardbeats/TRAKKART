@@ -79,6 +79,8 @@ def render_still(win) -> None:
     """
     import time
 
+    if getattr(win, "src", None) is None:
+        return
     from app.services.render_service import should_render_async
     from app.viewport import is_heavy_preset, normalize_mode
 
@@ -165,6 +167,15 @@ def start_async(win, *, full: bool = False,
 def on_done(win, qimg, pil_img, token: int) -> None:
     if token != win._preview_token:
         return  # stale: another render is already on its way
+    if getattr(win, "src", None) is None:
+        win.result = None
+        win._preview_worker = None
+        win._preview_pending = False
+        try:
+            _restore_cursor(win)
+        except Exception:  # noqa: BLE001
+            pass
+        return
     win.result = pil_img
     from app.ui import compare_controller as _cc
 

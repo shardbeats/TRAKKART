@@ -1115,6 +1115,16 @@ class MainWindow(QMainWindow):
 
         _im.open_image_dialog(self)
 
+    def new_project(self) -> None:
+        from app.ui import project_flow as _pf
+
+        _pf.new_project(self)
+
+    def reset_settings_keep_image(self) -> None:
+        from app.ui import project_flow as _pf
+
+        _pf.reset_settings_keep_image(self)
+
     def _load_path(self, path: Path) -> None:
         from app.ui import image_flow as _im
 

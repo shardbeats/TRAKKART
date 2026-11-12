@@ -206,6 +206,16 @@ def toggle_sp404_preview(win) -> None:
         except Exception:  # noqa: BLE001
             pass
     win._sp404_preview = on
+    try:
+        btn = getattr(win, "btn_sp404_preview", None)
+        if btn is not None:
+            if btn.isChecked() != bool(on):
+                btn.blockSignals(True)
+                btn.setChecked(bool(on))
+                btn.blockSignals(False)
+            btn.setText(f"SP-404 OLED Preview: {'ON' if on else 'OFF'}")
+    except Exception:  # noqa: BLE001
+        pass
     if win.src is None or win.result is None or bool(getattr(win, "_video_on", False)):
         try:
             win._schedule_refresh()

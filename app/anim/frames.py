@@ -153,8 +153,11 @@ def _dissolve_paint(preset):
     from app.pipeline import resolve_palette
     from app.render_params import apply_palette_depth, normalize_palette_depth
 
-    pal, _ = resolve_palette(str(getattr(preset, "palette", "SLIME") or "SLIME"),
-                             getattr(preset, "custom_palette", None))
+    try:
+        pal, _ = resolve_palette(str(getattr(preset, "palette", "SLIME") or "SLIME"),
+                                 getattr(preset, "custom_palette", None))
+    except ValueError:
+        return None  # degenerate custom strip (e.g. 1 color): BW fallback
     if pal is None:
         return None
     if pal == "SOURCE":
