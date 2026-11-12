@@ -2,6 +2,20 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [1.6.0] - 2026-11-12
+### Added
+- File > New project (empty: clears image + resets to SLIME_FS defaults) and
+  File > Reset settings (keep image). Opening another image keeps the recipe;
+  these two are the explicit way back to init.
+- IMAGE-panel "SP-404 OLED Preview: ON/OFF" toggle: same display-only flag
+  as View menu, independent from the "SP-404 128x64" canvas preset button.
+### Fixed
+- Empty-project race: stale preview worker after New project no longer
+  crashes (`'NoneType' has no attribute 'size'`); `render_still`/`on_done`
+  guard `src is None` and the token is invalidated.
+- Morph video preview with a 1-color custom strip no longer raises
+  (`custom palette needs 2-16 colors`); morph falls back to the BW engine.
+
 ## [1.5.0] - 2026-11-11
 ### Added
 - SP-404MKII still export: `app/sp404.py` frames any art to the

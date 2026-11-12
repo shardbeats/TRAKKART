@@ -66,8 +66,9 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   `EXPORT/PROJECT/PROJECT_XX/PICTURE`
   (UTILITY > SYSTEM > Scrn Saver Type = Custom), reimport, power cycle.
 - **SP-404 live framing:** "SP-404 128×64" button in IMAGE sets a Custom
-  128×64 canvas; View > "SP-404 OLED preview" shows the 1-bit result the
-  device will show (DITHER threshold tunes the cut live).
+  128×64 canvas (document only); the "SP-404 OLED Preview: ON/OFF" toggle in
+  IMAGE (same as View menu) shows the 1-bit result the device will show
+  (DITHER threshold tunes the cut live).
 - **Quick export** repeats the last setup without asking. If you switch
   images, it asks again (never reuses the previous name).
 
