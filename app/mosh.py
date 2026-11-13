@@ -1,6 +1,6 @@
 """TRAKKART datamosh module (MIT). Pure numpy + Pillow.
 
-Seven codec-damage flavors, all deterministic (per-mode base seed plus a
+Ten codec-damage flavors, all deterministic (per-mode base seed plus a
 user `seed` variation plus an optional frame offset, so GIF animation
 crawls instead of flickering) and all identity at amount <= 0 (off-safe,
 like the rest of the FX):
@@ -13,6 +13,9 @@ like the rest of the FX):
 - chroma  = per-block R/B split (chroma-plane drift).
 - crush   = macroblock posterize (quantization banding).
 - speckle = burst blocks to black/white (bit-flip hits).
+- bleed   = directional echo blend (motion-vector bleed over the frame).
+- hold    = frozen horizontal bands (repeated P-frames).
+- tear    = full-width band rolls on a macroblock grid (block tear).
 
 `size` (percent, 100 = classic) scales each mode's feature size; `seed`
 re-rolls the damage pattern. `apply_mosh()` dispatches (unknown mode
@@ -25,7 +28,10 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-MOSH_MODES = ("blocks", "smear", "ghost", "rows", "chroma", "crush", "speckle")
+MOSH_MODES = (
+    "blocks", "smear", "ghost", "rows", "chroma", "crush",
+    "speckle", "bleed", "hold", "tear",
+)
 
 _SEEDS = {
     "blocks": 0x405,
@@ -35,6 +41,9 @@ _SEEDS = {
     "chroma": 0xC420,
     "crush": 0xC245,
     "speckle": 0x5EC4,
+    "bleed": 0xB1ED,
+    "hold": 0x901D,
+    "tear": 0x7EA2,
 }
 
 
@@ -199,6 +208,84 @@ def mosh_speckle(img: Image.Image, amount: float = 0.0, seed: int = 0x5EC4,
     return Image.fromarray(out)
 
 
+def mosh_bleed(
+    img: Image.Image, amount: float = 0.0, seed: int = 0xB1ED,
+    size: int = 100,
+) -> Image.Image:
+    """Directional echo blend (motion-vector bleed). 0 = off."""
+    a = float(amount)
+    if a <= 0:
+        return img
+    arr = _arr(img).astype(np.float32)
+    h, w = arr.shape[:2]
+    rng = np.random.default_rng(int(seed))
+    span = a / 100.0
+    k = max(0.1, size / 100.0)
+    ang = float(rng.uniform(0.0, 6.2831853))
+    dist = max(2.0, span * max(w, h) / 3.0 * k)
+    dx = int(round(float(np.cos(ang)) * dist))
+    dy = int(round(float(np.sin(ang)) * dist))
+    shifted = np.roll(np.roll(arr, dx, axis=1), dy, axis=0)
+    rows = np.arange(h, dtype=np.float32)
+    wob = np.sin(rows / max(8.0, h / 6.0) * 6.2831853
+                 + float(rng.uniform(0.0, 6.2831853))) * max(1.0, dist / 12.0)
+    warp = np.empty_like(shifted)
+    for y in range(h):
+        warp[y] = np.roll(shifted[y], int(round(wob[y])), axis=0)
+    mix = min(0.75, 0.15 + 0.45 * span)
+    out = np.clip(arr * (1.0 - mix) + warp * mix, 0, 255).astype(np.uint8)
+    return Image.fromarray(out)
+
+
+def mosh_hold(
+    img: Image.Image, amount: float = 0.0, seed: int = 0x901D,
+    size: int = 100,
+) -> Image.Image:
+    """Frozen horizontal bands (repeated P-frames). 0 = off."""
+    a = float(amount)
+    if a <= 0:
+        return img
+    arr = _arr(img)
+    h, w = arr.shape[:2]
+    rng = np.random.default_rng(int(seed))
+    n_bands = max(1, int(a / 100.0 * 10))
+    out = arr.copy()
+    for _ in range(n_bands):
+        bh = _scale(int(rng.integers(4, max(5, h // 16))), size)
+        bh = min(bh, h)
+        y0 = int(rng.integers(0, max(1, h - bh)))
+        dy = int(rng.integers(2, max(3, h // 8)))
+        src0 = min(max(0, y0 - dy), h - bh)
+        out[y0:y0 + bh] = arr[src0:src0 + bh]
+    return Image.fromarray(out)
+
+
+def mosh_tear(
+    img: Image.Image, amount: float = 0.0, seed: int = 0x7EA2,
+    size: int = 100,
+) -> Image.Image:
+    """Full-width band rolls on a macroblock grid (block tear). 0 = off."""
+    a = float(amount)
+    if a <= 0:
+        return img
+    arr = _arr(img)
+    h, w = arr.shape[:2]
+    rng = np.random.default_rng(int(seed))
+    n_bands = max(1, int(a / 100.0 * 10))
+    cell = max(4, int(round(16 * size / 100.0)))
+    out = arr.copy()
+    for _ in range(n_bands):
+        bh = _scale(int(rng.integers(1, max(2, h // cell))), size)
+        bh = min(bh, h)
+        y0 = int(rng.integers(0, max(1, h - bh)))
+        dx = int(rng.integers(4, max(5, w // 8)))
+        if rng.random() < 0.5:
+            dx = -dx
+        for y in range(y0, y0 + bh):
+            out[y] = np.roll(arr[y], dx, axis=0)
+    return Image.fromarray(out)
+
+
 _FNS = {
     "blocks": mosh_blocks,
     "smear": mosh_smear,
@@ -207,6 +294,9 @@ _FNS = {
     "chroma": mosh_chroma,
     "crush": mosh_crush,
     "speckle": mosh_speckle,
+    "bleed": mosh_bleed,
+    "hold": mosh_hold,
+    "tear": mosh_tear,
 }
 
 

@@ -351,13 +351,16 @@ keyframe + dropped/repeated P-frames = real motion bleed). TRAKKART's
 mosh is pixel-procedural on stills; this adds the real codec technique
 as a new engine, offline, behind the existing opt-in `imageio-ffmpeg`
 extra (per §4: never in the base exe).
-- Phase A — `app/avc_mosh.py` engine (done, frame-level portable subset):
-  deterministic `plan_cuts` from `dissolve_seed` + `avc_mosh_frames`
-  generator (O(1) RAM) with `bleed | smear | hold`, strict 0=off
-  passthrough; `avc_bleed` (0-60, 0=off) + `avc_mode` preset fields
-  with metadata roundtrip (`params.avc`); no ffmpeg needed (still/GIF
-  paths never break without the video backend). Real single-keyframe
-  re-encode deferred to Phase C.
+- Phase A — codec-flavored modes in `app/mosh.py` (done, house style):
+  `bleed` (directional echo blend), `hold` (frozen P-frame bands) and
+  `tear` (macroblock band rolls) join the 7 legacy flavors with the same
+  rules: `(img, amount, seed, size)`, strict 0=off, deterministic, Pillow
+  + numpy only. `MOSH_MODES` drives the DATAMOSH combo, the FX stack
+  entry and GIF mix, so the new modes animate and stack with zero extra
+  plumbing; old presets keep rendering byte-identical (unknown modes
+  still fall back to `blocks`). The single-keyframe re-encode stays a
+  future MP4-writer option behind the Phase C encoder select, not an
+  effect.
 - Phase B — segment timeline (done): morph legs are `Segment{name, leg,
   start, end, repeat}` in `app/anim/plan.py` (`plan_segments` windows from
   the exact `leg_transitions` split, repeat >= 1); `iter_morph_chain` /
@@ -397,7 +400,7 @@ extra (per §4: never in the base exe).
 - Menu/panel order: File (open | export/batch | preset share) / Edit (undo/randomize | clipboard | method step | transforms) / View (refresh/compare | zoom | Viewport | Theme), clipboard lives in Edit, preset share grouped in File. Panel is a 5-page custom accordion (IMAGE/DITHER/COLOR/FX/MOTION) inside the single scroll (plain widgets, no nested scrolls; layout test: 1 `QScrollArea`); widget attribute names unchanged so controllers/presets/tests keep working. `Drop=Batch`/`Jobs` stay in the action bar (batch flow + tests are wired to `win.spn_jobs`/`win.chk_batch_drop`).
 - Pro polish: Help → About/Shortcuts, File → Open recent (capped, in prefs JSON), MOTIF box hidden unless method is `motif`, Export dialog pre-checks GIF when VIDEO preview is ON (dialog only, never Quick export), post-export Show in folder, rotating `data/trakkart.log` + crash dialog. `CHANGELOG.md` started.
 - Crop editor owns its box: pan/zoom mutate it directly (anchor round-trips exactly, no snap-back loop); frame follows the finger (static photo); zoom anchor clamped when the cursor sits over the black bars. `crop_box_for` only reseeds on ratio/mode/canvas/rotate/reset. fx/fy position the zoomed box directly (corners/edges reachable, no forced recenter); `crop_cover` delegates so dialog and pipeline never disagree.
-- Datamosh module: `app/mosh.py` owns 7 flavors (blocks legacy byte-identical); `mosh_mode`/`mosh_seed`/`mosh_size` preset fields (old presets default `blocks`/0/100); dedicated DATAMOSH accordion page (params live there, order stays in FX STACK); stack entry + GIF mix dispatch by mode. 397 tests, 52/52 Gherkin, 5/5 gates.
+- Datamosh module: `app/mosh.py` owns 10 flavors (blocks legacy byte-identical; bleed/hold/tear since v1.7); `mosh_mode`/`mosh_seed`/`mosh_size` preset fields (old presets default `blocks`/0/100); dedicated DATAMOSH accordion page (params live there, order stays in FX STACK); stack entry + GIF mix dispatch by mode. 397 tests, 52/52 Gherkin, 5/5 gates.
 - Export naming: `{base}_anim.mp4` (same stem as GIF); hardened sanitizer (no `__`, no edge junk); File name section with live preview + Reset; dialogs `deleteLater` on close (no hidden-window hoard).
 - Stale export names: prefs carry `src_name`; new image → fresh default (quick falls back to dialog, never silently reuses); `load_pil` stamps `pasted_YYYYMMDD_HHMMSS`. 402 tests, 5/5 gates.
 - Collision policy: single export (dialog + quick) always renames (`name_2`, …); skip/overwrite removed from the dialog (engine + batch keep all modes). 404 tests, 5/5 gates.

@@ -125,7 +125,7 @@ def build_mosh_section(win, g: QVBoxLayout) -> None:
     win.cmb_mosh_mode = QComboBox()
     tight(win.cmb_mosh_mode, 10)
     win.cmb_mosh_mode.addItems(list(MOSH_MODES))
-    win.cmb_mosh_mode.setToolTip("Datamosh flavor: blocks/smear/ghost/rows/chroma/crush/speckle")
+    win.cmb_mosh_mode.setToolTip("Datamosh flavor: blocks/smear/ghost/rows/chroma/crush/speckle/bleed/hold/tear")
     win.cmb_mosh_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
     mode_row.addWidget(win.cmb_mosh_mode, 1)
     g.addLayout(mode_row)

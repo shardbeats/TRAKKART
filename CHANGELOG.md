@@ -4,13 +4,11 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## [Unreleased]
 ### Added
-- v1.7 Fase A: `app/avc_mosh.py` (true-AVC datamosh, frame-level
-  portable): `plan_cuts` determinista desde `dissolve_seed` +
-  `avc_mosh_frames` en streaming (bleed | smear | hold, 0=off =
-  passthrough); nuevos campos `avc_bleed` (0-60) y `avc_mode` con
-  roundtrip en preset + metadata (`params.avc`). Sin ffmpeg: los
-  paths de stills/GIF no se tocan. Pinned por
-  `tests/test_avc_mosh.py` (8 tests).
+- v1.7 Fase A: modos codec `bleed`/`hold`/`tear` en `app/mosh.py`
+  (direccional echo, bandas P congeladas, band rolls de macrobloque;
+  mismas reglas: amount/seed/size, 0=off, determinista). Combo DATAMOSH,
+  FX stack y GIF mix los adoptan solos; presets viejos byte-idénticos.
+  Pinned por `tests/test_mosh.py` (loops genéricos sobre los 10 modos).
 - v1.7 Fase B: segment timeline (`Segment` + `plan_segments` en
   `app/anim/plan.py`, `repeats` en el engine/frames con replay
   determinista, spin Repeat ×1-8 por leg en MORPH, Length cuenta

@@ -1,4 +1,4 @@
-"""Datamosh module: 7 modes (identity/determinism/distinct) + wiring."""
+"""Datamosh module: 10 modes (identity/determinism/distinct) + wiring."""
 
 from PIL import Image
 
