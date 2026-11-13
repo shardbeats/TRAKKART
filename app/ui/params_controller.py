@@ -868,7 +868,7 @@ def morph_images(win) -> list:
 
 
 def morph_chain_data(win) -> list:
-    """Full chain entries [{img, name, fx, fy, zoom}] for cover-fit morph."""
+    """Full chain entries [{img, name, fx, fy, zoom, repeat}] for cover-fit morph."""
     items = list(getattr(win, "morph_list", []) or [])
     out = []
     for entry in items:
@@ -881,8 +881,13 @@ def morph_chain_data(win) -> list:
             entry["fx"], entry["fy"], entry["zoom"] = fx, fy, zm
         except (TypeError, ValueError):
             entry["fx"], entry["fy"], entry["zoom"] = 50.0, 50.0, 1.0
+        try:
+            rp = max(1, min(8, int(entry.get("repeat", 1) or 1)))
+        except (TypeError, ValueError):
+            rp = 1
+        entry["repeat"] = rp
         out.append({"img": entry["img"], "name": str(entry.get("name", "?")),
-                    "fx": fx, "fy": fy, "zoom": zm})
+                    "fx": fx, "fy": fy, "zoom": zm, "repeat": rp})
     return out
 
 
@@ -893,6 +898,21 @@ def on_morph_selected(win) -> None:
         row = int(win.morph_list_widget.currentRow())
     except Exception:  # noqa: BLE001
         return
+    try:
+        rep_spin = getattr(win, "spn_morph_repeat", None)
+        if rep_spin is not None:
+            entry = items[row] if 0 <= row < len(items) else None
+            try:
+                rv = max(1, min(8, int((entry or {}).get("repeat", 1) or 1)))
+            except (TypeError, ValueError):
+                rv = 1
+            rep_spin.blockSignals(True)
+            try:
+                rep_spin.setValue(rv)
+            finally:
+                rep_spin.blockSignals(False)
+    except Exception:  # noqa: BLE001
+        pass
     if not 0 <= row < len(items):
         try:
             win.lbl_morph_crop.setText("Crop: select a chain image")
@@ -985,7 +1005,11 @@ def _sync_morph_list_ui(win) -> None:
         lst.clear()
         for i, entry in enumerate(items):
             name = str((entry or {}).get("name", f"img{i + 2}"))
-            lst.addItem(f"{i + 2}: {name}")
+            try:
+                rep = max(1, min(8, int((entry or {}).get("repeat", 1) or 1)))
+            except (TypeError, ValueError):
+                rep = 1
+            lst.addItem(f"{i + 2}: {name}" + (f" ×{rep}" if rep > 1 else ""))
     except Exception:  # noqa: BLE001
         pass
     finally:
@@ -1052,7 +1076,7 @@ def pick_morph_image(win) -> bool:
             pass
         return False
     items.append({"img": img.copy(), "name": str(Path(path).name),
-                  "fx": 50.0, "fy": 50.0, "zoom": 1.0})
+                  "fx": 50.0, "fy": 50.0, "zoom": 1.0, "repeat": 1})
     win.morph_list = items
     _sync_morph_list_ui(win)
     try:
@@ -1106,6 +1130,28 @@ def move_morph_selected(win, delta: int) -> None:
         except Exception:  # noqa: BLE001
             pass
         win._schedule_refresh()
+
+
+def set_morph_repeat(win, value: int) -> None:
+    """Store the per-leg repeat (1-8) on the selected chain entry."""
+    items = list(getattr(win, "morph_list", []) or [])
+    try:
+        row = int(win.morph_list_widget.currentRow())
+    except Exception:  # noqa: BLE001
+        return
+    if not 0 <= row < len(items) or not isinstance(items[row], dict):
+        return
+    try:
+        items[row]["repeat"] = max(1, min(8, int(value)))
+    except (TypeError, ValueError):
+        items[row]["repeat"] = 1
+    win.morph_list = items
+    _sync_morph_list_ui(win)
+    try:
+        win.morph_list_widget.setCurrentRow(row)
+    except Exception:  # noqa: BLE001
+        pass
+    win._schedule_refresh()
 
 
 def clear_morph_image(win) -> None:

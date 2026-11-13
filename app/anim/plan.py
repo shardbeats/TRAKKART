@@ -6,6 +6,8 @@ re-exports them so existing imports keep working.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.anim.limits import (GIF_MAX_FRAMES, GIF_MIN_FRAMES, MAX_GIF_PIXELS,
                              MAX_TOTAL_FRAMES,
                              MP4_BYTES_PER_PX_HOLD, MP4_BYTES_PER_PX_TRANS)
@@ -27,6 +29,65 @@ def leg_transitions(n_req: int, legs: int) -> list[int]:
     n_trans = min(GIF_MAX_FRAMES, max(2 * legs_v, _clamp_frames(n_req)))
     base, rem = divmod(n_trans, legs_v)
     return [base + (1 if k < rem else 0) for k in range(legs_v)]
+
+
+@dataclass
+class Segment:
+    """One morph leg as a frame window with a repeat count (v1.7 Phase B).
+
+    `start`/`end` index the transition block (end exclusive); `repeat`
+    (>= 1, clamped) plays the leg that many times. `played` is the
+    frames the leg contributes to the clip total.
+    """
+
+    name: str = ""
+    leg: int = 0
+    start: int = 0
+    end: int = 0
+    repeat: int = 1
+
+    @property
+    def frames(self) -> int:
+        return max(0, int(self.end) - int(self.start))
+
+    @property
+    def played(self) -> int:
+        return self.frames * max(1, int(self.repeat or 1))
+
+
+def plan_segments(n_trans: int, legs: int, repeats: list[int] | None = None,
+                  loop: bool = False, names: list[str] | None = None) -> list[Segment]:
+    """Split `n_trans` transition frames into per-leg Segments.
+
+    Per-leg frames come from `leg_transitions` (the exact engine split,
+    so windows match rendered legs); `start`/`end` accumulate over legs.
+    `repeats` (per leg, closing loop leg included when `loop`) defaults
+    to all 1; each entry clamps to >= 1. Default names are A->B, B->C,
+    ... with the closing leg named "…->A".
+    """
+    legs_v = max(1, int(legs or 1))
+    per_leg = leg_transitions(int(n_trans), legs_v)
+    reps = list(repeats) if repeats else []
+    reps += [1] * (legs_v - len(reps))
+    out: list[Segment] = []
+    pos = 0
+    for k in range(legs_v):
+        nk = max(0, int(per_leg[k]))
+        rep = max(1, int(reps[k] or 1))
+        if names and k < len(names) and names[k]:
+            nm = str(names[k])
+        elif loop and k == legs_v - 1:
+            nm = f"{chr(65 + (legs_v - 1) % 26)}->A (loop)"
+        else:
+            nm = f"{chr(65 + k % 26)}->{chr(65 + (k + 1) % 26)}"
+        out.append(Segment(name=nm, leg=k, start=pos, end=pos + nk, repeat=rep))
+        pos += nk
+    return out
+
+
+def segment_total(segments: list[Segment]) -> int:
+    """Played transition frames: sum of leg frames x repeat."""
+    return sum(int(s.played) for s in (segments or []))
 
 
 def plan_dissolve(n_req: int, segs: int, fps: int, hold_s: float,
@@ -191,6 +252,7 @@ def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
 
 
 __all__ = ["_clamp_frames", "plan_dissolve", "leg_transitions",
+           "Segment", "plan_segments", "segment_total",
            "solve_hold_for_length",
            "_check_gif_budget", "estimate_gif", "estimate_webp",
            "_even_down", "mp4_dims", "estimate_mp4"]

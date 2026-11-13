@@ -1192,6 +1192,11 @@ class MainWindow(QMainWindow):
 
         _par.clear_morph_image(self)
 
+    def _on_morph_repeat(self, value: int) -> None:
+        from app.ui import params_controller as _par
+
+        _par.set_morph_repeat(self, value)
+
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""
         from app.ui import export_flow as _ef

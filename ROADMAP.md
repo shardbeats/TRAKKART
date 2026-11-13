@@ -358,10 +358,15 @@ extra (per §4: never in the base exe).
   with metadata roundtrip (`params.avc`); no ffmpeg needed (still/GIF
   paths never break without the video backend). Real single-keyframe
   re-encode deferred to Phase C.
-- Phase B — segment timeline: morph legs become `Segment{name, from,
-  to, repeat}` in `anim/plan.py` (from/to = frame window, repeat ≥ 1);
-  MORPH page gets add/delete/up/down + per-leg repeat spin; plan
-  budget and Length readout count repeats; loop leg stays byte-exact.
+- Phase B — segment timeline (done): morph legs are `Segment{name, leg,
+  start, end, repeat}` in `app/anim/plan.py` (`plan_segments` windows from
+  the exact `leg_transitions` split, repeat >= 1); `iter_morph_chain` /
+  `morph_chain_frames` take `repeats` (deterministic recompute, O(1) RAM,
+  all-1 byte-identical incl. the loop leg); entries carry `repeat`
+  (session-only, like fx/fy/zoom); MORPH page has a per-leg Repeat ×1-8
+  spin; `planned_total` counts repeats in total + Length readout;
+  preview/GIF/MP4 inherit via chain entries. Pinned by
+  `tests/test_segments.py`.
 - Phase C — export hygiene: "Reprocess" guard (canvas/preset changed
   after frames were built → badge + one-click rebuild, no stale MP4s);
   encoder select software/hardware (nvenc/qsv/amf → libx264 fallback)

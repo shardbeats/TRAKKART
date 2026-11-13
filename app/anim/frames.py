@@ -393,10 +393,20 @@ def _split_chain_entries(img_b) -> tuple[list, list]:
     Accepts PIL images or {"img": PIL, "fx":.., "fy":.., "zoom":..} dicts
     (MORPH playlist entries). Crops default to center/no-zoom.
     """
+    imgs, crops, _reps = _split_chain(img_b)
+    return imgs, crops
+
+
+def _split_chain(img_b) -> tuple[list, list, list]:
+    """Normalize chain input to (images, per-image crop dicts, repeats).
+
+    `repeat` per entry (>= 1, default 1) replays that leg; plain images
+    repeat once.
+    """
     if img_b is None:
-        return [], []
+        return [], [], []
     items = list(img_b) if isinstance(img_b, list) else [img_b]
-    imgs, crops = [], []
+    imgs, crops, reps = [], [], []
     for it in items:
         if isinstance(it, dict):
             img = it.get("img")
@@ -404,15 +414,21 @@ def _split_chain_entries(img_b) -> tuple[list, list]:
                 continue
             crops.append({"fx": it.get("fx", 50.0), "fy": it.get("fy", 50.0),
                           "zoom": it.get("zoom", 1.0)})
+            try:
+                reps.append(max(1, min(8, int(it.get("repeat", 1) or 1))))
+            except (TypeError, ValueError):
+                reps.append(1)
         else:
             img = it
             crops.append({})
+            reps.append(1)
         try:
             imgs.append(img.convert("RGB"))
         except Exception:  # noqa: BLE001
             if crops:
                 crops.pop()
-    return imgs, crops
+                reps.pop()
+    return imgs, crops, reps
 
 
 def iter_dissolve_frames(img: Image.Image, preset=None, frames: int = 8,
@@ -480,7 +496,8 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                       amount: float | None = None,
                       fps: int | None = None,
                       cap: int | None = None,
-                      loop: bool | None = None):
+                      loop: bool | None = None,
+                      repeats: list[int] | None = None):
     """Yield morph chain frames one by one (streaming: O(1) RAM for long MP4)."""
     from app.disintegrate import iter_morph_chain
 
@@ -493,7 +510,7 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
-    others, other_crops = _split_chain_entries(img_b)
+    others, other_crops, entry_reps = _split_chain(img_b)
     if not others:
         yield from iter_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                         seed=seed_v, wind=wind_v, mode=mode_v,
@@ -508,13 +525,16 @@ def iter_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                          cap=cap if cap else MAX_MP4_FRAMES, loop=loop_v)
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
+    legs_n = len(others) + (1 if loop_v else 0)
+    reps = list(repeats) if repeats else list(entry_reps)
+    reps += [1] * (legs_n - len(reps))
     yield from iter_morph_chain([a] + others, method=method,
                                 threshold=threshold, pixel_size=pixel, frames=plan["n_trans"],
                                 seed=seed_v, wind=wind_v, mode=mode_v,
                                 amount=amount_v, max_side=side,
                                 hold_start=plan["hs"], hold_end=plan["he"],
                                 hold_joint=plan["holds"][1:-1], crops=crops,
-                                loop=loop_v, stagger=stagger_v, ease=ease_v,
+                                loop=loop_v, repeats=reps, stagger=stagger_v, ease=ease_v,
                                 dotsize=dotsize_v, travel=travel_v,
                                 tint=_dissolve_tint(preset),
                                 trail=_dissolve_trail(preset),
@@ -594,7 +614,8 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
                      amount: float | None = None,
                      fps: int | None = None,
                      cap: int | None = None,
-                     loop: bool | None = None) -> list[Image.Image]:
+                     loop: bool | None = None,
+                     repeats: list[int] | None = None) -> list[Image.Image]:
     """Swap A -> B (-> C ...) through particle clouds (Fase 5 + v1.8 chain).
 
     img_b may be a single image or a list (chain A -> B -> C ..., capped
@@ -621,7 +642,7 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     amount_v = 1.0 if amount is None else float(amount)
     if preset is not None and amount is None:
         amount_v = float(getattr(preset, "dissolve_amount", amount_v))
-    others, other_crops = _split_chain_entries(img_b)
+    others, other_crops, entry_reps = _split_chain(img_b)
     if not others:
         return gif_dissolve_frames(img_a, preset, frames=n, max_side=side,
                                    pingpong=pp, seed=seed_v, wind=wind_v,
@@ -637,13 +658,16 @@ def gif_morph_frames(img_a: Image.Image, img_b=None, preset=None,
     _check_gif_budget(plan["total"], side, side)  # approx (long side); exact check in save_gif
     a = _canvas_a(img_a, preset, side)
     crops = [{}] + other_crops
+    legs_n = len(others) + (1 if loop_v else 0)
+    reps = list(repeats) if repeats else list(entry_reps)
+    reps += [1] * (legs_n - len(reps))
     out = morph_chain_frames([a] + others, method=method,
                              threshold=threshold, pixel_size=pixel, frames=plan["n_trans"],
                              seed=seed_v, wind=wind_v, mode=mode_v,
                              amount=amount_v, max_side=side,
                              hold_start=plan["hs"], hold_end=plan["he"],
                              hold_joint=plan["holds"][1:-1],
-                             crops=crops, loop=loop_v,
+                             crops=crops, loop=loop_v, repeats=reps,
                              stagger=stagger_v, ease=ease_v, dotsize=dotsize_v,
                              travel=travel_v, tint=_dissolve_tint(preset),
                              trail=_dissolve_trail(preset),

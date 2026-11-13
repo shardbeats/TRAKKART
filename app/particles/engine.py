@@ -289,6 +289,7 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                      hold_joint: int | list | tuple = 0,
                      crops: list[dict] | None = None,
                      loop: bool = False,
+                     repeats: list[int] | None = None,
                      stagger: str = "off", ease: str = "sine",
                      dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                      trail: int = 0, shade: bool = False, adjust=None,
@@ -301,6 +302,10 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
     With loop=True the last form morphs back into the first (closed
     loop, no hard cut): the closing leg reuses the first form's exact
     dithered still/coords, so the loop joint is byte-identical.
+    With `repeats` (per leg, closing leg included, >= 1, default all 1)
+    a leg plays that many times back to back (recomputed deterministically:
+    same bytes, O(1) RAM, no stored frames). All 1 keeps every byte
+    identical to the unrepeated clip.
     With travel > 0 (F3, non-blocks legs only) dots pour src -> dst
     through a seeded spatial-sort 1:1 assignment instead of cloud-reform;
     travel = 0 keeps the legacy path byte-identical.
@@ -362,6 +367,9 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
     loop_v = bool(loop) and len(fitted) >= 2
     legs = segs + (1 if loop_v else 0)
     base, rem = divmod(n, legs)
+    _reps = list(repeats) if repeats else []
+    _reps += [1] * (legs - len(_reps))
+    rep_list = [max(1, int(r or 1)) for r in _reps]
     dithered_all = [s.copy() for s in still_list]
     for _ in range(max(0, int(hold_start))):
         yield dithered_all[0].copy()
@@ -444,7 +452,10 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
                     tsrc_dark = _darkness_of(arr_a.astype(np.float64), tsrc, h, w)
                     tdst_dark = _darkness_of(arr_b.astype(np.float64), tdst, h, w)
         ez_leg = ease if ease in EASE_MODES else "sine"
-        for j in range(nk):
+        rep_k = rep_list[k] if k < len(rep_list) else 1
+        # Repeat replays the leg (modular index: same bytes, O(1) RAM).
+        _nk = max(1, int(nk))
+        for j in [_t % _nk for _t in range(_nk * max(1, int(rep_k)))]:
             q = float(j) / float(max(1, nk - 1))
             env = float(ease_env(np.mod(q, 1.0), ez_leg))
             ghosts = ghost_entries(hist, trail_n, env, color_mode) if trail_on else []
@@ -562,6 +573,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        hold_joint: int | list | tuple = 0,
                        crops: list[dict] | None = None,
                        loop: bool = False,
+                       repeats: list[int] | None = None,
                        stagger: str = "off", ease: str = "sine",
                        dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
                        trail: int = 0, shade: bool = False, adjust=None,
@@ -593,6 +605,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 max_side=max_side, hold_start=hold_start,
                 hold_end=hold_end, hold_joint=hold_joint,
                 crops=crops, loop=loop,
+                repeats=repeats,
                 stagger=stagger, ease=ease, dotsize=dotsize,
                 travel=travel, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,

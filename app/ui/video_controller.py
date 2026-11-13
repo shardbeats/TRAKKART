@@ -136,6 +136,23 @@ def planned_total(win) -> dict:
     legs = segs + (1 if (loop and mode == "morph") else 0)
     actual = float(plan["total"]) / max(1, fps)
     plan.update({"target_s": actual, "fps": fps, "segs": segs, "legs": legs, "particle": True})
+    if mode == "morph":
+        # Phase B: per-leg repeats replay transition frames (Length counts them).
+        try:
+            from app.anim.plan import plan_segments, segment_total
+            from app.ui import params_controller as _par2
+
+            reps = [int(e.get("repeat", 1) or 1) for e in _par2.morph_chain_data(win)]
+            reps += [1] * (legs - len(reps))
+            played = segment_total(plan_segments(plan["n_trans"], legs, reps,
+                                                 loop=loop))
+            holds_sum = int(sum(plan.get("holds", []) or []))
+            plan["n_trans_played"] = played
+            plan["total"] = played + holds_sum
+            plan["actual_s"] = plan["total"] / max(1, fps)
+            plan["target_s"] = plan["actual_s"]
+        except Exception:  # noqa: BLE001
+            pass
     return plan
 
 

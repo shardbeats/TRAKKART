@@ -11,6 +11,10 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   roundtrip en preset + metadata (`params.avc`). Sin ffmpeg: los
   paths de stills/GIF no se tocan. Pinned por
   `tests/test_avc_mosh.py` (8 tests).
+- v1.7 Fase B: segment timeline (`Segment` + `plan_segments` en
+  `app/anim/plan.py`, `repeats` en el engine/frames con replay
+  determinista, spin Repeat ×1-8 por leg en MORPH, Length cuenta
+  repeats). Pinned por `tests/test_segments.py` (6 tests).
 
 ## [1.6.0] - 2026-11-12
 ### Added
