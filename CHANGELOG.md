@@ -2,6 +2,16 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased]
+### Added
+- v1.7 Fase A: `app/avc_mosh.py` (true-AVC datamosh, frame-level
+  portable): `plan_cuts` determinista desde `dissolve_seed` +
+  `avc_mosh_frames` en streaming (bleed | smear | hold, 0=off =
+  passthrough); nuevos campos `avc_bleed` (0-60) y `avc_mode` con
+  roundtrip en preset + metadata (`params.avc`). Sin ffmpeg: los
+  paths de stills/GIF no se tocan. Pinned por
+  `tests/test_avc_mosh.py` (8 tests).
+
 ## [1.6.0] - 2026-11-12
 ### Added
 - File > New project (empty: clears image + resets to SLIME_FS defaults) and

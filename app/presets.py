@@ -272,6 +272,8 @@ FIELDS: tuple[_Field, ...] = (
     _Field("dissolve_hold", "float", ("range", 0.0, 3.0)),
     _Field("dissolve_length", "float", ("range", 0.0, 99.9)),
     _Field("dissolve_loop", "bool"),
+    _Field("avc_bleed", "int", ("range", 0, 60)),
+    _Field("avc_mode", "str", ("oneof", ("bleed", "smear", "hold"))),
     _Field("paste_mode", "str", ("oneof", ("off", "paper", "riso", "fiber"))),
     _Field("paste_opacity", "float", ("range", 0.0, 100.0)),
     _Field("paste_blend", "str", ("oneof", ("overlay", "multiply", "screen"))),
@@ -408,6 +410,8 @@ class Preset:
     dissolve_length: float = 5.0  # legacy total-length request (compat only:
     # Hold-manda ignores it; Length is derived = (trans + holds) / fps)
     dissolve_loop: bool = True  # morph closes the loop (last -> first, no hard cut)
+    avc_bleed: int = 0  # v1.7 true-AVC cut influence 0-60 (0 = off, passthrough)
+    avc_mode: str = "bleed"  # bleed | smear | hold (app/avc_mosh.py)
     paste_mode: str = "off"  # paper | riso | fiber overlay post-dither
     paste_opacity: float = 0.0  # 0-100, 0 = off
     paste_blend: str = "overlay"  # overlay | multiply | screen
@@ -569,6 +573,10 @@ class Preset:
             "length": float(getattr(self, "dissolve_length", 5.0) or 5.0),
             "loop": bool(getattr(self, "dissolve_loop", True)),
         }
+        m["avc"] = {
+            "bleed": int(getattr(self, "avc_bleed", 0) or 0),
+            "mode": str(getattr(self, "avc_mode", "bleed") or "bleed"),
+        }
         m["fx_stack"] = copy.deepcopy(getattr(self, "fx_stack", None))
         m["motif"] = copy.deepcopy(getattr(self, "motif", None))
         m["seeds"] = {
@@ -709,6 +717,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
     texture = _get(params, "texture", {}) or {}
     fx = _get(params, "fx", {}) or {}
     dissolve = _get(params, "dissolve", {}) or {}
+    avc = _get(params, "avc", {}) or {}
     drift = _get(params, "drift", {}) or {}
     paste = _get(params, "paste", {}) or {}
     seeds = _get(params, "seeds", {}) or {}
@@ -787,6 +796,8 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "dissolve_hold": _get(dissolve, "hold", 1.0),
         "dissolve_length": _get(dissolve, "length", 5.0),
         "dissolve_loop": bool(_get(dissolve, "loop", True)),
+        "avc_bleed": _get(avc, "bleed", 0),
+        "avc_mode": str(_get(avc, "mode", "bleed") or "bleed"),
         "export_size": _get(export, "size", 3000),
         "export_format": str(_get(export, "format", "png") or "png"),
         "export_quality": _get(export, "quality", 90),

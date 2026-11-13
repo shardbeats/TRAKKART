@@ -351,14 +351,13 @@ keyframe + dropped/repeated P-frames = real motion bleed). TRAKKART's
 mosh is pixel-procedural on stills; this adds the real codec technique
 as a new engine, offline, behind the existing opt-in `imageio-ffmpeg`
 extra (per §4: never in the base exe).
-- Phase A — `app/avc_mosh.py` engine: re-encode the clip/frames to one
-  leading keyframe (x264, high `-g`, no B-frames), then (a) drop the
-  keyframe at each segment cut so deltas bleed over the previous image
-  (`bleed` frames of influence), (b) repeat P-frames per segment
-  (`repeat`). New preset fields `avc_bleed` (0-60, 0=off), `avc_mode`
-  (`bleed | smear | hold`), reuse of `dissolve_seed` for the cut plan.
-  No-ffmpeg fallback: friendly "video extra missing" message, engine
-  no-ops (stills path untouched).
+- Phase A — `app/avc_mosh.py` engine (done, frame-level portable subset):
+  deterministic `plan_cuts` from `dissolve_seed` + `avc_mosh_frames`
+  generator (O(1) RAM) with `bleed | smear | hold`, strict 0=off
+  passthrough; `avc_bleed` (0-60, 0=off) + `avc_mode` preset fields
+  with metadata roundtrip (`params.avc`); no ffmpeg needed (still/GIF
+  paths never break without the video backend). Real single-keyframe
+  re-encode deferred to Phase C.
 - Phase B — segment timeline: morph legs become `Segment{name, from,
   to, repeat}` in `anim/plan.py` (from/to = frame window, repeat ≥ 1);
   MORPH page gets add/delete/up/down + per-leg repeat spin; plan
