@@ -88,7 +88,8 @@ class ExportWorker(WorkerBase):
                  gif_pingpong: bool = False,
                  size: int = 3000, format: str = "png", quality: int = 90,
                  mp4: bool = False, mp4_fps: int = 8,
-                 mp4_size: str = "1080p", webp: bool = False,
+                 mp4_size: str = "1080p", mp4_encoder: str = "libx264",
+                 webp: bool = False,
                  sep: bool = False, sp404: bool = False,
                  morph_src=None, parent=None) -> None:
         super().__init__(parent)
@@ -111,6 +112,7 @@ class ExportWorker(WorkerBase):
         self.mp4 = bool(mp4)
         self.mp4_fps = int(mp4_fps)
         self.mp4_size = str(mp4_size)
+        self.mp4_encoder = str(mp4_encoder or "libx264")
         self.webp = bool(webp)
         self.sep = bool(sep)
         self.sp404 = bool(sp404)
@@ -128,6 +130,7 @@ class ExportWorker(WorkerBase):
             gif_pingpong=self.gif_pingpong, size=self.size,
             format=self.format, quality=self.quality, mp4=self.mp4,
             mp4_fps=self.mp4_fps, mp4_size=self.mp4_size,
+            mp4_codec=self.mp4_encoder,
             webp=self.webp, sep=self.sep, morph_src=self.morph_src,
             sp404=self.sp404,
         )

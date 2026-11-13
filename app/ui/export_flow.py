@@ -15,6 +15,7 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "size": getattr(prefs, "gif_size", 1200),
             "pingpong": getattr(prefs, "gif_pingpong", False),
             "mp4_size": getattr(prefs, "mp4_size", "1080p"),
+            "mp4_encoder": getattr(prefs, "mp4_encoder", "libx264"),
             "mp4": getattr(prefs, "mp4", False),
             "webp": getattr(prefs, "webp", False),
             "sep": getattr(prefs, "sep", False),
@@ -63,6 +64,7 @@ def export(win, quick: bool = False) -> None:
                 size=prefs.size, format=prefs.format, quality=prefs.quality,
                 mp4=bool(gopts_prefs.get("mp4", False)),
                 mp4_size=str(gopts_prefs.get("mp4_size", "1080p")),
+                mp4_encoder=str(gopts_prefs.get("mp4_encoder", "libx264")),
                 webp=bool(gopts_prefs.get("webp", False)),
                 sep=bool(gopts_prefs.get("sep", False)),
                 sp404=bool(gopts_prefs.get("sp404", False)),
@@ -84,6 +86,7 @@ def export(win, quick: bool = False) -> None:
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
+            init_gopts["mp4_encoder"] = getattr(prefs, "mp4_encoder", "libx264")
             for key in ("mp4", "webp", "sep", "sp404"):
                 init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
@@ -102,6 +105,7 @@ def export(win, quick: bool = False) -> None:
             vector_cells=win._estimate_vector_cells(preset),
             preset=preset, size=init_size, format=init_fmt, quality=init_q,
             mp4_size=str(init_gopts.get("mp4_size", "1080p")),
+            mp4_encoder=str(init_gopts.get("mp4_encoder", getattr(prefs, "mp4_encoder", "libx264"))),
             mp4=bool(init_gopts.get("mp4", False)),
             webp=bool(init_gopts.get("webp", False)),
             sep=bool(init_gopts.get("sep", False)),
@@ -127,6 +131,7 @@ def export(win, quick: bool = False) -> None:
             size=options.size, format=options.format, quality=options.quality,
             mp4=bool(gopts.get("mp4", False)),
             mp4_size=str(gopts.get("mp4_size", "1080p")),
+            mp4_encoder=str(gopts.get("mp4_encoder", "libx264")),
             webp=bool(gopts.get("webp", False)),
             sep=bool(gopts.get("sep", False)),
             sp404=bool(gopts.get("sp404", False)),
@@ -145,6 +150,7 @@ def export(win, quick: bool = False) -> None:
             gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
             gif_pingpong=bool(gopts["pingpong"]),
             mp4_size=str(gopts.get("mp4_size", "1080p")),
+            mp4_encoder=str(gopts.get("mp4_encoder", "libx264")),
             overwrite="rename",  # per-run choice is not persisted (quick is always safe)
             size=options.size, format=options.format, quality=options.quality,
             recent_files=recent_files, src_name=win.src_name,
@@ -339,7 +345,8 @@ def on_export_error(win, msg: str) -> None:
 def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      overwrite: str, size: int, format: str,
                      quality: int, mp4: bool = False,
-                     mp4_size: str = "1080p", webp: bool = False,
+                     mp4_size: str = "1080p", mp4_encoder: str = "libx264",
+                     webp: bool = False,
                      sep: bool = False, sp404: bool = False) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
@@ -367,6 +374,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             mp4=bool(mp4),
             mp4_fps=int(go.get("fps", 8)),
             mp4_size=str(go.get("mp4_size", mp4_size)),
+            mp4_codec=str(go.get("mp4_encoder", mp4_encoder)),
             webp=bool(webp),
             sep=bool(sep),
             sp404=bool(sp404),
@@ -389,7 +397,8 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
 def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                overwrite: str, size: int, format: str,
                quality: int, mp4: bool = False,
-               mp4_size: str = "1080p", webp: bool = False,
+               mp4_size: str = "1080p", mp4_encoder: str = "libx264",
+               webp: bool = False,
                sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
@@ -408,7 +417,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, sep, sp404)
+                         mp4_size, mp4_encoder, webp, sep, sp404)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -454,6 +463,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         size=int(size), format=str(format), quality=int(quality),
         mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
         mp4_size=str(go.get("mp4_size", mp4_size)),
+        mp4_encoder=str(go.get("mp4_encoder", mp4_encoder)),
         webp=bool(webp), sep=bool(sep), morph_src=morph_snapshot,
         sp404=bool(sp404),
         parent=win,

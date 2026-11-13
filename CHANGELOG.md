@@ -15,6 +15,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   `app/anim/plan.py`, `repeats` en el engine/frames con replay
   determinista, spin Repeat ×1-8 por leg en MORPH, Length cuenta
   repeats). Pinned por `tests/test_segments.py` (6 tests).
+- v1.7 Fase C: export hygiene (fingerprint de preview + badge Rebuild,
+  selector de encoder HW/SW con fallback a software, pref `mp4_encoder`).
+  Pinned por `tests/test_export_hygiene.py` (7 tests).
 
 ## [1.6.0] - 2026-11-12
 ### Added

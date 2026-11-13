@@ -57,6 +57,71 @@ def _morph_imgs(win) -> list | None:
         return None
 
 
+def preview_fingerprint(win) -> str:
+    """Fingerprint of the inputs the current preview/MP4 would render from.
+
+    Source thumb + preset meta + chain signature + anim spec. Compared
+    against the fingerprint stored when preview frames were built.
+    """
+    from app.anim.fingerprint import clip_fingerprint
+    try:
+        src = getattr(win, "src", None)
+        preset = win.current_params() if hasattr(win, "current_params") else None
+        meta = preset.meta() if preset is not None and hasattr(preset, "meta") else None
+    except Exception:  # noqa: BLE001
+        src, meta = None, None
+    try:
+        chain = _morph_imgs(win)
+        sig = None if not chain else [
+            (str(e.get("name", "?")) if isinstance(e, dict) else "img",
+             round(float(e.get("fx", 50.0)), 1) if isinstance(e, dict) else 50.0,
+             round(float(e.get("fy", 50.0)), 1) if isinstance(e, dict) else 50.0,
+             round(float(e.get("zoom", 1.0)), 2) if isinstance(e, dict) else 1.0,
+             int(e.get("repeat", 1) or 1) if isinstance(e, dict) else 1)
+            for e in chain]
+    except Exception:  # noqa: BLE001
+        sig = None
+    try:
+        s = spec(win)
+        s["pingpong"] = bool(win.chk_video_pingpong.isChecked())
+    except Exception:  # noqa: BLE001
+        s = {}
+    return clip_fingerprint(src, meta, sig, s)
+
+
+def sync_stale_badge(win) -> None:
+    """Show the Reprocess badge when preview frames predate current inputs."""
+    try:
+        lbl = win.lbl_stale
+        btn = win.btn_rebuild
+    except AttributeError:
+        return
+    try:
+        stale = (bool(getattr(win, "_video_on", False))
+                 and bool(getattr(win, "_video_frames", []))
+                 and bool(str(getattr(win, "_video_fingerprint", "") or ""))
+                 and str(getattr(win, "_video_fingerprint", "")) != preview_fingerprint(win))
+    except Exception:  # noqa: BLE001
+        stale = False
+    try:
+        lbl.setVisible(bool(stale))
+        btn.setVisible(bool(stale))
+        if stale:
+            lbl.setText("⚠ Preview predates your edits — export re-renders fresh, or rebuild now.")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from app.ui import params_controller as _par
+
+        chain = _par.morph_chain_data(win)
+        if chain:
+            return chain
+        single = getattr(win, "morph_src", None)
+        return [single] if single is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def toggle(win) -> None:
     win._video_on = bool(win.chk_video.isChecked())
     win._video_bar_widget.setVisible(win._video_on)
@@ -364,6 +429,10 @@ def sync_duration_ui(win) -> None:
             _par3.update_morph_short_hint(win)
         except Exception:  # noqa: BLE001
             pass
+        try:
+            sync_stale_badge(win)
+        except Exception:  # noqa: BLE001
+            pass
     except Exception:  # noqa: BLE001
         pass
 
@@ -395,6 +464,10 @@ def start_async(win) -> None:
     s = spec(win)
     win._video_token += 1
     win._video_timer.stop()
+    try:
+        win._video_fingerprint_req = preview_fingerprint(win)
+    except Exception:  # noqa: BLE001
+        win._video_fingerprint_req = ""
     win._status(f"Rendering video {s['frames']}f {s['mode']} @{s['size']}px…")
     win._video_worker = VideoWorker(
         win.src.copy(), win.current_params(), s["size"],
@@ -413,6 +486,7 @@ def on_done(win, frames: list, token: int) -> None:
     from app.gif import GIF_MAX_FPS, GIF_MIN_FPS
 
     win._video_frames = list(frames or [])
+    win._video_fingerprint = str(getattr(win, "_video_fingerprint_req", "") or "")
     win.result = win._video_frames[0] if win._video_frames else win.result
     s = spec(win)
     fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(s["fps"])))

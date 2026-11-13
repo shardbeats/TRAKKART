@@ -597,7 +597,8 @@ def test_batch_dialog_outputs(qt_app, tmp_path: Path):
                                     "gif_size": 1920, "gif_pingpong": False,
                                     "canvas_w": 1920, "canvas_h": 1080,
                                     "export_size": 1920, "export_format": "webp",
-                                    "export_quality": 75}
+                                    "export_quality": 75,
+                                    "seed_mode": "off"}
     for gone in ("spn_gframes", "cmb_gifmode", "spn_gfps", "spn_gsize",
                  "chk_pingpong", "spn_size", "cmb_size"):
         assert not hasattr(dlg, gone)

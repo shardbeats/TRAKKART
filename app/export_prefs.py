@@ -35,6 +35,7 @@ class ExportPrefs:
     gif_size: int = 1200
     gif_pingpong: bool = False
     mp4_size: str = "1080p"  # Canvas | 1080p | 720p (main image stays canvas)
+    mp4_encoder: str = "libx264"  # libx264 | auto | h264_nvenc | h264_qsv | h264_amf
     overwrite: str = "rename"  # fixed: never lose a file (engine keeps all modes)
     size: int = 3000
     format: str = "png"
@@ -114,6 +115,9 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
             prefs.mp4_size = "1080p"
     except Exception:  # noqa: BLE001
         pass
+    if str(getattr(prefs, "mp4_encoder", "")) not in (
+            "libx264", "auto", "h264_nvenc", "h264_qsv", "h264_amf"):
+        prefs.mp4_encoder = "libx264"
     if str(getattr(prefs, "viewport", "")).lower() not in ("full", "live", "still"):
         prefs.viewport = "live"
     else:

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,

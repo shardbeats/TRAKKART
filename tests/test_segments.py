@@ -2,7 +2,7 @@
 
 from PIL import Image
 
-from app.anim.plan import Segment, leg_transitions, plan_segments, segment_total
+from app.anim.plan import leg_transitions, plan_segments, segment_total
 
 
 def _imgs(n=3):

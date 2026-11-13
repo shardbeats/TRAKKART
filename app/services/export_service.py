@@ -48,6 +48,7 @@ def export_full(
     mp4: bool = False,
     mp4_fps: int | None = None,
     mp4_size: str | int | None = None,
+    mp4_codec: str | None = None,
     webp: bool = False,
     sep: bool = False,
     sp404: bool = False,
@@ -201,7 +202,8 @@ def export_full(
                         max_side=int(mp4_stream_info["size"]),
                         fps=mp4_fps_eff, cap=3600,
                     )
-                write_mp4_iter(stream, mp4_path, fps=mp4_fps_eff)
+                write_mp4_iter(stream, mp4_path, fps=mp4_fps_eff,
+                               codec=mp4_codec)
             else:
                 from app.video_io import write_mp4
 
@@ -212,7 +214,7 @@ def export_full(
                     shrunk = [f.resize((mp4_w, mp4_h), Image.BILINEAR)
                               if (f.width, f.height) != (mp4_w, mp4_h) else f
                               for f in shrunk]
-                write_mp4(shrunk, mp4_path, fps=mp4_fps_eff)
+                write_mp4(shrunk, mp4_path, fps=mp4_fps_eff, codec=mp4_codec)
             paths["video"] = mp4_path
     if want_webp and frames:
         from app.exporter import WEBP_SUFFIX, webp_name as _webp_name

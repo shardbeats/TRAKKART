@@ -62,6 +62,7 @@ class ExportDialog(QDialog):
         quality: int = 90,
         mp4_size: str = "1080p",
         mp4: bool = False,
+        mp4_encoder: str = "libx264",
         webp: bool = False,
         sep: bool = False,
         sp404: bool = False,
@@ -185,6 +186,27 @@ class ExportDialog(QDialog):
         self.cmb_mp4_size.currentTextChanged.connect(self._refresh_plan)
         mp4_row.addWidget(self.cmb_mp4_size, 1)
         col.addLayout(mp4_row)
+        enc_row = QHBoxLayout()
+        enc_row.addWidget(QLabel("MP4 encoder:"))
+        self.cmb_mp4_encoder = _Cmb()
+        try:
+            from app.video_io import available_encoders
+            encs = available_encoders()
+        except Exception:  # noqa: BLE001
+            encs = ["libx264"]
+        items = ["auto (hardware if available)"] + encs
+        self.cmb_mp4_encoder.addItems(items)
+        cur_enc = str(mp4_encoder or "libx264")
+        if cur_enc == "auto":
+            self.cmb_mp4_encoder.setCurrentIndex(0)
+        elif cur_enc in encs:
+            self.cmb_mp4_encoder.setCurrentText(cur_enc)
+        else:
+            self.cmb_mp4_encoder.setCurrentText("libx264")
+        self.cmb_mp4_encoder.setToolTip("H.264 encoder: hardware (NVENC/QSV/AMF) is faster, software libx264 always works (automatic fallback)")
+        self.cmb_mp4_encoder.currentTextChanged.connect(self._refresh_plan)
+        enc_row.addWidget(self.cmb_mp4_encoder, 1)
+        col.addLayout(enc_row)
         col.addWidget(self.chk_lossless)
         # -- animation: no duplicates (edited only in VIDEO); on/off here --
         self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
@@ -469,6 +491,11 @@ class ExportDialog(QDialog):
             g["mp4_size"] = str(self.cmb_mp4_size.currentText())
         except Exception:  # noqa: BLE001
             g["mp4_size"] = "1080p"
+        try:
+            txt = str(self.cmb_mp4_encoder.currentText())
+            g["mp4_encoder"] = "auto" if txt.startswith("auto") else txt
+        except Exception:  # noqa: BLE001
+            g["mp4_encoder"] = "libx264"
         return g
 
     def _on_export(self) -> None:

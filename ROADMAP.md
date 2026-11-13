@@ -367,10 +367,16 @@ extra (per §4: never in the base exe).
   spin; `planned_total` counts repeats in total + Length readout;
   preview/GIF/MP4 inherit via chain entries. Pinned by
   `tests/test_segments.py`.
-- Phase C — export hygiene: "Reprocess" guard (canvas/preset changed
-  after frames were built → badge + one-click rebuild, no stale MP4s);
-  encoder select software/hardware (nvenc/qsv/amf → libx264 fallback)
-  for the MP4 writer.
+- Phase C — export hygiene (done): "Reprocess" guard + encoder select.
+  `app/anim/fingerprint.py`: `clip_fingerprint()` over source thumb +
+  preset meta + chain signature + anim spec; VIDEO shows a ⚠ badge +
+  one-click Rebuild when `win._video_frames` predate current inputs
+  (export itself always re-renders fresh, so MP4s can't go stale).
+  Encoder select: `available_encoders()` probes the bundled ffmpeg
+  (NVENC/QSV/AMF), `resolve_encoder()` maps UI/prefs (`auto` = hw-first,
+  default/unknown = libx264); both writers retry once in software on
+  hw hiccups — including silent 0-byte files. Dialog combo + `mp4_encoder`
+  pref (normalize + roundtrip). Pinned by `tests/test_export_hygiene.py`.
 - Phase D — docs + gates: MANUAL section, preset roundtrip + determinism
   tests (frame counts, repeat math, no-crash without the extra), portable QA.
 - Out of scope: WebCodecs/MediaRecorder (browser stack), BPM-synced cuts.

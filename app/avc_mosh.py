@@ -105,8 +105,8 @@ def avc_mosh_frames(frames: Iterable[Image.Image], bleed: int = 0,
                 yield frame
                 continue
             if m == "smear":
-                yield _smear_band(frame, strength=b / 10.0,
-                                 seed=int(seed) + i)
+                yield _smear_band(
+                    frame, strength=b / 10.0, seed=int(seed) + i)
                 continue
         if m == "bleed" and i > 0:
             past = [c for c in cuts if c <= i]
