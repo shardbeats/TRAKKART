@@ -345,6 +345,32 @@ SP-404MKII (startup logo + screensaver). Source: Roland's official
 - Out of scope: the SP-404MKII desktop-app background/slideshow (takes
   plain PNGs, already exportable today).
 
+### v1.7 — True AVC datamosh + segment timeline (planned)
+Inspiration: browser datamosh editors that work at codec level (single
+keyframe + dropped/repeated P-frames = real motion bleed). TRAKKART's
+mosh is pixel-procedural on stills; this adds the real codec technique
+as a new engine, offline, behind the existing opt-in `imageio-ffmpeg`
+extra (per §4: never in the base exe).
+- Phase A — `app/avc_mosh.py` engine: re-encode the clip/frames to one
+  leading keyframe (x264, high `-g`, no B-frames), then (a) drop the
+  keyframe at each segment cut so deltas bleed over the previous image
+  (`bleed` frames of influence), (b) repeat P-frames per segment
+  (`repeat`). New preset fields `avc_bleed` (0-60, 0=off), `avc_mode`
+  (`bleed | smear | hold`), reuse of `dissolve_seed` for the cut plan.
+  No-ffmpeg fallback: friendly "video extra missing" message, engine
+  no-ops (stills path untouched).
+- Phase B — segment timeline: morph legs become `Segment{name, from,
+  to, repeat}` in `anim/plan.py` (from/to = frame window, repeat ≥ 1);
+  MORPH page gets add/delete/up/down + per-leg repeat spin; plan
+  budget and Length readout count repeats; loop leg stays byte-exact.
+- Phase C — export hygiene: "Reprocess" guard (canvas/preset changed
+  after frames were built → badge + one-click rebuild, no stale MP4s);
+  encoder select software/hardware (nvenc/qsv/amf → libx264 fallback)
+  for the MP4 writer.
+- Phase D — docs + gates: MANUAL section, preset roundtrip + determinism
+  tests (frame counts, repeat math, no-crash without the extra), portable QA.
+- Out of scope: WebCodecs/MediaRecorder (browser stack), BPM-synced cuts.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
@@ -590,6 +616,13 @@ TRAKK = dithered stills + videos OF those stills.
 Verified today in code: (1) imageio rescales MP4 to multiples of 16
 (1080x1920 comes out as 1088x1920: breaks the exact 9:16 Canvas demands);
 (2) Pillow already collapses identical GIF holds (measured: 114f -> 1f, 171B).
+(3) Codec-level datamosh (supermosh.github.io, surveyed nov-2026):
+single-keyframe x264 (`-g high -bf 0`) + dropped/repeated P-frames at
+segment cuts = real motion bleed, distinct from our pixel-procedural
+mosh. Portable subset scheduled as v1.7 (AVC engine + segment
+timeline + reprocess guard + encoder select); browser stack
+(WebCodecs/MediaRecorder) rejected, presets/live-preview already
+ahead here.
 
 ### 8.1 Social delivery (top fit, low cost)
 
