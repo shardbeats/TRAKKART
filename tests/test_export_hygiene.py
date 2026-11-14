@@ -23,64 +23,53 @@ def test_fingerprint_stable_and_sensitive():
     assert clip_fingerprint(_img(), meta, chain, {**spec, "fps": 30}) != a
 
 
-def test_resolve_encoder_defaults_and_fallback():
-    from app.video_io import resolve_encoder, reset_encoder_cache
+def test_video_io_is_libx264_only():
+    import inspect
 
-    reset_encoder_cache()
-    try:
-        from app.video_io import available_encoders
+    from app import video_io
 
-        avail = available_encoders()
-        assert "libx264" in avail
-        assert resolve_encoder("libx264") == "libx264"
-        assert resolve_encoder("nope") == "libx264"
-        assert resolve_encoder(None) == "libx264"  # historic default: software
-        assert resolve_encoder("") == "libx264"
-        auto = resolve_encoder("auto")
-        assert auto in avail
-    finally:
-        reset_encoder_cache()
+    # Single software encoder by design: no hardware probing surface.
+    assert not hasattr(video_io, "available_encoders")
+    assert not hasattr(video_io, "resolve_encoder")
+    assert not hasattr(video_io, "reset_encoder_cache")
+    assert not hasattr(video_io, "HW_ENCODERS")
+    assert "codec" not in inspect.signature(video_io.write_mp4).parameters
+    assert "codec" not in inspect.signature(video_io.write_mp4_iter).parameters
 
 
-def test_write_mp4_codec_param(tmp_path):
+def test_write_mp4_libx264(tmp_path):
     from app.video_io import has_video, write_mp4, write_mp4_iter
 
     if not has_video():
         import pytest
         pytest.skip("video backend missing")
     frames = [_img((i * 20 % 256, 0, 0)) for i in range(4)]
-    out = write_mp4(frames, tmp_path / "a.mp4", fps=8, codec="libx264")
+    out = write_mp4(frames, tmp_path / "a.mp4", fps=8)
     assert out.is_file() and out.stat().st_size > 0
-    out2, n = write_mp4_iter(iter(frames), tmp_path / "b.mp4", fps=8,
-                             codec="libx264")
+    out2, n = write_mp4_iter(iter(frames), tmp_path / "b.mp4", fps=8)
     assert n == 4 and out2.is_file()
 
-    # Hardware hiccup (incl. silent 0-byte files on tiny frames) retries
-    # in software instead of shipping an empty MP4.
-    from app.video_io import HW_ENCODERS, available_encoders
 
-    hw = [e for e in HW_ENCODERS if e in available_encoders()]
-    if hw:
-        tiny = write_mp4(frames, tmp_path / "hw.mp4", fps=8, codec=hw[0])
-        assert tiny.stat().st_size > 1000
+def test_prefs_ignores_legacy_encoder_field(tmp_path):
+    import json
 
-
-def test_prefs_encoder_roundtrip_and_normalize(tmp_path):
     from app.export_prefs import ExportPrefs, load_prefs, normalize_prefs, save_prefs
 
-    p = ExportPrefs(mp4_encoder="auto")
-    normalize_prefs(p)
-    assert p.mp4_encoder == "auto"
-    save_prefs(p, tmp_path / "p.json")
-    assert load_prefs(tmp_path / "p.json").mp4_encoder == "auto"
-    bad = ExportPrefs(mp4_encoder="x265")
-    normalize_prefs(bad)
-    assert bad.mp4_encoder == "libx264"
+    # Old prefs JSON may still carry mp4_encoder: loads fine, field is gone.
+    (tmp_path / "p.json").write_text(json.dumps({"mp4_encoder": "auto"}),
+                                     encoding="utf-8")
+    prefs = load_prefs(tmp_path / "p.json")
+    assert not hasattr(prefs, "mp4_encoder")
+    normalize_prefs(prefs)
+    assert not hasattr(prefs, "mp4_encoder")
+    save_prefs(ExportPrefs(), tmp_path / "q.json")
+    assert "mp4_encoder" not in json.loads(
+        (tmp_path / "q.json").read_text(encoding="utf-8"))
     legacy = load_prefs(tmp_path / "nope.json")
-    assert legacy.mp4_encoder == "libx264"
+    assert not hasattr(legacy, "mp4_encoder")
 
 
-def test_export_service_accepts_codec(tmp_path):
+def test_export_service_writes_mp4(tmp_path):
     from app.presets import Preset
     from app.services.export_service import export_full
     from app.video_io import has_video
@@ -91,7 +80,7 @@ def test_export_service_accepts_codec(tmp_path):
     preset = Preset(name="t")
     paths, _skipped = export_full(
         _img(), preset, tmp_path, base="c",
-        mp4=True, mp4_fps=8, mp4_size="720p", mp4_codec="libx264",
+        mp4=True, mp4_fps=8, mp4_size="720p",
         gif_frames=4, gif_mode="both",
     )
     assert paths["video"].is_file()

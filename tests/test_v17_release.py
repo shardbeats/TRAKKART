@@ -99,27 +99,20 @@ def test_video_extra_missing_degrades_cleanly(tmp_path, monkeypatch):
     # Simulate a dev/frozen install without imageio + imageio-ffmpeg.
     monkeypatch.setitem(sys.modules, "imageio", None)
     monkeypatch.setitem(sys.modules, "imageio_ffmpeg", None)
-    video_io.reset_encoder_cache()
-    try:
-        assert video_io.has_video() is False
-        assert video_io.available_encoders() == [video_io.SOFTWARE_ENCODER]
-        assert video_io.resolve_encoder("auto") == video_io.SOFTWARE_ENCODER
-        assert video_io.resolve_encoder(None) == video_io.SOFTWARE_ENCODER
+    assert video_io.has_video() is False
 
-        ok, detail = extras.video_status()
-        assert not ok and "MP4 disabled" in detail
+    ok, detail = extras.video_status()
+    assert not ok and "MP4 disabled" in detail
 
-        # Stills/particles keep working: only the writer asks for video.
-        from app.anim.frames import gif_morph_frames
+    # Stills/particles keep working: only the writer asks for video.
+    from app.anim.frames import gif_morph_frames
 
-        frames = gif_morph_frames(_chain(3)[0], [_chain(3)[1]], frames=4)
-        assert len(frames) > 0
+    frames = gif_morph_frames(_chain(3)[0], [_chain(3)[1]], frames=4)
+    assert len(frames) > 0
 
-        with pytest.raises(video_io.VideoBackendMissing, match="pip install"):
-            video_io.write_mp4([_img()], tmp_path / "x.mp4")
-        with pytest.raises(video_io.VideoBackendMissing, match="pip install"):
-            video_io.write_mp4_iter(iter([_img()]), tmp_path / "y.mp4")
-        assert not (tmp_path / "x.mp4").exists()
-        assert not (tmp_path / "y.mp4").exists()
-    finally:
-        video_io.reset_encoder_cache()
+    with pytest.raises(video_io.VideoBackendMissing, match="pip install"):
+        video_io.write_mp4([_img()], tmp_path / "x.mp4")
+    with pytest.raises(video_io.VideoBackendMissing, match="pip install"):
+        video_io.write_mp4_iter(iter([_img()]), tmp_path / "y.mp4")
+    assert not (tmp_path / "x.mp4").exists()
+    assert not (tmp_path / "y.mp4").exists()

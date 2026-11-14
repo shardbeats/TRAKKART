@@ -1218,7 +1218,7 @@ class MainWindow(QMainWindow):
     def _run_export(self, base: str, out_dir: Path, selection, gif_opts: dict,
                     overwrite: str, size: int, format: str,
                     quality: int, mp4: bool = False,
-                    mp4_size: str = "1080p", mp4_encoder: str = "libx264",
+                    mp4_size: str = "1080p",
                     webp: bool = False,
                     sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
         """Render full-res + bundle per options. Stills full-res, MP4 sized."""
@@ -1226,5 +1226,5 @@ class MainWindow(QMainWindow):
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
                        overwrite, size, format, quality, mp4, mp4_size,
-                       mp4_encoder, webp, sep,
+                       webp, sep,
                        sp404=bool(sp404), _sync=_sync)

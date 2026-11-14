@@ -14,14 +14,14 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   determinista, spin Repeat ×1-8 por leg en MORPH, Length cuenta
   repeats). Pinned por `tests/test_segments.py` (6 tests).
 - v1.7 Fase C: export hygiene (fingerprint de preview + badge Rebuild,
-  selector de encoder HW/SW con fallback a software, pref `mp4_encoder`).
-  Pinned por `tests/test_export_hygiene.py` (7 tests).
+  MP4 siempre en software `libx264`, sin probing de hardware).
+  Pinned por `tests/test_export_hygiene.py`.
 - v1.7 Fase D: manual v1.7 (10 flavors, Repeat, Rebuild, encoder), README
   actualizado y checklist portable en QA. `tests/test_v17_release.py`
   cubre roundtrip de presets a archivo (campos nuevos + presets viejos
   byte-idénticos), determinismo/conteo de frames con repeats (GIF +
-  streaming) y el camino sin extra de video (encoders software-only,
-  `VideoBackendMissing` limpio, stills/GIF intactos).
+  streaming) y el camino sin extra de video (`VideoBackendMissing`
+  limpio, stills/GIF intactos).
 ### Changed
 - Versión 1.6.0 → 1.7.0 (app, pyproject, installer).
 

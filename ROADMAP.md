@@ -370,16 +370,14 @@ extra (per §4: never in the base exe).
   spin; `planned_total` counts repeats in total + Length readout;
   preview/GIF/MP4 inherit via chain entries. Pinned by
   `tests/test_segments.py`.
-- Phase C — export hygiene (done): "Reprocess" guard + encoder select.
+- Phase C — export hygiene (done): "Reprocess" guard + libx264-only MP4.
   `app/anim/fingerprint.py`: `clip_fingerprint()` over source thumb +
   preset meta + chain signature + anim spec; VIDEO shows a ⚠ badge +
   one-click Rebuild when `win._video_frames` predate current inputs
   (export itself always re-renders fresh, so MP4s can't go stale).
-  Encoder select: `available_encoders()` probes the bundled ffmpeg
-  (NVENC/QSV/AMF), `resolve_encoder()` maps UI/prefs (`auto` = hw-first,
-  default/unknown = libx264); both writers retry once in software on
-  hw hiccups — including silent 0-byte files. Dialog combo + `mp4_encoder`
-  pref (normalize + roundtrip). Pinned by `tests/test_export_hygiene.py`.
+  MP4 uses the bundled software H.264 encoder only (no hardware
+  probing, no selector): one path that works on every machine.
+  Pinned by `tests/test_export_hygiene.py`.
 - Phase D — docs + gates (done): MANUAL section "Datamosh, segments and
   export hygiene" (10 flavors, Repeat, ⚠ Rebuild, encoder select) + README
   flavor count; QA section with the targeted v1.7 command and the portable

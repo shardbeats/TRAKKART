@@ -457,12 +457,11 @@ C:\venvs\dev\Scripts\python.exe -m pytest tests/test_mosh.py tests/test_segments
 - Stale preview badge: `clip_fingerprint()` covers source + preset meta +
   chain repeat + anim spec; the ⚠ + Rebuild appear only when VIDEO frames
   predate current inputs. Exports always re-render, so MP4s never go stale.
-- Encoder select: `auto` = first probed HW (NVENC/QSV/AMF), else
-  `libx264`; `mp4_encoder` pref normalizes + round-trips. Both writers
-  retry once in software, including silent 0-byte hw files.
+- Encoder: MP4 always uses software H.264 (`libx264`, bundled) — no
+  hardware probing, no selector, no fallback paths. One encoder that
+  works on every machine.
 - Missing video extra (`imageio`/`imageio-ffmpeg` absent): `has_video()`
-  is False, `available_encoders()` = software only, `resolve_encoder()`
-  never raises, `write_mp4*` raises `VideoBackendMissing` with pip
+  is False, `write_mp4*` raises `VideoBackendMissing` with pip
   instructions (no ImportError traceback); stills/GIF keep working.
 - Portable QA (release): build `dist\TRAKKART-portable-<version>.zip`,
   unzip into a clean folder, and check (1) it opens with no Python
@@ -470,8 +469,8 @@ C:\venvs\dev\Scripts\python.exe -m pytest tests/test_mosh.py tests/test_segments
   and `bleed/hold/tear` animate in VIDEO + export; (3) MORPH Repeat ×2
   doubles only that leg and Length follows; loop still meets assembled;
   (4) change preset with VIDEO on -> ⚠ badge, Rebuild clears it;
-  (5) encoder `auto` writes a playable MP4 and forcing `libx264` also
-  works; (6) open a PNG, save a preset and reopen it from the portable
+  (5) export a short MP4 from the dialog (software `libx264`, playable);
+  (6) open a PNG, save a preset and reopen it from the portable
   folder (mosh seed/mode/size + hold/loop survive).
 
 ## Manual GUI checklist (before each release)

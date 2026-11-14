@@ -64,10 +64,8 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   the preview was generated, the VIDEO bar shows a ⚠ badge. Click
   Rebuild to refresh it. Exports always re-render fresh, so a stale
   preview can never produce a stale MP4.
-- **Encoder (Export dialog):** `auto` prefers your GPU (NVENC/QSV/AMF)
-  and falls back to software; `libx264` forces software. If a hardware
-  encoder fails or writes an empty file, the export retries once in
-  software. Hardware is never required.
+- **Encoder:** MP4 always uses software H.264 (`libx264`, bundled).
+  No hardware options, no probing: one encoder that works everywhere.
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).
