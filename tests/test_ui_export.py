@@ -642,6 +642,15 @@ def test_export_async_worker_writes_bundle(window, tmp_path, qt_app):
     out.mkdir()
     sel = ExportSelection(image=True, thumb_1080p=False, vector=False,
                           anim=False, metadata=True)
+    # Settle any pending debounced preview first: otherwise it can fire
+    # mid-export and legitimately overwrite the "Exported" status.
+    deadline = time.time() + 30.0
+    while (window._preview_timer.isActive()
+            or getattr(window, "_preview_worker", None) is not None) \
+            and time.time() < deadline:
+        qt_app.processEvents()
+        time.sleep(0.05)
+        qt_app.processEvents()
     window._run_export(base="async", out_dir=out, selection=sel,
                        gif_opts={"frames": 6, "mode": "both", "fps": 8,
                                  "size": 1200, "pingpong": False},

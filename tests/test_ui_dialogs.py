@@ -56,10 +56,10 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
     src.mkdir()
     seen: dict = {}
 
-    def _fake(src_p, dst_p, jobs=None, preset=None):
+    def _fake(src_p, dst_p, jobs=None, preset=None, seed_mode=None):
         seen.update(src=src_p, dst=dst_p, jobs=jobs,
                     vector=preset.vector_export if preset else None,
-                    preset=preset)
+                    preset=preset, seed_mode=seed_mode)
 
     class FakeDialog:
         DialogCode = QDialog.DialogCode
@@ -84,6 +84,7 @@ def test_batch_dialog_accept_starts_run(window, tmp_path: Path, monkeypatch):
     window.run_batch_dialog()
     assert seen["src"] == src and seen["dst"] == tmp_path / "dst"
     assert seen["jobs"] == 2
+    assert seen["seed_mode"] == "off"
     assert seen["vector"] is False  # default preset, no SVG
     assert seen["preset"].export_size == 3000
     assert seen["preset"].export_format == "png"
