@@ -37,14 +37,37 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | DITHER | preset, method, pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
-| DATAMOSH | mosh flavors + amount + seed |
-| MORPH | particle chain (Add/Remove/Up/Down) + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
-| MOTION | video preview + Signal Drift |
+| DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
+| MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
+| MOTION | video preview + Signal Drift + ⚠ Rebuild when the preview is stale |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
 120ms / heavy 350ms); Still = manual only (F5). For slow machines or
 huge canvases use Still. "SP-404 OLED preview" shows the still as the
 128×64 1-bit device image (display-only; DITHER threshold tunes it).
+
+## Datamosh, segments and export hygiene (v1.7)
+
+- **Datamosh:** 10 flavors share one control row. Seven are classic pixel
+  damage (`blocks`, `smear`, `ghost`, `rows`, `chroma`, `crush`,
+  `speckle`); three are codec-flavored: `bleed` (directional echo),
+  `hold` (frozen P-frame bands) and `tear` (macroblock band rolls).
+  Amount 0 = off; Seed re-rolls the damage deterministically (same seed =
+  same result, so exports replay); Size scales the feature. They animate
+  in VIDEO and stack in FX STACK like the classic ones, and old presets
+  keep rendering identically.
+- **Repeat per leg (MORPH):** each playlist row has a Repeat ×1-8 spin.
+  Replaying a leg does not re-pick images; Length and the loop readout
+  count repeats. Repeat is session-only (like Crop X/Y/Zoom): saving a
+  preset keeps the recipe, not the temporary playlist.
+- **⚠ Rebuild (VIDEO):** if you change the image, preset or chain after
+  the preview was generated, the VIDEO bar shows a ⚠ badge. Click
+  Rebuild to refresh it. Exports always re-render fresh, so a stale
+  preview can never produce a stale MP4.
+- **Encoder (Export dialog):** `auto` prefers your GPU (NVENC/QSV/AMF)
+  and falls back to software; `libx264` forces software. If a hardware
+  encoder fails or writes an empty file, the export retries once in
+  software. Hardware is never required.
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).

@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [Unreleased]
+## [1.7.0] - 2026-11-14
 ### Added
 - v1.7 Fase A: modos codec `bleed`/`hold`/`tear` en `app/mosh.py`
   (direccional echo, bandas P congeladas, band rolls de macrobloque;
@@ -16,6 +16,14 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - v1.7 Fase C: export hygiene (fingerprint de preview + badge Rebuild,
   selector de encoder HW/SW con fallback a software, pref `mp4_encoder`).
   Pinned por `tests/test_export_hygiene.py` (7 tests).
+- v1.7 Fase D: manual v1.7 (10 flavors, Repeat, Rebuild, encoder), README
+  actualizado y checklist portable en QA. `tests/test_v17_release.py`
+  cubre roundtrip de presets a archivo (campos nuevos + presets viejos
+  byte-idénticos), determinismo/conteo de frames con repeats (GIF +
+  streaming) y el camino sin extra de video (encoders software-only,
+  `VideoBackendMissing` limpio, stills/GIF intactos).
+### Changed
+- Versión 1.6.0 → 1.7.0 (app, pyproject, installer).
 
 ## [1.6.0] - 2026-11-12
 ### Added

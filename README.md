@@ -14,8 +14,9 @@ nothing is uploaded, nothing is tracked.
   cover / contain / stretch / blur framing.
 - **Color** — TRAKK palettes (BW / SLIME / VAPOR / EMBER), palette library,
   auto-extract from source, duotone / posterize / split-tone.
-- **FX + datamosh + particles** — reorderable effect stack, 7 mosh flavors,
-  particle morph chain with seamless loop.
+- **FX + datamosh + particles** — reorderable effect stack, 10 mosh flavors
+  (incl. codec-style bleed/hold/tear), particle morph chain with per-leg
+  repeat and seamless loop.
 - **Motion preview** — still-image preview with fit / zoom / pan + hold-to-compare,
   VIDEO preview (Draft 720p / HD 1080p / Full doc).
 - **Export bundle** — main image at canvas size + optional 1080p thumb,

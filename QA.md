@@ -79,7 +79,7 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 ```
 
 Total: 62/62. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 608 tests (471 fast + 137 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 683 tests (545 fast + 138 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -440,6 +440,39 @@ event-loop waits), Gherkin 52.
   holds, calibrated with x264); hints above ~100MB, warning above ~400MB.
 - Export dialog animation spec always follows the live VIDEO section;
   stale prefs can no longer smuggle a morph mode into a mix export.
+
+## v1.7 datamosh codec + segments + export hygiene
+
+```
+C:\venvs\dev\Scripts\python.exe -m pytest tests/test_mosh.py tests/test_segments.py tests/test_export_hygiene.py tests/test_v17_release.py -q -p no:cacheprovider --no-cov
+```
+
+- 10 flavors (`MOSH_MODES`): 7 classic + `bleed`/`hold`/`tear`. Same rules
+  for every mode: `(img, amount, seed, size)`, amount 0 = off,
+  deterministic, unknown mode -> `blocks`; old presets byte-identical.
+  The combo, FX stack and GIF mix dispatch by `mosh_mode`.
+- Repeat ×1-8 per morph leg (`plan_segments` + `repeats`): frame count =
+  `segment_total`, replay is byte-identical, clamps at 1/8, session-only
+  (not a preset field). GIF and streamed MP4 report the same count.
+- Stale preview badge: `clip_fingerprint()` covers source + preset meta +
+  chain repeat + anim spec; the ⚠ + Rebuild appear only when VIDEO frames
+  predate current inputs. Exports always re-render, so MP4s never go stale.
+- Encoder select: `auto` = first probed HW (NVENC/QSV/AMF), else
+  `libx264`; `mp4_encoder` pref normalizes + round-trips. Both writers
+  retry once in software, including silent 0-byte hw files.
+- Missing video extra (`imageio`/`imageio-ffmpeg` absent): `has_video()`
+  is False, `available_encoders()` = software only, `resolve_encoder()`
+  never raises, `write_mp4*` raises `VideoBackendMissing` with pip
+  instructions (no ImportError traceback); stills/GIF keep working.
+- Portable QA (release): build `dist\TRAKKART-portable-<version>.zip`,
+  unzip into a clean folder, and check (1) it opens with no Python
+  installed, `data/` stays next to the exe; (2) DATAMOSH lists 10 flavors
+  and `bleed/hold/tear` animate in VIDEO + export; (3) MORPH Repeat ×2
+  doubles only that leg and Length follows; loop still meets assembled;
+  (4) change preset with VIDEO on -> ⚠ badge, Rebuild clears it;
+  (5) encoder `auto` writes a playable MP4 and forcing `libx264` also
+  works; (6) open a PNG, save a preset and reopen it from the portable
+  folder (mosh seed/mode/size + hold/loop survive).
 
 ## Manual GUI checklist (before each release)
 
