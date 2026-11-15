@@ -1221,11 +1221,12 @@ class MainWindow(QMainWindow):
                     mp4_size: str = "1080p",
                     webp: bool = False,
                     tiff: bool = False, dpi: int = 300,
+                    social: bool = False,
                     sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
         """Render full-res + bundle per options. Stills full-res, MP4 sized."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
                        overwrite, size, format, quality, mp4, mp4_size,
-                       webp, tiff, dpi, sep,
+                       webp, tiff, dpi, social, sep,
                        sp404=bool(sp404), _sync=_sync)

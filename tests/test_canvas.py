@@ -21,12 +21,13 @@ def _img(w: int = 400, h: int = 300) -> Image.Image:
 
 
 def test_all_ratios_exact():
-    assert set(ratio_names()) == {"1:1", "4:3", "3:2", "4:5", "16:9", "9:16"}
+    assert set(ratio_names()) == {"1:1", "4:3", "3:2", "3:4", "4:5", "16:9", "9:16"}
     assert canvas_size_for("1:1", 3000) == (3000, 3000)
     assert canvas_size_for("16:9", 3000) == (3000, 1688)
     w, h = canvas_size_for("9:16", 3000)
     assert (w, h) == (1688, 3000)
     assert canvas_size_for("4:5", 960) == (768, 960)
+    assert canvas_size_for("3:4", 3000) == (2250, 3000)
 
 
 def test_cover_center_and_focus():

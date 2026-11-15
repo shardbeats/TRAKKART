@@ -399,13 +399,16 @@ sizes, Apple motion) + sharing presets as packs. No engine changes.
   JPG/PNG/TIFF + separations + metadata, prefs persist).
   Pinned by `tests/test_distro.py` (validator cases, TIFF roundtrip,
   DPI tags, preset recipe).
-- Phase B — social + motion: one-click Social pack from the same render
-  (YT thumb 1280x720 + 9:16 1080x1920 center-anchored + 1:1 1080;
-  grid-crop note); `APPLE_MOTION` preset sizes (1:1 4000px + 3:4 tall,
-  first frame = cover, loop-perfect by construction); text safe-area
-  presets (title top/bottom guides, display-only, no text rendering —
-  the v0.14 text-layer removal stands).
-  Pinned by `tests/test_social.py` (pack stems, sizes, anchor math).
+- Phase B — social + motion: DONE (nov-2026). One-click Social pack
+  from the same render (`{base}_social_yt/_916/_11`: 1280×720 +
+  1080×1920 center-anchored + 1080×1080, same format, grid-crop note);
+  `APPLE_MOTION` presets (1:1 4000px + 3:4 2250×3000 tall, dissolve
+  loop, first frame = still, loop-perfect by construction; new `3:4`
+  ratio); text safe-area helpers (title top/bottom bands + 1:1 grid
+  rows, display-only, `paint_text_guides`).
+  Pinned by `tests/test_social.py` (pack stems, sizes, anchor math,
+  preset recipes, safe-area rows). Utility verified on a real render
+  (subject preserved in all three sizes) — kept.
 - Phase C — preset-pack share: export/import zip (presets + palettes,
   offline file, no network); batch "bundle as ZIP" (stdlib zipfile,
   same helper as the v2.0 frame ZIP); keep single-JSON share intact.

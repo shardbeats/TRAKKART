@@ -101,6 +101,11 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **Print TIFF:** tick "Print TIFF (LZW)" to also write `{base}.tif`:
   full-document lossless RGB with resolution tags, for stores that take
   TIFF and for the print shop.
+- **Social pack:** tick "Social pack (YT + 9:16 + 1:1)" to also write
+  `{base}_social_yt` (1280×720), `{base}_social_916` (1080×1920) and
+  `{base}_social_11` (1080×1080) from the same render, same format.
+  All center-anchored: profile grids crop 9:16 to the centered 1:1,
+  so keep the subject in the middle band.
 - **DPI:** resolution tags (72–600, default 300) written on JPG/PNG/TIFF,
   separations and the metadata JSON. Tags only — pixels never change.
   Distributors ignore DPI; RISO/screen print does not.

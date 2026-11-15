@@ -65,6 +65,7 @@ class ExportDialog(QDialog):
         mp4: bool = False,
         webp: bool = False,
         tiff: bool = False,
+        social: bool = False,
         dpi: int = 300,
         sep: bool = False,
         sp404: bool = False,
@@ -165,6 +166,9 @@ class ExportDialog(QDialog):
         self.chk_tiff = QCheckBox("Print TIFF (LZW)")
         self.chk_tiff.setChecked(bool(tiff))
         self.chk_tiff.setToolTip("Full-doc lossless TIFF with DPI tags for stores/print")
+        self.chk_social = QCheckBox("Social pack (YT + 9:16 + 1:1)")
+        self.chk_social.setChecked(bool(social))
+        self.chk_social.setToolTip("One click, same render: 1280×720 + 1080×1920 + 1080×1080, center-anchored (grids crop to center)")
         self.chk_sep = QCheckBox("Ink separations (print)")
         self.chk_sep.setChecked(bool(sep))
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
@@ -184,7 +188,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_sep, self.chk_meta,
+                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_meta,
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
@@ -419,6 +423,20 @@ class ExportDialog(QDialog):
                 n += 1
             except Exception:  # noqa: BLE001
                 pass
+        if self.chk_social.isChecked():
+            try:
+                from app.social import estimate_pack, pack_names
+
+                fmt_eff = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
+                base_eff = sanitize_base(self.edit_base.text().strip() or "cover")
+                est_p = estimate_pack(fmt_eff, int(self.spn_quality.value()))
+                for stem, fname in pack_names(base_eff, fmt_eff).items():
+                    self.list_files.addItem(f"{fname}  ({stem})")
+                self.list_files.addItem(f"3 social files  ({_fmt_size(est_p)} total)")
+                total += est_p
+                n += 3
+            except Exception:  # noqa: BLE001
+                pass
         if self.chk_sep.isChecked():
             # R9: plate hexes need the render (SOURCE extracts); the plan
             # shows the count line, the post-accept alert lists exact files.
@@ -456,6 +474,16 @@ class ExportDialog(QDialog):
 
                     if (dest / _tiff_name(sanitize_base(self.edit_base.text().strip() or "cover"))).exists():
                         clashing += 1
+                except OSError:
+                    pass
+            if self.chk_social.isChecked():
+                try:
+                    from app.social import pack_names as _pack_names
+
+                    fmt_c = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
+                    base_c = sanitize_base(self.edit_base.text().strip() or "cover")
+                    clashing += sum(1 for f in _pack_names(base_c, fmt_c).values()
+                                    if (dest / f).exists())
                 except OSError:
                     pass
             if self.chk_sep.isChecked():
@@ -530,6 +558,7 @@ class ExportDialog(QDialog):
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         g["webp"] = bool(self.chk_webp.isChecked())
         g["tiff"] = bool(self.chk_tiff.isChecked())
+        g["social"] = bool(self.chk_social.isChecked())
         g["sep"] = bool(self.chk_sep.isChecked())
         g["sp404"] = bool(self.chk_sp404.isChecked())
         try:

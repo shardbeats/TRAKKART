@@ -27,6 +27,7 @@ class ExportPrefs:
     metadata: bool = False
     webp: bool = False
     tiff: bool = False
+    social: bool = False
     sep: bool = False
     sp404: bool = False
     mp4: bool = False
@@ -102,7 +103,7 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
     except Exception:  # noqa: BLE001
         prefs.size = _clamp_int(getattr(prefs, "size", 3000), 64, 8000, 3000)
     for flag in ("image", "thumb_1080p", "vector", "anim", "metadata",
-                 "webp", "tiff", "sep", "sp404", "mp4",
+                 "webp", "tiff", "social", "sep", "sp404", "mp4",
                  "gif_pingpong", "drop_batch", "restore_session"):
         try:
             setattr(prefs, flag, bool(getattr(prefs, flag)))

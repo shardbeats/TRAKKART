@@ -50,6 +50,7 @@ def export_full(
     mp4_size: str | int | None = None,
     webp: bool = False,
     tiff: bool = False,
+    social: bool = False,
     sep: bool = False,
     sp404: bool = False,
     dpi: int = 300,
@@ -68,6 +69,9 @@ def export_full(
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
     TIFF is written as an extra `{base}.tif` (full-doc RGB, LZW + DPI
     tags) for stores/print. Dialog-only like MP4/WebP.
+    Social pack writes `{base}_social_{yt,916,11}` (1280x720 + 1080x1920
+    + 1080x1080, center-anchored from the same render, same format as
+    the main image). Dialog-only, one click.
     Separations write one `{base}_sep_{NN}_{RRGGBB}.png` plate per
     palette ink (RISO/screen print) + registration marks. Dialog-only.
     SP-404MKII single file writes `{base}_sp404.bmp` (128x64 1-bit,
@@ -85,6 +89,7 @@ def export_full(
     want_mp4 = bool(mp4)
     want_webp = bool(webp)
     want_tiff = bool(tiff)
+    want_social = bool(social)
     want_sep = bool(sep)
     want_sp404 = bool(sp404)
     res = render_full(src, preset)
@@ -249,6 +254,26 @@ def export_full(
                     i += 1
             save_tiff_still(res, tiff_path, dpi=options.dpi)
             paths["tiff"] = tiff_path
+    if want_social:
+        from app.exporter import _save_raster
+        from app.social import build_pack as _build_pack
+        from app.social import pack_names as _pack_names
+
+        for stem, packed in _build_pack(res).items():
+            social_path = Path(out_dir) / _pack_names(
+                options.base, options.format)[stem]
+            if overwrite == "skip" and social_path.exists():
+                skipped = [*skipped, f"social_{stem}"]
+                continue
+            if overwrite == "rename":
+                i = 2
+                while social_path.exists():
+                    social_path = Path(out_dir) / (
+                        f"{options.base}_{stem}_{i}.{options.format}")
+                    i += 1
+            _save_raster(packed, social_path, options.format,
+                         options.quality, options.dpi)
+            paths[f"social_{stem}"] = social_path
     if want_sep:
         from app.separations import (add_registration_marks,
                                      effective_palette, sep_name,

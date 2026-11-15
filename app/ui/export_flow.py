@@ -18,6 +18,7 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "mp4": getattr(prefs, "mp4", False),
             "webp": getattr(prefs, "webp", False),
             "tiff": getattr(prefs, "tiff", False),
+            "social": getattr(prefs, "social", False),
             "sep": getattr(prefs, "sep", False),
             "sp404": getattr(prefs, "sp404", False)}
 
@@ -28,7 +29,7 @@ def _gif_opts_from_preset(preset) -> dict:
             "size": int(getattr(preset, "gif_size", 1200)),
             "pingpong": bool(getattr(preset, "gif_pingpong", False)),
             "mp4_size": "1080p",
-            "mp4": False, "webp": False, "tiff": False,
+            "mp4": False, "webp": False, "tiff": False, "social": False,
             "sep": False, "sp404": False}
 
 
@@ -67,6 +68,7 @@ def export(win, quick: bool = False) -> None:
                 mp4_size=str(gopts_prefs.get("mp4_size", "1080p")),
                 webp=bool(gopts_prefs.get("webp", False)),
                 tiff=bool(gopts_prefs.get("tiff", False)),
+                social=bool(gopts_prefs.get("social", False)),
                 dpi=int(getattr(prefs, "dpi", 300) or 300),
                 sep=bool(gopts_prefs.get("sep", False)),
                 sp404=bool(gopts_prefs.get("sp404", False)),
@@ -90,7 +92,7 @@ def export(win, quick: bool = False) -> None:
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
-            for key in ("mp4", "webp", "tiff", "sep", "sp404"):
+            for key in ("mp4", "webp", "tiff", "social", "sep", "sp404"):
                 init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
@@ -111,6 +113,7 @@ def export(win, quick: bool = False) -> None:
             mp4=bool(init_gopts.get("mp4", False)),
             webp=bool(init_gopts.get("webp", False)),
             tiff=bool(init_gopts.get("tiff", False)),
+            social=bool(init_gopts.get("social", False)),
             dpi=int(init_dpi),
             sep=bool(init_gopts.get("sep", False)),
             sp404=bool(init_gopts.get("sp404", False)),
@@ -126,6 +129,7 @@ def export(win, quick: bool = False) -> None:
                                    want_mp4=bool(gopts.get("mp4", False)),
                                    want_webp=bool(gopts.get("webp", False)),
                                    want_tiff=bool(gopts.get("tiff", False)),
+                                   want_social=bool(gopts.get("social", False)),
                                    want_sep=bool(gopts.get("sep", False)))
         if choice is None:
             win._status("Export cancelled")
@@ -138,6 +142,7 @@ def export(win, quick: bool = False) -> None:
             mp4_size=str(gopts.get("mp4_size", "1080p")),
             webp=bool(gopts.get("webp", False)),
             tiff=bool(gopts.get("tiff", False)),
+            social=bool(gopts.get("social", False)),
             dpi=int(options.dpi),
             sep=bool(gopts.get("sep", False)),
             sp404=bool(gopts.get("sp404", False)),
@@ -150,6 +155,7 @@ def export(win, quick: bool = False) -> None:
             metadata=options.selection.metadata,
             webp=bool(gopts.get("webp", False)),
             tiff=bool(gopts.get("tiff", False)),
+            social=bool(gopts.get("social", False)),
             sep=bool(gopts.get("sep", False)),
             sp404=bool(gopts.get("sp404", False)),
             mp4=bool(gopts.get("mp4", False)),
@@ -168,6 +174,7 @@ def export(win, quick: bool = False) -> None:
 
 def resolve_collision(win, out_dir, options, want_mp4: bool = False,
                       want_webp: bool = False, want_tiff: bool = False,
+                      want_social: bool = False,
                       want_sep: bool = False) -> str | None:
     """Post-accept collision check: "overwrite" | "rename" | None (cancel).
 
@@ -190,6 +197,11 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
         from app.exporter import tiff_name as _tiff_name
 
         names["tiff"] = _tiff_name(options.base)
+    if want_social:
+        from app.social import pack_names as _pack_names
+
+        for stem, fname in _pack_names(options.base, options.format).items():
+            names[f"social_{stem}"] = fname
     if want_sep:
         # Plate hexes need the render; glob the family's exact files.
         try:
@@ -360,6 +372,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      mp4_size: str = "1080p",
                      webp: bool = False,
                      tiff: bool = False, dpi: int = 300,
+                     social: bool = False,
                      sep: bool = False, sp404: bool = False) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
@@ -390,6 +403,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             webp=bool(webp),
             tiff=bool(tiff),
             dpi=int(dpi or 300),
+            social=bool(social),
             sep=bool(sep),
             sp404=bool(sp404),
             morph_src=morph_src_for_mode(win, mode_go),
@@ -414,6 +428,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                mp4_size: str = "1080p",
                webp: bool = False,
                tiff: bool = False, dpi: int = 300,
+               social: bool = False,
                sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
@@ -432,7 +447,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, tiff, dpi, sep, sp404)
+                         mp4_size, webp, tiff, dpi, social, sep, sp404)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -479,6 +494,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
         mp4_size=str(go.get("mp4_size", mp4_size)),
         webp=bool(webp), tiff=bool(tiff), dpi=int(dpi or 300),
+        social=bool(social),
         sep=bool(sep), morph_src=morph_snapshot,
         sp404=bool(sp404),
         parent=win,

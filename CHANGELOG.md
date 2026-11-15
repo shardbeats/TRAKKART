@@ -9,6 +9,14 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   diálogo, nada bloqueado). Pinned por `tests/test_distro.py`.
 - Extra de diálogo "Print TIFF (LZW)": `{base}.tif` full-doc RGB con
   tags de resolución.
+- Presets `APPLE_MOTION` (1:1, 4000px) y `APPLE_MOTION_TALL` (3:4,
+  2250×3000): dissolve en loop, primer frame = still, loop perfecto.
+  Nuevo ratio `3:4` en canvas.
+- Social pack en un click: `{base}_social_yt/_916/_11` (1280×720 +
+  1080×1920 + 1080×1080, ancla centrada, mismo formato). Pinned por
+  `tests/test_social.py` (stems, tamaños, anchor, presets, safe-areas).
+- Safe-areas de texto (display-only): bandas de título sup/inf +
+  recorte 1:1 de grid en `app/ui/safeareas.py`.
 - DPI (72–600, defecto 300) en `ExportOptions` + diálogo: tags en
   JPG/PNG/TIFF, separaciones y metadata JSON. Prefs lo recuerdan.
 
