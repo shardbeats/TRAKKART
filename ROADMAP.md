@@ -405,7 +405,8 @@ sizes, Apple motion) + sharing presets as packs. No engine changes.
   the v0.14 text-layer removal stands).
   Pinned by `tests/test_social.py` (pack stems, sizes, anchor math).
 - Phase C — preset-pack share: export/import zip (presets + palettes,
-  offline file, no network); keep single-JSON share intact.
+  offline file, no network); batch "bundle as ZIP" (stdlib zipfile,
+  same helper as the v2.0 frame ZIP); keep single-JSON share intact.
   Pinned by `tests/test_ui_presets.py` (pack roundtrip).
 - Phase D — docs + gates: MANUAL sections (distro checklist, social
   pack, motion), QA portable checklist, preset roundtrip tests.
@@ -423,8 +424,9 @@ the new exact list, nothing else in the roster moves.
   Combo/stack/GIF inherit. Pinned by `tests/test_dither.py`
   (frozen-list update + per-engine determinism).
 - Phase B — print-shop: RISO trap (1px expand for misregistration) +
-  300 DPI separations; CMYK rosette angle presets (15/45/0/75); LPI
-  control tied to DPI (not fixed px). Pinned by `tests/test_separations.py`.
+  300 DPI separations; mirror-wrap third framing (np.flip edges: bleed
+  without smear, beside stretch/blur); CMYK rosette angle presets
+  (15/45/0/75); LPI control tied to DPI (not fixed px). Pinned by `tests/test_separations.py`.
 - Phase C — color confidence: daltonism preview (protan/deutan/tritan
   matrices, display-only like safe areas); palette accessibility check
   (WCAG contrast between adjacent inks, BW-collapse warning); Lospec
@@ -465,7 +467,11 @@ Cross-dissolve frame interpolation (numpy-only motion smoothing);
 animated APNG (Pillow-native); JPEG XL stills (needs plugin dep —
 weigh bundle size first); NeuQuant/Wu quantization; precomputed
 blue-noise masks; tile renderer for 8000px exports; preset fuzzer in
-CI; SSIM-based weight estimator. Ops (not code): code-signing cert to
+CI; SSIM-based weight estimator. From the DitherEffect survey
+(nov-2026, mechanics only, no affiliation): multi-stop gradient-map
+FX; SVG color-region export (one layer per ink); timeline param
+envelopes (keyframes/curves/LFO, deterministic); temporal CRT/VHS
+motion modes; MCP stdio server over the headless CLI. Ops (not code): code-signing cert to
 end SmartScreen warnings on the Setup.
 
 ## 4. Decisions made (do not reopen without reason)
