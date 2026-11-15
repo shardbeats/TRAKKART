@@ -2,6 +2,16 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased] - v1.8 Fase A: distributor delivery
+### Added
+- Preset `DISTRO_3000` (1:1, 3000px, JPG q90) + validador
+  `app/distro.py` (sesión viva y archivo en disco; hints honestos en el
+  diálogo, nada bloqueado). Pinned por `tests/test_distro.py`.
+- Extra de diálogo "Print TIFF (LZW)": `{base}.tif` full-doc RGB con
+  tags de resolución.
+- DPI (72–600, defecto 300) en `ExportOptions` + diálogo: tags en
+  JPG/PNG/TIFF, separaciones y metadata JSON. Prefs lo recuerdan.
+
 ## [1.7.0] - 2026-11-14
 ### Added
 - v1.7 Fase A: modos codec `bleed`/`hold`/`tear` en `app/mosh.py`

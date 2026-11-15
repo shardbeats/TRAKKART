@@ -49,14 +49,16 @@ def export_full(
     mp4_fps: int | None = None,
     mp4_size: str | int | None = None,
     webp: bool = False,
+    tiff: bool = False,
     sep: bool = False,
     sp404: bool = False,
+    dpi: int = 300,
     morph_src: Image.Image | None = None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Render, generate SVG/GIF/MP4/WebP/separations on request, write bundle and log.
 
     Returns (written paths, keys skipped). Without `selection` it equals
-    the classic full bundle. size/format/quality override the preset
+    the classic full bundle. size/format/quality/dpi override the preset
     (chosen by the dialog); None = preset value.
     MP4 is written as an extra `{base}_vid.mp4` file outside the bundle
     (single-export; batch keeps the GIF route). Stills stay full-doc;
@@ -64,6 +66,8 @@ def export_full(
     3000px doc at 60fps doesn't ship hundreds of MB.
     WebP is written as an extra `{base}_anim.webp` with the same frames
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
+    TIFF is written as an extra `{base}.tif` (full-doc RGB, LZW + DPI
+    tags) for stores/print. Dialog-only like MP4/WebP.
     Separations write one `{base}_sep_{NN}_{RRGGBB}.png` plate per
     palette ink (RISO/screen print) + registration marks. Dialog-only.
     SP-404MKII single file writes `{base}_sp404.bmp` (128x64 1-bit,
@@ -80,6 +84,7 @@ def export_full(
     want_gif = bool(sel.anim)
     want_mp4 = bool(mp4)
     want_webp = bool(webp)
+    want_tiff = bool(tiff)
     want_sep = bool(sep)
     want_sp404 = bool(sp404)
     res = render_full(src, preset)
@@ -157,6 +162,7 @@ def export_full(
         size=int(size if size is not None else preset.export_size),
         format=str(format if format is not None else preset.export_format),
         quality=int(quality if quality is not None else preset.export_quality),
+        dpi=int(dpi if dpi is not None else 300),
     )
     paths, skipped = export_with_options(
         res, out_dir, options, meta=preset.meta(),
@@ -229,6 +235,20 @@ def export_full(
                     i += 1
             save_webp(frames, webp_path, fps=fps)
             paths["webp"] = webp_path
+    if want_tiff:
+        from app.exporter import TIFF_SUFFIX, save_tiff_still, tiff_name as _tiff_name
+
+        tiff_path = Path(out_dir) / _tiff_name(options.base)
+        if overwrite == "skip" and tiff_path.exists():
+            skipped = [*skipped, "tiff"]
+        else:
+            if overwrite == "rename":
+                i = 2
+                while tiff_path.exists():
+                    tiff_path = Path(out_dir) / f"{options.base}_{i}{TIFF_SUFFIX}"
+                    i += 1
+            save_tiff_still(res, tiff_path, dpi=options.dpi)
+            paths["tiff"] = tiff_path
     if want_sep:
         from app.separations import (add_registration_marks,
                                      effective_palette, sep_name,
@@ -247,7 +267,8 @@ def export_full(
                 while sep_path.exists():
                     sep_path = Path(out_dir) / f"{stem}_{j}.png"
                     j += 1
-            add_registration_marks(plate).save(str(sep_path))
+            add_registration_marks(plate).save(
+                str(sep_path), dpi=(options.dpi, options.dpi))
             paths[f"sep_{hexcode}"] = sep_path
     if want_sp404:
         from app.sp404 import sp404_frame

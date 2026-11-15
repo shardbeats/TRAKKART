@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -63,6 +64,8 @@ class ExportDialog(QDialog):
         mp4_size: str = "1080p",
         mp4: bool = False,
         webp: bool = False,
+        tiff: bool = False,
+        dpi: int = 300,
         sep: bool = False,
         sp404: bool = False,
         parent=None,
@@ -124,6 +127,17 @@ class ExportDialog(QDialog):
         self.spn_quality.valueChanged.connect(self._refresh_plan)
         fmt_row.addWidget(self.spn_quality)
         col.addLayout(fmt_row)
+        # -- resolution tags (print; distributors ignore DPI, RISO does not) --
+        dpi_row = QHBoxLayout()
+        dpi_row.addWidget(QLabel("DPI:"))
+        self.spn_dpi = QSpinBox()
+        self.spn_dpi.setRange(72, 600)
+        self.spn_dpi.setValue(max(72, min(600, int(dpi or 300))))
+        self.spn_dpi.setToolTip("Resolution tags on JPG/PNG/TIFF + separations + metadata")
+        self.spn_dpi.valueChanged.connect(self._refresh_plan)
+        dpi_row.addWidget(self.spn_dpi)
+        dpi_row.addWidget(QLabel("(tags only: pixels never change)"))
+        col.addLayout(dpi_row)
         # -- outputs --
         col.addWidget(QLabel("Include:"))
         self.chk_image = QCheckBox("Main image")
@@ -148,6 +162,9 @@ class ExportDialog(QDialog):
         self.chk_webp = QCheckBox("Animation WebP")
         self.chk_webp.setChecked(bool(webp))
         self.chk_webp.setToolTip("Same frames as the GIF, ~1/3 the weight, full color (Pillow only)")
+        self.chk_tiff = QCheckBox("Print TIFF (LZW)")
+        self.chk_tiff.setChecked(bool(tiff))
+        self.chk_tiff.setToolTip("Full-doc lossless TIFF with DPI tags for stores/print")
         self.chk_sep = QCheckBox("Ink separations (print)")
         self.chk_sep.setChecked(bool(sep))
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
@@ -167,7 +184,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_sep, self.chk_meta,
+                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_sep, self.chk_meta,
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
@@ -193,6 +210,11 @@ class ExportDialog(QDialog):
         self.lbl_gifspec.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_gifspec)
         self._sync_gifspec_label()
+        # -- distributor readiness (honest hints, nothing blocked) --
+        self.lbl_distro = QLabel()
+        self.lbl_distro.setWordWrap(True)
+        self.lbl_distro.setObjectName("subtitleLabel")
+        col.addWidget(self.lbl_distro)
         # -- collision: always rename (never lose a file) --
         self.lbl_policy = QLabel("Existing files are kept: repeats save as name_2, name_3…")
         self.lbl_policy.setWordWrap(True)
@@ -299,6 +321,7 @@ class ExportDialog(QDialog):
                 size=self._current_size(),
                 format=self.cmb_format.currentText(),
                 quality=int(self.spn_quality.value()),
+                dpi=int(self.spn_dpi.value()),
             )
             plan = plan_export(
                 self._img, opts, meta=self._meta,
@@ -384,6 +407,18 @@ class ExportDialog(QDialog):
                 n += 1
             except Exception:  # noqa: BLE001
                 pass
+        if self.chk_tiff.isChecked():
+            try:
+                from app.exporter import estimate_tiff, tiff_name
+
+                dw, dh = self._doc_wh()
+                est_t = estimate_tiff(dw, dh)
+                tiff_fname = tiff_name(sanitize_base(self.edit_base.text().strip() or "cover"))
+                self.list_files.addItem(f"{tiff_fname}  ({_fmt_size(est_t)} · {dw}×{dh} LZW)")
+                total += est_t
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
         if self.chk_sep.isChecked():
             # R9: plate hexes need the render (SOURCE extracts); the plan
             # shows the count line, the post-accept alert lists exact files.
@@ -415,6 +450,14 @@ class ExportDialog(QDialog):
                 clashing += 1
             if webp_fname and (dest / webp_fname).exists():
                 clashing += 1
+            if self.chk_tiff.isChecked():
+                try:
+                    from app.exporter import tiff_name as _tiff_name
+
+                    if (dest / _tiff_name(sanitize_base(self.edit_base.text().strip() or "cover"))).exists():
+                        clashing += 1
+                except OSError:
+                    pass
             if self.chk_sep.isChecked():
                 try:
                     safe = sanitize_base(self.edit_base.text().strip() or "cover")
@@ -429,11 +472,34 @@ class ExportDialog(QDialog):
         if mp4_hint:
             notes.append(mp4_hint)
         self.lbl_exists.setText("\n".join(notes))
+        self._sync_distro_label()
 
     def _browse(self) -> None:
         d = QFileDialog.getExistingDirectory(self, "Export folder", self.edit_dir.text())
         if d:
             self.edit_dir.setText(d)
+
+    def _sync_distro_label(self) -> None:
+        """Distributor readiness hints (never blocks; honest, not nagging)."""
+        try:
+            from app.distro import distro_summary, validate_session
+            from app.ui.widgets import set_warning
+
+            dw, dh = self._doc_wh()
+            fmt = "png" if self.chk_lossless.isChecked() else self.cmb_format.currentText()
+            try:
+                sw, sh = self._img.size
+            except Exception:  # noqa: BLE001
+                sw, sh = 0, 0
+            checks = validate_session(dw, dh, fmt, sw, sh, int(self.spn_quality.value()))
+            ok, summary = distro_summary(checks)
+            bad = [c.hint for c in checks if not c.ok and c.hint]
+            self.lbl_distro.setText("Distro 3000: ✓ ready" if ok
+                                    else "Distro 3000: " + " · ".join(bad[:2]))
+            set_warning(self.lbl_distro, not ok)
+            self.lbl_distro.setToolTip(summary)
+        except Exception:  # noqa: BLE001
+            pass
 
     # -- animation: spec comes from VIDEO (shown here, not edited) --
     def _sync_gifspec_label(self) -> None:
@@ -463,6 +529,7 @@ class ExportDialog(QDialog):
         g["pingpong"] = bool(g.get("pingpong", False))
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         g["webp"] = bool(self.chk_webp.isChecked())
+        g["tiff"] = bool(self.chk_tiff.isChecked())
         g["sep"] = bool(self.chk_sep.isChecked())
         g["sp404"] = bool(self.chk_sp404.isChecked())
         try:
@@ -492,6 +559,7 @@ class ExportDialog(QDialog):
             size=self._current_size(),
             format=fmt,
             quality=int(self.spn_quality.value()),
+            dpi=int(self.spn_dpi.value()),
         )
         return opts, Path(self.edit_dir.text()), self._gif_opts()
 

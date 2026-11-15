@@ -17,6 +17,7 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "mp4_size": getattr(prefs, "mp4_size", "1080p"),
             "mp4": getattr(prefs, "mp4", False),
             "webp": getattr(prefs, "webp", False),
+            "tiff": getattr(prefs, "tiff", False),
             "sep": getattr(prefs, "sep", False),
             "sp404": getattr(prefs, "sp404", False)}
 
@@ -27,7 +28,8 @@ def _gif_opts_from_preset(preset) -> dict:
             "size": int(getattr(preset, "gif_size", 1200)),
             "pingpong": bool(getattr(preset, "gif_pingpong", False)),
             "mp4_size": "1080p",
-            "mp4": False, "webp": False, "sep": False, "sp404": False}
+            "mp4": False, "webp": False, "tiff": False,
+            "sep": False, "sp404": False}
 
 
 def export(win, quick: bool = False) -> None:
@@ -64,6 +66,8 @@ def export(win, quick: bool = False) -> None:
                 mp4=bool(gopts_prefs.get("mp4", False)),
                 mp4_size=str(gopts_prefs.get("mp4_size", "1080p")),
                 webp=bool(gopts_prefs.get("webp", False)),
+                tiff=bool(gopts_prefs.get("tiff", False)),
+                dpi=int(getattr(prefs, "dpi", 300) or 300),
                 sep=bool(gopts_prefs.get("sep", False)),
                 sp404=bool(gopts_prefs.get("sp404", False)),
             )
@@ -72,19 +76,21 @@ def export(win, quick: bool = False) -> None:
             init_sel = prefs.to_selection()
             init_base, init_out = prefs.base, prefs.out_dir
             init_size, init_fmt, init_q = prefs.size, prefs.format, prefs.quality
+            init_dpi = int(getattr(prefs, "dpi", 300) or 300)
         else:
             init_sel = ExportSelection(vector=bool(preset.vector_export),
                                        anim=bool(preset.gif_export))
             init_base, init_out = win.src_name, str(win.out_dir)
+            init_dpi = 300
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
         # Animation spec ALWAYS comes from the live VIDEO section (preset),
         # never from stale prefs: the dialog itself says "Edit it in VIDEO".
-        # Prefs only persist destination/name/size/format + the MP4 size.
+        # Prefs only persist destination/name/size/format/quality/DPI + MP4 size.
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
-            for key in ("mp4", "webp", "sep", "sp404"):
+            for key in ("mp4", "webp", "tiff", "sep", "sp404"):
                 init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
@@ -104,6 +110,8 @@ def export(win, quick: bool = False) -> None:
             mp4_size=str(init_gopts.get("mp4_size", "1080p")),
             mp4=bool(init_gopts.get("mp4", False)),
             webp=bool(init_gopts.get("webp", False)),
+            tiff=bool(init_gopts.get("tiff", False)),
+            dpi=int(init_dpi),
             sep=bool(init_gopts.get("sep", False)),
             sp404=bool(init_gopts.get("sp404", False)),
             parent=win,
@@ -117,6 +125,7 @@ def export(win, quick: bool = False) -> None:
         choice = resolve_collision(win, out_dir, options,
                                    want_mp4=bool(gopts.get("mp4", False)),
                                    want_webp=bool(gopts.get("webp", False)),
+                                   want_tiff=bool(gopts.get("tiff", False)),
                                    want_sep=bool(gopts.get("sep", False)))
         if choice is None:
             win._status("Export cancelled")
@@ -128,6 +137,8 @@ def export(win, quick: bool = False) -> None:
             mp4=bool(gopts.get("mp4", False)),
             mp4_size=str(gopts.get("mp4_size", "1080p")),
             webp=bool(gopts.get("webp", False)),
+            tiff=bool(gopts.get("tiff", False)),
+            dpi=int(options.dpi),
             sep=bool(gopts.get("sep", False)),
             sp404=bool(gopts.get("sp404", False)),
         )
@@ -138,6 +149,7 @@ def export(win, quick: bool = False) -> None:
             vector=options.selection.vector, anim=options.selection.anim,
             metadata=options.selection.metadata,
             webp=bool(gopts.get("webp", False)),
+            tiff=bool(gopts.get("tiff", False)),
             sep=bool(gopts.get("sep", False)),
             sp404=bool(gopts.get("sp404", False)),
             mp4=bool(gopts.get("mp4", False)),
@@ -147,6 +159,7 @@ def export(win, quick: bool = False) -> None:
             mp4_size=str(gopts.get("mp4_size", "1080p")),
             overwrite="rename",  # per-run choice is not persisted (quick is always safe)
             size=options.size, format=options.format, quality=options.quality,
+            dpi=int(options.dpi),
             recent_files=recent_files, src_name=win.src_name,
         ), win._prefs_path)
     except Exception as e:  # noqa: BLE001
@@ -154,7 +167,8 @@ def export(win, quick: bool = False) -> None:
 
 
 def resolve_collision(win, out_dir, options, want_mp4: bool = False,
-                      want_webp: bool = False, want_sep: bool = False) -> str | None:
+                      want_webp: bool = False, want_tiff: bool = False,
+                      want_sep: bool = False) -> str | None:
     """Post-accept collision check: "overwrite" | "rename" | None (cancel).
 
     No collision -> "rename" without asking (rename of a free base is a
@@ -172,6 +186,10 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
         names["video"] = mp4_name(options.base)
     if want_webp:
         names["webp"] = webp_name(options.base)
+    if want_tiff:
+        from app.exporter import tiff_name as _tiff_name
+
+        names["tiff"] = _tiff_name(options.base)
     if want_sep:
         # Plate hexes need the render; glob the family's exact files.
         try:
@@ -341,6 +359,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      quality: int, mp4: bool = False,
                      mp4_size: str = "1080p",
                      webp: bool = False,
+                     tiff: bool = False, dpi: int = 300,
                      sep: bool = False, sp404: bool = False) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
@@ -369,6 +388,8 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             mp4_fps=int(go.get("fps", 8)),
             mp4_size=str(go.get("mp4_size", mp4_size)),
             webp=bool(webp),
+            tiff=bool(tiff),
+            dpi=int(dpi or 300),
             sep=bool(sep),
             sp404=bool(sp404),
             morph_src=morph_src_for_mode(win, mode_go),
@@ -392,6 +413,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                quality: int, mp4: bool = False,
                mp4_size: str = "1080p",
                webp: bool = False,
+               tiff: bool = False, dpi: int = 300,
                sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
@@ -410,7 +432,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, sep, sp404)
+                         mp4_size, webp, tiff, dpi, sep, sp404)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -456,7 +478,8 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         size=int(size), format=str(format), quality=int(quality),
         mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
         mp4_size=str(go.get("mp4_size", mp4_size)),
-        webp=bool(webp), sep=bool(sep), morph_src=morph_snapshot,
+        webp=bool(webp), tiff=bool(tiff), dpi=int(dpi or 300),
+        sep=bool(sep), morph_src=morph_snapshot,
         sp404=bool(sp404),
         parent=win,
     )

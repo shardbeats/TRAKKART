@@ -134,14 +134,15 @@ def estimate_sep(w: int, h: int, n_plates: int) -> int:
 
 
 def write_separations(img: Image.Image, colors: list[tuple[int, int, int]],
-                      out_dir: str | Path, base: str) -> list[Path]:
+                      out_dir: str | Path, base: str, dpi: int = 300) -> list[Path]:
     """Separate + mark + write every plate. Returns paths in palette order."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    dpi = max(72, min(600, int(dpi or 300)))
     paths = []
     for i, (hexcode, plate) in enumerate(separation_plates(img, colors)):
         p = out_dir / sep_name(base, i, hexcode)
-        add_registration_marks(plate).save(str(p))
+        add_registration_marks(plate).save(str(p), dpi=(dpi, dpi))
         paths.append(p)
     return paths
 

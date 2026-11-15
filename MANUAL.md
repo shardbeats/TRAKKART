@@ -92,6 +92,18 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   (DITHER threshold tunes the cut live).
 - **Quick export** repeats the last setup without asking. If you switch
   images, it asks again (never reuses the previous name).
+- **Distro 3000 (delivering to stores):** distributors (DistroKid,
+  TuneCore, Spotify) want a **3000×3000 square JPG in RGB**. The
+  `DISTRO_3000` preset sets exactly that (1:1, 3000px, JPG q90); the
+  export dialog shows a "Distro 3000" readiness line with honest hints
+  (not square / under 3000px / upscaled from a small source / low
+  quality) — hints only, nothing is blocked.
+- **Print TIFF:** tick "Print TIFF (LZW)" to also write `{base}.tif`:
+  full-document lossless RGB with resolution tags, for stores that take
+  TIFF and for the print shop.
+- **DPI:** resolution tags (72–600, default 300) written on JPG/PNG/TIFF,
+  separations and the metadata JSON. Tags only — pixels never change.
+  Distributors ignore DPI; RISO/screen print does not.
 
 ## Batch (folders)
 

@@ -26,6 +26,7 @@ class ExportPrefs:
     anim: bool = False
     metadata: bool = False
     webp: bool = False
+    tiff: bool = False
     sep: bool = False
     sp404: bool = False
     mp4: bool = False
@@ -39,6 +40,7 @@ class ExportPrefs:
     size: int = 3000
     format: str = "png"
     quality: int = 90
+    dpi: int = 300
     recent_files: list = field(default_factory=list)
     src_name: str = ""  # image these prefs were saved for (stale-name guard)
     # -- general app settings (same JSON, backward-compatible) --
@@ -92,6 +94,7 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
     prefs.gif_fps = _clamp_int(getattr(prefs, "gif_fps", 8), 2, 60, 8)
     prefs.gif_size = _clamp_int(getattr(prefs, "gif_size", 1200), 64, 8000, 1200)
     prefs.quality = _clamp_int(getattr(prefs, "quality", 90), 1, 100, 90)
+    prefs.dpi = _clamp_int(getattr(prefs, "dpi", 300), 72, 600, 300)
     try:
         from app.exporter import MAX_SIDE, MIN_SIDE
 
@@ -99,7 +102,7 @@ def normalize_prefs(prefs: ExportPrefs) -> ExportPrefs:
     except Exception:  # noqa: BLE001
         prefs.size = _clamp_int(getattr(prefs, "size", 3000), 64, 8000, 3000)
     for flag in ("image", "thumb_1080p", "vector", "anim", "metadata",
-                 "webp", "sep", "sp404", "mp4",
+                 "webp", "tiff", "sep", "sp404", "mp4",
                  "gif_pingpong", "drop_batch", "restore_session"):
         try:
             setattr(prefs, flag, bool(getattr(prefs, flag)))

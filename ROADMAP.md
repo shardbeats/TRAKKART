@@ -392,11 +392,13 @@ extra (per §4: never in the base exe).
 
 Goal: the export a beatmaker actually ships (distributor-valid, social
 sizes, Apple motion) + sharing presets as packs. No engine changes.
-- Phase A — distributor-ready: `DISTRO_3000` bundled preset (1:1, 3000px,
-  JPG q90) + validator (square? RGB? JPG? no-upscale-blur?) with honest
-  hints in the dialog; TIFF still export (LZW, resolution tags) for the
-  stores that take it; DPI plumbed from canvas to separations/meta.
-  Pinned by `tests/test_distro.py` (validator cases, TIFF roundtrip).
+- Phase A — distributor-ready: DONE (nov-2026). `DISTRO_3000` bundled
+  preset (1:1, 3000px, JPG q90) + `app/distro.py` validator (session +
+  file, honest hints in the dialog) + TIFF still extra (LZW,
+  resolution tags) + DPI plumbed (dialog spin 72–600, tags on
+  JPG/PNG/TIFF + separations + metadata, prefs persist).
+  Pinned by `tests/test_distro.py` (validator cases, TIFF roundtrip,
+  DPI tags, preset recipe).
 - Phase B — social + motion: one-click Social pack from the same render
   (YT thumb 1280x720 + 9:16 1080x1920 center-anchored + 1:1 1080;
   grid-crop note); `APPLE_MOTION` preset sizes (1:1 4000px + 3:4 tall,

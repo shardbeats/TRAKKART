@@ -52,6 +52,35 @@ def webp_name(base: str) -> str:
     return f"{base}{WEBP_SUFFIX}"
 
 
+# Print master (v1.8): full-doc lossless TIFF, dialog-only extra like
+# MP4/WebP (never the main format, so presets/prefs are untouched).
+TIFF_SUFFIX = ".tif"
+
+
+def tiff_name(base: str) -> str:
+    """`{base}.tif` (full-doc RGB, LZW, DPI tags)."""
+    return f"{base}{TIFF_SUFFIX}"
+
+
+def save_tiff_still(img: Image.Image, path: str | Path, dpi: int = 300) -> None:
+    """Full-doc RGB TIFF: LZW compression + resolution tags.
+
+    LZW keeps it lossless for stores that take TIFF; dither noise does
+    not compress well, so the file stays heavy on purpose (honest).
+    """
+    from pathlib import Path as _Path
+
+    p = _Path(path)
+    dpi = max(72, min(600, int(dpi or 300)))
+    img.convert("RGB").save(str(p), "TIFF", compression="tiff_lzw",
+                            dpi=(dpi, dpi))
+
+
+def estimate_tiff(w: int, h: int) -> int:
+    """Rough weight (~): dither noise defeats LZW, ~1 byte/px."""
+    return max(1, int(w)) * max(1, int(h))
+
+
 _FORMAT_EXT = {"png": "png", "jpg": "jpg", "webp": "webp"}
 
 
@@ -104,6 +133,7 @@ class ExportOptions:
     size: int = 3000  # long side px of the main image
     format: str = "png"  # png | jpg | webp
     quality: int = 90  # jpg/webp only, 1-100
+    dpi: int = 300  # resolution tags (print) + metadata + separations, 72-600
 
     def __post_init__(self) -> None:
         self.base = sanitize_base(self.base)
@@ -115,8 +145,11 @@ class ExportOptions:
             raise ValueError(f"format must be {EXPORT_FORMATS}: {self.format!r}")
         if not 1 <= int(self.quality) <= 100:
             raise ValueError(f"quality out of 1-100: {self.quality}")
+        if not 72 <= int(self.dpi) <= 600:
+            raise ValueError(f"dpi out of 72-600: {self.dpi}")
         self.size = int(self.size)
         self.quality = int(self.quality)
+        self.dpi = int(self.dpi)
         self.format = str(self.format)
 
 
@@ -220,11 +253,15 @@ def plan_export(
     return plan
 
 
-def _save_raster(img: Image.Image, path: Path, fmt: str, quality: int) -> None:
+def _save_raster(img: Image.Image, path: Path, fmt: str, quality: int,
+                 dpi: int | None = None) -> None:
+    kw: dict = {}
+    if dpi:
+        kw["dpi"] = (int(dpi), int(dpi))  # PNG/JPEG/TIFF resolution tags
     if fmt == "png":
-        img.save(str(path), "PNG")
+        img.save(str(path), "PNG", **kw)
     elif fmt == "jpg":
-        img.convert("RGB").save(str(path), "JPEG", quality=int(quality))
+        img.convert("RGB").save(str(path), "JPEG", quality=int(quality), **kw)
     elif fmt == "webp":
         img.convert("RGB").save(str(path), "WebP", quality=int(quality))
     else:  # pragma: no cover - validado en ExportOptions
@@ -276,8 +313,8 @@ def _thumb_image(rgb: Image.Image, w: int, h: int) -> Image.Image:
 
 
 def _write_raster(rgb: Image.Image, path: Path, w: int, h: int,
-                  fmt: str, quality: int) -> None:
-    _save_raster(rgb.resize((w, h), Image.NEAREST), path, fmt, quality)
+                  fmt: str, quality: int, dpi: int | None = None) -> None:
+    _save_raster(rgb.resize((w, h), Image.NEAREST), path, fmt, quality, dpi)
 
 
 def _info_base(base: str, files: list[str], export: dict | None) -> dict:
@@ -350,20 +387,22 @@ def _write_bundle(
              if "thumb_1080p" in keys else None)
     if "image" in keys:
         pmain = out_dir / _raster_name(base, "image", options.format)
-        _write_raster(rgb, pmain, main_w, main_h, options.format, options.quality)
+        _write_raster(rgb, pmain, main_w, main_h, options.format, options.quality,
+                      options.dpi)
         result["image"] = pmain
 
     if thumb is not None:
         # 1080p thumb: cover fitted over a blurred background (works for any ratio)
         p1080 = out_dir / _raster_name(base, "thumb_1080p", options.format)
-        _save_raster(thumb, p1080, options.format, options.quality)
+        _save_raster(thumb, p1080, options.format, options.quality, options.dpi)
         result["thumb_1080p"] = p1080
 
     files = [result[k].name for k in ("image", "thumb_1080p") if k in result]
 
     info = _info_base(base, files, {"size": int(options.size),
                                     "format": str(options.format),
-                                    "quality": int(options.quality)})
+                                    "quality": int(options.quality),
+                                    "dpi": int(options.dpi)})
     if meta:
         info["params"] = meta
     if vector_svg and "vector" in keys:
