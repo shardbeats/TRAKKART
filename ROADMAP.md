@@ -418,9 +418,9 @@ sizes, Apple motion) + sharing presets as packs. No engine changes.
   "Bundle as ZIP" checkbox (output folder → `<output>_bundle.zip`).
   Pinned by `tests/test_pack.py` + UI roundtrip in
   `tests/test_ui_presets.py`. Utility verified on a real batch — kept.
-  Pinned by `tests/test_ui_presets.py` (pack roundtrip).
-- Phase D — docs + gates: MANUAL sections (distro checklist, social
-  pack, motion), QA portable checklist, preset roundtrip tests.
+- Phase D — docs + gates: DONE (nov-2026). MANUAL covers distro
+  checklist, social pack, motion presets, TIFF/DPI, batch ZIP and
+  packs; full gate green (pytest `not slow` + flake8, EXIT=0).
 - Out of scope: tap-tempo/BPM (rejected, owner nov-2026), AV1, auto-update.
 
 ### v1.9 — Engine + print + color (planned)

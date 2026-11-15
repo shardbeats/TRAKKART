@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [Unreleased] - v1.8 Fase A: distributor delivery
+## [Unreleased] - v1.8 Delivery (distro + social + motion + packs)
 ### Added
 - Preset `DISTRO_3000` (1:1, 3000px, JPG q90) + validador
   `app/distro.py` (sesión viva y archivo en disco; hints honestos en el

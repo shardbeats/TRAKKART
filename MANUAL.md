@@ -106,6 +106,10 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   `{base}_social_11` (1080×1080) from the same render, same format.
   All center-anchored: profile grids crop 9:16 to the centered 1:1,
   so keep the subject in the middle band.
+- **Apple Motion (animated wallpaper):** presets `APPLE_MOTION` (1:1,
+  4000px) and `APPLE_MOTION_TALL` (3:4, 2250×3000) render a dissolve
+  loop (64 frames @24fps) whose first frame is the still — the loop
+  is seamless by construction. New `3:4` canvas ratio for the tall one.
 - **DPI:** resolution tags (72–600, default 300) written on JPG/PNG/TIFF,
   separations and the metadata JSON. Tags only — pixels never change.
   Distributors ignore DPI; RISO/screen print does not.
