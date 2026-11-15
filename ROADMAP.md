@@ -412,6 +412,12 @@ sizes, Apple motion) + sharing presets as packs. No engine changes.
 - Phase C — preset-pack share: export/import zip (presets + palettes,
   offline file, no network); batch "bundle as ZIP" (stdlib zipfile,
   same helper as the v2.0 frame ZIP); keep single-JSON share intact.
+  DONE (nov-2026): File → Export/Import pack (`app/pack.py`, whole
+  library + palette library as one offline `.zip` with manifest;
+  import validates, never overwrites, rejects traversal). Batch
+  "Bundle as ZIP" checkbox (output folder → `<output>_bundle.zip`).
+  Pinned by `tests/test_pack.py` + UI roundtrip in
+  `tests/test_ui_presets.py`. Utility verified on a real batch — kept.
   Pinned by `tests/test_ui_presets.py` (pack roundtrip).
 - Phase D — docs + gates: MANUAL sections (distro checklist, social
   pack, motion), QA portable checklist, preset roundtrip tests.

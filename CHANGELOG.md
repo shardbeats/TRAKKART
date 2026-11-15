@@ -17,6 +17,17 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   `tests/test_social.py` (stems, tamaños, anchor, presets, safe-areas).
 - Safe-areas de texto (display-only): bandas de título sup/inf +
   recorte 1:1 de grid en `app/ui/safeareas.py`.
+### v1.8 Fase C: preset-pack + batch ZIP — DONE (nov-2026)
+- Preset-pack share (`app/pack.py`): File → Export/Import pack mueve
+  la librería entera (presets + paletas) como un `.zip` offline con
+  manifiesto; single-JSON intacto; import con validación, sin
+  sobrescribir (skip + reporte) y rechazo de traversal.
+  Pinned por `tests/test_pack.py` + roundtrip UI en
+  `tests/test_ui_presets.py`.
+- Batch "Bundle as ZIP": checkbox en el diálogo; al terminar, todo lo
+  de la carpeta output va a `<output>_bundle.zip` (stdlib zipfile,
+  mismo helper que usará el frame-ZIP de v2.0). Utilidad verificada en
+  batch real (9 ficheros → 1 zip) — se queda.
 - DPI (72–600, defecto 300) en `ExportOptions` + diálogo: tags en
   JPG/PNG/TIFF, separaciones y metadata JSON. Prefs lo recuerdan.
 

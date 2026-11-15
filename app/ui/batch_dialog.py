@@ -150,6 +150,10 @@ class BatchDialog(QDialog):
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
         col.addWidget(self.lbl_info)
+        self.chk_zip = QCheckBox("Bundle as ZIP")
+        self.chk_zip.setToolTip("Zip every file in the output folder when the batch finishes (stdlib, offline)")
+        self.chk_zip.setChecked(False)
+        col.addWidget(self.chk_zip)
 
         bar = QHBoxLayout()
         bar.addStretch()
@@ -230,6 +234,7 @@ class BatchDialog(QDialog):
             "export_size": int(getattr(self, "_doc_size", 3000)),
             "export_format": fmt,
             "export_quality": int(self.spn_quality.value()),
+            "bundle_zip": bool(self.chk_zip.isChecked()),
         }
 
 

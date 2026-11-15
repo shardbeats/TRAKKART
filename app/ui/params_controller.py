@@ -808,6 +808,46 @@ def share_import(win) -> None:
         QMessageBox.warning(win, "TRAKKART", f"Invalid preset:\n{e}")
 
 
+def share_pack_export(win) -> None:
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.pack import export_pack
+    from app.presets import list_presets
+
+    path, _ = QFileDialog.getSaveFileName(win, "Export pack", "trakkart_pack.zip",
+                                          "Pack (*.zip)")
+    if not path:
+        return
+    try:
+        from app.paths import get_palettes_dir, get_presets_dir
+
+        names = list_presets()
+        out = export_pack(names, get_presets_dir(), get_palettes_dir(), path)
+        win._status(f"Pack exported: {out.name} ({len(names)} presets)")
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Could not export pack:\n{e}")
+
+
+def share_pack_import(win) -> None:
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.pack import import_pack
+
+    path, _ = QFileDialog.getOpenFileName(win, "Import pack", "", "Pack (*.zip)")
+    if not path:
+        return
+    try:
+        from app.paths import get_palettes_dir, get_presets_dir
+
+        rep = import_pack(path, get_presets_dir(), get_palettes_dir())
+        win.refresh_presets()
+        n = len(rep["presets_imported"]) + len(rep["palettes_imported"])
+        s = len(rep["presets_skipped"]) + len(rep["palettes_skipped"])
+        win._status(f"Pack imported: {n} new, {s} skipped (already have them)")
+    except Exception as e:  # noqa: BLE001
+        QMessageBox.warning(win, "TRAKKART", f"Invalid pack:\n{e}")
+
+
 def import_metadata(win, path=None) -> bool:
     """Load an export _metadata.json: apply values + sibling image if present.
 

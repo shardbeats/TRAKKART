@@ -60,6 +60,7 @@ def run_batch_dialog(win) -> None:
     src, dst, jobs = dlg.paths()
     outs = dlg.output_options()
     seed_mode = str(outs.get("seed_mode", "off") or "off")
+    win._batch_zip = bool(outs.get("bundle_zip", False))
     preset = replace(
         preset, vector_export=outs["vector_export"], vector_cell=outs["vector_cell"],
         vector_black=bool(outs.get("vector_black", False)),
@@ -162,8 +163,18 @@ def on_finished(win, results: list[dict]) -> None:
     er = sum(1 for r in results if r["status"] == "error")
     cancelled = " (cancelled)" if win._batch_cancel[0] else ""
     where = f" → {win._batch_out}" if win._batch_out else ""
-    win._status(f"Batch done: {ok} ok, {sk} skipped, {er} errors{cancelled}{where}")
-    QMessageBox.information(win, "TRAKKART", f"Batch done:\n{ok} ok, {sk} skipped, {er} errors{cancelled}.\n{where}")
+    zipped = ""
+    if getattr(win, "_batch_zip", False) and not cancelled and win._batch_out:
+        try:
+            from app.pack import bundle_zip
+
+            dest = bundle_zip(win._batch_out)
+            zipped = f" · zipped: {dest.name}"
+        except Exception as e:  # noqa: BLE001
+            zipped = f" · zip failed: {e}"
+    win._batch_zip = False
+    win._status(f"Batch done: {ok} ok, {sk} skipped, {er} errors{cancelled}{where}{zipped}")
+    QMessageBox.information(win, "TRAKKART", f"Batch done:\n{ok} ok, {sk} skipped, {er} errors{cancelled}.{where}{zipped}")
 
 
 def on_error(win, msg: str) -> None:

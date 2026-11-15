@@ -54,6 +54,7 @@ class MainWindow(QMainWindow):
         self._prefs_path = Path(prefs_path) if prefs_path else None
         self._batch_start: float = 0.0
         self._batch_out: Path | None = None
+        self._batch_zip: bool = False
         # Vector/GIF outputs + size/format: live in the preset (recipe);
         # each dialog picks per operation (no duplicated panel).
         self._vector_export: bool = False
@@ -1158,6 +1159,16 @@ class MainWindow(QMainWindow):
         from app.ui import params_controller as _par
 
         _par.share_import(self)
+
+    def share_pack_export(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.share_pack_export(self)
+
+    def share_pack_import(self) -> None:
+        from app.ui import params_controller as _par
+
+        _par.share_pack_import(self)
 
     def import_metadata(self, path=None) -> bool:
         from app.ui import params_controller as _par

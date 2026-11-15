@@ -72,6 +72,12 @@ def build_menus(win) -> None:
     _act(win, m_file, "Import preset...", win.share_preset_import,
          "", "Load a preset from a .json file (offline)",
          action_id="file_share_import")
+    _act(win, m_file, "Export pack...", win.share_pack_export,
+         "", "Share all presets + palettes as a .zip pack (offline)",
+         action_id="file_pack_export")
+    _act(win, m_file, "Import pack...", win.share_pack_import,
+         "", "Load presets + palettes from a .zip pack (offline)",
+         action_id="file_pack_import")
     _act(win, m_file, "Import metadata...", win.import_metadata,
          "", "Restore values + image from an export _metadata.json",
          action_id="file_import_metadata")

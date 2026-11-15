@@ -116,6 +116,8 @@ File → Batch folder (Ctrl+B): pick input/output, Jobs 1-8
 (1 = safe sequential, more = multiprocessing), format and outputs per
 operation. With `Drop=Batch` on, dropping a folder asks directly
 whether to process it.
+Tick "Bundle as ZIP" to also write `<output>_bundle.zip` with every
+file of the run next to the folder (stdlib zip, offline).
 
 **Watch folder:** File → Watch folder… picks a folder to watch, an
 output and a fixed preset. New/changed files process automatically
@@ -138,7 +140,10 @@ Exit 0 = done, 1 = some file failed, 2 = usage error.
 ## Presets & Settings
 
 - **Presets:** the combo saves the current recipe (Save…), Export/Import
-  shares `.json` offline.
+  shares `.json` offline. **Packs:** File → Export/Import pack shares
+  the whole library (all presets + the palette library) as one `.zip`
+  — sell or share a look pack. Import never overwrites: existing names
+  are skipped and reported.
 - **File → Settings (Ctrl+,):** default output folder, format/
   quality/size and default outputs, jobs, Drop=Batch, startup
   viewport, recent recipes and data folder.
