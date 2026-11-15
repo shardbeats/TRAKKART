@@ -388,6 +388,86 @@ extra (per §4: never in the base exe).
   stills/GIF unaffected). Portable rebuilt and smoke-tested offscreen.
 - Out of scope: WebCodecs/MediaRecorder (browser stack), BPM-synced cuts.
 
+### v1.8 — Delivery: distro + social + motion presets (planned)
+
+Goal: the export a beatmaker actually ships (distributor-valid, social
+sizes, Apple motion) + sharing presets as packs. No engine changes.
+- Phase A — distributor-ready: `DISTRO_3000` bundled preset (1:1, 3000px,
+  JPG q90) + validator (square? RGB? JPG? no-upscale-blur?) with honest
+  hints in the dialog; TIFF still export (LZW, resolution tags) for the
+  stores that take it; DPI plumbed from canvas to separations/meta.
+  Pinned by `tests/test_distro.py` (validator cases, TIFF roundtrip).
+- Phase B — social + motion: one-click Social pack from the same render
+  (YT thumb 1280x720 + 9:16 1080x1920 center-anchored + 1:1 1080;
+  grid-crop note); `APPLE_MOTION` preset sizes (1:1 4000px + 3:4 tall,
+  first frame = cover, loop-perfect by construction); text safe-area
+  presets (title top/bottom guides, display-only, no text rendering —
+  the v0.14 text-layer removal stands).
+  Pinned by `tests/test_social.py` (pack stems, sizes, anchor math).
+- Phase C — preset-pack share: export/import zip (presets + palettes,
+  offline file, no network); keep single-JSON share intact.
+  Pinned by `tests/test_ui_presets.py` (pack roundtrip).
+- Phase D — docs + gates: MANUAL sections (distro checklist, social
+  pack, motion), QA portable checklist, preset roundtrip tests.
+- Out of scope: tap-tempo/BPM (rejected, owner nov-2026), AV1, auto-update.
+
+### v1.9 — Engine + print + color (planned)
+
+Goal: three named dithering additions, real print-shop flow, color
+confidence. Reopens R14 narrowly (see §4): the frozen test updates to
+the new exact list, nothing else in the roster moves.
+- Phase A — engines: `ostromoukhov` (variable-coefficient ED, clean
+  midtones), `dizzy` (2024 blue-noise-like ED), serpentine toggle for
+  all ED kernels (no directional streaks); same rules (0=off,
+  deterministic, numpy+Pillow, numba parity where applicable).
+  Combo/stack/GIF inherit. Pinned by `tests/test_dither.py`
+  (frozen-list update + per-engine determinism).
+- Phase B — print-shop: RISO trap (1px expand for misregistration) +
+  300 DPI separations; CMYK rosette angle presets (15/45/0/75); LPI
+  control tied to DPI (not fixed px). Pinned by `tests/test_separations.py`.
+- Phase C — color confidence: daltonism preview (protan/deutan/tritan
+  matrices, display-only like safe areas); palette accessibility check
+  (WCAG contrast between adjacent inks, BW-collapse warning); Lospec
+  offline import (GPL/PAL/HEX/TXT parsers, local files only) + curated
+  ~20 dither-friendly pack. Pinned by new `tests/test_color_access.py`.
+- Phase D — docs + gates: MANUAL (print flow, daltonism, Lospec),
+  Gherkin +1 (daltonism preview deterministic).
+- Out of scope: NeuQuant/Wu re-quantization, blue-noise mask assets,
+  JXL (extra dep weight), APNG (candidate v2.x).
+
+### v2.0 — Clip import + timeline (planned, major)
+
+Reverses the "no clip import" rule (owner nov-2026, see §4): stills stay
+the core product, but a short clip becomes a first-class *input* that
+the existing still pipeline dithers frame by frame. Preview is visual
+only (no audio playback in-app); sound joins at MP4 export.
+- Phase A — import + timeline: open MP4/GIF/WebP clip (imageio-ffmpeg,
+  video extra; clean `VideoBackendMissing` without it); session-only
+  clip store (cap 120f, 720p proxy); timeline editor (frame strip,
+  trim/range pick, scrub) with live visual preview.
+- Phase B — dither: current preset recipe applied per frame
+  (deterministic seed = base + index; per-frame flicker is the
+  aesthetic, documented); reuses `render_spec` + GIF/MP4 writers.
+- Phase C — export wiring: silent GIF, frame ZIP (PNG sequence via
+  stdlib), MP4 with a chosen soundtrack (user picks an audio file;
+  ffmpeg mux `-c:v copy -c:a aac -shortest`; silent MP4 when no track
+  chosen); preview scrub + Length math inherited; batch stays
+  stills-only.
+- Phase D — docs + gates: MANUAL clip flow, `tests/test_clip.py`
+  (import caps, determinism, mux with/without track, missing-extra),
+  Gherkin +2.
+- Out of scope: webcam, audio analysis/BPM, audio trimming/fades,
+  in-app audio playback, clips in batch, >120f, 4K clip edit.
+
+### Candidates v2.x (researched, not scheduled)
+
+Cross-dissolve frame interpolation (numpy-only motion smoothing);
+animated APNG (Pillow-native); JPEG XL stills (needs plugin dep —
+weigh bundle size first); NeuQuant/Wu quantization; precomputed
+blue-noise masks; tile renderer for 8000px exports; preset fuzzer in
+CI; SSIM-based weight estimator. Ops (not code): code-signing cert to
+end SmartScreen warnings on the Setup.
+
 ## 4. Decisions made (do not reopen without reason)
 
 - Original MIT-licensed code based on public-domain math.
@@ -411,6 +491,18 @@ extra (per §4: never in the base exe).
 - Collision alert (`resolve_collision`): lists clashing files, Overwrite / Rename-as-`base_2` / Cancel with safe default; ⚠ hint in the plan; quick stays silent-rename; dialogs `deleteLater` + visible-first accept (no modal flake in CI). 409 tests, 5/5 gates.
 - MOTION duration readout (driver spin removed: request-vs-reality split confused; label never lies). Animation suffixes `_gif.gif` + `_vid.mp4`. FPS combo sorted inserts (no stray 8).
 - Refactor P1+M2: cached crop pixmap + `app/names.py` sanitizer home. 414 tests, 5/5 gates.
+- R14 engine freeze REOPENED narrowly (owner nov-2026, research-backed):
+  +`ostromoukhov` +`dizzy` + serpentine ED toggle in v1.9 (exact-list test
+  updates to the new list; the rest of the roster stays frozen).
+- Clip import rule REVERSED (owner nov-2026): stills stay the core
+  product, but short clips become a first-class input in v2.0
+  (session-only, ≤120f, timeline editor + visual-only preview, batch
+  stays stills; MP4 export muxes a user-chosen soundtrack, GIF/ZIP
+  stay silent). The old "no clip import by design" is void.
+- Tap-tempo/pulse-sync REJECTED (owner nov-2026): same fiddly family as
+  the removed BPM grid; Length stays Frames/FPS/Hold.
+- MP4 stays software `libx264`-only (HW selector tried and reverted
+  pre-release: fake detection, quality mapping, streaming fallback bug).
 
 ## 5. Known tech debt
 
@@ -421,9 +513,9 @@ extra (per §4: never in the base exe).
 
 ## 6. Out of scope (for now)
 
-- Webcam, YouTube upload, BPM/key analysis with torch/librosa, login/cloud.
+- Webcam, YouTube upload, BPM/key analysis with torch/librosa, tap-tempo, login/cloud.
 - Bridges to other apps (TRAKKOUT/TRAKKNAME) and shared naming: each TRAKK app is standalone.
-- Video BASE: `imageio-ffmpeg` ships in the base exe/requirements since v1.0 (historical opt-in `requirements-video.txt` era over). MP4 single-export only, batch stays GIF, no clip import by design.
+- Video BASE: `imageio-ffmpeg` ships in the base exe/requirements since v1.0 (historical opt-in `requirements-video.txt` era over). MP4 single-export only (software `libx264`, no HW probing), batch stays GIF.
 - Explicitly rejected (adds nothing for offline covers): GPU backends (cupy/opencl), preset download from the internet (offline file share instead). Vector export IS in (v0.9, custom rect-only SVG). App themes veto LIFTED and DONE in v1.5 (single-source token variants).
 
 ## 7. MORPH engine — dither-boy particle system (reference)

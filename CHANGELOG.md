@@ -24,6 +24,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   limpio, stills/GIF intactos).
 ### Changed
 - Versión 1.6.0 → 1.7.0 (app, pyproject, installer).
+- MP4: revert del selector HW/SW antes de publicar (nunca salió en
+  release; queda un solo encoder `libx264`).
 
 ## [1.6.0] - 2026-11-12
 ### Added
