@@ -24,7 +24,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 2. **Pick a method:** the ◀ ▶ buttons cycle through 38 dithering engines.
 3. **Adjust color:** SOURCE extracts the palette from your image, Depth limits
    tones, the dice (🎲) reshuffle without losing the good stuff (locks 🔒).
-4. **Animate (optional):** the VIDEO panel previews; GIF exports at
+4. **Animate (optional):** MOTION previews (one source at a time); GIF exports at
    document size, MP4 defaults to 1080p (MP4 size: Canvas/1080p/720p in the Export dialog).
 5. **Export:** Export… (Ctrl+Shift+S) or Quick export (Ctrl+S), which repeats
    your last setup. SVG for logos, JSON for metadata.
@@ -39,7 +39,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
 | MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
-| MOTION | video preview + Signal Drift + clip import (short footage as input, session-only) + ⚠ Rebuild when the preview is stale |
+| MOTION | one line, one source: Animate still (procedural) XOR Clip footage (imported, dithered) + Details (timing/proxy) + ⚠ Rebuild when the preview is stale |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
 120ms / heavy 350ms); Still = manual only (F5). For slow machines or
@@ -60,8 +60,8 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   Replaying a leg does not re-pick images; Length and the loop readout
   count repeats. Repeat is session-only (like Crop X/Y/Zoom): saving a
   preset keeps the recipe, not the temporary playlist.
-- **⚠ Rebuild (VIDEO):** if you change the image, preset or chain after
-  the preview was generated, the VIDEO bar shows a ⚠ badge. Click
+- **⚠ Rebuild (MOTION):** if you change the image, preset or chain after
+  the preview was generated, the MOTION bar shows a ⚠ badge. Click
   Rebuild to refresh it. Exports always re-render fresh, so a stale
   preview can never produce a stale MP4.
 - **Encoder:** MP4 always uses software H.264 (`libx264`, bundled).
@@ -108,7 +108,7 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   The dialog remembers your picks for next time (Quick export repeats them).
   MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
   shows a weight estimate and warns on heavy files. The animation
-  always follows the live VIDEO section. The VIDEO proxy (Draft 720p /
+  always follows the live MOTION section. The MOTION proxy (Draft 720p /
   HD 1080p / Full doc) never changes the export; particle density scales
   with the canvas, so Full/doc looks as dense as the smaller previews.
 - **Collision:** nothing is ever lost — if the name exists it suggests

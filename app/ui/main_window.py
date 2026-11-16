@@ -503,6 +503,19 @@ class MainWindow(QMainWindow):
             self._sync_docdims()
         except Exception:  # noqa: BLE001
             pass
+        # Single writer: footage owns the canvas while selected, even
+        # with procedural mode on (XOR enforced by the Source radios).
+        try:
+            from app.ui import clip_controller as _cc2
+
+            if _cc2.motion_source(self) == "clip" and _cc2.has_clip(self):
+                try:
+                    _cc2.show_frame(self, int(self.sld_clip.value()))
+                except Exception:  # noqa: BLE001
+                    _cc2.show_frame(self, 0)
+                return
+        except Exception:  # noqa: BLE001
+            pass
         if self._video_on:
             self._start_video_async()
             return
@@ -1279,6 +1292,18 @@ class MainWindow(QMainWindow):
         from app.ui import clip_controller as _cc
 
         _cc.scrub(self, int(value))
+
+    def _on_motion_source(self, which: str) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.set_motion_source(self, str(which))
+
+    def _on_motion_details(self, on: bool) -> None:
+        try:
+            self._motion_details_box.setVisible(bool(on))
+            self.btn_motion_details.setText("Details ▾" if on else "Details ▸")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _on_clip_playpause(self) -> None:
         from app.ui import clip_controller as _cc

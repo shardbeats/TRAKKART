@@ -122,7 +122,7 @@ def export(win, quick: bool = False) -> None:
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
         # Animation spec ALWAYS comes from the live VIDEO section (preset),
-        # never from stale prefs: the dialog itself says "Edit it in VIDEO".
+        # never from stale prefs: the dialog itself says "Edit it in MOTION".
         # Prefs only persist destination/name/size/format/quality/DPI + MP4 size.
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:

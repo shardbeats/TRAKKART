@@ -80,7 +80,7 @@ features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 785 tests (641 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 786 tests (642 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -153,7 +153,13 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
   `tests/test_clip.py` (3: GIF in-point skip, MP4 input `-ss` + clamps,
   VFR normalization) + `tests/test_ui_export.py` (3: clip dialog
   section/plan/options, clip-only stills-off, real GIF via
-  `export_flow`). Gherkin 68 (+1 in-point seek).
+  `export_flow`) + `tests/test_ux.py` (+1: MOTION source XOR, Details,
+  titles). Gherkin 68 (+1 in-point seek).
+- Unified MOTION line (user request): source radios Animate still XOR
+  Clip footage (one box visible, canvas titles `MOTION · …`); opening a
+  clip selects footage, enabling Animate returns to the still; both
+  timers/painters guard the other side. Timing + proxy collapsed under
+  Details (stale Rebuild stays visible).
 
 ## Canvas invariants (nov-2026 bug hunt)
 

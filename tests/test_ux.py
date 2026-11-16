@@ -111,7 +111,9 @@ def test_no_timeline_leftovers(window):
         assert not hasattr(window, attr), attr
     for attr in ("btn_clip_open", "btn_clip_close", "spn_clip_start",
                  "spn_clip_end", "sld_clip", "btn_clip_play",
-                 "lbl_clip_info", "lbl_clip_pos"):
+                 "lbl_clip_info", "lbl_clip_pos",
+                 "rb_motion_still", "rb_motion_clip",
+                 "btn_motion_details"):
         assert hasattr(window, attr), attr
     assert window.sld_clip.value() == 0
     assert window.lbl_clip_pos.text() == "–"
@@ -178,6 +180,47 @@ def test_morph_live_pick_enables_video(window, tmp_path, monkeypatch):
     assert window.morph_src is None
     assert window.morph_list == []
     assert "dissolve" in window.lbl_compat.text().lower()
+
+
+def test_motion_source_xor_and_details(window):
+    """One Motion source at a time; details collapsed by default."""
+    from PIL import Image as Img
+
+    from app.ui import clip_controller as cc
+    from app.ui import video_controller as vc
+
+    assert cc.motion_source(window) == "still"
+    assert window._motion_details_box.isHidden()
+    window.btn_motion_details.setChecked(True)
+    assert not window._motion_details_box.isHidden()
+    window.btn_motion_details.setChecked(False)
+    assert window._motion_details_box.isHidden()
+
+    gif = window.out_dir.parent / "m.gif"
+    frames = [Img.new("RGB", (32, 24), (i * 60, 0, 0)) for i in range(4)]
+    frames[0].save(str(gif), save_all=True, append_images=frames[1:],
+                   duration=100, loop=0)
+    assert cc.open_path(window, gif) is True
+    assert cc.motion_source(window) == "clip"
+    assert not window._motion_clip_box.isHidden()
+    assert window._motion_still_box.isHidden()
+    # Canvas speaks MOTION for footage too.
+    cc.show_frame(window, 1)
+    assert window.lbl_res_title.text().startswith("MOTION ·")
+    assert "(clip)" in window.lbl_res_title.text()
+
+    # Enabling procedural motion hands the canvas back to the still.
+    window.chk_video.setChecked(True)
+    assert cc.motion_source(window) == "still"
+    assert not window._motion_still_box.isHidden()
+    assert window._motion_clip_box.isHidden()
+    window._video_frames = [Img.new("RGB", (32, 24), (9, 9, 9))]
+    vc.show_frame(window, force=True)
+    assert window.lbl_res_title.text().startswith("MOTION ·")
+    assert "(clip)" not in window.lbl_res_title.text()
+
+    cc.close_clip(window)
+    assert cc.motion_source(window) == "still"
 
 
 def test_morph_visual_crop_dialog(window, tmp_path, monkeypatch):

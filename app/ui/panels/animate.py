@@ -16,18 +16,51 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider
+from app.ui.panels.widgets import tight, labeled_slider
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
     """Single place to animate: Mode/Frames/FPS/Ping-pong + preview resolution.
 
+    One Motion line, two sources (XOR): "Animate still" renders the
+    still through the recipe; "Clip footage" plays the imported clip.
+    Only the selected source is visible and only it writes the canvas.
     Preview = light proxy (Draft/HD/Full); export ALWAYS renders the full
     document, whatever the preview uses."""
+    from PySide6.QtWidgets import QRadioButton, QWidget
+    src_row = QHBoxLayout()
+    src_row.addWidget(QLabel("Source:"))
+    win.rb_motion_still = QRadioButton("Animate still")
+    win.rb_motion_still.setToolTip("Procedural motion from the still (recipe FX, march, dissolve, morph)")
+    win.rb_motion_still.setChecked(True)
+    win.rb_motion_still.toggled.connect(lambda on: on and win._on_motion_source("still"))
+    src_row.addWidget(win.rb_motion_still)
+    win.rb_motion_clip = QRadioButton("Clip footage")
+    win.rb_motion_clip.setToolTip("Imported MP4/GIF/WebP, dithered with the live recipe")
+    win.rb_motion_clip.toggled.connect(lambda on: on and win._on_motion_source("clip"))
+    src_row.addWidget(win.rb_motion_clip, 1)
+    g.addLayout(src_row)
+
+    win._motion_still_box = QWidget()
+    still = QVBoxLayout(win._motion_still_box)
+    still.setContentsMargins(0, 0, 0, 0)
+    _build_still_source(win, still)
+    g.addWidget(win._motion_still_box)
+
+    win._motion_clip_box = QWidget()
+    clip_lay = QVBoxLayout(win._motion_clip_box)
+    clip_lay.setContentsMargins(0, 0, 0, 0)
+    build_clip_section(win, clip_lay)
+    win._motion_clip_box.setVisible(False)
+    g.addWidget(win._motion_clip_box)
+    win._sync_duration_ui()
+
+
+def _build_still_source(win, g: QVBoxLayout) -> None:
     from app.gif import GIF_MODES
 
-    win.chk_video = QCheckBox("Video mode (animated preview)")
-    win.chk_video.setToolTip("OFF = still dither · ON = full video preview on canvas")
+    win.chk_video = QCheckBox("Animate (motion preview)")
+    win.chk_video.setToolTip("OFF = still dither · ON = full motion preview on canvas")
     win.chk_video.setChecked(False)
     win.chk_video.stateChanged.connect(win._on_video_toggle)
     g.addWidget(win.chk_video)
@@ -57,6 +90,17 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.btn_use_ordered.setToolTip("Switch to an ordered method so March becomes visible")
     win.btn_use_ordered.clicked.connect(win._use_ordered_method)
     g.addWidget(win.btn_use_ordered)
+    from PySide6.QtWidgets import QWidget as _DetailsBox
+
+    win.btn_motion_details = QPushButton("Details ▸")
+    win.btn_motion_details.setCheckable(True)
+    win.btn_motion_details.setChecked(False)
+    win.btn_motion_details.setToolTip("Timing + preview resolution (Frames/FPS/Length/proxy)")
+    win.btn_motion_details.toggled.connect(win._on_motion_details)
+    g.addWidget(win.btn_motion_details)
+    win._motion_details_box = _DetailsBox()
+    details = QVBoxLayout(win._motion_details_box)
+    details.setContentsMargins(0, 0, 0, 0)
     row2 = QHBoxLayout()
     row2.addWidget(QLabel("Frames:"))
     from PySide6.QtWidgets import QComboBox as _Cmb
@@ -83,7 +127,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.cmb_video_fps.setFixedWidth(72)
     win.cmb_video_fps.currentTextChanged.connect(win._on_video_fps_changed)
     row2.addWidget(win.cmb_video_fps)
-    g.addLayout(row2)
+    details.addLayout(row2)
     dur_row = QHBoxLayout()
     dur_row.addWidget(QLabel("Length:"))
     from PySide6.QtWidgets import QDoubleSpinBox as _DSpin
@@ -103,7 +147,7 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.lbl_duration.setObjectName("subtitleLabel")
     win.lbl_duration.setToolTip("Total = transitions + holds. Hold mandates: every tick adds still frames.")
     dur_row.addWidget(win.lbl_duration, 1)
-    g.addLayout(dur_row)
+    details.addLayout(dur_row)
     row3 = QHBoxLayout()
     row3.addWidget(QLabel("Size:"))
     win.lbl_video_size = QLabel("canvas")
@@ -120,7 +164,9 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.cmb_video_proxy.setMinimumWidth(110)
     win.cmb_video_proxy.currentTextChanged.connect(win._on_video_proxy_changed)
     row3.addWidget(win.cmb_video_proxy)
-    g.addLayout(row3)
+    details.addLayout(row3)
+    win._motion_details_box.setVisible(False)
+    g.addWidget(win._motion_details_box)
     play_row = QHBoxLayout()
     win.btn_video_play = QPushButton("⏸ Pause")
     win.btn_video_play.setToolTip("Play / pause video preview")
@@ -147,8 +193,6 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.btn_rebuild.clicked.connect(win._on_video_rebuild)
     stale_row.addWidget(win.btn_rebuild)
     g.addLayout(stale_row)
-    build_clip_section(win, g)
-    win._sync_duration_ui()
 
 
 def build_clip_section(win, g: QVBoxLayout) -> None:
@@ -157,9 +201,9 @@ def build_clip_section(win, g: QVBoxLayout) -> None:
     The canvas shows the clip dithered through the live preset recipe
     (no raw/proxy toggle: what you see is what the export renders).
     Export lives in the Export window (File → Export → Clip section);
-    batch stays stills-only by design (no clip path there).
+    batch stays stills-only by design (no clip path there). Only the
+    selected Motion source is visible (see the Source radios above).
     """
-    hlab(g, "Clip (session-only input):")
     open_row = QHBoxLayout()
     win.btn_clip_open = QPushButton("Open clip...")
     win.btn_clip_open.setToolTip("Import MP4/GIF/WebP (≤120f, 720p proxy, session-only)")

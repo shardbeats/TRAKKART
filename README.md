@@ -62,7 +62,7 @@ Verify integrity with the published SHA-256 checksums before running.
 2. **Pick a method** — the ◀ ▶ buttons cycle through the 36 engines.
 3. **Adjust color** — SOURCE extracts the palette, Depth limits tones,
    🎲 reshuffles (🔒 locks keep the good inks).
-4. **Animate (optional)** — the VIDEO panel previews; GIF exports at
+4. **Animate (optional)** — MOTION previews (one source at a time); GIF exports at
    document size, MP4 defaults to 1080p.
 5. **Export** — Export… (Ctrl+Shift+S) or Quick export (Ctrl+S).
 

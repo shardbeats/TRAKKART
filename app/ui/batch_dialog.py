@@ -128,7 +128,7 @@ class BatchDialog(QDialog):
         self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
         gif_row = QHBoxLayout()
         self.chk_gif = QCheckBox("Animation GIF")
-        self.chk_gif.setToolTip("Animation uses the VIDEO panel setup at canvas size")
+        self.chk_gif.setToolTip("Animation uses the MOTION panel setup at canvas size")
         self.chk_gif.setChecked(bool(gif_export))
         gif_row.addWidget(self.chk_gif)
         from app.ui.dialog_fields import gif_summary

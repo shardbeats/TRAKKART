@@ -76,7 +76,7 @@ def test_video_on_done_and_error(window):
     assert len(window._video_frames) == 3
     assert window.result is not None
     assert window.sld_video.maximum() == 2
-    assert "VIDEO" in window.lbl_res_title.text()
+    assert "MOTION" in window.lbl_res_title.text()
     vc.on_error(window, "boom", 999)  # stale: silent
     assert "boom" not in window.lbl_status.text()
     vc.on_error(window, "boom", 4)

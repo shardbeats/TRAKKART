@@ -689,7 +689,7 @@ class ExportDialog(QDialog):
             f"Animation: {g.get('frames', 6)}f · {mode_label(m)} ({m}) · "
             f"{g.get('fps', 8)}fps"
             f"{' · ping-pong' if g.get('pingpong') else ''} "
-            f"· {w}×{h}px (canvas){extra}. Edit it in VIDEO."
+            f"· {w}×{h}px (canvas){extra}. Edit it in MOTION."
         )
 
     def _gif_opts(self) -> dict:

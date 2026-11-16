@@ -131,6 +131,12 @@ def toggle(win) -> None:
             win.btn_video_play.setText("⏸ Pause")
         except Exception:  # noqa: BLE001
             pass
+        try:
+            from app.ui import clip_controller as _cc
+
+            _cc.set_motion_source(win, "still")
+        except Exception:  # noqa: BLE001
+            pass
     else:
         win._video_timer.stop()
     win.refresh()
@@ -437,7 +443,22 @@ def sync_duration_ui(win) -> None:
         pass
 
 
+def pause(win) -> None:
+    """Stop procedural playback, keep the mode (clip takes the canvas)."""
+    win._video_playing = False
+    try:
+        win.btn_video_play.setText("▶ Play")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._video_timer.stop()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def playpause(win) -> None:
+    if _clip_active(win):
+        return  # footage owns the canvas: use the clip Play instead
     win._video_playing = not win._video_playing
     try:
         win.btn_video_play.setText("⏸ Pause" if win._video_playing else "▶ Play")
@@ -447,7 +468,19 @@ def playpause(win) -> None:
         win._video_timer.start()
 
 
+def _clip_active(win) -> bool:
+    """True when imported footage owns the canvas right now."""
+    try:
+        from app.ui import clip_controller as _cc
+
+        return bool(_cc.motion_source(win) == "clip" and _cc.has_clip(win))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def scrub(win, v: int) -> None:
+    if _clip_active(win):
+        return
     if not win._video_on or not win._video_frames:
         return
     win._video_idx = max(0, min(len(win._video_frames) - 1, int(v)))
@@ -510,6 +543,8 @@ def on_error(win, msg: str, token: int) -> None:
 
 
 def show_frame(win, force: bool = False) -> None:
+    if _clip_active(win) and not force:
+        return  # single writer: footage owns the canvas right now
     if not win._video_frames:
         return
     if win._comparing and not force:
@@ -520,9 +555,13 @@ def show_frame(win, force: bool = False) -> None:
 
     idx = max(0, min(len(win._video_frames) - 1, int(win._video_idx)))
     frame = win._video_frames[idx]
+    try:
+        mode = str(win.cmb_video_mode.currentText())
+    except Exception:  # noqa: BLE001
+        mode = "mix"
     win.lbl_res.set_wipe_mode(False)
     win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
-    win.lbl_res_title.setText(f"VIDEO · {frame.width}x{frame.height} · f{idx + 1}/{len(win._video_frames)}")
+    win.lbl_res_title.setText(f"MOTION · {frame.width}x{frame.height} · f{idx + 1}/{len(win._video_frames)} ({mode})")
     win.lbl_video_pos.setText(f"{idx + 1}/{len(win._video_frames)}")
     if win.sld_video.value() != idx:
         win.sld_video.blockSignals(True)
@@ -531,6 +570,8 @@ def show_frame(win, force: bool = False) -> None:
 
 
 def next_frame(win) -> None:
+    if _clip_active(win):
+        return
     if not win._video_on or not win._video_playing or not win._video_frames:
         return
     win._video_idx = (win._video_idx + 1) % len(win._video_frames)

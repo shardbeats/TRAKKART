@@ -22,6 +22,59 @@ def clip_fps(win) -> int:
         return 24
 
 
+def motion_source(win) -> str:
+    """Selected Motion source: "clip" only when its radio is checked."""
+    try:
+        if bool(win.rb_motion_clip.isChecked()):
+            return "clip"
+    except Exception:  # noqa: BLE001
+        pass
+    return "still"
+
+
+def set_motion_source(win, which: str) -> None:
+    """Show one Motion source; the other stops writing the canvas.
+
+    Opening a clip selects footage; enabling procedural motion selects
+    the still. Timers of the deselected side stop, so the canvas has a
+    single writer again.
+    """
+    which = "clip" if str(which) == "clip" else "still"
+    for attr, on in (("rb_motion_still", which == "still"),
+                     ("rb_motion_clip", which == "clip")):
+        try:
+            w = getattr(win, attr)
+            w.blockSignals(True)
+            w.setChecked(on)
+            w.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
+    for attr, on in (("_motion_still_box", which == "still"),
+                     ("_motion_clip_box", which == "clip")):
+        try:
+            getattr(win, attr).setVisible(on)
+        except Exception:  # noqa: BLE001
+            pass
+    if which == "clip":
+        try:
+            from app.ui import video_controller as _vc
+
+            _vc.pause(win)
+        except Exception:  # noqa: BLE001
+            pass
+        if has_clip(win):
+            try:
+                scrub(win, int(win.sld_clip.value()))
+            except Exception:  # noqa: BLE001
+                scrub(win, 0)
+    else:
+        stop(win)
+        try:
+            win.refresh()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def trimmed(win) -> list:
     frames = list(getattr(win, "_clip_frames", []) or [])
     if not frames:
@@ -85,6 +138,7 @@ def open_path(win, path) -> bool:
             win._clip_dither_cache.clear()
     except Exception:  # noqa: BLE001
         pass
+    set_motion_source(win, "clip")
     sync_ui(win)
     scrub(win, 0)
     try:
@@ -110,6 +164,7 @@ def close_clip(win) -> None:
             cache.clear()
     except Exception:  # noqa: BLE001
         pass
+    set_motion_source(win, "still")
     sync_ui(win)
     try:
         win._status("Clip closed (session-only, stills untouched)")
@@ -174,7 +229,7 @@ def show_frame(win, idx: int) -> None:
         win.lbl_res.set_wipe_mode(False)
         win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
         win.lbl_res_title.setText(
-            f"CLIP · {frame.width}x{frame.height} · f{i + 1}/{n} (dithered)")
+            f"MOTION · {frame.width}x{frame.height} · f{i + 1}/{n} (clip)")
         win.lbl_clip_pos.setText(f"{i + 1}/{n}")
     except Exception:  # noqa: BLE001
         pass
@@ -191,6 +246,13 @@ def playpause(win) -> None:
     """Toggle trim-range playback (dithered, no audio in-app)."""
     if not has_clip(win):
         return
+    try:
+        from app.ui import video_controller as _vc
+
+        _vc.pause(win)
+    except Exception:  # noqa: BLE001
+        pass
+    set_motion_source(win, "clip")
     playing = not bool(getattr(win, "_clip_playing", False))
     win._clip_playing = playing
     try:
@@ -580,8 +642,9 @@ def export_clip(win, kind: str, fps: int | None = None, track: str | None = None
     return out
 
 
-__all__ = ["has_clip", "clip_fps", "trimmed", "open_dialog", "open_path",
-           "close_clip", "set_range", "scrub", "show_frame", "playpause",
+__all__ = ["has_clip", "clip_fps", "motion_source", "set_motion_source",
+           "trimmed", "open_dialog", "open_path", "close_clip",
+           "set_range", "scrub", "show_frame", "playpause",
            "next_frame", "stop", "sync_info", "sync_ui",
            "dithered_frame", "note_preset_changed",
            "pick_audio", "clear_audio", "clip_names", "render_clip_export",

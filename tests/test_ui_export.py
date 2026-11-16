@@ -533,7 +533,7 @@ def test_gif_opts_come_from_video(window, qt_app):
     for gone in ("spn_gframes", "cmb_gifmode", "spn_gfps", "spn_gsize",
                  "chk_pingpong", "lbl_gifprev"):
         assert not hasattr(dlg, gone)
-    assert "mix" in dlg.lbl_gifspec.text() and "VIDEO" in dlg.lbl_gifspec.text()
+    assert "mix" in dlg.lbl_gifspec.text() and "MOTION" in dlg.lbl_gifspec.text()
     opts, _, gopts = dlg.options()
     assert (gopts["frames"], gopts["mode"]) == (2, "mix")
     assert (gopts["fps"], gopts["size"], gopts["pingpong"]) == (12, opts.size, True)

@@ -21,6 +21,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   "Dithered preview", los 3 botones de export, la fila Track y el spin
   FPS del panel — el FPS y el track viven en el diálogo). El núcleo de
   render (`render_clip_export`) se comparte entre ambos caminos.
+- MOTION de una sola línea (UX, nov-2026): fuente conmutable Animate still XOR Clip footage (radios + cajas por fuente, Timing/proxy colapsado en Details); una sola escritura al canvas.
   Pins: 3 (sección/plan/opciones del diálogo, clip-only, export real
   GIF vía `export_flow`).
 - VFR normalizado en el import de clip (candidata v2.x #2): el reader
@@ -72,7 +73,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   mux/encode, colisión de nombres, proxy escalado en ffmpeg) +
   `tests/test_clip.py` +2 (in-point seek GIF/MP4).
   `tests/test_ui_export.py` +3 (clip dialog section/clip-only/real GIF).
-  Suite: 785 (641 fast + 144 slow). Gherkin 68/68.
+  Suite: 786 (642 fast + 144 slow). Gherkin 68/68.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added
