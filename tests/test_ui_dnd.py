@@ -189,3 +189,23 @@ def test_drop_http_url_too_big(monkeypatch, window):
     window.dropEvent(ev)
     assert warned  # warns, no crash
     assert window.src.size == before
+
+
+def test_drop_mov_opens_session_clip(window, tmp_path, monkeypatch):
+    from PySide6.QtCore import QMimeData, QPoint, Qt, QUrl
+    from PySide6.QtGui import QDropEvent
+
+    import app.ui.clip_controller as _cc
+    import app.ui.image_flow as _flow
+
+    p = tmp_path / "drop.mov"
+    p.write_bytes(b"\x00" * 64)  # routing only: open_path is stubbed
+    opened = []
+    monkeypatch.setattr(_cc, "open_path", lambda w, path: opened.append(str(path)) or True)
+    monkeypatch.setattr(_flow, "load_path",
+                        lambda w, path: (_ for _ in ()).throw(AssertionError("image path taken")))
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(p))])
+    ev = QDropEvent(QPoint(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
+    window.dropEvent(ev)
+    assert opened == [str(p)]

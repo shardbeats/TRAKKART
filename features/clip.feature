@@ -43,3 +43,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I sign a recipe with and without a grain ramp
     Then the envelope key differs
+
+  Scenario: Short track against a long clip warns
+    Given a 48x48 gradient image
+    When I compare a 3s track against a 10s clip
+    Then the note mentions trailing silence

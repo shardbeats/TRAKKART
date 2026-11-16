@@ -781,6 +781,39 @@ def test_export_dialog_clip_mp4_row_shows_weight(qt_app, tmp_path):
     assert "trim 10f" in mp4_rows[0] and "~" in mp4_rows[0]
 
 
+def test_export_dialog_clip_track_warns(qt_app, tmp_path):
+    """Missing/short track surfaces a plan note (mux rule up front)."""
+    import pytest as _pt
+
+    _pt.importorskip("imageio_ffmpeg")
+    from app.video_io import has_video
+
+    if not has_video():
+        _pt.skip("no video backend")
+    from app.ui.export_dialog import ExportDialog
+
+    ci = {"name": "v", "frames": 100, "fps": 10, "start": 0, "end": 99,
+          "span": 100, "duration": 10.0, "start_s": 0.0, "truncated": False,
+          "path": "", "size": [320, 240]}
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d", out_dir=str(tmp_path),
+                       clip_info=ci, clip_fps=10)
+    dlg._video_ok = True
+    dlg.chk_clip_mp4.setEnabled(True)
+    dlg.chk_clip_mp4.setChecked(True)
+    dlg.edit_track.setText(str(tmp_path / "missing.mp3"))
+    assert "silent MP4" in dlg.lbl_exists.text()
+    import wave
+
+    wav = tmp_path / "t.wav"
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 8000 * 3)
+    dlg.edit_track.setText(str(wav))
+    assert "silence after the track ends" in dlg.lbl_exists.text()
+
+
 def test_export_flow_clip_only_writes_gif(window, tmp_path, qt_app):
     """Export window with a session clip and no still: clip GIF lands."""
     from PIL import Image as Img

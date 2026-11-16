@@ -77,12 +77,15 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 
 ## Clip import (v2.0)
 
-- **Input:** MOTION → Open clip (MP4/GIF/WebP, ≤120 frames, 720p proxy,
-  session-only — never saved into presets, batch stays stills-only).
-  Without the video backend the dialog explains the install instead
-  of failing. **Start at (s)** sets the in-point: MP4 seeks with a fast
-  input `-ss`, GIF/WebP skip frames; past the end fails with a clean
-  message. The info line shows `from Xs` plus the source length.
+- **Input:** MOTION → Open clip (MP4-family: `.mp4/.mov/.mkv/.avi/.m4v/.webm`
+  plus GIF/WebP animation, ≤120 frames, 720p proxy, session-only —
+  never saved into presets, batch stays stills-only). Dropping a
+  footage file onto the window opens it as a clip (still WebP still
+  opens as an image). Without the video backend the dialog explains
+  the install instead of failing. **Start at (s)** sets the in-point:
+  MP4-family seeks with a fast input `-ss`, GIF/WebP skip frames; past
+  the end fails with a clean message. The info line shows `from Xs`
+  plus the source length.
 - **Watch:** Trim spins pick the inclusive `[start, end]` range; ▶ Play
   loops it dithered through the live preset (seed = base + frame index,
   so grain/dust flicker per frame — that is the look), or drag the
@@ -102,7 +105,9 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   re-encoded); empty track = silent MP4. A shorter track leaves
   silence at the end — it never shortens the video. If the track
   fails, the silent MP4 is kept. Works with no still open (clip-only
-  export); still outputs stay off in that case. No audio trimming/
+  export); still outputs stay off in that case. The plan shows the
+  track against the clip (`silence after the track ends`, `cut at the
+  clip end`, `silent MP4` when the file is missing). No audio trimming/
   fades in-app.
 - **Full length MP4 (streaming):** the 120f import is only the preview
   window — tick **Full length MP4** and the export renders the whole

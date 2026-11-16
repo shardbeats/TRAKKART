@@ -166,3 +166,15 @@ def sign_recipe_envelopes(ctx):
 def envelope_key_differs(ctx):
     assert ctx["sig_flat"] != ctx["sig_ramp"]
     assert ctx["sig_flat"] == "off"
+
+
+@when("I compare a 3s track against a 10s clip")
+def compare_track_clip(ctx):
+    from app.clip import track_fit_note
+
+    ctx["fit_note"] = track_fit_note(3.0, 10.0)
+
+
+@then("the note mentions trailing silence")
+def track_note_ok(ctx):
+    assert "silence after the track ends" in ctx["fit_note"]

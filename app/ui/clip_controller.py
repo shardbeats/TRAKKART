@@ -97,8 +97,10 @@ def trimmed(win) -> list:
 def open_dialog(win) -> None:
     from PySide6.QtWidgets import QFileDialog
 
-    path, _ = QFileDialog.getOpenFileName(
-        win, "Open clip", "", "Clips (*.mp4 *.gif *.webp)")
+    from app.clip import CLIP_EXTS
+
+    filt = "Clips (*%s)" % " *".join(CLIP_EXTS)
+    path, _ = QFileDialog.getOpenFileName(win, "Open clip", "", filt)
     if path:
         open_path(win, path)
 

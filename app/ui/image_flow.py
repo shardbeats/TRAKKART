@@ -183,8 +183,18 @@ def drop(win, event) -> None:
                 load_path(win, p)
                 handled = True
                 break
+            from app.clip import CLIP_EXTS
+
+            if p.suffix.lower() in CLIP_EXTS:
+                # Footage (containers + GIF/WebP animation) opens as a
+                # session clip; still WebP stays an image (above).
+                from app.ui import clip_controller as _cc
+
+                _cc.open_path(win, p)
+                handled = True
+                break
     if not handled:
-        win._status("Nothing to import: drop images, an image URL or a folder")
+        win._status("Nothing to import: drop images, clips, an image URL or a folder")
 
 
 # -- loaders --

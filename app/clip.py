@@ -8,7 +8,9 @@ as MP4 export). Deterministic, no network.
 Rules (see ROADMAP v2.0):
 - Session-only: frames live in RAM, never in presets/batch.
 - Cap 120f at a 720p proxy (long side <= 720): editing stays light.
-- Supported: .mp4 / .gif / .webp. Without the video backend every
+- Supported: MP4-family containers (.mp4/.mov/.mkv/.avi/.m4v/.webm,
+  any container imageio-ffmpeg reads frames from) + .gif/.webp.
+  Without the video backend every
   entry point raises VideoBackendMissing (clean message, no traceback).
 - Trim is a [start, end] index range over the imported frames.
 - Audio: none in-app (visual preview only); a soundtrack joins at
@@ -25,7 +27,11 @@ from app.video_io import VideoBackendMissing, has_video
 
 CLIP_MAX_FRAMES = 120
 CLIP_PROXY_SIDE = 720
-CLIP_EXTS = (".mp4", ".gif", ".webp")
+#: Video containers go through imageio-ffmpeg (any container it reads
+#: frames from); animations go through Pillow (no ffmpeg decode).
+CLIP_VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm")
+CLIP_ANIM_EXTS = (".gif", ".webp")
+CLIP_EXTS = CLIP_VIDEO_EXTS + CLIP_ANIM_EXTS
 
 MIN_CLIP_FPS = 2
 MAX_CLIP_FPS = 60
@@ -266,7 +272,7 @@ def import_clip(path: str | Path, max_frames: int = CLIP_MAX_FRAMES,
         start = 0.0
     cap = max(1, min(CLIP_MAX_FRAMES, int(max_frames or CLIP_MAX_FRAMES)))
     side = max(64, min(1920, int(proxy_side or CLIP_PROXY_SIDE)))
-    if ext in (".gif", ".webp"):
+    if ext in CLIP_ANIM_EXTS:
         frames, fps, truncated, start, duration = _read_anim_pil(p, cap, side, start)
     else:
         frames, fps, truncated, start, duration = _read_mp4(p, cap, side, start)
@@ -425,6 +431,64 @@ def _mp4_duration(path: str | Path) -> float | None:
         return None
 
 
+def audio_duration(path: str | Path) -> float | None:
+    """Audio length in seconds via the bundled ffmpeg (`-i` header parse).
+
+    Offline, no decode: `ffmpeg -i` prints `Duration: HH:MM:SS.xx` to
+    stderr. None when the file is missing, unreadable or has no duration
+    line (the mux path already fails clean on a bad track; the Export
+    plan uses this only for the honest track-vs-clip note).
+    """
+    import re
+    import subprocess
+
+    p = Path(path)
+    if not p.is_file():
+        return None
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+
+        exe = get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        proc = subprocess.run([exe, "-i", str(p)], capture_output=True,
+                              text=True, timeout=15)
+    except Exception:  # noqa: BLE001
+        return None
+    m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", proc.stderr or "")
+    if not m:
+        return None
+    try:
+        return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    except (TypeError, ValueError):
+        return None
+
+
+def track_fit_note(track_s: float | None, video_s: float | None) -> str:
+    """One-line track-vs-clip note for the Export plan ("" = nothing to say).
+
+    A shorter track leaves silence at the end (never shortens the video);
+    a longer one is cut at the clip end. Within 0.5s they match.
+    """
+    try:
+        t = None if track_s is None else float(track_s)
+        v = None if video_s is None else float(video_s)
+    except (TypeError, ValueError):
+        return ""
+    import math as _math
+
+    if t is None or not _math.isfinite(t) or t <= 0:
+        return ""
+    if v is None or not _math.isfinite(v) or v <= 0:
+        return ""
+    if abs(t - v) <= 0.5:
+        return ""
+    if t < v:
+        return f"track {t:.1f}s vs clip {v:.1f}s → silence after the track ends"
+    return f"track {t:.1f}s vs clip {v:.1f}s → cut at the clip end"
+
+
 def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
                    out_path: str | Path) -> Path:
     """Mux a chosen soundtrack (video copied, never re-encoded).
@@ -509,7 +573,7 @@ def clip_full_length(path: str | Path, start_s: float = 0.0,
     except (TypeError, ValueError):
         start = 0.0
     cap = max(1, min(LONG_MP4_MAX_FRAMES, int(max_total or LONG_MP4_MAX_FRAMES)))
-    if ext in (".gif", ".webp"):
+    if ext in CLIP_ANIM_EXTS:
         total, fps, duration = _anim_info(p)
         if start >= duration:
             raise ValueError(f"start {start:.2f}s beyond clip length {duration:.2f}s: {path}")
@@ -568,7 +632,7 @@ def iter_source_frames(path: str | Path, start_s: float = 0.0,
     cap = max(1, min(LONG_MP4_MAX_FRAMES, int(max_total or LONG_MP4_MAX_FRAMES)))
     side = max(64, min(1920, int(proxy_side or CLIP_PROXY_SIDE)))
     produced = 0
-    if ext in (".gif", ".webp"):
+    if ext in CLIP_ANIM_EXTS:
         _, fps, duration = _anim_info(p)
         if start >= duration:
             raise ValueError(f"start {start:.2f}s beyond clip length {duration:.2f}s: {path}")
@@ -688,8 +752,10 @@ def write_clip_mp4_long(path: str | Path, out_path: str | Path, preset,
 
 
 __all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_EXTS",
+           "CLIP_VIDEO_EXTS", "CLIP_ANIM_EXTS",
            "VideoBackendMissing", "has_clip_io",
            "import_clip", "trim_clip", "clip_duration",
+           "audio_duration", "track_fit_note",
            "iter_dither_clip", "dither_clip",
            "save_clip_zip", "write_clip_mp4", "mux_soundtrack",
            "LONG_MP4_MAX_FRAMES", "clip_full_length",

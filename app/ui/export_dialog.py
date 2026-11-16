@@ -88,6 +88,7 @@ class ExportDialog(QDialog):
         self._preset = preset  # kept for compat; preview lives in Video mode
         self._gif_count = max(1, int(gif_frames))
         self._ready = False  # __init__ signals paint nothing yet
+        self._track_dur_cache: dict = {}  # audio probe memo (plan-only)
         self._still_enabled = bool(still_enabled) and img is not None
         self._clip_info = dict(clip_info) if clip_info else None
 
@@ -333,6 +334,7 @@ class ExportDialog(QDialog):
             self.edit_track = QLineEdit(str(clip_track or ""))
             self.edit_track.setPlaceholderText("Soundtrack (optional, MP4 only)")
             self.edit_track.setToolTip("Audio file muxed at MP4 export (-c:v copy -c:a aac, cut at clip end); empty = silent MP4")
+            self.edit_track.textChanged.connect(lambda _t: self._refresh_plan())
             track_row.addWidget(self.edit_track, 1)
             self.btn_track = QPushButton("Browse...")
             self.btn_track.setToolTip("Pick the soundtrack (offline file, never analyzed)")
@@ -458,6 +460,51 @@ class ExportDialog(QDialog):
             return int(estimate_clip_mp4(w, h, n, self._clip_noise()))
         except Exception:  # noqa: BLE001
             return 0
+
+    def _clip_track_warn(self, full_video_len: float | None = None) -> str:
+        """Track-vs-clip note for the plan ("" = nothing to say).
+
+        Missing track file -> silent MP4 (mux rule); known durations go
+        through `track_fit_note`. Probes are memoized per path so typing
+        in the track field never re-spawns ffmpeg.
+        """
+        try:
+            track = str(self.edit_track.text()).strip()
+        except Exception:  # noqa: BLE001
+            return ""
+        if not track:
+            return ""
+        from pathlib import Path as _P
+
+        if not _P(track).is_file():
+            return "Track not found → silent MP4."
+        try:
+            if track not in self._track_dur_cache:
+                from app.clip import audio_duration
+
+                try:
+                    self._track_dur_cache[track] = audio_duration(track)
+                except Exception:  # noqa: BLE001
+                    self._track_dur_cache[track] = None
+            track_s = self._track_dur_cache.get(track)
+        except Exception:  # noqa: BLE001
+            track_s = None
+        if track_s is None:
+            return "Track length unknown."
+        try:
+            if full_video_len is not None and full_video_len > 0:
+                video_len = float(full_video_len)
+            else:
+                video_len = float((self._clip_info or {}).get("duration", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return ""
+        try:
+            from app.clip import track_fit_note
+
+            note = track_fit_note(track_s, video_len)
+        except Exception:  # noqa: BLE001
+            return ""
+        return f"Track: {note}" if note else ""
 
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
@@ -649,6 +696,7 @@ class ExportDialog(QDialog):
             n += 1
         clip_names = []
         clip_mp4_warn = ""
+        clip_track_warn = ""
         if getattr(self, "_clip_info", None) is not None:
             try:
                 from app.ui.clip_controller import clip_names as _clip_names
@@ -663,6 +711,7 @@ class ExportDialog(QDialog):
                     full_mp4 = False
                 full_note = ""
                 full_est = 0
+                full_video_len = None
                 if full_mp4:
                     try:
                         from app.clip import clip_full_length
@@ -672,6 +721,12 @@ class ExportDialog(QDialog):
                         plan = clip_full_length(str(ci.get("path", "")),
                                                 float(ci.get("start_s", 0.0) or 0.0))
                         total_f = plan["total_frames"]
+                        try:
+                            fps_f = max(2, min(60, int(self.spn_clip_fps.value())))
+                        except Exception:  # noqa: BLE001
+                            fps_f = 24
+                        if total_f:
+                            full_video_len = total_f / max(1, fps_f)
                         noise = self._clip_noise()
                         cw, ch_ = self._clip_wh()
                         full_est = (estimate_clip_mp4(cw, ch_, total_f or 0, noise)
@@ -718,6 +773,10 @@ class ExportDialog(QDialog):
             except Exception:  # noqa: BLE001
                 clip_names = []
                 clip_mp4_warn = ""
+                clip_track_warn = ""
+            if (self.chk_clip_mp4 is not None and self._clip_info is not None
+                    and self.chk_clip_mp4.isChecked()):
+                clip_track_warn = self._clip_track_warn(full_video_len)
         self.lbl_total.setText(
             f"{n} {'file' if n == 1 else 'files'} · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
@@ -765,6 +824,8 @@ class ExportDialog(QDialog):
             notes.append(f"⚠ {clashing} already exist — you'll be asked")
         if clip_mp4_warn:
             notes.append(clip_mp4_warn)
+        if clip_track_warn:
+            notes.append(clip_track_warn)
         if mp4_hint:
             notes.append(mp4_hint)
         self.lbl_exists.setText("\n".join(notes))

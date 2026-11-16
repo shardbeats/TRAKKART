@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.5.0] - 2026-11-16 — preview de clip async (sin freezes)
+## [2.6.0] - 2026-11-16 — contenedores + nota de track (video ingress)
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -126,6 +126,14 @@ bitácora detallada por fase.
   Pins: `tests/test_clip_async.py` (píxeles, tokens, coalescing,
   stale, envolventes) + Gherkin +1 (clip.feature 8). Suite 823
   (675 fast + 148 slow). Gherkin 73/73.
+- P1 video (nov-2026, a pedido): whitelist de contenedores
+  (`.mov/.mkv/.avi/.m4v/.webm` por el mismo reader ffmpeg; diálogo +
+  DnD; still WebP sigue imagen) + probe de track (`audio_duration`
+  vía header ffmpeg, nota `track_fit_note` en el plan: silencio al
+  final / corte al final / silent MP4 si falta). Pins:
+  `tests/test_clip_ingress.py` + drop en `test_ui_dnd.py` + nota en
+  `test_ui_export.py` + Gherkin +1 (clip.feature 9). Suite 830
+  (680 fast + 150 slow). Gherkin 74/74.
 - P0 video (nov-2026, a pedido): ventanas MP4 pineadas contiguas
   (test: 200f ventana == lectura única) + estimador de peso del MP4 de
   clip (`estimate_clip_mp4`: 0.03 B/px + 0.006 por punto de ruido,
