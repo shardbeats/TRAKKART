@@ -104,7 +104,6 @@ class PreviewWorker(WorkerBase):
 
 class VideoWorker(WorkerBase):
     """Full-canvas video preview: N frames in thread, no freeze.
-
     Uses gif_frames() with max_side=video_size (default 1200). Only the
     latest token is applied; old renders are discarded.
     """
@@ -159,3 +158,59 @@ class VideoWorker(WorkerBase):
         d = preset_to_render_kwargs(preset)
         d.pop("phase", None)
         return d
+
+
+def render_clip_frame(frame: Image.Image, preset, index: int, n: int,
+                      envelopes=None, dpi: int = 300) -> Image.Image:
+    """One dithered clip frame (worker body + sync fallback share it).
+
+    Pure pixels, no Qt: `preset` is read-only here (snapshot it on the
+    GUI thread before handing it to a worker). Deterministic: same
+    inputs -> same bytes (global index + recipe + envelopes).
+    """
+    from app.clip import _spec_for
+    from app.pipeline import render_spec
+
+    return render_spec(frame.convert("RGB"),
+                       _spec_for(preset, int(index), max(1, int(n)),
+                                 int(dpi or 300), envelopes))
+
+
+class ClipFrameWorker(WorkerBase):
+    """One clip preview frame in thread (ED recipes freeze the GUI sync).
+
+    Only the latest token paints; stale results still land in the cache
+    when their recipe key matches (never painted, never dropped alive).
+    """
+
+    finished_ok = Signal(object, int, object, int)  # PIL, index, key, token
+    finished_err = Signal(str, int, int)  # msg, index, token
+
+    def __init__(self, frame: Image.Image, preset, index: int, n: int,
+                 key, token: int, envelopes=None, dpi: int = 300,
+                 parent=None) -> None:
+        super().__init__(parent)
+        self.frame = frame
+        self.preset = preset
+        self.index = int(index)
+        self.n = max(1, int(n))
+        self.key = key
+        self.token = int(token)
+        self.envelopes = dict(envelopes or {})
+        self.dpi = int(dpi or 300)
+
+    def work(self) -> None:
+        out = render_clip_frame(self.frame, self.preset, self.index,
+                                self.n, self.envelopes, self.dpi)
+        self.finished_ok.emit(out, self.index, self.key, self.token)
+
+    def _report_error(self, exc: Exception) -> None:
+        from app.log import report_error
+
+        try:
+            idx = int(self.index)
+        except Exception:  # noqa: BLE001
+            idx = -1
+        rid = report_error("clip preview", exc, {"index": idx})
+        self.finished_err.emit(f"[{rid}] {exc}" or type(exc).__name__,
+                               idx, self.token)

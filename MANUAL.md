@@ -86,7 +86,10 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **Watch:** Trim spins pick the inclusive `[start, end]` range; ▶ Play
   loops it dithered through the live preset (seed = base + frame index,
   so grain/dust flicker per frame — that is the look), or drag the
-  slider to scrub frame by frame. No audio in-app, ever. The canvas
+  slider to scrub frame by frame. Preview renders in a worker thread:
+  the slider follows instantly and dithered pixels land on arrival
+  (latest wins, so scrubbing an ED recipe degrades to slow-motion
+  instead of freezing). Cache hits paint instantly. No audio in-app, ever. The canvas
   always shows the clip dithered: what you see is what the export
   renders. Phone (VFR) footage is normalized to a constant fps on
   import (rounded source rate), so the frame count always matches real

@@ -135,6 +135,10 @@ class MainWindow(QMainWindow):
         self._clip_dither_cache: dict = {}
         self._clip_audio: str = ""
         self._clip_playing: bool = False
+        # -- clip preview worker (async dither; latest token paints) --
+        self._clip_worker = None
+        self._clip_token: int = 0
+        self._clip_pending = None
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -244,7 +248,8 @@ class MainWindow(QMainWindow):
         except Exception:  # noqa: BLE001
             pass
         workers = [self._preview_worker, self._batch_worker,
-                   self._video_worker, getattr(self, "_export_worker", None)]
+                   self._video_worker, getattr(self, "_export_worker", None),
+                   getattr(self, "_clip_worker", None)]
         try:
             from app.ui import thread_safe as _ts
         except Exception:  # noqa: BLE001

@@ -1,10 +1,10 @@
 ; TRAKKART installer (Inno Setup 6).
-; Version comes from the command line: ISCC /DMyVersion=2.4.0 installer/trakkart.iss
+; Version comes from the command line: ISCC /DMyVersion=2.5.0 installer/trakkart.iss
 ; (build_installer.py does this automatically from app.__version__).
 ; Expects the one-dir build in dist/portable/TRAKKART (python build_portable.py).
 
 #ifndef MyVersion
-  #define MyVersion "2.4.0"
+  #define MyVersion "2.5.0"
 #endif
 
 [Setup]

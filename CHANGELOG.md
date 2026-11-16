@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.4.0] - 2026-11-16 — peso estimado + contigüidad de ventanas MP4
+## [2.5.0] - 2026-11-16 — preview de clip async (sin freezes)
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -118,6 +118,14 @@ bitácora detallada por fase.
   Trim no aplica al completo; GIF/ZIP siguen en el trim. Pins:
   `tests/test_clip_long.py` + Gherkin +1 (clip.feature 6). Suite 812
   (665 fast + 147 slow). Gherkin 71/71.
+- P0 video (nov-2026, a pedido): preview de clip en worker
+  (`ClipFrameWorker`: un render en vuelo + pending coalescido, latest
+  token pinta; cache-hit pinta sync). El preview ya aplicaba la receta
+  pero ignoraba las envolventes — ahora preview == export y la clave
+  de caché incluye la firma. Cierre limpio (closeEvent une el worker).
+  Pins: `tests/test_clip_async.py` (píxeles, tokens, coalescing,
+  stale, envolventes) + Gherkin +1 (clip.feature 8). Suite 823
+  (675 fast + 148 slow). Gherkin 73/73.
 - P0 video (nov-2026, a pedido): ventanas MP4 pineadas contiguas
   (test: 200f ventana == lectura única) + estimador de peso del MP4 de
   clip (`estimate_clip_mp4`: 0.03 B/px + 0.006 por punto de ruido,

@@ -152,3 +152,17 @@ def estimate_clip_weights(ctx):
 @then("the noisy estimate is several times the quiet one")
 def clip_weights_ok(ctx):
     assert ctx["noisy"] > 5 * ctx["quiet"] > 0
+
+
+@when("I sign a recipe with and without a grain ramp")
+def sign_recipe_envelopes(ctx):
+    from app.envelopes import envelopes_signature
+
+    ctx["sig_flat"] = envelopes_signature({})
+    ctx["sig_ramp"] = envelopes_signature({"grain": {"kind": "ramp", "v0": 0, "v1": 100.0}})
+
+
+@then("the envelope key differs")
+def envelope_key_differs(ctx):
+    assert ctx["sig_flat"] != ctx["sig_ramp"]
+    assert ctx["sig_flat"] == "off"

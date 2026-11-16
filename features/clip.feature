@@ -38,3 +38,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I estimate clip MP4 weight quiet versus noisy
     Then the noisy estimate is several times the quiet one
+
+  Scenario: Recipe key honors envelopes
+    Given a 48x48 gradient image
+    When I sign a recipe with and without a grain ramp
+    Then the envelope key differs

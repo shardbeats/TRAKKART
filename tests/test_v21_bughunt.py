@@ -253,7 +253,9 @@ def test_close_clip_frees_frames_and_cache(window):
 
     gif = _anim(window.out_dir.parent / "c.gif", [(0, 120, 0)] * 4)
     assert cc.open_path(window, gif)
-    cc.scrub(window, 0)
+    cc.scrub(window, 0)  # async: request launched, pixels land later
+    assert cc.request_clip_frame(window, 0) in ("hit", "launched", "coalesced")
+    cc.dithered_frame(window, 0)  # sync fill (same pixels as the worker)
     assert window._clip_dither_cache
     cc.close_clip(window)
     assert window._clip_frames == []

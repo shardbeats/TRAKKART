@@ -76,11 +76,11 @@ features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
 features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
 features/morph_modes.feature :: 11 scenarios (burst determinism, stagger-off legacy, blocks ends assembled, elastic loop + fat-dot joints, match-travel pour, tint, trail, shade, point-cap density, ...)
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
-features/clip.feature     :: 7 scenarios (clip dither deterministic, trim inclusive range, in-point seek, empty envelopes identical, grain ramp moves, full-length plan, quiet vs noisy estimate)
+features/clip.feature     :: 8 scenarios (clip dither deterministic, trim inclusive range, in-point seek, empty envelopes identical, grain ramp moves, full-length plan, quiet vs noisy estimate, envelope key)
 ```
 
-Total: 72/72. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 817 tests (669 fast + 148 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Total: 73/73. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 823 tests (675 fast + 148 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

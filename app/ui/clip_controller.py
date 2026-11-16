@@ -213,31 +213,184 @@ def scrub(win, idx: int) -> None:
 
 
 def show_frame(win, idx: int) -> None:
+    """Scrub target: slider + title follow now, dithered pixels async.
+
+    The dithered canvas no longer blocks on ED recipes: a cache hit
+    paints sync, otherwise `request_clip_frame` renders in thread and
+    the canvas lands on arrival (latest token wins, playback coalesces).
+    """
     frames = getattr(win, "_clip_frames", []) or []
     if not frames:
         return
     i = max(0, min(len(frames) - 1, int(idx)))
-    try:
-        frame = dithered_frame(win, i)
-    except Exception:  # noqa: BLE001
-        frame = frames[i]
     n = len(frames)
-    try:
-        from app.ui.preview_canvas import PREVIEW_MAX_SIDE
-        from app.ui.qt_image import pil_to_pixmap
-
-        win.lbl_res.set_wipe_mode(False)
-        win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
-        win.lbl_res_title.setText(
-            f"MOTION · {frame.width}×{frame.height} · f{i + 1}/{n} (clip)")
-        win.lbl_clip_pos.setText(f"{i + 1}/{n}")
-    except Exception:  # noqa: BLE001
-        pass
     try:
         if int(win.sld_clip.value()) != i:
             win.sld_clip.blockSignals(True)
             win.sld_clip.setValue(i)
             win.sld_clip.blockSignals(False)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        src = frames[i]
+        win.lbl_res_title.setText(
+            f"MOTION · {src.width}×{src.height} · f{i + 1}/{n} (clip)")
+        win.lbl_clip_pos.setText(f"{i + 1}/{n}")
+    except Exception:  # noqa: BLE001
+        pass
+    request_clip_frame(win, i)
+
+
+def _paint_clip_frame(win, image, idx: int) -> None:
+    """Blit a dithered frame (GUI thread only)."""
+    try:
+        from app.ui.preview_canvas import PREVIEW_MAX_SIDE
+        from app.ui.qt_image import pil_to_pixmap
+
+        win.lbl_res.set_wipe_mode(False)
+        win.lbl_res.setPixmap(pil_to_pixmap(image, max_side=PREVIEW_MAX_SIDE))
+        n = len(getattr(win, "_clip_frames", []) or [])
+        win.lbl_res_title.setText(
+            f"MOTION · {image.width}×{image.height} · f{idx + 1}/{max(1, n)} (clip)")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _worker_running(win) -> bool:
+    try:
+        w = getattr(win, "_clip_worker", None)
+        return bool(w is not None and callable(getattr(w, "isRunning", None)) and w.isRunning())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def request_clip_frame(win, idx: int) -> str:
+    """Paint frame `idx`: cache hit sync, else one in-flight render.
+
+    Returns "hit" | "launched" | "coalesced" | "empty". Rapid scrubbing
+    only moves `win._clip_pending`; the done slot drains it, so the GUI
+    thread never queues renders and an ED recipe degrades to
+    slow-motion instead of a freeze.
+    """
+    frames = list(getattr(win, "_clip_frames", []) or [])
+    if not frames:
+        return "empty"
+    i = max(0, min(len(frames) - 1, int(idx)))
+    try:
+        key = _recipe_key(win)
+    except Exception:  # noqa: BLE001
+        key = None
+    try:
+        cache = getattr(win, "_clip_dither_cache", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            win._clip_dither_cache = cache
+        hit = cache.get(i)
+        if hit is not None and hit[0] == key:
+            _paint_clip_frame(win, hit[1], i)
+            return "hit"
+    except Exception:  # noqa: BLE001
+        pass
+    win._clip_pending = i
+    if _worker_running(win):
+        return "coalesced"
+    return _launch_clip_frame(win, i, key)
+
+
+def _launch_clip_frame(win, idx: int, key) -> str:
+    """Start the worker for `idx` (GUI thread; snapshot inputs first)."""
+    from app.ui.preview_worker import ClipFrameWorker
+    from app.ui import thread_safe as _ts
+
+    frames = list(getattr(win, "_clip_frames", []) or [])
+    if not frames:
+        return "empty"
+    i = max(0, min(len(frames) - 1, int(idx)))
+    try:
+        preset = win.current_params()
+    except Exception:  # noqa: BLE001
+        return "empty"
+    try:
+        env = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env = {}
+    try:
+        src = frames[i].copy()
+    except Exception:  # noqa: BLE001
+        return "empty"
+    _ts.retire(getattr(win, "_clip_worker", None))
+    win._clip_token = int(getattr(win, "_clip_token", 0) or 0) + 1
+    worker = ClipFrameWorker(src, preset, i, len(frames), key,
+                             win._clip_token, envelopes=env, parent=win)
+    win._clip_worker = worker
+    try:
+        worker.finished_ok.connect(
+            lambda image, j, k, t: _on_clip_frame_done(win, image, j, k, t))
+        worker.finished_err.connect(
+            lambda msg, j, t: _on_clip_frame_error(win, msg, j, t))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        worker.start()
+    except Exception:  # noqa: BLE001
+        return "empty"
+    return "launched"
+
+
+def _wanted_index(win) -> int | None:
+    try:
+        return int(win.sld_clip.value())
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _on_clip_frame_done(win, image, idx: int, key, token: int) -> None:
+    """Worker arrival (GUI thread): cache always, paint when current."""
+    try:
+        if int(token) != int(getattr(win, "_clip_token", 0) or 0):
+            return  # superseded: never paint stale pixels
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        cache = getattr(win, "_clip_dither_cache", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            win._clip_dither_cache = cache
+        cache[int(idx)] = (key, image)
+        if len(cache) > max(8, len(getattr(win, "_clip_frames", []) or []) + 1):
+            cache.pop(next(iter(cache)))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if _wanted_index(win) == int(idx):
+            _paint_clip_frame(win, image, int(idx))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        nxt = getattr(win, "_clip_pending", None)
+        win._clip_pending = None
+        if nxt is not None and int(nxt) != int(idx) and has_clip(win):
+            request_clip_frame(win, int(nxt))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _on_clip_frame_error(win, msg: str, idx: int, token: int) -> None:
+    """Worker failure (GUI thread): report once, drain pending."""
+    try:
+        if int(token) != int(getattr(win, "_clip_token", 0) or 0):
+            return
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        win._status(f"Clip preview error: {msg}")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        nxt = getattr(win, "_clip_pending", None)
+        win._clip_pending = None
+        if nxt is not None and has_clip(win):
+            request_clip_frame(win, int(nxt))
     except Exception:  # noqa: BLE001
         pass
 
@@ -298,6 +451,19 @@ def next_frame(win) -> None:
 def stop(win) -> None:
     win._clip_playing = False
     try:
+        # A late arrival must never paint over the stopped state.
+        win._clip_token = int(getattr(win, "_clip_token", 0) or 0) + 1
+        win._clip_pending = None
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from app.ui import thread_safe as _ts
+
+        _ts.retire(getattr(win, "_clip_worker", None))
+        win._clip_worker = None
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         timer = getattr(win, "_clip_timer", None)
         if timer is not None:
             timer.stop()
@@ -341,7 +507,11 @@ def _replace(src, dst) -> None:
 
 
 def _recipe_key(win):
-    """Current preset recipe fingerprint (cache key; None = unknown)."""
+    """Current preset recipe fingerprint (cache key; None = unknown).
+
+    Session envelopes ride along: a curve change must invalidate the
+    cache exactly like a preset change (same pixels rule as export).
+    """
     try:
         preset = win.current_params() if hasattr(win, "current_params") else None
         meta = preset.meta() if preset is not None and hasattr(preset, "meta") else None
@@ -350,15 +520,22 @@ def _recipe_key(win):
     try:
         import json
 
-        return json.dumps(meta, sort_keys=True, default=str)
+        from app.envelopes import envelopes_signature
+
+        env = envelopes_signature(getattr(win, "_envelopes", {}) or {})
+        return json.dumps(meta, sort_keys=True, default=str) + "|env=" + env
     except (TypeError, ValueError):
         return None
 
 
 def dithered_frame(win, idx: int):
-    """Frame `idx` through the live preset (cached per recipe; sync)."""
-    from app.clip import _spec_for
-    from app.pipeline import render_spec
+    """Frame `idx` through the live preset (cached per recipe; sync).
+
+    Session envelopes apply here exactly like in export: preview ==
+    pixels. The async path (`request_clip_frame`) shares the pixels
+    via `render_clip_frame`; this stays sync for tests and fallback.
+    """
+    from app.ui.preview_worker import render_clip_frame
 
     frames = list(getattr(win, "_clip_frames", []) or [])
     i = max(0, min(len(frames) - 1, int(idx)))
@@ -375,7 +552,11 @@ def dithered_frame(win, idx: int):
         preset = win.current_params()
     except Exception:  # noqa: BLE001
         return frames[i]
-    out = render_spec(frames[i].convert("RGB"), _spec_for(preset, i, n))
+    try:
+        env = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env = {}
+    out = render_clip_frame(frames[i], preset, i, n, env)
     cache[i] = (key, out)
     # Session cap: trimmed range at most (proxy RAM, no hoard).
     if len(cache) > max(8, n + 1):
@@ -384,9 +565,11 @@ def dithered_frame(win, idx: int):
 
 
 def note_preset_changed(win) -> None:
-    """Refresh hook: stale dither cache drops, live frame re-renders.
+    """Refresh hook: stale dither cache drops, live frame re-renders async.
 
     Called at the top of refresh(); cheap when no clip (one hasattr).
+    The re-render coalesces: an ED recipe no longer freezes the slider
+    that changed it.
     """
     if not has_clip(win):
         return
@@ -401,7 +584,7 @@ def note_preset_changed(win) -> None:
         cur = int(win.sld_clip.value())
     except Exception:  # noqa: BLE001
         return
-    show_frame(win, cur)
+    request_clip_frame(win, cur)
 
 
 def sync_info(win) -> None:
@@ -717,5 +900,6 @@ __all__ = ["has_clip", "clip_fps", "motion_source", "set_motion_source",
            "set_range", "scrub", "show_frame", "playpause",
            "next_frame", "stop", "sync_info", "sync_ui",
            "dithered_frame", "note_preset_changed",
+           "request_clip_frame",
            "pick_audio", "clear_audio", "clip_names", "render_clip_export",
            "render_clip_export_long", "export_clip"]
