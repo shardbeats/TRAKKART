@@ -477,10 +477,11 @@ Reverses the "no clip import" rule (owner nov-2026, see §4): stills stay
 the core product, but a short clip becomes a first-class *input* that
 the existing still pipeline dithers frame by frame. Preview is visual
 only (no audio playback in-app); sound joins at MP4 export.
-- Phase A — import + timeline: open MP4/GIF/WebP clip (imageio-ffmpeg,
-  video extra; clean `VideoBackendMissing` without it); session-only
-  clip store (cap 120f, 720p proxy); timeline editor (frame strip,
-  trim/range pick, scrub) with live visual preview.
+- Phase A — import + timeline: DONE (nov-2026). Open MP4/GIF/WebP clip
+  (`app/clip.py`, video extra con `VideoBackendMissing` limpio);
+  session-only clip store (cap 120f, 720p proxy); timeline editor
+  (MOTION → Clip: info + trim spins + scrub) con preview visual
+  fuente (sin audio, sin dither aún). Pinned por `tests/test_clip.py`.
 - Phase B — dither: current preset recipe applied per frame
   (deterministic seed = base + index; per-frame flicker is the
   aesthetic, documented); reuses `render_spec` + GIF/MP4 writers.

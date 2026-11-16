@@ -2,6 +2,17 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
+### Added
+- Clip import (`app/clip.py`): MP4/GIF/WebP vía backend de video
+  (limpio `VideoBackendMissing` sin el extra), solo-sesión, tope
+  120f, proxy 720p (lado largo), `trim_clip` inclusivo + `clip_duration`.
+  Pinned por `tests/test_clip.py` (proxy/caps, determinismo, trim,
+  backend-ausente, MP4 real).
+- Timeline editor mínimo (MOTION → Clip): Open/Close clip (menú File
+  y panel), info de sesión, spins Trim inicio/fin, scrub del proxy
+  fuente (`app/ui/clip_controller.py`, preview visual sin audio).
+  Batch sigue stills-only por diseño (sin ruta de clip).
 ## [Unreleased] - v1.9 Fase A: ostromoukhov + dizzy + serpentine
 ### Added
 - Motores `ostromoukhov` (difusión de error de coeficientes variables:

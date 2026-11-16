@@ -52,6 +52,10 @@ def build_menus(win) -> None:
     m_file.addSeparator()
     _act(win, m_file, "Open image...", win.open_image_dialog,
          "", "Open an image into the canvas", action_id="file_open")
+    _act(win, m_file, "Open clip...", win.open_clip_dialog,
+         "", "Import a short MP4/GIF/WebP clip (session-only, ≤120f)")
+    _act(win, m_file, "Close clip", win.close_clip,
+         "", "Drop the session clip (stills untouched)")
     m_recent = m_file.addMenu("Open recent")
     m_recent.aboutToShow.connect(lambda: _refresh_recent(win, m_recent))
     m_file.addSeparator()

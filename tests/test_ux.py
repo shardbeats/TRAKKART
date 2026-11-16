@@ -98,12 +98,22 @@ def test_still_mode_skips_auto_refresh(window, qt_app):
 
 
 def test_no_timeline_leftovers(window):
-    """Trim guard: no layer/clip widgets, drift lives in DATAMOSH."""
+    """v2.0 guard: session clip widgets exist, but no layer model.
+
+    The old "no clip import" rule is void (owner nov-2026): short
+    clips are session-only inputs (<=120f, 720p proxy). What stays
+    forbidden is a layer/anim model in presets (anim_layers) and
+    drift outside DATAMOSH.
+    """
     for attr in ("anim_list", "btn_anim_add", "btn_anim_remove", "cmb_anim_prop",
                  "spn_anim_from", "spn_anim_to", "spn_anim_start", "spn_anim_end",
-                 "btn_clip_open", "btn_clip_browse", "lbl_clip",
-                 "anim_layers_data", "clip_frames"):
+                 "anim_layers_data"):
         assert not hasattr(window, attr), attr
+    for attr in ("btn_clip_open", "btn_clip_close", "spn_clip_start",
+                 "spn_clip_end", "sld_clip", "lbl_clip_info", "lbl_clip_pos"):
+        assert hasattr(window, attr), attr
+    assert window.sld_clip.value() == 0
+    assert window.lbl_clip_pos.text() == "–"
     assert window.cmb_drift.count() == 10  # off + 9 Signal Drift patterns
     assert window.sld_drift.value() == 0
     assert window.sld_drift_speed.value() == 100  # 1.0x

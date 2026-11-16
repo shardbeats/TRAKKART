@@ -122,6 +122,11 @@ class MainWindow(QMainWindow):
         self.morph_src = None
         self.morph_path = ""
         self.morph_list: list = []
+        # -- clip import (v2.0 Fase A: session-only, <=120f, 720p proxy) --
+        self._clip_frames: list = []
+        self._clip_info: dict = {}
+        self._clip_start: int = 0
+        self._clip_end: int = -1
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -1221,6 +1226,26 @@ class MainWindow(QMainWindow):
         from app.ui import params_controller as _par
 
         _par.set_morph_repeat(self, value)
+
+    def open_clip_dialog(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.open_dialog(self)
+
+    def close_clip(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.close_clip(self)
+
+    def _on_clip_range(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.set_range(self)
+
+    def _on_clip_scrub(self, value: int) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.scrub(self, int(value))
 
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""

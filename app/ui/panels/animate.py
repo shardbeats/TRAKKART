@@ -6,14 +6,17 @@ Dissolve params + morph chain live in the MORPH page (panels/morph.py).
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
+    QSpinBox,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import tight, labeled_slider
+from app.ui.panels.widgets import hlab, tight, labeled_slider
 
 
 def build_video_section(win, g: QVBoxLayout) -> None:
@@ -144,4 +147,52 @@ def build_video_section(win, g: QVBoxLayout) -> None:
     win.btn_rebuild.clicked.connect(win._on_video_rebuild)
     stale_row.addWidget(win.btn_rebuild)
     g.addLayout(stale_row)
+    build_clip_section(win, g)
     win._sync_duration_ui()
+
+
+def build_clip_section(win, g: QVBoxLayout) -> None:
+    """Clip import + timeline (v2.0 Fase A): session-only, ≤120f, 720p proxy.
+
+    Source-only scrub here; Fase B dithers per frame with the preset.
+    Batch stays stills-only by design (no clip path there).
+    """
+    hlab(g, "Clip (session-only input):")
+    open_row = QHBoxLayout()
+    win.btn_clip_open = QPushButton("Open clip...")
+    win.btn_clip_open.setToolTip("Import MP4/GIF/WebP (≤120f, 720p proxy, session-only)")
+    win.btn_clip_open.clicked.connect(win.open_clip_dialog)
+    open_row.addWidget(win.btn_clip_open, 1)
+    win.btn_clip_close = QPushButton("Close")
+    win.btn_clip_close.setToolTip("Drop the session clip (stills untouched)")
+    win.btn_clip_close.clicked.connect(win.close_clip)
+    win.btn_clip_close.setEnabled(False)
+    open_row.addWidget(win.btn_clip_close)
+    g.addLayout(open_row)
+    win.lbl_clip_info = QLabel("No clip (session-only, ≤120f · 720p proxy)")
+    win.lbl_clip_info.setWordWrap(True)
+    win.lbl_clip_info.setObjectName("subtitleLabel")
+    g.addWidget(win.lbl_clip_info)
+    trim_row = QHBoxLayout()
+    trim_row.addWidget(QLabel("Trim:"))
+    win.spn_clip_start = QSpinBox()
+    win.spn_clip_start.setRange(0, 0)
+    win.spn_clip_start.setToolTip("First frame of the range (inclusive)")
+    win.spn_clip_start.valueChanged.connect(lambda _: win._on_clip_range())
+    trim_row.addWidget(win.spn_clip_start)
+    trim_row.addWidget(QLabel("–"))
+    win.spn_clip_end = QSpinBox()
+    win.spn_clip_end.setRange(0, 0)
+    win.spn_clip_end.setToolTip("Last frame of the range (inclusive)")
+    win.spn_clip_end.valueChanged.connect(lambda _: win._on_clip_range())
+    trim_row.addWidget(win.spn_clip_end)
+    win.lbl_clip_pos = QLabel("–")
+    win.lbl_clip_pos.setToolTip("Timeline position (frame / total)")
+    trim_row.addWidget(win.lbl_clip_pos, 1)
+    g.addLayout(trim_row)
+    win.sld_clip = QSlider(Qt.Horizontal)
+    win.sld_clip.setRange(0, 0)
+    win.sld_clip.setEnabled(False)
+    win.sld_clip.setToolTip("Scrub the source proxy (visual only, no audio)")
+    win.sld_clip.valueChanged.connect(lambda v: win._on_clip_scrub(v))
+    g.addWidget(win.sld_clip)
