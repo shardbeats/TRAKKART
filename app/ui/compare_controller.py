@@ -16,6 +16,27 @@ def _guides_on(win) -> bool:
     return bool(getattr(win, "_show_safe", True))
 
 
+def cvd_mode(win) -> str:
+    """Display-only CVD simulation (off/protan/deutan/tritan)."""
+    try:
+        m = str(getattr(win, "_cvd_mode", "off") or "off").lower()
+    except Exception:  # noqa: BLE001
+        return "off"
+    return m if m in ("off", "protan", "deutan", "tritan") else "off"
+
+
+def _cvd_view(win, img):
+    """CVD-simulated copy for display (document pixels never touched)."""
+    if cvd_mode(win) == "off":
+        return img
+    try:
+        from app.color_access import simulate_cvd
+
+        return simulate_cvd(img.convert("RGB"), cvd_mode(win))
+    except Exception:  # noqa: BLE001
+        return img
+
+
 def guided_pixmap(win, pixmap, w: int, h: int):
     """Display pixmap with 9:16 chrome bands when enabled (copy, no doc touch)."""
     if not _guides_on(win):
@@ -73,10 +94,13 @@ def paint_result(win) -> None:
             win.lbl_res.setPixmap(guided_pixmap(win, pix, SP_W, SP_H))
             win.lbl_res_title.setText(f"SP-404 · {SP_W}x{SP_H} 1-bit (preview)")
             return
-        pix = pil_to_pixmap(win.result, max_side=PREVIEW_MAX_SIDE)
+        pix = pil_to_pixmap(_cvd_view(win, win.result), max_side=PREVIEW_MAX_SIDE)
         win.lbl_res.setPixmap(guided_pixmap(win, pix, win.result.width, win.result.height))
         kind = "VIDEO" if win._video_on else "DITHER"
-        win.lbl_res_title.setText(f"{kind} · {win.result.width}x{win.result.height}")
+        _cvd = cvd_mode(win)
+        win.lbl_res_title.setText(
+            f"{kind} · {win.result.width}x{win.result.height}"
+            + (f" · {_cvd} (preview)" if _cvd != "off" else ""))
 
 
 def wipe_pos(win) -> int:
@@ -143,7 +167,7 @@ def paint_wipe(win, pos: int | None = None) -> None:
         # source: the old jump showed a different aspect at the last tick.
         base = _aligned_orig(win).convert("RGB")
         win.lbl_res.set_wipe_mode(True)
-        pix = guided_pixmap(win, pil_to_pixmap(base, max_side=PREVIEW_MAX_SIDE),
+        pix = guided_pixmap(win, pil_to_pixmap(_cvd_view(win, base), max_side=PREVIEW_MAX_SIDE),
                             res.width, res.height)
         win.lbl_res.setPixmap(pix)
         win.lbl_res_title.setText(f"WIPE 100% · {res.width}x{res.height}")
@@ -158,8 +182,8 @@ def paint_wipe(win, pos: int | None = None) -> None:
     except Exception:  # noqa: BLE001
         return
     right = res.resize((dw, dh)) if (dw, dh) != res.size else res
-    left = np.asarray(base, dtype=np.uint8)
-    arr = np.asarray(right, dtype=np.uint8)
+    left = np.asarray(_cvd_view(win, base), dtype=np.uint8)
+    arr = np.asarray(_cvd_view(win, right), dtype=np.uint8)
     x = max(1, min(dw - 1, int(dw * pos / 100)))
     comp = arr.copy()
     comp[:, :x] = left[:, :x]
@@ -236,6 +260,30 @@ def toggle_safe_areas(win) -> None:
         except Exception:  # noqa: BLE001
             pass
     win._show_safe = on
+    if win.src is None or win.result is None or bool(getattr(win, "_video_on", False)):
+        try:
+            win._schedule_refresh()
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    redisplay(win)
+
+
+def set_cvd_mode(win, mode: str) -> None:
+    """View menu radio: display-only daltonism preview (never doc pixels)."""
+    m = str(mode or "off").lower()
+    if m not in ("off", "protan", "deutan", "tritan"):
+        m = "off"
+    win._cvd_mode = m
+    for kind in ("off", "protan", "deutan", "tritan"):
+        try:
+            act = getattr(win, f"_act_cvd_{kind}", None)
+            if act is not None and act.isChecked() != (kind == m):
+                act.blockSignals(True)
+                act.setChecked(kind == m)
+                act.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
     if win.src is None or win.result is None or bool(getattr(win, "_video_on", False)):
         try:
             win._schedule_refresh()

@@ -18,6 +18,24 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   roundtrip UI en `tests/test_ui_presets.py`.
 - Roster 36 → 38 (`tests/test_dither.py::test_engine_roster_frozen_r14`
   y `tests/test_engines3.py` actualizados a la lista exacta nueva).
+### v1.9 Fase C: color confidence — DONE (nov-2026)
+- Daltonismo preview (`app/color_access.py::simulate_cvd`: matrices
+  protan/deutan/tritan, display-only como safe-areas/SP-404, View →
+  Daltonism preview, wipe incluido). Pinned por
+  `tests/test_color_access.py` (anchors por tinta + determinismo) y
+  Gherkin `color_pro.feature` (+1 escenario).
+- Accesibilidad de paleta: reporte WCAG 2.1 entre tintas vecinas
+  (`contrast_ratio`, `accessibility_report`: ✓ ok / ⚠ <3:1 /
+  BW-collapse <1.5:1) en el hint del strip COLOR.
+  Pinned por `tests/test_color_access.py`.
+- Lospec offline import: parsers `.hex`/`.txt` (un `#RRGGBB` por línea)
+  + `.pal` (JASC-PAL) + despacho unificado
+  (`palette_library.parse_palette_path`), Import acepta
+  `.json/.gpl/.hex/.txt/.pal` locales; >16 tintas trunca a 16.
+  Pinned por `tests/test_color_access.py`.
+- Pack curado: 16 rampas originales dark→light en `palettes/`
+  (21 con las 5 previas, todas válidas 2-16 y ordenadas por
+  luminancia). NIGHT re-entonada (la 2ª tinta colapsaba a 1.45:1).
 ### v1.9 Fase B: print-shop — DONE (nov-2026)
 - RISO trap (`sep_trap`: opción de export + prefs): expande cada tinta
   1px (`MinFilter`), el overprint esconde las hairlines de

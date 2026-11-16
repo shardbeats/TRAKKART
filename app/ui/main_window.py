@@ -107,6 +107,8 @@ class MainWindow(QMainWindow):
         self._show_safe: bool = True
         # -- SP-404 OLED preview (display-only 128x64 1-bit, stills) --
         self._sp404_preview: bool = False
+        # -- daltonism preview (display-only CVD simulation, stills) --
+        self._cvd_mode: str = "off"
         # -- video mode: full canvas preview, 1200px default --
         self._video_on: bool = False
         self._video_frames: list = []
@@ -647,6 +649,11 @@ class MainWindow(QMainWindow):
         from app.ui import compare_controller as _cc
 
         _cc.toggle_sp404_preview(self)
+
+    def set_cvd_mode(self, mode: str) -> None:
+        from app.ui import compare_controller as _cc
+
+        _cc.set_cvd_mode(self, mode)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
         try:

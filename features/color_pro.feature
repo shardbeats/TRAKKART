@@ -13,3 +13,8 @@ Feature: Color Pro
     Given a test image with 2 flat colors
     When I render with SOURCE palette and depth 2
     Then the image keeps its canvas size
+
+  Scenario: Daltonism preview is deterministic
+    Given a test image with 2 flat colors
+    When I simulate protanopia twice
+    Then both simulations are identical

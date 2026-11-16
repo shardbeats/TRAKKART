@@ -35,7 +35,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 |---|---|
 | IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas), framing: cover / contain / stretch / blur / mirror (mirror wraps edges outward for print bleed) |
 | DITHER | preset, method, serpentine (ED scan alternates per row, less streaks), rosette + LPI (CMYK print: screen assignment + ruling at export DPI), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
-| COLOR | adjustments, duotone/brand, custom strip, palette library |
+| COLOR | adjustments, duotone/brand, custom strip, palette library, daltonism preview (View menu), WCAG contrast hints, Lospec offline import |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
 | MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
@@ -163,6 +163,23 @@ Exit 0 = done, 1 = some file failed, 2 = usage error.
   config `.json`.
 - **Session:** by default it reopens your last image and preset on launch
   (disable in Settings).
+
+## Color confidence (daltonism + contrast + Lospec)
+
+- **Daltonism preview:** View → Daltonism preview → Off/Protan/Deutan/
+  Tritan. Display-only simulation (like the safe-area guides and the
+  SP-404 OLED preview): document pixels are never touched. Check your
+  cover the way red-, green- and blue-blind listeners see it before
+  you ship.
+- **Contrast hints:** the COLOR swatch strip reports WCAG contrast
+  between neighboring inks (✓ ok, ⚠ low <3:1, BW-collapse when two
+  inks print as one gray). Low-contrast ramps (SLIME included) are an
+  aesthetic — the hint is honest information, not a block.
+- **Lospec offline import:** COLOR → Import reads local palette files
+  only (no network): `.json` / `.gpl` (GIMP) / `.hex` / `.txt` (one
+  `#RRGGBB` per line) / `.pal` (JASC-PAL). Over 16 colors truncate to
+  the first 16 (engine cap, deterministic). 21 dither-friendly ramps
+  ship in `palettes/` (dark → light), ready to load.
 
 ## Acceleration & video (included)
 

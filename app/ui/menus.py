@@ -136,6 +136,18 @@ def build_menus(win) -> None:
                          "", "Display-only 128x64 1-bit preview for the Roland SP-404MKII (stills)")
     win.act_sp404.setCheckable(True)
     win.act_sp404.setChecked(False)
+    m_cvd = m_view.addMenu("Daltonism preview")
+    m_cvd.setToolTip("Display-only color-vision simulation (never touches pixels)")
+    for _kind, _label, _tip in [
+            ("off", "Off", "Normal vision (no simulation)"),
+            ("protan", "Protan (red-blind)", "Display-only red-blind simulation"),
+            ("deutan", "Deutan (green-blind)", "Display-only green-blind simulation"),
+            ("tritan", "Tritan (blue-blind)", "Display-only blue-blind simulation")]:
+        _a = _act(win, m_cvd, _label, lambda _=False, _k=_kind: win.set_cvd_mode(_k),
+                  "", _tip)
+        _a.setCheckable(True)
+        _a.setChecked(_kind == "off")
+        setattr(win, f"_act_cvd_{_kind}", _a)
 
     m_help = bar.addMenu("Help")
     _act(win, m_help, "Quick tour...", lambda: win.show_tutorial(manual=True),

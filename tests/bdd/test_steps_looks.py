@@ -187,6 +187,20 @@ def keeps_canvas(ctx):
     assert ctx["out"].size == ctx["img"].size
 
 
+@when("I simulate protanopia twice")
+def simulate_protan_twice(ctx):
+    from app.color_access import simulate_cvd
+
+    ctx["out_a"] = simulate_cvd(ctx["img"], "protan")
+    ctx["out_b"] = simulate_cvd(ctx["img"], "protan")
+
+
+@then("both simulations are identical")
+def simulations_same(ctx):
+    assert (list(ctx["out_a"].get_flattened_data())
+            == list(ctx["out_b"].get_flattened_data()))
+
+
 # -- fx_stack.feature (v1.2) --
 @given("a 48x48 gradient image")
 def gradient_48(ctx):

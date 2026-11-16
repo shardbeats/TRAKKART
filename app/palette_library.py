@@ -176,6 +176,23 @@ def is_bw(cells: list | None) -> bool:
         return False
 
 
+def parse_palette_path(path: str | Path) -> tuple[str, list[tuple[int, int, int]]]:
+    """Read a local palette file (.json/.gpl/.hex/.txt/.pal) -> (name, colors).
+
+    Offline: local files only, no network. >16 colors truncate to the
+    first 16 (deterministic); <2 raises. JSON keeps its stored name,
+    other formats fall back to the file stem.
+    """
+    from pathlib import Path as _P
+
+    from app.color_access import parse_palette_text
+
+    p = _P(path)
+    return parse_palette_text(
+        p.read_text(encoding="utf-8", errors="replace"),
+        p.suffix, name=p.stem)
+
+
 __all__ = [
     "CUSTOM_SENTINEL",
     "PALETTES_DIR",
@@ -184,6 +201,7 @@ __all__ = [
     "list_palettes",
     "palette_colors",
     "parse_gpl",
+    "parse_palette_path",
     "save_palette",
     "to_gpl",
 ]

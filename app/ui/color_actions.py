@@ -213,6 +213,15 @@ def sync_custom_label(win) -> None:
     lay.addStretch()
     if n == 1:
         win.lbl_palette_hint.setText("1 color is ignored: custom needs 2–16 colors.")
+    elif n >= 2:
+        try:
+            from app.color_access import accessibility_report
+
+            rep = accessibility_report(win.custom_colors)
+            mark = "⚠ " if (rep["low_pairs"] or rep["bw_collapse"]) else "✓ "
+            win.lbl_palette_hint.setText(mark + rep["message"])
+        except Exception:  # noqa: BLE001
+            win.lbl_palette_hint.setText("")
     else:
         win.lbl_palette_hint.setText("")
 
@@ -282,28 +291,26 @@ def extract_from_image(win, n: int | None = None) -> None:
 
 
 def import_palette_file(win) -> None:
-    """Import .json (TRAKKART/share) or .gpl (GIMP palette) offline."""
+    """Import .json/.gpl/.hex/.txt/.pal offline (local files only)."""
     from pathlib import Path
 
     from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-    from app.palette_library import parse_gpl, save_palette
+    from app.palette_library import parse_palette_path, save_palette
 
     path, _ = QFileDialog.getOpenFileName(
-        win, "Import palette", "", "Palettes (*.json *.gpl);;JSON (*.json);;GIMP (*.gpl)")
+        win, "Import palette", "",
+        "Palettes (*.json *.gpl *.hex *.txt *.pal);;JSON (*.json);;"
+        "GIMP (*.gpl);;HEX (*.hex *.txt);;JASC-PAL (*.pal)")
     if not path:
         return
     try:
         p = Path(path)
-        if p.suffix.lower() == ".gpl":
-            name, colors = parse_gpl(p.read_text(encoding="utf-8", errors="replace"))
-            base = name or p.stem
-        else:
-            import json
-
-            raw = json.loads(p.read_text(encoding="utf-8"))
-            colors = raw.get("colors", raw) if isinstance(raw, dict) else raw
-            base = (raw.get("name", p.stem) if isinstance(raw, dict) else p.stem)
+        if p.suffix.lower() not in (".json", ".gpl", ".hex", ".txt", ".pal"):
+            raise ValueError(f"unsupported palette format: {p.suffix!r}")
+        base, colors = parse_palette_path(p)
+        if not base.strip() or base.strip().lower() == "imported":
+            base = p.stem
         save_palette(base.strip(), [list(c) for c in colors])
         win._palette_base = base.strip()
         win._palette_dirty = False

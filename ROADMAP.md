@@ -448,11 +448,19 @@ the new exact list, nothing else in the roster moves.
   0 = legacy 8px). Pinned by `tests/test_print.py` (+ trap in
   `tests/test_separations.py`, mirror in `tests/test_canvas.py`,
   UI roundtrip in `tests/test_ui_presets.py`).
-- Phase C — color confidence: daltonism preview (protan/deutan/tritan
-  matrices, display-only like safe areas); palette accessibility check
-  (WCAG contrast between adjacent inks, BW-collapse warning); Lospec
-  offline import (GPL/PAL/HEX/TXT parsers, local files only) + curated
-  ~20 dither-friendly pack. Pinned by new `tests/test_color_access.py`.
+- Phase C — color confidence: DONE (nov-2026). Daltonism preview
+  (protan/deutan/tritan matrices in `app/color_access.py`, display-only
+  like safe areas: View → Daltonism preview, wipe included); palette
+  accessibility check (WCAG 2.1 contrast between adjacent inks, ✓/⚠
+  low <3:1/BW-collapse <1.5:1 hint on the COLOR strip); Lospec offline
+  import (.hex/.txt one-#RRGGBB-per-line + JASC .pal + unified
+  `parse_palette_path`, Import accepts .json/.gpl/.hex/.txt/.pal,
+  >16 truncates to 16) + curated pack (16 original dark→light ramps
+  in `palettes/`, 21 total, all valid + luminance-ordered; NIGHT's 2nd
+  ink retuned out of a 1.45:1 collapse). Pinned by new
+  `tests/test_color_access.py` (13 tests: anchors, determinism,
+  WCAG, reports, all parsers, pack) + Gherkin `color_pro.feature` +1
+  (daltonism deterministic).
 - Phase D — docs + gates: MANUAL (print flow, daltonism, Lospec),
   Gherkin +1 (daltonism preview deterministic).
 - Out of scope: NeuQuant/Wu re-quantization, blue-noise mask assets,

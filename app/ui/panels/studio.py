@@ -279,7 +279,7 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     g.addLayout(depth_row)
     io_row = QHBoxLayout()
     win.btn_pal_import = QPushButton("Import")
-    win.btn_pal_import.setToolTip("Import palette .json / .gpl (offline)")
+    win.btn_pal_import.setToolTip("Import palette .json / .gpl / .hex / .txt / .pal (offline, local files)")
     win.btn_pal_import.clicked.connect(win.import_palette_file)
     io_row.addWidget(win.btn_pal_import)
     win.btn_pal_export = QPushButton("Export")
