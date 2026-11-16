@@ -48,3 +48,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I compare a 3s track against a 10s clip
     Then the note mentions trailing silence
+
+  Scenario: Filmstrip covers a long clip
+    Given a 48x48 gradient image
+    When I lay out a 120-frame strip
+    Then it holds 10 stops from first to last

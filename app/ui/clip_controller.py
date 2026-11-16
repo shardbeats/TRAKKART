@@ -73,6 +73,12 @@ def set_motion_source(win, which: str) -> None:
             win.refresh()
         except Exception:  # noqa: BLE001
             pass
+    try:
+        from app.ui import envelope_controller as _env
+
+        _env.sync_envelope_source(win)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def trimmed(win) -> list:
@@ -92,6 +98,116 @@ def trimmed(win) -> list:
     if s > e:
         return []
     return frames[s:e + 1]
+
+
+STRIP_MAX_THUMBS = 10
+
+
+def strip_indices(n: int, max_thumbs: int = STRIP_MAX_THUMBS) -> list[int]:
+    """Evenly spaced frame indices for the filmstrip (pure, pinned).
+
+    Always includes 0 and the last frame; short clips show every frame.
+    """
+    try:
+        total = max(0, int(n))
+        cap = max(1, int(max_thumbs))
+    except (TypeError, ValueError):
+        return []
+    if total <= 0:
+        return []
+    if total <= cap:
+        return list(range(total))
+    return sorted({round(i * (total - 1) / (cap - 1)) for i in range(cap)})
+
+
+def build_strip(win) -> None:
+    """Filmstrip under the scrub row: raw proxy thumbs, click to jump.
+
+    Thumbs are source pixels (no dither cost); the dithered canvas still
+    lands async on arrival. Rebuilt on open (frames are import-fixed).
+    """
+    try:
+        from PySide6.QtCore import QSize
+        from PySide6.QtGui import QIcon
+        from PySide6.QtWidgets import QPushButton
+
+        from app.ui.qt_image import pil_to_pixmap
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        box = getattr(win, "_clip_strip", None)
+        lay = box.layout() if box is not None else None
+        if box is None or lay is None:
+            return
+        while lay.count():
+            item = lay.takeAt(0)
+            try:
+                w = item.widget()
+                if w is not None:
+                    w.deleteLater()
+            except Exception:  # noqa: BLE001
+                pass
+        frames = list(getattr(win, "_clip_frames", []) or [])
+        btns: list = []
+        for i in strip_indices(len(frames)):
+            try:
+                pm = pil_to_pixmap(frames[i], max_side=48)
+                b = QPushButton()
+                b.setIcon(QIcon(pm))
+                b.setIconSize(pm.size().boundedTo(QSize(36, 28)))
+                b.setFixedSize(42, 34)
+                b.setFlat(True)
+                b.setToolTip(f"Frame {i + 1}/{len(frames)}")
+                b.clicked.connect(lambda _c=False, j=i: scrub(win, int(j)))
+                lay.addWidget(b)
+                btns.append((b, int(i)))
+            except Exception:  # noqa: BLE001
+                continue
+        lay.addStretch()
+        win._clip_thumb_btns = btns
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        highlight_strip(win, int(getattr(win, "_clip_start", 0) or 0))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def clear_strip(win) -> None:
+    """Drop the filmstrip (close clip)."""
+    try:
+        box = getattr(win, "_clip_strip", None)
+        lay = box.layout() if box is not None else None
+        if lay is not None:
+            while lay.count():
+                item = lay.takeAt(0)
+                try:
+                    w = item.widget()
+                    if w is not None:
+                        w.deleteLater()
+                except Exception:  # noqa: BLE001
+                    pass
+        win._clip_thumb_btns = []
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def highlight_strip(win, idx: int) -> None:
+    """Amber frame on the thumb nearest the canvas (cheap, sync)."""
+    try:
+        btns = list(getattr(win, "_clip_thumb_btns", []) or [])
+        if not btns:
+            return
+        best = min(btns, key=lambda bj: abs(int(bj[1]) - int(idx)))[1]
+        for b, j in btns:
+            try:
+                b.setStyleSheet(
+                    "border: 2px solid #F5A623; border-radius: 2px;"
+                    if int(j) == int(best) else "")
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def open_dialog(win) -> None:
@@ -140,6 +256,7 @@ def open_path(win, path) -> bool:
             win._clip_dither_cache.clear()
     except Exception:  # noqa: BLE001
         pass
+    build_strip(win)
     set_motion_source(win, "clip")
     sync_ui(win)
     scrub(win, 0)
@@ -155,6 +272,7 @@ def open_path(win, path) -> bool:
 
 def close_clip(win) -> None:
     stop(win)
+    clear_strip(win)
     win._clip_frames = []
     win._clip_info = {}
     win._clip_start = 0
@@ -240,6 +358,7 @@ def show_frame(win, idx: int) -> None:
         win.lbl_clip_pos.setText(f"{i + 1}/{n}")
     except Exception:  # noqa: BLE001
         pass
+    highlight_strip(win, i)
     request_clip_frame(win, i)
 
 
@@ -902,6 +1021,7 @@ __all__ = ["has_clip", "clip_fps", "motion_source", "set_motion_source",
            "set_range", "scrub", "show_frame", "playpause",
            "next_frame", "stop", "sync_info", "sync_ui",
            "dithered_frame", "note_preset_changed",
-           "request_clip_frame",
+           "request_clip_frame", "strip_indices",
+           "build_strip", "clear_strip", "highlight_strip",
            "pick_audio", "clear_audio", "clip_names", "render_clip_export",
            "render_clip_export_long", "export_clip"]

@@ -92,7 +92,12 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   slider to scrub frame by frame. Preview renders in a worker thread:
   the slider follows instantly and dithered pixels land on arrival
   (latest wins, so scrubbing an ED recipe degrades to slow-motion
-  instead of freezing). Cache hits paint instantly. No audio in-app, ever. The canvas
+  instead of freezing). Cache hits paint instantly. A filmstrip under
+  the slider shows up to 10 evenly spaced thumbs (raw proxy pixels,
+  click to jump); the thumb nearest the canvas carries an amber frame.
+  Motion envelopes rest while footage is selected (still-motion only):
+  the Motion row disables with a hint, Drift/Grain keep shaping both
+  paths. No audio in-app, ever. The canvas
   always shows the clip dithered: what you see is what the export
   renders. Phone (VFR) footage is normalized to a constant fps on
   import (rounded source rate), so the frame count always matches real

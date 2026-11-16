@@ -274,3 +274,11 @@ def build_clip_section(win, g: QVBoxLayout) -> None:
     win.sld_clip.valueChanged.connect(lambda v: win._on_clip_scrub(v))
     play_row.addWidget(win.sld_clip, 1)
     g.addLayout(play_row)
+    from PySide6.QtWidgets import QWidget as _StripBox
+
+    win._clip_strip = _StripBox()
+    strip_lay = QHBoxLayout(win._clip_strip)
+    strip_lay.setContentsMargins(0, 2, 0, 0)
+    strip_lay.setSpacing(2)
+    win._clip_thumb_btns = []
+    g.addWidget(win._clip_strip)

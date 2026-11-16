@@ -178,3 +178,16 @@ def compare_track_clip(ctx):
 @then("the note mentions trailing silence")
 def track_note_ok(ctx):
     assert "silence after the track ends" in ctx["fit_note"]
+
+
+@when("I lay out a 120-frame strip")
+def layout_strip(ctx):
+    from app.ui.clip_controller import strip_indices
+
+    ctx["strip"] = strip_indices(120)
+
+
+@then("it holds 10 stops from first to last")
+def strip_ok(ctx):
+    assert len(ctx["strip"]) == 10
+    assert ctx["strip"][0] == 0 and ctx["strip"][-1] == 119

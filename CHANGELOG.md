@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.6.0] - 2026-11-16 — contenedores + nota de track (video ingress)
+## [2.7.0] - 2026-11-16 — filmstrip + Motion descansa en clip (P2 video)
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -134,6 +134,12 @@ bitácora detallada por fase.
   `tests/test_clip_ingress.py` + drop en `test_ui_dnd.py` + nota en
   `test_ui_export.py` + Gherkin +1 (clip.feature 9). Suite 830
   (680 fast + 150 slow). Gherkin 74/74.
+- P2 video (nov-2026, a pedido): filmstrip de hasta 10 miniaturas
+  (proxy crudo, click salta; resaltado ámbar sigue al canvas) +
+  Motion de envolventes descansa con footage (fila deshabilitada con
+  hint; Drift/Grain siguen en ambos paths). Pins:
+  `tests/test_clip_strip.py` + Gherkin +1 (clip.feature 10). Suite 834
+  (684 fast + 150 slow). Gherkin 75/75.
 - P0 video (nov-2026, a pedido): ventanas MP4 pineadas contiguas
   (test: 200f ventana == lectura única) + estimador de peso del MP4 de
   clip (`estimate_clip_mp4`: 0.03 B/px + 0.006 por punto de ruido,

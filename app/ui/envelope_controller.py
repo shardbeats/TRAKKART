@@ -102,6 +102,38 @@ def clear_envelopes(win) -> None:
         pass
 
 
+def sync_envelope_source(win) -> None:
+    """Motion curve only shapes still-motion; with clip footage it rests.
+
+    Called from set_motion_source (both directions): the Motion row
+    disables with an honest tooltip while Drift/Grain keep working
+    (they shape both paths). Never raises (stub windows in tests).
+    """
+    try:
+        from app.ui import clip_controller as _cc
+
+        is_clip = _cc.motion_source(win) == "clip"
+    except Exception:  # noqa: BLE001
+        is_clip = False
+    try:
+        widgets = (getattr(win, "cmb_env_motion_amount", None),
+                   getattr(win, "spn_env_motion_amount_a", None),
+                   getattr(win, "spn_env_motion_amount_b", None))
+        if any(w is None for w in widgets):
+            return
+        tip_on = "Motion curve over the clip (still-motion only)"
+        tip_off = ("Motion shapes still-motion only — "
+                   "clip footage follows Drift/Grain")
+        for w in widgets:
+            try:
+                w.setEnabled(not is_clip)
+                w.setToolTip(tip_off if is_clip else tip_on)
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def build_envelope_section(win, layout) -> None:
     """Three compact rows inside MOTION Details (respects 480px budget)."""
     from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel
@@ -142,7 +174,12 @@ def build_envelope_section(win, layout) -> None:
     hint.setWordWrap(True)
     hint.setObjectName("subtitleLabel")
     layout.addWidget(hint)
+    try:
+        sync_envelope_source(win)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 __all__ = ["PARAMS", "build_envelope_section", "read_envelopes",
-           "sync_envelopes", "clear_envelopes", "init_envelopes"]
+           "sync_envelopes", "sync_envelope_source",
+           "clear_envelopes", "init_envelopes"]
