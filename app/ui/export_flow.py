@@ -53,7 +53,8 @@ def _clip_info_for_dialog(win) -> dict | None:
                 "span": span, "duration": clip_duration(span, fps),
                 "start_s": float(info.get("start_s", 0.0) or 0.0),
                 "truncated": bool(info.get("truncated", False)),
-                "path": str(info.get("path", "") or "")}
+                "path": str(info.get("path", "") or ""),
+                "size": list(info.get("size", [0, 0]) or [0, 0])}
     except Exception:  # noqa: BLE001
         return None
 

@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.3.0] - 2026-11-16 — MP4 completo por streaming (clip largo)
+## [2.4.0] - 2026-11-16 — peso estimado + contigüidad de ventanas MP4
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -118,6 +118,13 @@ bitácora detallada por fase.
   Trim no aplica al completo; GIF/ZIP siguen en el trim. Pins:
   `tests/test_clip_long.py` + Gherkin +1 (clip.feature 6). Suite 812
   (665 fast + 147 slow). Gherkin 71/71.
+- P0 video (nov-2026, a pedido): ventanas MP4 pineadas contiguas
+  (test: 200f ventana == lectura única) + estimador de peso del MP4 de
+  clip (`estimate_clip_mp4`: 0.03 B/px + 0.006 por punto de ruido,
+  calibrado 720p bayer4 q8) en las filas del plan (trim y full, con
+  pico de envolvente) + avisos 100/400MB. Pins: contigüidad, bracket
+  del estimador, `envelope_peak`, fila con peso + Gherkin +1
+  (clip.feature 7). Suite 817 (669 fast + 148 slow). Gherkin 72/72.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

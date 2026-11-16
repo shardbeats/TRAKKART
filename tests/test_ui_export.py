@@ -763,6 +763,24 @@ def test_render_clip_export_long_matches_windowed(tmp_path):
     assert len(dither_clip(list(src_frames), preset)) == 6
 
 
+def test_export_dialog_clip_mp4_row_shows_weight(qt_app, tmp_path):
+    """Trim MP4 row carries a weight estimate when proxy size is known."""
+    from app.ui.export_dialog import ExportDialog
+
+    ci = {"name": "v", "frames": 10, "fps": 10, "start": 0, "end": 9,
+          "span": 10, "duration": 1.0, "start_s": 0.0, "truncated": False,
+          "path": "", "size": [720, 405]}
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d", out_dir=str(tmp_path),
+                       clip_info=ci, clip_fps=10)
+    dlg._video_ok = True
+    dlg.chk_clip_mp4.setEnabled(True)
+    dlg.chk_clip_mp4.setChecked(True)
+    rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
+    mp4_rows = [r for r in rows if r.startswith("d_clip.mp4")]
+    assert len(mp4_rows) == 1
+    assert "trim 10f" in mp4_rows[0] and "~" in mp4_rows[0]
+
+
 def test_export_flow_clip_only_writes_gif(window, tmp_path, qt_app):
     """Export window with a session clip and no still: clip GIF lands."""
     from PIL import Image as Img

@@ -139,3 +139,16 @@ def full_plan_ok(ctx):
     assert ctx["plan"]["start_s"] == 0.0
     assert ctx["plan_capped"]["total_frames"] == 4
     assert ctx["plan_capped"]["capped"] is True
+
+
+@when("I estimate clip MP4 weight quiet versus noisy")
+def estimate_clip_weights(ctx):
+    from app.gif import estimate_clip_mp4
+
+    ctx["quiet"] = estimate_clip_mp4(720, 405, 120, 0.0)
+    ctx["noisy"] = estimate_clip_mp4(720, 405, 120, 30.0)
+
+
+@then("the noisy estimate is several times the quiet one")
+def clip_weights_ok(ctx):
+    assert ctx["noisy"] > 5 * ctx["quiet"] > 0

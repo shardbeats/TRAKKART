@@ -164,6 +164,36 @@ def frame_values(envelopes, progress: float, fallback: dict) -> dict:
     return out
 
 
+def envelope_peak(envelopes, param: str, fallback: float = 0.0) -> float:
+    """Peak value of one param over t in [0, 1] (weight estimates).
+
+    Exact for flat/ramp/keys (endpoints), base+amp for LFO (the sine
+    peak is always hit with integer loops). Empty spec = clamped fallback.
+    """
+    lo, hi = ENVELOPE_PARAMS.get(param, (0.0, 100.0))
+    spec = normalize_envelope((envelopes or {}).get(param)
+                              if isinstance(envelopes, dict) else None, param)
+    if spec is None:
+        return _clamp(fallback, lo, hi)
+    kind = str(spec.get("kind", "off"))
+    if kind == "flat":
+        return _clamp(spec.get("value", fallback), lo, hi)
+    if kind == "ramp":
+        v0 = _num(spec.get("v0", fallback), fallback)
+        v1 = _num(spec.get("v1", v0), v0)
+        return _clamp(max(v0, v1), lo, hi)
+    if kind == "lfo":
+        base = _num(spec.get("base", fallback), fallback)
+        amp = max(0.0, _num(spec.get("amp", 0.0)))
+        return _clamp(base + amp, lo, hi)
+    if kind == "keys":
+        pts = list(spec.get("points", []) or [])
+        if not pts:
+            return _clamp(fallback, lo, hi)
+        return _clamp(max(v for _, v in pts), lo, hi)
+    return _clamp(fallback, lo, hi)
+
+
 def envelopes_signature(envelopes) -> str:
     """Stable short signature for fingerprints (\"off\" when empty)."""
     import hashlib
@@ -178,4 +208,4 @@ def envelopes_signature(envelopes) -> str:
 
 __all__ = ["ENVELOPE_PARAMS", "KINDS", "normalize_envelope",
            "normalize_envelopes", "eval_envelope", "frame_values",
-           "envelopes_signature"]
+           "envelope_peak", "envelopes_signature"]

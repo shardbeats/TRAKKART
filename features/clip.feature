@@ -33,3 +33,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I plan a full-length export of a 10-frame GIF
     Then the plan holds 10 frames uncapped from the in-point
+
+  Scenario: Noisy clip estimates heavier than quiet
+    Given a 48x48 gradient image
+    When I estimate clip MP4 weight quiet versus noisy
+    Then the noisy estimate is several times the quiet one

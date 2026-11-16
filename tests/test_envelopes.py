@@ -74,6 +74,19 @@ def test_motion_range_clamps():
     assert eval_envelope(spec, 0.0, 1.0, "motion_amount") == 3.0
 
 
+def test_envelope_peak():
+    from app.envelopes import envelope_peak
+
+    assert envelope_peak({}, "grain", 7.0) == 7.0
+    assert envelope_peak({"grain": {"kind": "flat", "value": 40}}, "grain") == 40.0
+    ramp = {"grain": {"kind": "ramp", "v0": 10, "v1": 90}}
+    assert envelope_peak(ramp, "grain") == 90.0
+    lfo = {"grain": {"kind": "lfo", "base": 50, "amp": 20, "loops": 2}}
+    assert envelope_peak(lfo, "grain") == 70.0
+    keys = {"grain": {"kind": "keys", "points": [[0, 5], [0.5, 80], [1, 10]]}}
+    assert envelope_peak(keys, "grain") == 80.0
+
+
 def _preset():
     from app.presets import Preset
 

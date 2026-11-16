@@ -42,6 +42,14 @@ MAX_GIF_PIXELS = 1_200_000_000
 MP4_BYTES_PER_PX_TRANS = 0.43
 MP4_BYTES_PER_PX_HOLD = 0.011
 
+#: Clip MP4 cost at quality=8 (measured 720x405 bayer4 BW, x264/yuv420p):
+#: quiet (grain 0, moving content) ~0.025 B/px/f; grain 30 ~0.216 B/px/f.
+#: Animated grain/dust is fresh noise every frame, so the rate grows
+#: ~0.006 B/px per noise point. Rough (±2x across methods/sizes), used
+#: only for plan warnings, never to block.
+CLIP_MP4_BPX_QUIET = 0.03
+CLIP_MP4_BPX_PER_NOISE = 0.006
+
 #: MP4 long-side choices (main image always stays at canvas size).
 MP4_SIZES = ("Canvas", "1080p", "720p")
 

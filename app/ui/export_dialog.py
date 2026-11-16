@@ -414,6 +414,51 @@ class ExportDialog(QDialog):
             s = self._current_size()
             return (s, s)
 
+    def _clip_wh(self) -> tuple[int, int]:
+        """Proxy dims for clip weight estimates (0, 0 when unknown)."""
+        try:
+            w, h = (self._clip_info or {}).get("size", [0, 0])
+            return max(0, int(w)), max(0, int(h))
+        except (TypeError, ValueError):
+            return (0, 0)
+
+    def _clip_noise(self) -> float:
+        """Peak animated noise (grain/dust) for the clip estimate.
+
+        Preset flats, envelope-aware on grain (peak over the curve).
+        Rough by design; the estimator documents ±2x.
+        """
+        base = 0.0
+        try:
+            p = getattr(self, "_preset", None)
+            base = max(float(getattr(p, "grain", 0.0) or 0.0),
+                       float(getattr(p, "dust", 0.0) or 0.0))
+        except (TypeError, ValueError):
+            base = 0.0
+        try:
+            win = self.parent()
+            env = dict(getattr(win, "_envelopes", {}) or {})
+            if env:
+                from app.envelopes import envelope_peak
+
+                base = max(base, float(envelope_peak(env, "grain", base)))
+        except Exception:  # noqa: BLE001
+            pass
+        return max(0.0, min(100.0, base))
+
+    def _clip_short_mp4_est(self) -> int:
+        """Weight estimate for the trim-range clip MP4 (0 when unknown)."""
+        try:
+            from app.gif import estimate_clip_mp4
+
+            n = max(0, int((self._clip_info or {}).get("span", 0)))
+            w, h = self._clip_wh()
+            if n <= 0 or w <= 0 or h <= 0:
+                return 0
+            return int(estimate_clip_mp4(w, h, n, self._clip_noise()))
+        except Exception:  # noqa: BLE001
+            return 0
+
     def _refresh_plan(self) -> None:
         if not getattr(self, "_ready", False):
             return
@@ -603,6 +648,7 @@ class ExportDialog(QDialog):
             total += 2048
             n += 1
         clip_names = []
+        clip_mp4_warn = ""
         if getattr(self, "_clip_info", None) is not None:
             try:
                 from app.ui.clip_controller import clip_names as _clip_names
@@ -616,16 +662,24 @@ class ExportDialog(QDialog):
                 except Exception:  # noqa: BLE001
                     full_mp4 = False
                 full_note = ""
+                full_est = 0
                 if full_mp4:
                     try:
                         from app.clip import clip_full_length
+                        from app.gif import estimate_clip_mp4
 
                         ci = self._clip_info
                         plan = clip_full_length(str(ci.get("path", "")),
                                                 float(ci.get("start_s", 0.0) or 0.0))
                         total_f = plan["total_frames"]
+                        noise = self._clip_noise()
+                        cw, ch_ = self._clip_wh()
+                        full_est = (estimate_clip_mp4(cw, ch_, total_f or 0, noise)
+                                    if total_f else 0)
                         full_note = (f"full {total_f}f"
                                      if total_f is not None else "full length")
+                        if full_est:
+                            full_note += f", {_fmt_size(full_est)}"
                         if plan.get("capped"):
                             full_note += ", capped 3600f"
                     except Exception:  # noqa: BLE001
@@ -637,14 +691,33 @@ class ExportDialog(QDialog):
                     if want:
                         fname = _clip_names(safe)[kind]
                         clip_names.append(fname)
-                        if kind == "mp4" and full_mp4:
-                            self.list_files.addItem(
-                                f"{fname}  ({full_note}, streaming, rendered at export)")
+                        if kind == "mp4":
+                            if full_mp4:
+                                self.list_files.addItem(
+                                    f"{fname}  ({full_note}, streaming, rendered at export)")
+                                total += full_est
+                            else:
+                                short_est = self._clip_short_mp4_est()
+                                if short_est:
+                                    self.list_files.addItem(
+                                        f"{fname}  (trim {self._clip_info.get('span', 0)}f"
+                                        f", {_fmt_size(short_est)}, rendered at export)")
+                                    total += short_est
+                                else:
+                                    self.list_files.addItem(f"{fname}  (clip, rendered at export)")
                         else:
                             self.list_files.addItem(f"{fname}  (clip, rendered at export)")
                         n += 1
+                        if kind == "mp4":
+                            est = full_est if full_mp4 else short_est
+                            for thresh, word in ((400 * 1024 * 1024, "heavy"),
+                                                 (100 * 1024 * 1024, "consider 720p / lower grain")):
+                                if est and est > thresh:
+                                    clip_mp4_warn = f"Clip MP4 ~{_fmt_size(est)} — {word}."
+                                    break
             except Exception:  # noqa: BLE001
                 clip_names = []
+                clip_mp4_warn = ""
         self.lbl_total.setText(
             f"{n} {'file' if n == 1 else 'files'} · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
@@ -690,6 +763,8 @@ class ExportDialog(QDialog):
         notes = []
         if clashing:
             notes.append(f"⚠ {clashing} already exist — you'll be asked")
+        if clip_mp4_warn:
+            notes.append(clip_mp4_warn)
         if mp4_hint:
             notes.append(mp4_hint)
         self.lbl_exists.setText("\n".join(notes))

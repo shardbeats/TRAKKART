@@ -90,3 +90,48 @@ def test_write_clip_mp4_long_gif(tmp_path):
     out, n = write_clip_mp4_long(p, tmp_path / "long.mp4", preset, fps=10)
     assert n == 6
     assert out.stat().st_size > 500
+
+
+def test_mp4_windows_are_contiguous(tmp_path):
+    """Adjacent 120f `-ss` windows concatenate byte-identical to one read."""
+    pytest_mod = __import__("pytest")
+    pytest_mod.importorskip("imageio_ffmpeg")
+    from app.clip import _read_mp4, iter_source_frames
+    from app.video_io import has_video
+
+    if not has_video():
+        pytest_mod.skip("no video backend")
+    import numpy as np
+    from PIL import Image as Img
+
+    p = tmp_path / "contig.mp4"
+    import imageio.v2 as iio2
+
+    wr = iio2.get_writer(str(p), fps=24, codec="libx264", quality=8,
+                         macro_block_size=2)
+    for i in range(200):
+        wr.append_data(np.asarray(
+            Img.new("RGB", (160, 90), (i * 7 % 256, 100, 30))))
+    wr.close()
+    gt, fps, *_ = _read_mp4(p, 200, 720, 0.0)
+    assert fps == 24
+    win = list(iter_source_frames(p, 0.0, 200, 720))
+    assert len(win) == len(gt) == 200
+    assert [f.tobytes() for f in win] == [f.tobytes() for f in gt]
+
+
+def test_estimate_clip_mp4_brackets_measured():
+    """Estimator brackets the bench points (720x405 bayer4 BW q8).
+
+    Measured: 0.87MB @grain 0, 7.6MB @grain 30 over 120f. The estimate
+    is rough (±2x), used for warnings only — pin the bracket, not bytes.
+    """
+    from app.gif import estimate_clip_mp4
+
+    quiet = estimate_clip_mp4(720, 405, 120, 0.0)
+    noisy = estimate_clip_mp4(720, 405, 120, 30.0)
+    assert 400_000 < quiet < 1_800_000
+    assert 3_800_000 < noisy < 15_200_000
+    assert noisy > 5 * quiet
+    assert estimate_clip_mp4(720, 405, 0, 30.0) == 0
+    assert estimate_clip_mp4(720, 405, 120, "junk") == quiet

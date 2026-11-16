@@ -251,8 +251,26 @@ def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
                      + max(0, int(n_hold)) * MP4_BYTES_PER_PX_HOLD))
 
 
+def estimate_clip_mp4(w: int, h: int, n: int, noise: float = 0.0) -> int:
+    """Rough clip MP4 weight (bytes): every frame is a P-frame of moving
+    content, and animated grain/dust adds fresh noise per frame.
+
+    `noise` = peak grain/dust 0-100 (envelope-aware via `envelope_peak`).
+    Rate = QUIET + PER_NOISE * noise (calibrated 720x405 bayer4 BW q8:
+    0.025 @0, 0.216 @30). ±2x across methods/sizes; warnings only.
+    """
+    from app.anim.limits import CLIP_MP4_BPX_PER_NOISE, CLIP_MP4_BPX_QUIET
+
+    px = max(1, int(w)) * max(1, int(h))
+    try:
+        nz = max(0.0, min(100.0, float(noise)))
+    except (TypeError, ValueError):
+        nz = 0.0
+    return int(px * max(0, int(n)) * (CLIP_MP4_BPX_QUIET + CLIP_MP4_BPX_PER_NOISE * nz))
+
+
 __all__ = ["_clamp_frames", "plan_dissolve", "leg_transitions",
            "Segment", "plan_segments", "segment_total",
            "solve_hold_for_length",
            "_check_gif_budget", "estimate_gif", "estimate_webp",
-           "_even_down", "mp4_dims", "estimate_mp4"]
+           "_even_down", "mp4_dims", "estimate_mp4", "estimate_clip_mp4"]

@@ -107,6 +107,11 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   decoded in 120f windows so RAM stays flat. Same pixels as a full-RAM
   render (global seeds + envelopes). Trim spins do not apply to the
   full export; GIF/ZIP always stay on the trim range.
+- **MP4 weight estimate:** the plan rows show `~XB` on clip MP4s (trim
+  and full): animated grain/dust multiplies weight ~9x (measured 720p
+  bayer4: 0.87MB quiet vs 7.6MB at grain 30 over 120f), so the estimate
+  uses peak noise (preset + envelope) and warns past 100MB / 400MB like
+  the still MP4. Rough ±2x, warnings only, never blocks.
 - **Framing (no per-clip crop):** the clip cover-fits the still canvas —
   it follows IMAGE → Crop (mode/focus/zoom, `Adjust crop...`). Move the
   still crop and the clip re-frames, preview and export alike (same
