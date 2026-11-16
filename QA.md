@@ -80,7 +80,7 @@ features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 780 tests (639 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 782 tests (641 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -135,6 +135,11 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
 - **Clip exports never overwrite** (stills already renamed): GIF/ZIP/MP4
   pick the first free name (`base_2`, `base_3`…), so re-exporting does
   not destroy an earlier render.
+- **VFR normalization:** the MP4 reader always passes `-vf fps=N`
+  (N = rounded source fps, clamped 2–60). CFR is a passthrough
+  (byte-identical frames); VFR collapses to an honest CFR (30 real →
+  29 reads ≈ duration × N instead of 57 duplicates). `info` fps is the
+  effective rate; no UI change (automatic).
 - Pins: `tests/test_v21_bughunt.py` (28: thread life-cycle for preview
   / export / watch / pip, project wipe, cache hygiene, corrupt input,
   unknown nframes, ffmpeg-side proxy (`_proxy_dims`), short-track mux,

@@ -135,6 +135,14 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int,
     In-point seek uses a fast input `-ss` (`input_params`, before `-i`):
     frame-accurate on ffmpeg 7.1 (frame 10/30 reads back exact gray).
     Returns (frames, fps, truncated, start_s, source_duration).
+
+    VFR normalization: phone captures are VFR and imageio's native pass
+    **duplicates frames** (a 30-real-frame VFR test read back 57), so
+    120 imported frames would cover less real time than the label says.
+    The reader always gets `-vf fps=N` (N = rounded source fps, clamped
+    2–60): a no-op passthrough on CFR sources (verified: 30/30 frames
+    identical), and on VFR it outputs an honest CFR (57 → 29 frames ≈
+    duration × N). The returned fps is the *effective* CFR.
     """
     import imageio.v2 as iio2
 
@@ -147,6 +155,7 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int,
         fps = _clamp_fps(meta.get("fps", 24))
     except Exception:  # noqa: BLE001
         fps = 24
+    norm = _clamp_fps(round(fps))
     source_duration: float | None = None
     try:
         import math as _math
@@ -160,7 +169,7 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int,
         raise ValueError(f"start {start:.2f}s beyond clip length {source_duration:.2f}s: {path}")
     total = meta.get("nframes", None)
     src = meta.get("size")
-    kw: dict = {}
+    kw: dict = {"output_params": ["-vf", f"fps={norm}"]}
     if start > 0:
         kw["input_params"] = ["-ss", f"{start:.3f}"]
     if isinstance(src, (tuple, list)) and len(src) == 2:
@@ -195,7 +204,7 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int,
                 # "unknown", never "not truncated" — the cap flag set
                 # above must survive.
                 if _math.isfinite(t):
-                    truncated = truncated or int(t) > len(frames) + int(start * fps)
+                    truncated = truncated or int(t) > len(frames) + int(start * norm)
             except (TypeError, ValueError, OverflowError):
                 pass
     finally:
@@ -205,7 +214,7 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int,
             pass
     if not frames:
         raise ValueError(f"no frames: {path}")
-    return frames, fps, truncated, start, source_duration
+    return frames, norm, truncated, start, source_duration
 
 
 def import_clip(path: str | Path, max_frames: int = CLIP_MAX_FRAMES,

@@ -205,6 +205,56 @@ def test_inpoint_seek_gif_skips_frames(tmp_path):
         import_clip(src, start_s=99.0)
 
 
+def test_vfr_normalized_to_honest_cfr(tmp_path):
+    """VFR sources must not explode: output is CFR at the rounded rate."""
+    pytest.importorskip("imageio_ffmpeg")
+    import subprocess
+
+    from imageio_ffmpeg import get_ffmpeg_exe
+
+    from app.clip import import_clip
+    from app.video_io import has_video
+
+    if not has_video():
+        pytest.skip("no video backend")
+    import imageio.v2 as iio2
+
+    import numpy as np
+
+    cfr = str(tmp_path / "cfr.mp4")
+    w = iio2.get_writer(cfr, fps=10, codec="libx264", macro_block_size=2)
+    for i in range(30):
+        w.append_data(np.full((48, 64, 3), (i * 8) % 256, dtype=np.uint8))
+    w.close()
+    vfr = str(tmp_path / "vfr.mp4")
+    rc = subprocess.run([get_ffmpeg_exe(), "-y", "-i", cfr, "-vf",
+                         r"setpts=if(gte(N\,10)\,PTS*2\,PTS)",
+                         "-fps_mode", "vfr", "-c:v", "libx264",
+                         "-pix_fmt", "yuv420p", vfr],
+                        capture_output=True).returncode
+    assert rc == 0
+
+    # Native imageio pass duplicates: 30 real frames read back as ~57.
+    r = iio2.get_reader(vfr)
+    assert sum(1 for _ in r) > 40
+    r.close()
+
+    # Normalized: ~duration x N frames, no explosion, real-time length.
+    frames, info = import_clip(vfr)
+    assert info["fps"] == 5  # round(5.36) of the VFR probe
+    assert len(frames) == pytest.approx(info["source_duration"] * 5, abs=3)
+    assert len(frames) < 40
+    assert info["truncated"] is False  # whole short clip fits in the cap
+
+    # CFR sources pass through untouched (same count, same pixels).
+    c0, i0 = import_clip(cfr)
+    assert (len(c0), i0["fps"]) == (30, 10)
+    r = iio2.get_reader(cfr)
+    raw = [f.tobytes() for f in r]
+    r.close()
+    assert [f.tobytes() for f in c0] == raw
+
+
 def test_inpoint_seek_mp4_uses_input_ss_and_clamps(tmp_path, monkeypatch):
     """MP4 in-point goes through input -ss; past-the-end fails clean."""
     pytest.importorskip("imageio_ffmpeg")

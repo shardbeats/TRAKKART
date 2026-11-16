@@ -518,7 +518,8 @@ No new features until the tree is compact and hunted:
   binary. Real 2GB clip: import 3.5s → 0.5s after the ffmpeg-side
   scaling, 120f dither 1.05s (~9ms/frame), GIF/ZIP/MP4 valid; clip
   exports now rename instead of overwriting.
-  Pins: `tests/test_v21_bughunt.py` (+28, suite 780 = 639 fast + 141
+  Pins: `tests/test_v21_bughunt.py` (+28) + `tests/test_clip.py` (+3:
+  in-point GIF/MP4, VFR normalization; suite 782 = 641 fast + 141
   slow; Gherkin 68).
 - [x] Online research + measurement (nov-2026): proxy downscale moved
   inside ffmpeg (`size=`/`-s` on the reader) instead of decoding native
@@ -562,14 +563,12 @@ keep/cut.
    OR after the window). Still session-only, ≤120f, 720p proxy,
    deterministic, no network. Pins: unit (GIF skip, MP4 `-ss`, clamps)
    + Gherkin +1 (68). Real 1080p/38MB: `start=10s` ~1.0s, pixels differ.
-2. VFR/timebase normalization on import. Phone captures are VFR and
-   imageio's native pass **duplicates frames**: a 30-frame VFR test
-   (10fps then 5fps) came back as 57 frames, so 120 imported frames can
-   cover less (or more) real time than the label says. Normalize to a
-   chosen CFR (`-vf fps=N`, N = round(source fps), clamp 2–30) or use
-   `-fps_mode passthrough` + real per-frame timing; record the
-   effective fps and real duration in `info`. Pins: synthetic VFR keeps
-   real-time length, no duplicate explosion, CFR sources unchanged.
+2. [x] VFR/timebase normalization on import — SHIPPED nov-2026.
+   The MP4 reader always gets `-vf fps=N` (N = rounded source fps,
+   clamped 2–60): passthrough on CFR (verified byte-identical), honest
+   CFR on VFR (synthetic 30-real-frame file went 57 → 29 reads ≈
+   duration × N). `info` fps is the effective rate. Pins: unit (VFR +
+   CFR-untouched). No UI change (automatic), no new Gherkin (gate 68).
 3. Timeline param envelopes (keyframes/curves/LFO, deterministic).
    Builds on the v2.0 timeline + sacred-Length math: per-clip curves
    for preset params (e.g. motion amount, drift, grain) instead of

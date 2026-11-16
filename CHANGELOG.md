@@ -12,6 +12,13 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   Medido en 1080p/38MB real: `start=10s` importa en ~1.0s, píxeles
   distintos al `start=0`. Pins: unit (GIF skip, MP4 `-ss`, clamps) +
   Gherkin +1 (68).
+- VFR normalizado en el import de clip (candidata v2.x #2): el reader
+  lleva siempre `-vf fps=N` (N = fps fuente redondeado, 2–60). En CFR
+  es passthrough (verificado: mismos 30 frames, mismos bytes); en VFR
+  el pase nativo duplicaba (30 reales → 57 leídos) y ahora sale un CFR
+  honesto (29 ≈ duración × N). El `fps` de `info` es el efectivo.
+  Medido en real CFR (1080p y 4K): mismo 120f/30fps, mismo ~1.2s.
+  Pins: unit (VFR sintético + CFR intacto).
 ### Fixed
 - **Crash duro al cargar un clip y hacer New project / cerrar** (sin
   traceback, `0xC0000409`): se soltaba la referencia de un `QThread`
@@ -53,7 +60,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   nframes desconocido, mux con track corto, restos parciales de
   mux/encode, colisión de nombres, proxy escalado en ffmpeg) +
   `tests/test_clip.py` +2 (in-point seek GIF/MP4).
-  Suite: 780 (639 fast + 141 slow). Gherkin 68/68.
+  Suite: 782 (641 fast + 141 slow). Gherkin 68/68.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

@@ -93,6 +93,8 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **Hygiene:** a long source shows "capped at 120f"; File → New
   project (or Close) drops the session clip and its preview cache.
   Exports never overwrite: a second export lands as `base_2`.
+  Phone (VFR) footage is normalized to a constant fps on import
+  (rounded source rate), so the frame count always matches real time.
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).
