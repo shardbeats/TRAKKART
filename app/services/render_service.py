@@ -64,9 +64,9 @@ def render_preview_small(img: Image.Image, preset: Preset,
     return render(small, **kwargs)
 
 
-def render_full(img: Image.Image, preset: Preset) -> Image.Image:
-    """Full-res render for export (no downscale)."""
-    return render(img, **preset_to_render_kwargs(preset))
+def render_full(img: Image.Image, preset: Preset, dpi: int = 300) -> Image.Image:
+    """Full-res render for export (no downscale). dpi threads into print engines."""
+    return render(img, **preset_to_render_kwargs(preset, dpi=int(dpi or 300)))
 
 
 def should_render_async(img: Image.Image) -> bool:

@@ -68,6 +68,7 @@ class ExportDialog(QDialog):
         social: bool = False,
         dpi: int = 300,
         sep: bool = False,
+        sep_trap: bool = False,
         sp404: bool = False,
         parent=None,
     ) -> None:
@@ -172,6 +173,9 @@ class ExportDialog(QDialog):
         self.chk_sep = QCheckBox("Ink separations (print)")
         self.chk_sep.setChecked(bool(sep))
         self.chk_sep.setToolTip("One PNG per palette ink + registration marks (RISO/screen print)")
+        self.chk_trap = QCheckBox("RISO trap (1px ink expand)")
+        self.chk_trap.setChecked(bool(sep_trap))
+        self.chk_trap.setToolTip("Expand every ink area by 1px so small misregistrations don't show white hairlines")
         self.chk_sp404 = QCheckBox("SP-404MKII BMP (128×64 1-bit)")
         self.chk_sp404.setChecked(bool(sp404))
         self.chk_sp404.setToolTip("Roland SP-404MKII still: one 128×64 1-bit BMP of the current image (rename it to startup_N/screen_saver_N yourself)")
@@ -188,7 +192,7 @@ class ExportDialog(QDialog):
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_meta,
+                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
@@ -447,7 +451,8 @@ class ExportDialog(QDialog):
                 n_plates = plate_count(getattr(self, "_preset", None))
                 est_s = estimate_sep(dw, dh, n_plates)
                 safe = sanitize_base(self.edit_base.text().strip() or "cover")
-                self.list_files.addItem(f"{safe}_sep_*.png  ({n_plates} plates · {_fmt_size(est_s)})")
+                trap = " · trap" if self.chk_trap.isChecked() else ""
+                self.list_files.addItem(f"{safe}_sep_*.png  ({n_plates} plates{trap} · {_fmt_size(est_s)})")
                 total += est_s
                 n += 1
             except Exception:  # noqa: BLE001
@@ -560,6 +565,7 @@ class ExportDialog(QDialog):
         g["tiff"] = bool(self.chk_tiff.isChecked())
         g["social"] = bool(self.chk_social.isChecked())
         g["sep"] = bool(self.chk_sep.isChecked())
+        g["sep_trap"] = bool(self.chk_trap.isChecked())
         g["sp404"] = bool(self.chk_sp404.isChecked())
         try:
             g["mp4_size"] = str(self.cmb_mp4_size.currentText())

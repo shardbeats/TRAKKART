@@ -51,6 +51,9 @@ class RenderSpec:
     palette_name: str = "SLIME"
     threshold: float = 128.0
     serpentine: bool = False
+    rosette: str = "standard"
+    cmyk_lpi: int = 0
+    dpi: int = 300
     pixel_size: int = 1
     adjust: Adjust | dict | None = None
     ratio: str = "1:1"
@@ -120,7 +123,8 @@ class RenderSpec:
     paste_seed: int = 0x9A57
 
     @staticmethod
-    def from_preset(preset, phase: int = 0, drift_progress: float | None = None) -> "RenderSpec":
+    def from_preset(preset, phase: int = 0, drift_progress: float | None = None,
+                    dpi: int = 300) -> "RenderSpec":
         """Preset -> normalized spec. Single conversion (see render_params)."""
         from app.render_params import (
             normalize_grille,
@@ -136,6 +140,9 @@ class RenderSpec:
             palette_name=preset.palette,
             threshold=float(preset.threshold),
             serpentine=bool(getattr(preset, "serpentine", False)),
+            rosette=str(getattr(preset, "rosette", "standard") or "standard"),
+            cmyk_lpi=int(getattr(preset, "cmyk_lpi", 0) or 0),
+            dpi=max(72, min(600, int(dpi or 300))),
             pixel_size=int(preset.pixel_size),
             adjust=preset.adjust(),
             ratio=preset.ratio,
@@ -221,6 +228,9 @@ class RenderSpec:
             "palette": pal_label,
             "threshold": float(self.threshold),
             "serpentine": bool(getattr(self, "serpentine", False)),
+            "rosette": str(getattr(self, "rosette", "standard") or "standard"),
+            "cmyk_lpi": int(getattr(self, "cmyk_lpi", 0) or 0),
+            "dpi": int(getattr(self, "dpi", 300) or 300),
             "pixel_size": int(self.pixel_size),
             "adjust": a.to_dict(),
             "ratio": self.ratio,
@@ -353,6 +363,9 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
         palette=pal,
         threshold=float(s.threshold),
         serpentine=bool(getattr(s, "serpentine", False)),
+        rosette=str(getattr(s, "rosette", "standard") or "standard"),
+        lpi=int(getattr(s, "cmyk_lpi", 0) or 0),
+        dpi=int(getattr(s, "dpi", 300) or 300),
         pixel_size=int(s.pixel_size),
         adjust=s.adjust,
         phase=int(s.phase),
@@ -372,9 +385,9 @@ def render(img: Image.Image, **kwargs) -> Image.Image:
     return render_spec(img, RenderSpec(**kwargs))
 
 
-def render_preset(img: Image.Image, preset, phase: int = 0) -> Image.Image:
-    """Shortcut: render_spec(img, RenderSpec.from_preset(preset, phase))."""
-    return render_spec(img, RenderSpec.from_preset(preset, phase=phase))
+def render_preset(img: Image.Image, preset, phase: int = 0, dpi: int = 300) -> Image.Image:
+    """Shortcut: render_spec(img, RenderSpec.from_preset(preset, phase, dpi))."""
+    return render_spec(img, RenderSpec.from_preset(preset, phase=phase, dpi=dpi))
 
 
 def meta_dict(

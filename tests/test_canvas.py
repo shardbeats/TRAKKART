@@ -84,7 +84,7 @@ def test_cover_never_returns_zero_dimensions():
 def test_invalid_ratio_and_mode_fallback():
     assert to_canvas(_img(), ratio="99:99").size == (300, 300)
     assert to_canvas(_img(), ratio="1:1", mode="weird").size == (300, 300)
-    assert set(CROP_MODES) == {"cover", "contain", "stretch", "blur"}
+    assert set(CROP_MODES) == {"cover", "contain", "stretch", "blur", "mirror"}
 
 
 def test_stretch_honors_ratio_without_crop():
@@ -101,6 +101,23 @@ def test_blur_fits_whole_image_without_bars():
     assert out.getpixel((0, 0)) != (0, 0, 0)
     out169 = to_canvas(_img(), ratio="16:9", mode="blur")
     assert out169.size == (400, 225)
+
+
+def test_mirror_fits_whole_image_with_reflected_bleed():
+    import numpy as np
+
+    out = to_canvas(_img(), ratio="1:1", mode="mirror")
+    assert out.size == (400, 400)
+    a = np.asarray(out)
+    # Top/bottom bars are the fitted image reflected outward (bleed,
+    # not black bars and not smear): row 0 mirrors fg row 100.
+    assert np.array_equal(a[0, :], a[100, :])
+    assert np.array_equal(a[-1, :], a[-101, :])
+    assert tuple(out.getpixel((0, 0))) != (0, 0, 0)
+    # Exact aspect: mirror is a no-op copy of the fitted frame.
+    wide = to_canvas(_img(400, 300), ratio="4:3", mode="mirror")
+    assert wide.size == (400, 300)
+    assert list(wide.get_flattened_data()) == list(_img(400, 300).get_flattened_data())
 
 
 def test_crop_zoom_one_matches_classic():

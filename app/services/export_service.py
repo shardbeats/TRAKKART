@@ -52,6 +52,7 @@ def export_full(
     tiff: bool = False,
     social: bool = False,
     sep: bool = False,
+    sep_trap: bool = False,
     sp404: bool = False,
     dpi: int = 300,
     morph_src: Image.Image | None = None,
@@ -91,8 +92,9 @@ def export_full(
     want_tiff = bool(tiff)
     want_social = bool(social)
     want_sep = bool(sep)
+    want_trap = bool(sep_trap)
     want_sp404 = bool(sp404)
-    res = render_full(src, preset)
+    res = render_full(src, preset, dpi=int(dpi if dpi is not None else 300))
 
     svg = None
     cols_rows = vector_cells
@@ -280,7 +282,7 @@ def export_full(
                                      separation_plates)
 
         colors = effective_palette(preset, res)
-        plates = separation_plates(res, colors)
+        plates = separation_plates(res, colors, trap_px=1 if want_trap else 0)
         for i, (hexcode, plate) in enumerate(plates):
             sep_path = Path(out_dir) / sep_name(options.base, i, hexcode)
             if overwrite == "skip" and sep_path.exists():

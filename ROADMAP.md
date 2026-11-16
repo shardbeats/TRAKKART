@@ -438,10 +438,16 @@ the new exact list, nothing else in the roster moves.
   `apply_method`. Roster 36 → 38. Pinned by `tests/test_dither.py`
   (frozen-list update + per-engine determinism + parity) + UI
   roundtrip in `tests/test_ui_presets.py`.
-- Phase B — print-shop: RISO trap (1px expand for misregistration) +
-  300 DPI separations; mirror-wrap third framing (np.flip edges: bleed
-  without smear, beside stretch/blur); CMYK rosette angle presets
-  (15/45/0/75); LPI control tied to DPI (not fixed px). Pinned by `tests/test_separations.py`.
+- Phase B — print-shop: DONE (nov-2026). RISO trap (1px expand for
+  misregistration, `sep_trap` export option + prefs, overprint);
+  300 DPI separations (export DPI threads into the CMYK LPI calc);
+  mirror-wrap third framing (`fit_mirror`, np.pad reflect: bleed
+  without smear, beside stretch/blur, `mirror` in CROP_MODES);
+  CMYK rosette presets (standard byte-identical / alt / single);
+  LPI control tied to DPI (`cmyk_lpi`, cell = dpi/lpi clamp 2–64,
+  0 = legacy 8px). Pinned by `tests/test_print.py` (+ trap in
+  `tests/test_separations.py`, mirror in `tests/test_canvas.py`,
+  UI roundtrip in `tests/test_ui_presets.py`).
 - Phase C — color confidence: daltonism preview (protan/deutan/tritan
   matrices, display-only like safe areas); palette accessibility check
   (WCAG contrast between adjacent inks, BW-collapse warning); Lospec

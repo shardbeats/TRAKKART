@@ -33,8 +33,8 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 
 | Panel | What it does |
 |---|---|
-| IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas) |
-| DITHER | preset, method, serpentine (ED scan alternates per row, less streaks), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
+| IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas), framing: cover / contain / stretch / blur / mirror (mirror wraps edges outward for print bleed) |
+| DITHER | preset, method, serpentine (ED scan alternates per row, less streaks), rosette + LPI (CMYK print: screen assignment + ruling at export DPI), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
@@ -112,7 +112,15 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   is seamless by construction. New `3:4` canvas ratio for the tall one.
 - **DPI:** resolution tags (72–600, default 300) written on JPG/PNG/TIFF,
   separations and the metadata JSON. Tags only — pixels never change.
-  Distributors ignore DPI; RISO/screen print does not.
+  Distributors ignore DPI; RISO/screen print does not. The CMYK dot
+  size (LPI) is computed from this DPI at export.
+- **RISO trap:** tick "RISO trap (1px ink expand)" with separations to
+  grow every ink area by 1px — small misregistrations overprint
+  instead of showing white hairlines.
+- **CMYK print method:** `rosette` picks the screen assignment
+  (standard / alt / single) and `LPI` the ruling in lines/inch at the
+  export DPI (0 = off, legacy 8px cell). Both are recipe fields: they
+  travel with the preset and the metadata.
 
 ## Batch (folders)
 

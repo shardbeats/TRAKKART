@@ -102,3 +102,32 @@ def test_serpentine_ui_roundtrip(window, isolated_presets, monkeypatch):
     assert window.chk_serpentine.isChecked()
     window.cmb_method.setCurrentText("bayer8")
     assert not window.chk_serpentine.isEnabled()
+
+
+def test_rosette_lpi_ui_roundtrip(window, isolated_presets, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    from app.presets import load_preset
+
+    window.cmb_method.setCurrentText("cmyk")
+    assert window.cmb_rosette.isEnabled() and window.spn_lpi.isEnabled()
+    window.cmb_rosette.setCurrentText("alt")
+    window.spn_lpi.setValue(100)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("Print", True))
+    window.save_current_preset()
+    back = load_preset("Print", isolated_presets)
+    assert (back.rosette, back.cmyk_lpi) == ("alt", 100)
+    window.cmb_rosette.setCurrentText("standard")
+    window.spn_lpi.setValue(0)
+    window._apply_preset("Print")
+    assert window.cmb_rosette.currentText() == "alt"
+    assert window.spn_lpi.value() == 100
+    window.cmb_method.setCurrentText("floyd")
+    assert not window.cmb_rosette.isEnabled()
+    assert not window.spn_lpi.isEnabled()
+    window.cmb_method.setCurrentText("bayer8")
+    window.spn_lpi.setValue(20)  # below rulings: snaps to 35 on read
+    assert window.spn_lpi.value() == 20
+    from app.ui import params_controller as _par
+
+    assert _par._lpi_get(window) == 35

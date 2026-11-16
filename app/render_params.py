@@ -98,16 +98,17 @@ def apply_palette_depth(palette: list | None | str, depth: int) -> list | None |
     return [sorted_pal[i] for i in idx]
 
 
-def preset_to_render_kwargs(preset: Any, phase: int = 0) -> dict:
+def preset_to_render_kwargs(preset: Any, phase: int = 0, dpi: int = 300) -> dict:
     """Converts a Preset to `pipeline.render()` kwargs.
 
     Accepts duck-typing (does not import Preset to avoid cycles).
     Delegates to RenderSpec.from_preset: normalization lives in a
     single place (batch, UI, GIF and worker produce exactly the same).
+    dpi threads the export DPI into print-sized engines (CMYK LPI).
     """
     from app.pipeline import RenderSpec
 
-    return RenderSpec.from_preset(preset, phase=phase).as_kwargs()
+    return RenderSpec.from_preset(preset, phase=phase, dpi=dpi).as_kwargs()
 
 
 __all__ = [

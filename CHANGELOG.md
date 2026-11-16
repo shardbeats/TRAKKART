@@ -18,6 +18,20 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   roundtrip UI en `tests/test_ui_presets.py`.
 - Roster 36 → 38 (`tests/test_dither.py::test_engine_roster_frozen_r14`
   y `tests/test_engines3.py` actualizados a la lista exacta nueva).
+### v1.9 Fase B: print-shop — DONE (nov-2026)
+- RISO trap (`sep_trap`: opción de export + prefs): expande cada tinta
+  1px (`MinFilter`), el overprint esconde las hairlines de
+  misregistro. Pinned por `tests/test_separations.py` (64→100px).
+- Mirror-wrap (`fit_mirror` en `app/canvas.py`, `np.pad` reflect):
+  tercer framing junto a stretch/blur — bleed sin smear; modo
+  `mirror` en `CROP_MODES` (UI + presets + crop editor lo heredan).
+  Pinned por `tests/test_canvas.py`.
+- Rosetas CMYK (`standard` clásica byte-idéntica, `alt`, `single`):
+  campo de preset + combo DITHER (solo CMYK). LPI ligado al DPI:
+  `cmyk_lpi` (0 = celda fija 8px legacy, si no `cell = dpi/lpi`
+  clamp 2–64px); preview usa 300 de referencia, el export usa el DPI
+  del diálogo. Pinned por `tests/test_print.py` + UI roundtrip en
+  `tests/test_ui_presets.py`.
 
 ## [Unreleased] - v1.8 Delivery (distro + social + motion + packs)
 ### Added

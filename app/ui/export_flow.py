@@ -20,6 +20,7 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "tiff": getattr(prefs, "tiff", False),
             "social": getattr(prefs, "social", False),
             "sep": getattr(prefs, "sep", False),
+            "sep_trap": getattr(prefs, "sep_trap", False),
             "sp404": getattr(prefs, "sp404", False)}
 
 
@@ -30,7 +31,7 @@ def _gif_opts_from_preset(preset) -> dict:
             "pingpong": bool(getattr(preset, "gif_pingpong", False)),
             "mp4_size": "1080p",
             "mp4": False, "webp": False, "tiff": False, "social": False,
-            "sep": False, "sp404": False}
+            "sep": False, "sep_trap": False, "sp404": False}
 
 
 def export(win, quick: bool = False) -> None:
@@ -71,6 +72,7 @@ def export(win, quick: bool = False) -> None:
                 social=bool(gopts_prefs.get("social", False)),
                 dpi=int(getattr(prefs, "dpi", 300) or 300),
                 sep=bool(gopts_prefs.get("sep", False)),
+                sep_trap=bool(gopts_prefs.get("sep_trap", False)),
                 sp404=bool(gopts_prefs.get("sp404", False)),
             )
             return
@@ -92,7 +94,7 @@ def export(win, quick: bool = False) -> None:
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
-            for key in ("mp4", "webp", "tiff", "social", "sep", "sp404"):
+            for key in ("mp4", "webp", "tiff", "social", "sep", "sep_trap", "sp404"):
                 init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
@@ -116,6 +118,7 @@ def export(win, quick: bool = False) -> None:
             social=bool(init_gopts.get("social", False)),
             dpi=int(init_dpi),
             sep=bool(init_gopts.get("sep", False)),
+            sep_trap=bool(init_gopts.get("sep_trap", False)),
             sp404=bool(init_gopts.get("sp404", False)),
             parent=win,
         )
@@ -145,6 +148,7 @@ def export(win, quick: bool = False) -> None:
             social=bool(gopts.get("social", False)),
             dpi=int(options.dpi),
             sep=bool(gopts.get("sep", False)),
+            sep_trap=bool(gopts.get("sep_trap", False)),
             sp404=bool(gopts.get("sp404", False)),
         )
         save_prefs(ExportPrefs(
@@ -157,6 +161,7 @@ def export(win, quick: bool = False) -> None:
             tiff=bool(gopts.get("tiff", False)),
             social=bool(gopts.get("social", False)),
             sep=bool(gopts.get("sep", False)),
+            sep_trap=bool(gopts.get("sep_trap", False)),
             sp404=bool(gopts.get("sp404", False)),
             mp4=bool(gopts.get("mp4", False)),
             gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
@@ -373,7 +378,8 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      webp: bool = False,
                      tiff: bool = False, dpi: int = 300,
                      social: bool = False,
-                     sep: bool = False, sp404: bool = False) -> None:
+                     sep: bool = False, sep_trap: bool = False,
+                     sp404: bool = False) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
     from pathlib import Path
@@ -405,6 +411,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             dpi=int(dpi or 300),
             social=bool(social),
             sep=bool(sep),
+            sep_trap=bool(sep_trap),
             sp404=bool(sp404),
             morph_src=morph_src_for_mode(win, mode_go),
         )
@@ -429,7 +436,8 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                webp: bool = False,
                tiff: bool = False, dpi: int = 300,
                social: bool = False,
-               sep: bool = False, sp404: bool = False, _sync: bool = False) -> None:
+               sep: bool = False, sep_trap: bool = False,
+               sp404: bool = False, _sync: bool = False) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
     WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink.
@@ -447,7 +455,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, tiff, dpi, social, sep, sp404)
+                         mp4_size, webp, tiff, dpi, social, sep, sep_trap, sp404)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -495,7 +503,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         mp4_size=str(go.get("mp4_size", mp4_size)),
         webp=bool(webp), tiff=bool(tiff), dpi=int(dpi or 300),
         social=bool(social),
-        sep=bool(sep), morph_src=morph_snapshot,
+        sep=bool(sep), sep_trap=bool(sep_trap), morph_src=morph_snapshot,
         sp404=bool(sp404),
         parent=win,
     )

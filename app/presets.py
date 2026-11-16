@@ -182,6 +182,8 @@ FIELDS: tuple[_Field, ...] = (
     _Field("pixel_size", "int", ("range", 1, 8)),
     _Field("threshold", "int", ("range", 1, 254)),
     _Field("serpentine", "bool"),
+    _Field("rosette", "str", ("oneof", ("standard", "alt", "single"))),
+    _Field("cmyk_lpi", "int", ("range0", 35, 200)),
     _Field("brightness", "float", ("range", 0.0, 3.0)),
     _Field("contrast", "float", ("range", 0.0, 3.0)),
     _Field("saturation", "float", ("range", 0.0, 3.0)),
@@ -318,6 +320,8 @@ class Preset:
     pixel_size: int = 2
     threshold: int = 128
     serpentine: bool = False  # v1.9: alternate ED scan direction per row
+    rosette: str = "standard"  # v1.9B: CMYK screen assignment
+    cmyk_lpi: int = 0  # v1.9B: 0 = legacy 8px cell, else lines/inch @ dpi
     brightness: float = 1.0
     contrast: float = 1.0
     saturation: float = 1.0

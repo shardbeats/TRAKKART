@@ -221,6 +221,9 @@ def apply_method(
     motif: dict | None = None,
     ascii: dict | None = None,
     serpentine: bool = False,
+    rosette: str = "standard",
+    lpi: int = 0,
+    dpi: int = 300,
 ) -> Image.Image:
     if method in ED_METHODS:
         return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust, serpentine=serpentine)
@@ -230,7 +233,8 @@ def apply_method(
         # CMYK ignores the palette by design (print ink); threshold = dot gain.
         base = apply_adjust(img.convert("RGB"), adjust)
         return cmyk_halftone(base, threshold=float(threshold), phase=int(phase),
-                             pixel_size=int(pixel_size))
+                             pixel_size=int(pixel_size), rosette=str(rosette or "standard"),
+                             lpi=int(lpi or 0), dpi=int(dpi or 300))
     if method == "ascii":
         from app.ascii import ascii_render
 

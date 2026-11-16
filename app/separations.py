@@ -86,9 +86,16 @@ def plate_count(preset) -> int:
 
 
 def separation_plates(img: Image.Image,
-                      colors: list[tuple[int, int, int]]) -> list[tuple[str, Image.Image]]:
+                      colors: list[tuple[int, int, int]],
+                      trap_px: int = 0) -> list[tuple[str, Image.Image]]:
     """[(hex, plate)] in palette order. Plate: L mode, white bg, black ink
-    where that ink prints (nearest-color assignment, row-chunked)."""
+    where that ink prints (nearest-color assignment, row-chunked).
+
+    trap_px > 0 expands every ink area by that many pixels (RISO trap:
+    overlapping inks hide the white hairlines of misregistration).
+    """
+    from PIL import ImageFilter
+
     cols = [tuple(max(0, min(255, int(c))) for c in col) for col in colors]
     if not cols:
         raise ValueError("no colors")
@@ -100,11 +107,15 @@ def separation_plates(img: Image.Image,
         blk = arr[y0:y0 + 512]
         d2 = ((blk[:, :, None, :] - pal[None, None, :, :]) ** 2).sum(-1)
         idx[y0:y0 + blk.shape[0]] = d2.argmin(-1)
+    trap = max(0, min(4, int(trap_px or 0)))
     out = []
     for i, col in enumerate(cols):
         plate = np.full(idx.shape, 255, dtype=np.uint8)
         plate[idx == i] = 0
-        out.append((color_hex(col), Image.fromarray(plate, mode="L")))
+        p = Image.fromarray(plate, mode="L")
+        if trap:
+            p = p.filter(ImageFilter.MinFilter(2 * trap + 1))  # grow the black ink
+        out.append((color_hex(col), p))
     return out
 
 
@@ -134,13 +145,14 @@ def estimate_sep(w: int, h: int, n_plates: int) -> int:
 
 
 def write_separations(img: Image.Image, colors: list[tuple[int, int, int]],
-                      out_dir: str | Path, base: str, dpi: int = 300) -> list[Path]:
+                      out_dir: str | Path, base: str, dpi: int = 300,
+                      trap_px: int = 0) -> list[Path]:
     """Separate + mark + write every plate. Returns paths in palette order."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     dpi = max(72, min(600, int(dpi or 300)))
     paths = []
-    for i, (hexcode, plate) in enumerate(separation_plates(img, colors)):
+    for i, (hexcode, plate) in enumerate(separation_plates(img, colors, trap_px=trap_px)):
         p = out_dir / sep_name(base, i, hexcode)
         add_registration_marks(plate).save(str(p), dpi=(dpi, dpi))
         paths.append(p)

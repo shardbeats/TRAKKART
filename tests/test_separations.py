@@ -68,6 +68,54 @@ def test_effective_palette_and_count():
     assert estimate_sep(1080, 1920, 4) == 1080 * 1920 * 4 // 8
 
 
+def test_trap_expands_ink_by_one_pixel():
+    import numpy as np
+
+    from app.separations import separation_plates
+
+    bg = Image.new("RGB", (32, 32), (0, 0, 255))
+    bg.paste(Image.new("RGB", (8, 8), (255, 0, 0)), (12, 12))
+    cols = [(255, 0, 0), (0, 0, 255)]
+    plain = np.asarray(separation_plates(bg, cols)[0][1])
+    trapped = np.asarray(separation_plates(bg, cols, trap_px=1)[0][1])
+    assert int((plain == 0).sum()) == 64
+    assert int((trapped == 0).sum()) == 100  # 8x8 -> 10x10
+    # Blue plate shrinks where red overprints (trap overlaps, no white gap):
+    # blue dilates into the red square's border ring (28px), so both
+    # inks cover the ring (overprint hides misregistration).
+    blue = np.asarray(separation_plates(bg, cols, trap_px=1)[1][1])
+    assert int((blue == 0).sum()) == 32 * 32 - 64 + 28
+    overlap = int(((trapped == 0) & (blue == 0)).sum())
+    assert overlap == 100 - 64 + 28  # red ring + blue ring share ink
+    # trap_px clamps to 4 and stays deterministic.
+    big = separation_plates(bg, cols, trap_px=99)[0][1]
+    ref = separation_plates(bg, cols, trap_px=4)[0][1]
+    assert list(big.get_flattened_data()) == list(ref.get_flattened_data())
+
+
+def test_export_full_separations_with_trap(tmp_path):
+    from app.exporter import ExportSelection
+    from app.presets import Preset
+    from app.services.export_service import export_full
+    from PIL import Image as _I
+
+    preset = Preset(name="t", method="bayer4", palette="BW", export_size=64)
+    sel = ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False)
+    _, _ = export_full(_img(64, 64), preset, tmp_path / "a", base="m",
+                       selection=sel, sep=True)
+    paths, skipped = export_full(
+        _img(64, 64), preset, tmp_path / "b", base="m",
+        selection=sel, sep=True, sep_trap=True)
+    assert skipped == []
+    for p in paths.values():
+        if "_sep_" not in str(p):
+            continue
+        with _I.open(p) as im:
+            assert im.size == (64, 64)
+    assert any("_sep_" in str(p) for p in paths.values())
+
+
 def test_export_full_separations(tmp_path):
     from app.exporter import ExportSelection
     from app.presets import Preset
@@ -100,6 +148,12 @@ def test_export_dialog_sep_checkbox(window, qt_app, tmp_path):
         dlg.chk_sep.setChecked(True)
         assert dlg._gif_opts()["sep"] is True
         assert any("_sep_" in dlg.list_files.item(i).text()
+                   for i in range(dlg.list_files.count()))
+        assert dlg.chk_trap.isChecked() is False
+        assert dlg._gif_opts()["sep_trap"] is False
+        dlg.chk_trap.setChecked(True)
+        assert dlg._gif_opts()["sep_trap"] is True
+        assert any("trap" in dlg.list_files.item(i).text()
                    for i in range(dlg.list_files.count()))
     finally:
         close_dialog(dlg)

@@ -98,14 +98,28 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
     win.chk_serpentine.setToolTip("Error-diffusion only: alternate scan direction per row (less directional streaks)")
     win.chk_serpentine.toggled.connect(lambda _: win._schedule_refresh())
     g.addWidget(win.chk_serpentine)
+    prow = QHBoxLayout()
+    prow.addWidget(QLabel("Rosette:"))
+    win.cmb_rosette = QComboBox()
+    win.cmb_rosette.addItems(["standard", "alt", "single"])
+    tight(win.cmb_rosette)
+    win.cmb_rosette.setToolTip("CMYK only: screen-offset assignment (standard rosette / swapped / aligned)")
+    win.cmb_rosette.currentTextChanged.connect(lambda _: win._schedule_refresh())
+    prow.addWidget(win.cmb_rosette, 1)
+    prow.addWidget(QLabel("LPI:"))
+    win.spn_lpi = QSpinBox()
+    win.spn_lpi.setRange(0, 200)
+    win.spn_lpi.setValue(0)
+    win.spn_lpi.setSpecialValueText("off")
+    win.spn_lpi.setToolTip("CMYK only: print ruling in lines/inch at the export DPI (0 = off, legacy 8px cell)")
+    win.spn_lpi.valueChanged.connect(lambda _: win._schedule_refresh())
+    prow.addWidget(win.spn_lpi)
+    g.addLayout(prow)
 
     def _sync_serp(_=None):
-        try:
-            from app.kernels import ED_METHODS as _ED
+        from app.ui import params_controller as _par
 
-            win.chk_serpentine.setEnabled(win.cmb_method.currentText() in _ED)
-        except Exception:  # noqa: BLE001
-            pass
+        _par.sync_method_widgets(win)
     win.cmb_method.currentTextChanged.connect(_sync_serp)
     _sync_serp()
     try:

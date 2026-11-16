@@ -1,15 +1,38 @@
 """TRAKKART CMYK halftone (MIT). Numpy + Pillow only.
 
 Simplified print-style halftone: RGB -> CMY + K, each channel screened
-with an angled Bayer threshold (C 15°, M 75°, Y 0°, K 45° simulated by
-map offsets), then back to RGB. Deterministic; `phase` rotates screens
-so it animates (marching dots) like the other ordered maps.
+with an angled Bayer threshold, then back to RGB. Deterministic;
+`phase` rotates screens so it animates (marching dots) like the other
+ordered maps. `rosette` picks the screen-offset assignment (standard
+C15/M75/Y0/K45, alt swapped, single aligned); `lpi` sizes the dot cell
+from the document DPI (cell = dpi/lpi, clamped 2-64px), 0 = legacy
+fixed 8px cell.
 """
 
 from __future__ import annotations
 
 import numpy as np
 from PIL import Image
+
+#: Named screen-offset assignments (rolls of the Bayer tile per C/M/Y/K).
+ROSETTES: dict[str, tuple[int, int, int, int]] = {
+    "standard": (0, 13, 29, 47),  # classic rosette, legacy output
+    "alt": (47, 29, 13, 0),  # reversed assignment, different moire
+    "single": (0, 0, 0, 0),  # aligned screens, no rosette
+}
+
+
+def rosette_shifts(name: str) -> tuple[int, int, int, int]:
+    """Shifts for a rosette name (unknown -> standard, legacy compat)."""
+    return ROSETTES.get(str(name or "").lower(), ROSETTES["standard"])
+
+
+def cell_for_lpi(lpi: int, dpi: int = 300) -> int:
+    """Dot cell in px for a print ruling (0/negative = legacy fixed 8px)."""
+    lpi, dpi = int(lpi or 0), max(72, min(600, int(dpi or 300)))
+    if lpi <= 0:
+        return 8
+    return max(2, min(64, round(dpi / max(1, lpi))))
 
 
 def _bayer8() -> np.ndarray:
@@ -18,27 +41,33 @@ def _bayer8() -> np.ndarray:
     return BAYER_8X8
 
 
-def _screened(channel: np.ndarray, angle_idx: int, phase: int = 0) -> np.ndarray:
-    """Halftone one 0-255 channel: threshold with rotated Bayer."""
+def _screened(channel: np.ndarray, shift: int, phase: int = 0,
+              cell: int = 8) -> np.ndarray:
+    """Halftone one 0-255 channel: threshold with offset Bayer of cell px."""
     import numpy as _np
 
     m = _bayer8()
+    if cell != 8:
+        m = _np.asarray(Image.fromarray(m).resize((cell, cell), Image.NEAREST))
     # Angles simulated by a different roll per channel (cheap and deterministic).
-    shifts = (0, 13, 29, 47)
-    tiled = _np.tile(m, ((channel.shape[0] + 7) // 8, (channel.shape[1] + 7) // 8))[:channel.shape[0], :channel.shape[1]]
-    tiled = _np.roll(tiled, shifts[angle_idx % 4] + int(phase), axis=(0, 1))
+    tiled = _np.tile(m, ((channel.shape[0] + cell - 1) // cell,
+                         (channel.shape[1] + cell - 1) // cell))[:channel.shape[0], :channel.shape[1]]
+    tiled = _np.roll(tiled, int(shift) + int(phase), axis=(0, 1))
     thr = tiled / 64.0 * 255.0
     return _np.where(channel > thr, 255.0, 0.0)
 
 
 def cmyk_halftone(img: Image.Image, threshold: float = 128.0, phase: int = 0,
-                  pixel_size: int = 1) -> Image.Image:
+                  pixel_size: int = 1, rosette: str = "standard",
+                  lpi: int = 0, dpi: int = 300) -> Image.Image:
     """CMYK-style halftone -> RGB. threshold = dot gain (global offset)."""
     base = img.convert("RGB")
     if pixel_size > 1:
         sw = max(1, base.width // pixel_size)
         sh = max(1, base.height // pixel_size)
         base = base.resize((sw, sh), Image.NEAREST)
+    shifts = rosette_shifts(rosette)
+    cell = cell_for_lpi(lpi, dpi)
     arr = np.asarray(base, dtype=np.float32)
     gain = (float(threshold) - 128.0) * 0.8  # +/-102 around neutral
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
@@ -50,10 +79,10 @@ def cmyk_halftone(img: Image.Image, threshold: float = 128.0, phase: int = 0,
     m = np.clip(m + gain, 0, 255)
     y = np.clip(y + gain, 0, 255)
     k = np.clip(k + gain, 0, 255)
-    cs = _screened(c, 0, phase) / 255.0
-    ms = _screened(m, 1, phase) / 255.0
-    ys = _screened(y, 2, phase) / 255.0
-    ks = _screened(k, 3, phase) / 255.0
+    cs = _screened(c, shifts[0], phase, cell) / 255.0
+    ms = _screened(m, shifts[1], phase, cell) / 255.0
+    ys = _screened(y, shifts[2], phase, cell) / 255.0
+    ks = _screened(k, shifts[3], phase, cell) / 255.0
     # Multiplicative over white paper (simplified overprint).
     rr = 255.0 * (1.0 - cs) * (1.0 - ks)
     gg = 255.0 * (1.0 - ms) * (1.0 - ks)
@@ -65,4 +94,4 @@ def cmyk_halftone(img: Image.Image, threshold: float = 128.0, phase: int = 0,
     return res
 
 
-__all__ = ["cmyk_halftone"]
+__all__ = ["ROSETTES", "cell_for_lpi", "cmyk_halftone", "rosette_shifts"]

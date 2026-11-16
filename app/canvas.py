@@ -1,9 +1,11 @@
-"""TRAKKART canvas — ratios and framing (cover/contain/stretch/blur).
+"""TRAKKART canvas — ratios and framing (cover/contain/stretch/blur/mirror).
 
 cover   = fill the ratio, crop overflow (focus + zoom).
 contain = fit the whole image, black bars (no crop).
 stretch = distort to the exact ratio (no crop, no bars).
 blur    = fit the whole image over a blurred fill (no crop, no black bars).
+mirror  = fit the whole image over a mirrored-edge fill (print bleed:
+          no crop, no bars, no smear — edges wrap like tape).
 
 Custom mode (editor-style): ratio presets lock the aspect, "custom"
 frees W/H entirely (W/H spins are the size; typing them flips to custom).
@@ -39,13 +41,14 @@ OUTPUT_MP_BUDGET = 36
 #: a tiny logo blown up with BICUBIC turns into mush, NEAREST keeps its inks.
 TINY_SOURCE_SIDE = 64
 
-CROP_MODES = ("cover", "contain", "stretch", "blur")
+CROP_MODES = ("cover", "contain", "stretch", "blur", "mirror")
 
 MODE_TIPS = {
     "cover": "Fill the ratio, crop overflow (focus + zoom apply)",
     "contain": "Fit whole image, black bars (no crop)",
     "stretch": "Distort to the exact ratio (no crop, no bars)",
     "blur": "Fit whole image over a blurred fill (no black bars)",
+    "mirror": "Fit whole image over mirrored edges (print bleed, no smear)",
 }
 
 
@@ -276,6 +279,32 @@ def fit_blur(
     return bg
 
 
+def fit_mirror(
+    img: Image.Image, ratio: str, canvas_w: int = 0, canvas_h: int = 0,
+) -> Image.Image:
+    """Fit the whole image over a mirrored-edge fill (print bleed).
+
+    Bars are the image's own edges reflected outward (np.pad reflect:
+    no repeat, no smear like blur, no black like contain). One axis
+    always fits exactly, so only two opposite bars need filling
+    (rounding may leave a 1px seam, handled by the general pad).
+    """
+    import numpy as np
+
+    rgb = img.convert("RGB")
+    w, h = _scaled_frame(ratio, canvas_w, canvas_h, max(rgb.width, rgb.height))
+    r = min(w / rgb.width, h / rgb.height)
+    nw, nh = max(1, round(rgb.width * r)), max(1, round(rgb.height * r))
+    fg = _resample(rgb, (nw, nh))
+    top, left = (h - nh) // 2, (w - nw) // 2
+    bottom, right = h - nh - top, w - nw - left
+    if top + bottom + left + right == 0:
+        return fg
+    arr = np.asarray(fg)
+    canvas = np.pad(arr, ((top, bottom), (left, right), (0, 0)), mode="reflect")
+    return Image.fromarray(canvas, mode="RGB")
+
+
 def to_canvas(
     img: Image.Image,
     ratio: str = "1:1",
@@ -299,6 +328,8 @@ def to_canvas(
         return fit_stretch(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
     if mode == "blur":
         return fit_blur(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
+    if mode == "mirror":
+        return fit_mirror(img.convert("RGB"), ratio, canvas_w=canvas_w, canvas_h=canvas_h)
     return crop_cover(
         img.convert("RGB"), ratio, fx, fy, zoom,
         canvas_w=canvas_w, canvas_h=canvas_h,

@@ -144,6 +144,47 @@ def _serp_set(win, v):
         w.blockSignals(False)
 
 
+def _lpi_get(win):
+    try:
+        v = int(win.spn_lpi.value())
+    except Exception:  # noqa: BLE001
+        return 0
+    return v if v == 0 or v >= 35 else 35  # rulings start at 35
+
+
+def _lpi_set(win, v):
+    try:
+        w = win.spn_lpi
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        w.blockSignals(True)
+        w.setValue(max(0, min(200, int(v or 0))))
+    finally:
+        w.blockSignals(False)
+
+
+def sync_method_widgets(win) -> None:
+    """Enable method-gated controls (serpentine ED-only, rosette/LPI CMYK-only).
+
+    Called after apply_preset (setters block signals, so the combo signal
+    never fires) and on method change. Missing widgets = no-op.
+    """
+    try:
+        from app.kernels import ED_METHODS as _ED
+
+        method = win.cmb_method.currentText()
+    except Exception:  # noqa: BLE001
+        return
+    for attr, on in (("chk_serpentine", method in _ED),
+                     ("cmb_rosette", method == "cmyk"),
+                     ("spn_lpi", method == "cmyk")):
+        try:
+            getattr(win, attr).setEnabled(bool(on))
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def doc_dims(win) -> tuple[int, int]:
     """Document W/H (editor-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
@@ -383,6 +424,8 @@ def set_ratio_label(win, value: str) -> None:
 BINDINGS: tuple = (
     ("method",) + _combo("cmb_method"),
     ("serpentine", _serp_get, _serp_set),
+    ("rosette",) + _combo("cmb_rosette"),
+    ("cmyk_lpi", _lpi_get, _lpi_set),
     ("pixel_size",) + _spin("spn_pixel"),
     ("threshold",) + _slider("sld_thr"),
     ("brightness",) + _slider("sld_bri", 100.0),
@@ -746,6 +789,7 @@ def apply_preset(win, name: str) -> None:
     win.lbl_border.setText(win.border_color)
     sync_anim_ui(win)
     win._sync_duration_ui()
+    sync_method_widgets(win)  # setters block signals: refresh ED/CMYK gating
     if win.cmb_preset.findText(name) < 0:
         win.refresh_presets()
     win.cmb_preset.setCurrentText(name)

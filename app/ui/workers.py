@@ -93,7 +93,7 @@ class ExportWorker(WorkerBase):
                  tiff: bool = False,
                  social: bool = False,
                  dpi: int = 300,
-                 sep: bool = False, sp404: bool = False,
+                 sep: bool = False, sep_trap: bool = False, sp404: bool = False,
                  morph_src=None, parent=None) -> None:
         super().__init__(parent)
         self.src = src
@@ -120,6 +120,7 @@ class ExportWorker(WorkerBase):
         self.social = bool(social)
         self.dpi = int(dpi or 300)
         self.sep = bool(sep)
+        self.sep_trap = bool(sep_trap)
         self.sp404 = bool(sp404)
         self.morph_src = morph_src
 
@@ -136,7 +137,7 @@ class ExportWorker(WorkerBase):
             format=self.format, quality=self.quality, mp4=self.mp4,
             mp4_fps=self.mp4_fps, mp4_size=self.mp4_size,
             webp=self.webp, tiff=self.tiff, social=self.social, dpi=self.dpi,
-            sep=self.sep, morph_src=self.morph_src,
+            sep=self.sep, sep_trap=self.sep_trap, morph_src=self.morph_src,
             sp404=self.sp404,
         )
         self.finished_ok.emit(dict(paths), bool(skipped))
