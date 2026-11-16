@@ -30,18 +30,65 @@ def has_numba() -> bool:
     return bool(_NUMBA)
 
 
-def _ed_bw_impl(lum, dys, dxs, wts, threshold):
+def _ign01(x: int, y: int) -> float:
+    """Interleaved-gradient-noise hash -> [0,1). Deterministic, procedural.
+
+    Cheap blue-noise substitute (Jimenez 2014): decorrelates the
+    threshold per pixel without tables or extra memory, so the dizzy
+    engine gets its even, worm-free texture in both backends.
+    Same arithmetic in numpy and njit -> bit-identical.
+    """
+    d = float(x) * 0.06711056 + float(y) * 0.00583715
+    f = d - np.floor(d)
+    v = 52.9829189 * f
+    return v - np.floor(v)
+
+
+def _varc_scale(old: float) -> float:
+    """Ostromoukhov-style variable coefficient: scale the error by the
+    pixel's gray level. Midtones diffuse less (clean, no worms),
+    extremes diffuse fully (sharp). g=old/255 clamped to [0,1]."""
+    g = old / 255.0
+    if g < 0.0:
+        g = 0.0
+    elif g > 1.0:
+        g = 1.0
+    mid = 1.0 - abs(2.0 * g - 1.0)
+    return 1.0 - 0.35 * mid
+
+
+def _ed_bw_impl(lum, dys, dxs, wts, threshold, serp, varc, ign_amp):
     """B&W diffusion over float32 in-place. Returns uint8 0/255."""
     h, w = lum.shape
     n = dys.shape[0]
     for y in range(h):
-        for x in range(w):
+        odd = serp and (y & 1)
+        for xi in range(w):
+            x = (w - 1 - xi) if odd else xi
             old = np.float64(lum[y, x])
-            new = 255.0 if old > threshold else 0.0
+            t = threshold
+            if ign_amp:
+                # IGN hash inlined (njit cannot call module-level helpers).
+                _d = float(x) * 0.06711056 + float(y) * 0.00583715
+                _f = _d - np.floor(_d)
+                _v = 52.9829189 * _f
+                t = threshold + ign_amp * ((_v - np.floor(_v)) - 0.5)
+            new = 255.0 if old > t else 0.0
             lum[y, x] = new
             err = old - new
+            if varc and err:
+                # Variable-coefficient scaling inlined (same reason).
+                _g = old / 255.0
+                if _g < 0.0:
+                    _g = 0.0
+                elif _g > 1.0:
+                    _g = 1.0
+                err = err * (1.0 - 0.35 * (1.0 - abs(2.0 * _g - 1.0)))
             for k in range(n):
-                nx = x + dxs[k]
+                dx = dxs[k]
+                if odd:
+                    dx = -dx
+                nx = x + dx
                 ny = y + dys[k]
                 if 0 <= nx < w and ny < h:
                     # Emulate numpy: float32 += python-float (f64 product, f32 add)
@@ -54,16 +101,27 @@ def _ed_bw_impl(lum, dys, dxs, wts, threshold):
     return out
 
 
-def _ed_color_impl(arr, pal, dys, dxs, wts):
+def _ed_color_impl(arr, pal, dys, dxs, wts, serp, varc, ign_amp):
     """Palette diffusion over float32 in-place. Returns uint8 RGB."""
     h, w, _ = arr.shape
     p = pal.shape[0]
     n = dys.shape[0]
     for y in range(h):
-        for x in range(w):
+        odd = serp and (y & 1)
+        for xi in range(w):
+            x = (w - 1 - xi) if odd else xi
             r0 = np.float64(arr[y, x, 0])
             g0 = np.float64(arr[y, x, 1])
             b0 = np.float64(arr[y, x, 2])
+            if ign_amp:
+                # IGN hash inlined (njit cannot call module-level helpers).
+                _d = float(x) * 0.06711056 + float(y) * 0.00583715
+                _f = _d - np.floor(_d)
+                _v = 52.9829189 * _f
+                _nz = ign_amp * ((_v - np.floor(_v)) - 0.5)
+                r0 = r0 + _nz
+                g0 = g0 + _nz
+                b0 = b0 + _nz
             best = 0
             bd = 1e30
             for i in range(p):
@@ -83,8 +141,22 @@ def _ed_color_impl(arr, pal, dys, dxs, wts):
             er = r0 - nr
             eg = g0 - ng
             eb = b0 - nb
+            if varc and (er or eg or eb):
+                # Variable-coefficient scaling inlined (same reason).
+                _g = (r0 + g0 + b0) / 3.0 / 255.0
+                if _g < 0.0:
+                    _g = 0.0
+                elif _g > 1.0:
+                    _g = 1.0
+                _sc = 1.0 - 0.35 * (1.0 - abs(2.0 * _g - 1.0))
+                er = er * _sc
+                eg = eg * _sc
+                eb = eb * _sc
             for k in range(n):
-                nx = x + dxs[k]
+                dx = dxs[k]
+                if odd:
+                    dx = -dx
+                nx = x + dx
                 ny = y + dys[k]
                 if 0 <= nx < w and ny < h:
                     arr[ny, nx, 0] = np.float32(arr[ny, nx, 0] + np.float32(er * wts[k]))
@@ -118,14 +190,16 @@ def _dispatch(name: str, args: tuple):
     return fn(*args)
 
 
-def ed_bw(lum, dys, dxs, wts, threshold):
+def ed_bw(lum, dys, dxs, wts, threshold, serp=0, varc=0, ign_amp=0.0):
     """B&W diffusion entry point (numba when present, else pure python)."""
-    return _dispatch("bw", (lum, dys, dxs, wts, threshold))
+    return _dispatch("bw", (lum, dys, dxs, wts, threshold,
+                            int(serp), int(varc), float(ign_amp)))
 
 
-def ed_color(arr, pal, dys, dxs, wts):
+def ed_color(arr, pal, dys, dxs, wts, serp=0, varc=0, ign_amp=0.0):
     """Palette diffusion entry point (numba when present, else pure python)."""
-    return _dispatch("color", (arr, pal, dys, dxs, wts))
+    return _dispatch("color", (arr, pal, dys, dxs, wts,
+                               int(serp), int(varc), float(ign_amp)))
 
 
 def coeffs_to_arrays(coeffs: list[tuple[int, int, float]]):

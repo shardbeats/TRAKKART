@@ -125,6 +125,25 @@ def _shade_set(win, v):
         w.blockSignals(False)
 
 
+def _serp_get(win):
+    try:
+        return bool(win.chk_serpentine.isChecked())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _serp_set(win, v):
+    try:
+        w = win.chk_serpentine
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        w.blockSignals(True)
+        w.setChecked(bool(v))
+    finally:
+        w.blockSignals(False)
+
+
 def doc_dims(win) -> tuple[int, int]:
     """Document W/H (editor-style: spins rule)."""
     from app.canvas import MAX_DIM, MIN_DIM
@@ -363,6 +382,7 @@ def set_ratio_label(win, value: str) -> None:
 
 BINDINGS: tuple = (
     ("method",) + _combo("cmb_method"),
+    ("serpentine", _serp_get, _serp_set),
     ("pixel_size",) + _spin("spn_pixel"),
     ("threshold",) + _slider("sld_thr"),
     ("brightness",) + _slider("sld_bri", 100.0),

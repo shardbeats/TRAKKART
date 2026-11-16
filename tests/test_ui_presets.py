@@ -84,3 +84,21 @@ def test_pack_share_roundtrip_ui(window, isolated_presets, tmp_path, monkeypatch
     window.share_pack_import()
     assert load_preset("PackMe", dst_p).method == "bayer8"
     assert (dst_a / "Custom9.json").is_file()
+
+
+def test_serpentine_ui_roundtrip(window, isolated_presets, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    from app.presets import load_preset
+
+    window.cmb_method.setCurrentText("floyd")
+    assert window.chk_serpentine.isEnabled()
+    window.chk_serpentine.setChecked(True)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("Serp", True))
+    window.save_current_preset()
+    assert load_preset("Serp", isolated_presets).serpentine is True
+    window.chk_serpentine.setChecked(False)
+    window._apply_preset("Serp")
+    assert window.chk_serpentine.isChecked()
+    window.cmb_method.setCurrentText("bayer8")
+    assert not window.chk_serpentine.isEnabled()

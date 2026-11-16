@@ -2,6 +2,23 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased] - v1.9 Fase A: ostromoukhov + dizzy + serpentine
+### Added
+- Motores `ostromoukhov` (difusión de error de coeficientes variables:
+  el error escala por nivel de gris, medios limpios) y `dizzy`
+  (modulación IGN del umbral, estilo blue-noise, sin vetas). Ambos
+  deterministas, Pillow+numpy con paridad numba bit a bit.
+  Pinned por `tests/test_dither.py` (determinismo, distinción,
+  paridad numpy/numba).
+- Toggle `serpentine` para los 13 kernels ED (filas impares de
+  derecha a izquierda, sin streaks direccionales): campo de preset,
+  RenderSpec, metadata y checkbox en DITHER (solo se habilita en ED;
+  el resto de motores lo ignoran). Combo/stack/GIF/batch lo heredan
+  por `apply_method`. Pinned por `tests/test_dither.py` +
+  roundtrip UI en `tests/test_ui_presets.py`.
+- Roster 36 → 38 (`tests/test_dither.py::test_engine_roster_frozen_r14`
+  y `tests/test_engines3.py` actualizados a la lista exacta nueva).
+
 ## [Unreleased] - v1.8 Delivery (distro + social + motion + packs)
 ### Added
 - Preset `DISTRO_3000` (1:1, 3000px, JPG q90) + validador

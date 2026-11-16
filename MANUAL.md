@@ -21,7 +21,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 
 1. **Open an image:** File → Open (Ctrl+O), drag it onto the window, or
    paste it (Ctrl+V). Folders work too (see Batch).
-2. **Pick a method:** the ◀ ▶ buttons cycle through 36 dithering engines.
+2. **Pick a method:** the ◀ ▶ buttons cycle through 38 dithering engines.
 3. **Adjust color:** SOURCE extracts the palette from your image, Depth limits
    tones, the dice (🎲) reshuffle without losing the good stuff (locks 🔒).
 4. **Animate (optional):** the VIDEO panel previews; GIF exports at
@@ -34,7 +34,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | Panel | What it does |
 |---|---|
 | IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas) |
-| DITHER | preset, method, pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
+| DITHER | preset, method, serpentine (ED scan alternates per row, less streaks), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |

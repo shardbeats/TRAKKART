@@ -50,6 +50,7 @@ class RenderSpec:
     method: str = "bayer4"
     palette_name: str = "SLIME"
     threshold: float = 128.0
+    serpentine: bool = False
     pixel_size: int = 1
     adjust: Adjust | dict | None = None
     ratio: str = "1:1"
@@ -134,6 +135,7 @@ class RenderSpec:
             method=preset.method,
             palette_name=preset.palette,
             threshold=float(preset.threshold),
+            serpentine=bool(getattr(preset, "serpentine", False)),
             pixel_size=int(preset.pixel_size),
             adjust=preset.adjust(),
             ratio=preset.ratio,
@@ -218,6 +220,7 @@ class RenderSpec:
             "method": self.method,
             "palette": pal_label,
             "threshold": float(self.threshold),
+            "serpentine": bool(getattr(self, "serpentine", False)),
             "pixel_size": int(self.pixel_size),
             "adjust": a.to_dict(),
             "ratio": self.ratio,
@@ -349,6 +352,7 @@ def render_spec(img: Image.Image, spec: RenderSpec) -> Image.Image:
         method=s.method,
         palette=pal,
         threshold=float(s.threshold),
+        serpentine=bool(getattr(s, "serpentine", False)),
         pixel_size=int(s.pixel_size),
         adjust=s.adjust,
         phase=int(s.phase),

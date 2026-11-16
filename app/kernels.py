@@ -4,6 +4,9 @@ Standard coefficient tables (public error-diffusion math).
 The `_diffuse` engine is original work, row-vectorized like the v0.4 Floyd.
 Hilbert-ordered diffusion (Riemersma-style) lives here too: same error
 fractions, but the image is walked along a Hilbert curve instead of rows.
+v1.9: ostromoukhov (variable per-pixel error scaling) + dizzy (IGN
+threshold modulation, blue-noise-like) + serpentine scan for all kernels.
+Flags live in accelerate (njit) and the numpy fallback in lockstep.
 """
 
 from __future__ import annotations
@@ -60,17 +63,35 @@ COEFFS: dict[str, list[tuple[int, int, float]]] = {
         (1, -2, 2 / 32), (1, -1, 4 / 32), (1, 0, 5 / 32), (1, 1, 4 / 32), (1, 2, 2 / 32),
         (2, -1, 2 / 32), (2, 0, 3 / 32), (2, 1, 2 / 32),
     ],
+    # Ostromoukhov-style (v1.9): same 3-row stencil shape, but the error
+    # is scaled per pixel by the gray level (variable coefficients:
+    # midtones diffuse less -> clean, extremes stay sharp). The flag,
+    # not the table, is the engine (see run_kernel varc).
+    "ostromoukhov": [
+        (0, 1, 5 / 32), (0, 2, 3 / 32),
+        (1, -2, 2 / 32), (1, -1, 4 / 32), (1, 0, 5 / 32), (1, 1, 4 / 32), (1, 2, 2 / 32),
+        (2, -1, 2 / 32), (2, 0, 3 / 32), (2, 1, 2 / 32),
+    ],
+    # Dizzy (v1.9): Floyd fractions + per-pixel IGN threshold modulation
+    # (blue-noise-like: even, worm-free). The flag, not the table, is
+    # the engine (see run_kernel ign_amp).
+    "dizzy": [(0, 1, 7 / 16), (1, -1, 3 / 16), (1, 0, 5 / 16), (1, 1, 1 / 16)],
 }
 
 ED_METHODS = (
     "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson",
     "shiaufan", "filterlite", "sierralite", "sierra3",
+    "ostromoukhov", "dizzy",
 )
 
 
-from app.accelerate import coeffs_to_arrays, ed_bw, ed_color, has_numba
+from app.accelerate import _ign01, _varc_scale, coeffs_to_arrays, ed_bw, ed_color, has_numba
 
 BACKENDS = ("auto", "numpy", "numba")
+
+# Dizzy modulation strength: BW threshold units / RGB channel units.
+_DIZZY_BW_AMP = 24.0
+_DIZZY_RGB_AMP = 8.0
 
 
 def _backend(name: str) -> str:
@@ -82,29 +103,44 @@ def _backend(name: str) -> str:
 
 
 def diffuse_bw(lum: np.ndarray, coeffs: list[tuple[int, int, float]], threshold: float,
-               backend: str = "auto") -> np.ndarray:
-    """Diffuse float32 luminance in-place. Return uint8 0/255."""
+               backend: str = "auto", serpentine: bool = False,
+               varcoeff: bool = False, ign_amp: float = 0.0) -> np.ndarray:
+    """Diffuse float32 luminance in-place. Return uint8 0/255.
+
+    serpentine: odd rows walk right-to-left (mirrored taps, no streaks).
+    varcoeff: Ostromoukhov-style per-pixel error scaling. ign_amp: dizzy
+    IGN threshold modulation. Same arithmetic as accelerate -> parity.
+    """
     h, w = lum.shape
     t = float(threshold)
+    serp, varc = bool(serpentine), bool(varcoeff)
+    ign = float(ign_amp or 0.0)
     backend = _backend(backend)
     if backend == "numba" or (backend == "auto" and has_numba()):
         dys, dxs, wts = coeffs_to_arrays(coeffs)
-        return ed_bw(np.ascontiguousarray(lum, dtype=np.float32), dys, dxs, wts, t)
+        return ed_bw(np.ascontiguousarray(lum, dtype=np.float32), dys, dxs, wts, t,
+                     serp, varc, ign)
     max_dy = max(dy for dy, _, _ in coeffs)
     for y in range(h):
+        odd = serp and (y & 1)
+        xs = range(w - 1, -1, -1) if odd else range(w)
         row = lum[y]
         nxt = [lum[y + k] if y + k < h else None for k in range(1, max_dy + 1)]
-        for x in range(w):
+        for x in xs:
             old = float(row[x])
-            new = 255.0 if old > t else 0.0
+            tt = t + ign * (_ign01(x, y) - 0.5) if ign else t
+            new = 255.0 if old > tt else 0.0
             row[x] = new
             err = old - new
-            for dy, dx, wt in coeffs:
+            if varc and err:
+                err = err * _varc_scale(old)
+            for dy, dx0, wt in coeffs:
+                dx = -dx0 if odd else dx0
                 nx = x + dx
                 if not 0 <= nx < w:
                     continue
                 if dy == 0:
-                    if dx > 0:
+                    if dx0 > 0:  # forward tap in scan direction
                         row[nx] += err * wt
                 elif nxt[dy - 1] is not None:
                     nxt[dy - 1][nx] += err * wt
@@ -113,36 +149,56 @@ def diffuse_bw(lum: np.ndarray, coeffs: list[tuple[int, int, float]], threshold:
 
 def diffuse_color(
     arr: np.ndarray, palette: list[tuple], coeffs: list[tuple[int, int, float]],
-    backend: str = "auto",
+    backend: str = "auto", serpentine: bool = False,
+    varcoeff: bool = False, ign_amp: float = 0.0,
 ) -> np.ndarray:
-    """Diffuse float32 RGB in-place toward the palette. Return uint8."""
+    """Diffuse float32 RGB in-place toward the palette. Return uint8.
+
+    Same flags as diffuse_bw (parity with accelerate).
+    """
     backend = _backend(backend)
+    serp, varc = bool(serpentine), bool(varcoeff)
+    ign = float(ign_amp or 0.0)
     if backend == "numba" or (backend == "auto" and has_numba()):
         pal = np.asarray(palette, dtype=np.float32)
         dys, dxs, wts = coeffs_to_arrays(coeffs)
-        return ed_color(np.ascontiguousarray(arr, dtype=np.float32), pal, dys, dxs, wts)
+        return ed_color(np.ascontiguousarray(arr, dtype=np.float32), pal, dys, dxs, wts,
+                        serp, varc, ign)
     # Numpy fallback: palette as array + vectorized per-row search.
     # Before: double python loop (y,x) + python loop over palette -> ~50x slower.
+    from app.accelerate import _ign01 as _ign, _varc_scale as _vscale
+
     pc = np.asarray(palette, dtype=np.float32)  # (P, 3)
     h, w, _ = arr.shape
     max_dy = max(dy for dy, _, _ in coeffs)
     for y in range(h):
+        odd = serp and (y & 1)
+        xs = range(w - 1, -1, -1) if odd else range(w)
         row = arr[y]
         nxt = [arr[y + k] if y + k < h else None for k in range(1, max_dy + 1)]
-        for x in range(w):
+        for x in xs:
             px = row[x]  # view (3,)
-            d = np.sum((pc - px) ** 2, axis=1)
+            if ign:
+                nz = ign * (_ign(x, y) - 0.5)
+                r0, g0, b0 = float(px[0]) + nz, float(px[1]) + nz, float(px[2]) + nz
+                d = np.sum((pc - (r0, g0, b0)) ** 2, axis=1)
+            else:
+                r0, g0, b0 = float(px[0]), float(px[1]), float(px[2])
+                d = np.sum((pc - px) ** 2, axis=1)
             best = int(np.argmin(d))
             nr, ng, nb = float(pc[best, 0]), float(pc[best, 1]), float(pc[best, 2])
-            r0, g0, b0 = float(px[0]), float(px[1]), float(px[2])
             px[0], px[1], px[2] = nr, ng, nb
             er, eg, eb = r0 - nr, g0 - ng, b0 - nb
-            for dy, dx, wt in coeffs:
+            if varc and (er or eg or eb):
+                sc = _vscale((r0 + g0 + b0) / 3.0)
+                er, eg, eb = er * sc, eg * sc, eb * sc
+            for dy, dx0, wt in coeffs:
+                dx = -dx0 if odd else dx0
                 nx = x + dx
                 if not 0 <= nx < w:
                     continue
                 if dy == 0:
-                    if dx > 0:
+                    if dx0 > 0:  # forward tap in scan direction
                         row[nx, 0] += er * wt
                         row[nx, 1] += eg * wt
                         row[nx, 2] += eb * wt
@@ -160,15 +216,30 @@ def run_kernel(
     palette: list[tuple] | None,
     threshold: float,
     backend: str = "auto",
+    serpentine: bool = False,
 ) -> Image.Image:
-    """Apply an ED kernel to the already-downscaled image. Return PIL."""
+    """Apply an ED kernel to the already-downscaled image. Return PIL.
+
+    Engine flags (v1.9): `ostromoukhov` scales the error per pixel by
+    the gray level (variable coefficients); `dizzy` modulates the
+    threshold/levels with procedural IGN (blue-noise-like).
+    `serpentine` alternates the scan direction per row (all kernels).
+    """
     coeffs = COEFFS[kernel]
+    varc = kernel == "ostromoukhov"
+    if kernel == "dizzy":
+        ign = _DIZZY_RGB_AMP if palette is not None else _DIZZY_BW_AMP
+    else:
+        ign = 0.0
     if palette is None:
         lum = np.array(img.convert("L"), dtype=np.float32)
-        out = diffuse_bw(lum, coeffs, threshold, backend=backend)
+        out = diffuse_bw(lum, coeffs, threshold, backend=backend,
+                         serpentine=serpentine, varcoeff=varc, ign_amp=ign)
         return Image.fromarray(out, mode="L").convert("RGB")
     arr = np.array(img.convert("RGB"), dtype=np.float32)
-    return Image.fromarray(diffuse_color(arr, palette, coeffs, backend=backend), mode="RGB")
+    return Image.fromarray(diffuse_color(arr, palette, coeffs, backend=backend,
+                                         serpentine=serpentine, varcoeff=varc,
+                                         ign_amp=ign), mode="RGB")
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import pytest
 from PIL import Image
 
 from app.dither import apply_method, floyd_steinberg, ordered_bayer
@@ -37,7 +38,7 @@ def test_floyd_bw_only_two_colors():
 def test_apply_method_dispatch():
     from app.dither import METHODS
 
-    assert len(METHODS) == 36  # 21 ordered/motif + 11 ED + hilbert + 3 special
+    assert len(METHODS) == 38  # 21 ordered/motif + 13 ED + hilbert + 3 special
     for m in METHODS:
         out = apply_method(_img(), method=m, palette=None)
         assert out.size == (64, 64)
@@ -46,17 +47,108 @@ def test_apply_method_dispatch():
 def test_engine_roster_frozen_r14():
     # R14 decision: the roster is frozen at 36 (new diffusions add <5%
     # visible for covers, each engine is eternal test/preset surface).
-    # Adding one must be a conscious decision: update this list + docs.
+    # Reopened narrowly in v1.9 (owner nov-2026, research-backed):
+    # +ostromoukhov (variable-coefficient ED) +dizzy (blue-noise-like ED)
+    # + serpentine scan toggle. The list below is exact again.
     from app.dither import METHODS
 
     assert sorted(METHODS) == [
         "ascii", "atkinson", "bayer16", "bayer2", "bayer32", "bayer4",
         "bayer8", "blocks", "bluenoise", "burkes", "checker", "cluster",
-        "cmyk", "columns", "cross", "diag", "edges", "filterlite",
+        "cmyk", "columns", "cross", "diag", "dizzy", "edges", "filterlite",
         "floyd", "grid", "halftone", "hilbert", "ign", "jjn", "lines",
-        "motif", "pattern", "scan_bayer", "shiaufan", "sierra", "sierra3",
+        "motif", "ostromoukhov", "pattern", "scan_bayer", "shiaufan", "sierra", "sierra3",
         "sierralite", "stevenson", "stucki", "wave_map", "white_noise",
     ]
+
+
+def test_v19_engines_deterministic():
+    from app.dither import apply_method
+    from app.palettes import get_palette
+
+    pal = get_palette("VAPOR")
+    for method in ("ostromoukhov", "dizzy"):
+        for palette in (None, pal):
+            a = apply_method(_img(), method=method, palette=palette)
+            b = apply_method(_img(), method=method, palette=palette)
+            assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+        bw = apply_method(_img(), method=method, palette=None)
+        assert set(bw.convert("L").get_flattened_data()) <= {0, 255}
+        col = apply_method(_img(), method=method, palette=pal)
+        assert set(col.get_flattened_data()) <= set(pal)
+
+
+def test_v19_engines_distinct():
+    from app.dither import apply_method
+
+    floyd = apply_method(_img(), method="floyd", palette=None)
+    dizzy = apply_method(_img(), method="dizzy", palette=None)
+    assert list(dizzy.get_flattened_data()) != list(floyd.get_flattened_data())
+    sierra3 = apply_method(_img(), method="sierra3", palette=None)
+    ostro = apply_method(_img(), method="ostromoukhov", palette=None)
+    assert list(ostro.get_flattened_data()) != list(sierra3.get_flattened_data())
+
+
+def test_serpentine_deterministic_and_distinct():
+    from app.dither import apply_method
+
+    for method in ("floyd", "ostromoukhov", "dizzy"):
+        a = apply_method(_img(), method=method, palette=None, serpentine=True)
+        b = apply_method(_img(), method=method, palette=None, serpentine=True)
+        assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+        plain = apply_method(_img(), method=method, palette=None)
+        assert list(a.get_flattened_data()) != list(plain.get_flattened_data())
+        assert set(a.convert("L").get_flattened_data()) <= {0, 255}
+
+
+def test_serpentine_ignored_off_ed():
+    from app.dither import apply_method
+
+    a = apply_method(_img(), method="bayer8", palette=None, serpentine=True)
+    b = apply_method(_img(), method="bayer8", palette=None)
+    assert list(a.get_flattened_data()) == list(b.get_flattened_data())
+
+
+needs_numba = pytest.mark.skipif(
+    not __import__("app.accelerate", fromlist=["has_numba"]).has_numba(),
+    reason="numba not installed",
+)
+
+
+@needs_numba
+def test_v19_numpy_numba_parity():
+    import numpy as np
+
+    from app.kernels import run_kernel
+
+    for method in ("ostromoukhov", "dizzy"):
+        for palette in (None, [(0, 0, 0), (255, 255, 255)]):
+            a = np.array(run_kernel(_img(), method, palette, 128.0, backend="numpy"))
+            b = np.array(run_kernel(_img(), method, palette, 128.0, backend="numba"))
+            assert np.array_equal(a, b), method
+    for serp in (False, True):
+        a = np.array(run_kernel(_img(), "floyd", None, 128.0,
+                                backend="numpy", serpentine=serp))
+        b = np.array(run_kernel(_img(), "floyd", None, 128.0,
+                                backend="numba", serpentine=serp))
+        assert np.array_equal(a, b)
+
+
+def test_serpentine_preset_plumbing():
+    from app.pipeline import RenderSpec
+    from app.presets import Preset
+
+    p = Preset(name="t", method="floyd", serpentine=True)
+    p.validate()
+    assert Preset.from_dict(p.to_dict()).serpentine is True
+    spec = RenderSpec.from_preset(p)
+    assert spec.serpentine is True
+    assert spec.meta()["serpentine"] is True
+    from app.pipeline import render_preset
+
+    assert p.to_dict()["serpentine"] is True
+    out = render_preset(_img(), p)
+    assert out.size[0] > 0
 
 
 def test_ign_deterministic_and_phased():

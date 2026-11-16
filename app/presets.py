@@ -181,6 +181,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("palette", "str", ("oneof", "PALETTES")),
     _Field("pixel_size", "int", ("range", 1, 8)),
     _Field("threshold", "int", ("range", 1, 254)),
+    _Field("serpentine", "bool"),
     _Field("brightness", "float", ("range", 0.0, 3.0)),
     _Field("contrast", "float", ("range", 0.0, 3.0)),
     _Field("saturation", "float", ("range", 0.0, 3.0)),
@@ -316,6 +317,7 @@ class Preset:
     palette: str = "SLIME"
     pixel_size: int = 2
     threshold: int = 128
+    serpentine: bool = False  # v1.9: alternate ED scan direction per row
     brightness: float = 1.0
     contrast: float = 1.0
     saturation: float = 1.0

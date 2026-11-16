@@ -6,6 +6,7 @@ Split out of app/ui/panels.py (mechanical move, no logic change).
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -93,6 +94,20 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
     win.btn_method_next.clicked.connect(lambda: win.step_method(1))
     row.addWidget(win.btn_method_next)
     g.addLayout(row)
+    win.chk_serpentine = QCheckBox("Serpentine")
+    win.chk_serpentine.setToolTip("Error-diffusion only: alternate scan direction per row (less directional streaks)")
+    win.chk_serpentine.toggled.connect(lambda _: win._schedule_refresh())
+    g.addWidget(win.chk_serpentine)
+
+    def _sync_serp(_=None):
+        try:
+            from app.kernels import ED_METHODS as _ED
+
+            win.chk_serpentine.setEnabled(win.cmb_method.currentText() in _ED)
+        except Exception:  # noqa: BLE001
+            pass
+    win.cmb_method.currentTextChanged.connect(_sync_serp)
+    _sync_serp()
     try:
         from PySide6.QtGui import QKeySequence, QShortcut
 

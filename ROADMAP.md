@@ -428,12 +428,16 @@ sizes, Apple motion) + sharing presets as packs. No engine changes.
 Goal: three named dithering additions, real print-shop flow, color
 confidence. Reopens R14 narrowly (see §4): the frozen test updates to
 the new exact list, nothing else in the roster moves.
-- Phase A — engines: `ostromoukhov` (variable-coefficient ED, clean
-  midtones), `dizzy` (2024 blue-noise-like ED), serpentine toggle for
-  all ED kernels (no directional streaks); same rules (0=off,
-  deterministic, numpy+Pillow, numba parity where applicable).
-  Combo/stack/GIF inherit. Pinned by `tests/test_dither.py`
-  (frozen-list update + per-engine determinism).
+- Phase A — engines: DONE (nov-2026). `ostromoukhov`
+  (variable-coefficient ED, error scaled by gray level, clean
+  midtones), `dizzy` (IGN threshold modulation, blue-noise-like),
+  serpentine toggle for all ED kernels (per-row direction flip, no
+  streaks); same rules (0=off, deterministic, numpy+Pillow, bit-exact
+  numba parity). Preset field + RenderSpec + metadata + DITHER
+  checkbox (ED-only); combo/stack/GIF/batch inherit via
+  `apply_method`. Roster 36 → 38. Pinned by `tests/test_dither.py`
+  (frozen-list update + per-engine determinism + parity) + UI
+  roundtrip in `tests/test_ui_presets.py`.
 - Phase B — print-shop: RISO trap (1px expand for misregistration) +
   300 DPI separations; mirror-wrap third framing (np.flip edges: bleed
   without smear, beside stretch/blur); CMYK rosette angle presets

@@ -2,7 +2,8 @@
 
 Ordered: bayer2/4/8/16, halftone/cluster/pattern/checker/ign/cross/bluenoise
 (own maps or standard math). Error-diffusion: floyd/atkinson/burkes/sierra/
-jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3 via app/kernels.py.
+jjn/stucki/stevenson/shiaufan/filterlite/sierralite/sierra3/ostromoukhov/dizzy
+via app/kernels.py (+ serpentine scan toggle for all ED kernels).
 Hilbert: error diffusion along a space-filling curve (Riemersma-style).
 
 Numpy + Pillow only. No numba, no opencv, no GPU.
@@ -105,6 +106,7 @@ def error_diffusion(
     pixel_size: int = 1,
     adjust: Adjust | dict | None = None,
     backend: str = "auto",
+    serpentine: bool = False,
 ) -> Image.Image:
     """Generic error diffusion (floyd/atkinson/burkes/sierra/jjn/stucki/stevenson + more)."""
     if kernel not in COEFFS:
@@ -114,7 +116,8 @@ def error_diffusion(
         sw = max(1, base.width // pixel_size)
         sh = max(1, base.height // pixel_size)
         base = base.resize((sw, sh), Image.NEAREST)
-    res = run_kernel(base, kernel, palette, float(threshold), backend=backend)
+    res = run_kernel(base, kernel, palette, float(threshold), backend=backend,
+                     serpentine=serpentine)
     if pixel_size > 1:
         res = res.resize((res.width * pixel_size, res.height * pixel_size), Image.NEAREST)
     return res
@@ -201,6 +204,7 @@ METHODS = (
     "white_noise", "blocks", "scan_bayer", "wave_map", "motif",
     "floyd", "atkinson", "burkes", "sierra", "jjn", "stucki", "stevenson",
     "shiaufan", "filterlite", "sierralite", "sierra3",
+    "ostromoukhov", "dizzy",
     "hilbert",
     "cmyk", "ascii", "edges",
 )
@@ -216,9 +220,10 @@ def apply_method(
     phase: int = 0,
     motif: dict | None = None,
     ascii: dict | None = None,
+    serpentine: bool = False,
 ) -> Image.Image:
     if method in ED_METHODS:
-        return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust)
+        return error_diffusion(img, kernel=method, palette=palette, threshold=threshold, pixel_size=pixel_size, adjust=adjust, serpentine=serpentine)
     if method == "cmyk":
         from app.cmyk import cmyk_halftone
 

@@ -1,4 +1,4 @@
-"""v1.3 Engines III: 36 methods, cmyk/ascii/edges/motif, black-vector, stepping."""
+"""v1.3 Engines III: 38 methods, cmyk/ascii/edges/motif, black-vector, stepping."""
 
 from PIL import Image
 
@@ -16,10 +16,10 @@ def _img(size=64):
 def test_method_count_36():
     from app.dither import METHODS
 
-    assert len(METHODS) == 36
+    assert len(METHODS) == 38
     for m in ("bayer32", "lines", "columns", "diag", "grid",
               "white_noise", "blocks", "scan_bayer", "wave_map", "motif",
-              "cmyk", "ascii", "edges"):
+              "cmyk", "ascii", "edges", "ostromoukhov", "dizzy"):
         assert m in METHODS
 
 
