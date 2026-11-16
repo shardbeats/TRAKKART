@@ -41,13 +41,23 @@ def _require_clip_io() -> None:
         raise VideoBackendMissing()
 
 
-def _fit_proxy(img: Image.Image, proxy_side: int) -> Image.Image:
+def _proxy_dims(w: int, h: int, proxy_side: int) -> tuple[int, int]:
+    """Proxy dimensions for a source frame (long side <= proxy_side)."""
     side = max(64, min(1920, int(proxy_side or CLIP_PROXY_SIDE)))
-    r = side / max(img.width, img.height)
+    w, h = int(w or 0), int(h or 0)
+    if w <= 0 or h <= 0:
+        return 0, 0
+    r = side / max(w, h)
     if r >= 1.0:
+        return w, h
+    return max(1, round(w * r)), max(1, round(h * r))
+
+
+def _fit_proxy(img: Image.Image, proxy_side: int) -> Image.Image:
+    w, h = _proxy_dims(img.width, img.height, proxy_side)
+    if (w, h) == (img.width, img.height):
         return img.copy()
-    return img.resize((max(1, round(img.width * r)),
-                       max(1, round(img.height * r))), Image.BICUBIC)
+    return img.resize((max(1, w), max(1, h)), Image.BICUBIC)
 
 
 def _clamp_fps(fps) -> int:
@@ -82,21 +92,60 @@ def _read_anim_pil(path: Path, max_frames: int, proxy_side: int) -> tuple[list, 
     return frames, fps, truncated
 
 
+def _probe_meta(path: Path) -> dict:
+    """Cheap metadata probe (ffmpeg parses the header, no frame decode)."""
+    import imageio.v2 as iio2
+
+    try:
+        probe = iio2.get_reader(str(path))
+    except Exception:  # noqa: BLE001
+        return {}
+    try:
+        return dict(probe.get_meta_data() or {})
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        try:
+            probe.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, bool]:
-    """Read .mp4 via imageio-ffmpeg (first N frames, session proxy)."""
+    """Read .mp4 via imageio-ffmpeg (first N frames, session proxy).
+
+    The proxy downscale happens *inside* ffmpeg (`size=` -> `-s`), not in
+    Python: a 4K 452MB source went from 12.9s to 1.2s (11x) because the
+    pipe never carries 24MB native frames. A header probe (no decode)
+    gives the source size first; anything unexpected falls back to the
+    native-size reader.
+    """
     import imageio.v2 as iio2
 
     frames: list[Image.Image] = []
     fps = 24
     truncated = False
-    reader = iio2.get_reader(str(path))
+    meta = _probe_meta(path)
     try:
+        fps = _clamp_fps(meta.get("fps", 24))
+    except Exception:  # noqa: BLE001
+        fps = 24
+    total = meta.get("nframes", None)
+    src = meta.get("size")
+    kw: dict = {}
+    if isinstance(src, (tuple, list)) and len(src) == 2:
         try:
-            meta = reader.get_meta_data() or {}
-            fps = _clamp_fps(meta.get("fps", 24))
-            total = meta.get("nframes", None)
-        except Exception:  # noqa: BLE001
-            total = None
+            sw, sh = int(src[0]), int(src[1])
+            pw, ph = _proxy_dims(sw, sh, proxy_side)
+        except (TypeError, ValueError):
+            pw = ph = 0
+        if pw and ph and (pw, ph) != (sw, sh):
+            kw["size"] = (pw, ph)
+    try:
+        reader = iio2.get_reader(str(path), **kw)
+    except Exception:  # noqa: BLE001
+        reader = iio2.get_reader(str(path))
+    try:
         n = 0
         cap = max(1, int(max_frames))
         for arr in reader:

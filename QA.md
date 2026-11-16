@@ -80,7 +80,7 @@ features/clip.feature     :: 2 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 67/67. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 776 tests (635 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 778 tests (637 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -114,8 +114,16 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
   A's cached bitmap when the recipe was unchanged).
 - **MP4 truncation notice:** imageio reports `nframes=inf` for long
   MP4s; the cap flag is no longer overwritten, so a 54-min video now
-  says "truncated/capped at 120f" (measured: 2GB import 3.5s, 120f
-  dither 1.05s ≈ 9ms/frame).
+  says "truncated/capped at 120f" (measured: 2GB import now 0.5s,
+  120f dither 1.05s ≈ 9ms/frame).
+- **Proxy scaling lives in ffmpeg** (nov-2026 research): the reader
+  gets `size=`/`-s` after a header-only probe, so 4K frames never cross
+  the pipe at native size. Measured: 4K/452MB 12.9s → 1.2s (11x),
+  2GB 5.4s → 0.5s, 1080p 3.3s → 1.1s, identical 720x405 proxy and
+  120f cap. Do not "optimize" by calling `count_frames` (decodes the
+  whole file); `nframes=inf` is expected. Autorotate is already handled
+  by ffmpeg (phone display matrix); VFR sources still duplicate frames
+  (roadmap item).
 - **Soundtrack mux:** the output is cut at the *video* duration
   (`-t`), so a 0.4s track no longer shrinks a 2s clip; `-af apad
   -shortest` over a copied video stream **hangs** ffmpeg (never use
@@ -127,10 +135,11 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
 - **Clip exports never overwrite** (stills already renamed): GIF/ZIP/MP4
   pick the first free name (`base_2`, `base_3`…), so re-exporting does
   not destroy an earlier render.
-- Pins: `tests/test_v21_bughunt.py` (26: thread life-cycle for preview
+- Pins: `tests/test_v21_bughunt.py` (28: thread life-cycle for preview
   / export / watch / pip, project wipe, cache hygiene, corrupt input,
-  unknown nframes, short-track mux, partial-file cleanup for mux +
-  encode, collision rename). No new Gherkin scenarios (gates stay 67).
+  unknown nframes, ffmpeg-side proxy (`_proxy_dims`), short-track mux,
+  partial-file cleanup for mux + encode, collision rename). No new
+  Gherkin scenarios (gates stay 67).
 
 ## Canvas invariants (nov-2026 bug hunt)
 

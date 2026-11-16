@@ -517,16 +517,24 @@ No new features until the tree is compact and hunted:
   keeps the silent MP4 on failure; `has_video()` checks the ffmpeg
   binary. Real 2GB clip: import 3.5s, 120f dither 1.05s (~9ms/frame),
   GIF/ZIP/MP4 valid; clip exports now rename instead of overwriting.
-  Pins: `tests/test_v21_bughunt.py` (+26, suite 776 = 635 fast + 141
+  Pins: `tests/test_v21_bughunt.py` (+28, suite 778 = 637 fast + 141
   slow; Gherkin stays 67).
+- [x] Online research + measurement (nov-2026): proxy downscale moved
+  inside ffmpeg (`size=`/`-s` on the reader) instead of decoding native
+  frames and resizing in Python: **4K 452MB 12.9s → 1.2s (11x)**, 2GB
+  5.4s → 0.5s, 1080p 3.3s → 1.1s, same 720x405 proxy and 120f cap.
+  Verified on this build (ffmpeg 7.1): `-ss` before `-i` is
+  frame-accurate (frame 10 of 30, gray exact), autorotate already fixes
+  phone display-matrix videos (no action needed), `nframes=inf` is
+  normal (never call `count_frames`, it decodes the whole file).
 - [ ] Compact: weight audit (base exe stays light, no OpenCV/GPU in
   core), dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
 - [ ] Gates green (5/5 + flake8) before any v2.x candidate starts.
 
 Keep/cut from the hunt: kept every fix above (all reproduced, all
-pinned); cut nothing. Noted but deferred (design, not a bug): clip
-import/export still run on the GUI thread (3.5s import); a worker is
-the natural follow-up if it ever hurts.
+pinned); cut nothing. Deferred: clip import/export still run on the GUI
+thread, but with ffmpeg-side scaling the 4K import is ~1.2s and the
+worker is no longer urgent.
 
 ### Candidates v2.x (planned queue, ordered, not scheduled)
 
@@ -539,45 +547,57 @@ export → docs+gates) with pinned tests, MANUAL + QA.md updates, and
 keep/cut.
 1. Clip in-point seek on import (`-ss`). v2.0 always imports the first
    120 frames, so a 157s video only ever yields its first ~4s. Add a
-   "Start at (s)" control next to Open clip: fast-seek with ffmpeg
-   `-ss` before `-i` (`input_params`), GIF/WebP via `im.seek(frame)`;
-   clamp to the source duration and fail clean past the end. `info`
-   gains `start_s` + `source_duration` and `truncated` stays honest
-   (frames left before OR after the window). Still session-only,
-   ≤120f, 720p proxy, deterministic, no network. Pins: different
-   offset → different pixels, bounds/EOF errors, truncated flags,
-   PIL seek path + Gherkin +1. Cheap and it closes a v2.0 gap, hence
-   first.
-2. Timeline param envelopes (keyframes/curves/LFO, deterministic).
+   "Start at (s)" control next to Open clip: `input_params=["-ss", t]`
+   (verified frame-accurate on our ffmpeg 7.1 for frames at 10/30) and
+   `im.seek(frame)` for GIF/WebP; clamp to the source duration and fail
+   clean past the end. `info` gains `start_s` + `source_duration` and
+   `truncated` stays honest (frames left before OR after the window).
+   Still session-only, ≤120f, 720p proxy, deterministic, no network.
+   Pins: different offset → different pixels, bounds/EOF errors,
+   truncated flags, PIL seek path + Gherkin +1. Cheap and it closes a
+   v2.0 gap, hence first.
+2. VFR/timebase normalization on import. Phone captures are VFR and
+   imageio's native pass **duplicates frames**: a 30-frame VFR test
+   (10fps then 5fps) came back as 57 frames, so 120 imported frames can
+   cover less (or more) real time than the label says. Normalize to a
+   chosen CFR (`-vf fps=N`, N = round(source fps), clamp 2–30) or use
+   `-fps_mode passthrough` + real per-frame timing; record the
+   effective fps and real duration in `info`. Pins: synthetic VFR keeps
+   real-time length, no duplicate explosion, CFR sources unchanged.
+3. Timeline param envelopes (keyframes/curves/LFO, deterministic).
    Builds on the v2.0 timeline + sacred-Length math: per-clip curves
    for preset params (e.g. motion amount, drift, grain) instead of
    flat values. Session-only curves (like chain crops/repeats), never
    in presets. Pins: `tests/test_envelopes.py` + Gherkin +2.
-3. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
+4. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
    New GRADE effect: N ink stops over luminance (duotone with more
    stops), post-dither stack item, strict 0=off. Pins: unit + Gherkin +1.
-4. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
+5. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
    tracking wobble, chroma bleed over time) reusing the march/hue
    engine; ED-frozen rule respected (post-fx animation only).
    Pins: determinism + Gherkin +1.
-5. SVG color-region export (one layer per ink). Vector Pro extension:
+6. SVG color-region export (one layer per ink). Vector Pro extension:
    rect runs grouped per palette ink (display + separation reuse).
    Pins: layer count + byte checks.
-6. Cross-dissolve frame interpolation (numpy-only motion smoothing).
+7. Cross-dissolve frame interpolation (numpy-only motion smoothing).
    Optional smoothing between clip/dissolve frames; strict 0=off,
    default off (flicker stays the aesthetic). Pins: 0=identity,
    determinism, cap behavior.
-7. Animated APNG (Pillow-native). Same frames as the GIF path, full
+8. Animated APNG (Pillow-native). Same frames as the GIF path, full
    color like WebP; dialog-only extra. Pins: roundtrip + size note.
-8. MCP stdio server over the headless CLI. New surface: needs its own
+9. MCP stdio server over the headless CLI. New surface: needs its own
    spec (commands, schemas, no-network guard) before any code; last
    in the queue for that reason.
-9. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
+10. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
    SSIM-based weight estimator (replaces the B/px constants only if
    it wins); precomputed blue-noise masks (only if measured faster
    than IGN); NeuQuant/Wu quantization (only if it beats median-cut
    on covers); tile renderer for 8000px exports; JPEG XL stills
    (plugin weight first — likely cut).
+    PyAV backend evaluation (imageio-ffmpeg's own README recommends
+    it, but after ffmpeg-side scaling our 120f proxy import is
+    0.5–1.2s; the bundled-FFmpeg weight must be measured first —
+    likely cut).
 Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
 
 ## 4. Decisions made (do not reopen without reason)
@@ -621,7 +641,14 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
   keep/cut by real-render utility check, gates green before commit.
 - Clip in-point seek (`-ss`) added at the head of the v2.x queue
   (nov-2026): cheap, closes the v2.0 "first 120 frames only" gap, and
-  long videos become usable without a new engine. Envelopes follow.
+  long videos become usable without a new engine. VFR normalization
+  follows, then envelopes.
+- Video research (nov-2026): proxy scaling belongs in ffmpeg, not
+  Python (4K import 11x faster); never call `count_frames` (decodes
+  the whole file) — `nframes=inf` is normal; `-ss` before `-i` is
+  frame-accurate on modern ffmpeg; autorotate already handles phone
+  display-matrix videos; VFR sources duplicate frames on the native
+  imageio pass (pending item); PyAV stays deferred by bundle weight.
 - QThread rule (v2.1): never release the last reference to a running
   worker — Qt fast-fails the process (`0xC0000409`, no traceback).
   All worker handoff goes through `app/ui/thread_safe.py`

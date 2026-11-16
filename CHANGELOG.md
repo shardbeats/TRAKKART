@@ -26,12 +26,24 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   (`VideoBackendMissing` limpio si falta, sin fallo crudo de ffmpeg).
 - Los exports de clip ya no sobrescriben: GIF/ZIP/MP4 toman el primer
   nombre libre (`base_2`, `base_3`…), igual que el export de stills.
+### Changed
+- Import de clip: el proxy 720p se genera **dentro de ffmpeg**
+  (`size=`/`-s` en el reader) en vez de decodificar frames nativos y
+  redimensionar en Python. Medido: 4K/452MB 12.9s → **1.2s** (11x),
+  1080p/2GB 5.4s → **0.5s**, 1080p/38MB 3.3s → **1.1s**; mismo tope
+  120f, mismo aviso `truncated` y mismas dimensiones de proxy. Una
+  sonda de cabecera (sin decodificar) da el tamaño fuente.
+- Investigación de vídeo (nov-2026, ver ROADMAP): `-ss` antes de `-i`
+  es exacto en ffmpeg 7.1 (base para el in-point seek), la
+  autorrotación de móviles ya funciona, `nframes=inf` es normal (nunca
+  llamar a `count_frames`) y las fuentes VFR duplican frames (nueva
+  candidata v2.x).
 ### Tests
-- `tests/test_v21_bughunt.py` +26 (ciclo de vida QThread en preview/
+- `tests/test_v21_bughunt.py` +28 (ciclo de vida QThread en preview/
   export/watch/pip, wipe de proyecto, caché de clip, entrada corrupta,
   nframes desconocido, mux con track corto, restos parciales de
-  mux/encode, colisión de nombres). Suite: 776 (635 fast + 141 slow).
-  Gherkin sigue 67/67.
+  mux/encode, colisión de nombres, proxy escalado en ffmpeg).
+  Suite: 778 (637 fast + 141 slow). Gherkin sigue 67/67.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

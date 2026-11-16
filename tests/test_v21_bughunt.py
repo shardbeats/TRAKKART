@@ -302,6 +302,49 @@ def test_mp4_unknown_nframes_still_flags_truncation(monkeypatch):
     assert len(frames) == 4 and truncated is False
 
 
+def test_mp4_proxy_scaled_by_ffmpeg(monkeypatch):
+    """The 720p proxy must be produced by ffmpeg (-s/size), not Python resize."""
+    import numpy as np
+
+    from app import clip as _clip
+
+    seen = {}
+
+    class FakeReader:
+        def __init__(self, size=None):
+            self.size = size
+            seen["size"] = size
+
+        def get_meta_data(self):
+            return {"fps": 30, "nframes": 50, "size": (1920, 1080)}
+
+        def __iter__(self):
+            w, h = self.size or (1920, 1080)
+            for _ in range(50):
+                yield np.zeros((h, w, 3), dtype=np.uint8)
+
+        def close(self):
+            pass
+
+    import imageio.v2 as iio2
+
+    monkeypatch.setattr(iio2, "get_reader",
+                        lambda *a, **k: FakeReader(k.get("size")))
+    frames, fps, truncated = _clip._read_mp4("x.mp4", 10, 720)
+    assert seen["size"] == (720, 405)
+    assert frames[0].size == (720, 405)
+    assert (len(frames), fps, truncated) == (10, 30, True)
+
+
+def test_proxy_dims_portrait_and_small():
+    from app.clip import _proxy_dims
+
+    assert _proxy_dims(1920, 1080, 720) == (720, 405)
+    assert _proxy_dims(1080, 1920, 720) == (405, 720)
+    assert _proxy_dims(40, 30, 720) == (40, 30)
+    assert _proxy_dims(0, 0, 720) == (0, 0)
+
+
 def test_has_video_requires_ffmpeg_binary(monkeypatch):
     import imageio_ffmpeg
 
