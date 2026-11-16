@@ -518,8 +518,8 @@ No new features until the tree is compact and hunted:
   binary. Real 2GB clip: import 3.5s → 0.5s after the ffmpeg-side
   scaling, 120f dither 1.05s (~9ms/frame), GIF/ZIP/MP4 valid; clip
   exports now rename instead of overwriting.
-  Pins: `tests/test_v21_bughunt.py` (+28, suite 778 = 637 fast + 141
-  slow; Gherkin stays 67).
+  Pins: `tests/test_v21_bughunt.py` (+28, suite 780 = 639 fast + 141
+  slow; Gherkin 68).
 - [x] Online research + measurement (nov-2026): proxy downscale moved
   inside ffmpeg (`size=`/`-s` on the reader) instead of decoding native
   frames and resizing in Python: **4K 452MB 12.9s → 1.2s (11x)**, 2GB
@@ -528,10 +528,15 @@ No new features until the tree is compact and hunted:
   frame-accurate (frame 10 of 30, gray exact), autorotate already fixes
   phone display-matrix videos (no action needed), `nframes=inf` is
   normal (never call `count_frames`, it decodes the whole file).
-- [ ] Compact: weight audit (base exe stays light, no OpenCV/GPU in
+- [x] Compact: weight audit (base exe stays light, no OpenCV/GPU in
   core), dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
+  Findings nov-2026: no cv2/torch/pyav imports anywhere; `moderngl`
+  dropped from `requirements.txt` (spike-only + lazy `app/gpu.py`
+  fallback — never in the bundle); stale `build_exe.py` references
+  fixed to `build_portable.py` (QA + SIGNING); all other hits are
+  historical notes. `app/gpu.py` stays (live optional preview path).
 - [x] Gates green (5/5 + flake8) before any v2.x candidate starts:
-  last run 100% pass (776/778, 2 skipped), coverage 84.9%, Gherkin 67,
+  last run 100% pass (776/778, 2 skipped), coverage 84.9%, Gherkin 68,
   export smoke, no-leak + clean flake8.
 
 Keep/cut from the hunt: kept every fix above (all reproduced, all
@@ -548,17 +553,15 @@ item says otherwise. Each lands in A/B/C/D phases (engine → UI →
 export → docs+gates) with pinned tests, MANUAL + QA.md updates, and
 5/5 gates + flake8 before commit. A real-render utility check decides
 keep/cut.
-1. Clip in-point seek on import (`-ss`). v2.0 always imports the first
-   120 frames, so a 157s video only ever yields its first ~4s. Add a
-   "Start at (s)" control next to Open clip: `input_params=["-ss", t]`
-   (verified frame-accurate on our ffmpeg 7.1 for frames at 10/30) and
-   `im.seek(frame)` for GIF/WebP; clamp to the source duration and fail
-   clean past the end. `info` gains `start_s` + `source_duration` and
-   `truncated` stays honest (frames left before OR after the window).
-   Still session-only, ≤120f, 720p proxy, deterministic, no network.
-   Pins: different offset → different pixels, bounds/EOF errors,
-   truncated flags, PIL seek path + Gherkin +1. Cheap and it closes a
-   v2.0 gap, hence first.
+1. [x] Clip in-point seek on import (`-ss`) — SHIPPED nov-2026.
+   `import_clip(..., start_s)` + "Start at (s)" control next to Open
+   clip: `input_params=["-ss", t]` (verified frame-accurate on our
+   ffmpeg 7.1) and `im.seek(frame)` for GIF/WebP; clamp to the source
+   duration and fail clean past the end. `info` gains `start_s` +
+   `source_duration` and `truncated` stays honest (frames left before
+   OR after the window). Still session-only, ≤120f, 720p proxy,
+   deterministic, no network. Pins: unit (GIF skip, MP4 `-ss`, clamps)
+   + Gherkin +1 (68). Real 1080p/38MB: `start=10s` ~1.0s, pixels differ.
 2. VFR/timebase normalization on import. Phone captures are VFR and
    imageio's native pass **duplicates frames**: a 30-frame VFR test
    (10fps then 5fps) came back as 57 frames, so 120 imported frames can

@@ -46,9 +46,13 @@ def open_path(win, path) -> bool:
 
     from app.clip import VideoBackendMissing, import_clip
 
+    try:
+        start_s = max(0.0, float(win.spn_clip_start_s.value()))
+    except Exception:  # noqa: BLE001
+        start_s = 0.0
     _busy(win, True, "Importing clip...")
     try:
-        frames, info = import_clip(Path(path))
+        frames, info = import_clip(Path(path), start_s=start_s)
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))
         return False
@@ -78,8 +82,9 @@ def open_path(win, path) -> bool:
     scrub(win, 0)
     try:
         trunc = " · truncated to 120f" if info.get("truncated") else ""
+        start_tag = f" · from {info.get('start_s', 0.0):.1f}s" if info.get("start_s") else ""
         win._status(f"Clip: {Path(path).name} · {len(frames)}f"
-                    f" @{info.get('fps', 24)}fps{trunc} (proxy 720p)")
+                    f" @{info.get('fps', 24)}fps{start_tag}{trunc} (proxy 720p)")
     except Exception:  # noqa: BLE001
         pass
     return True
@@ -303,9 +308,10 @@ def sync_info(win) -> None:
         fps = _export_fps(win)
         name = __import__("pathlib").Path(str(info.get("path", "clip"))).name
         trunc = " · capped at 120f" if info.get("truncated") else ""
+        start_tag = f" · from {info.get('start_s', 0.0):.1f}s" if info.get("start_s") else ""
         span = max(0, e - s + 1)
         win.lbl_clip_info.setText(
-            f"{name} · {n}f @{info.get('fps', 24)}fps · trim {s}-{e}"
+            f"{name} · {n}f @{info.get('fps', 24)}fps{start_tag} · trim {s}-{e}"
             f" (= {clip_duration(span, fps):.1f}s @ {fps}fps){trunc} · 720p proxy")
     except Exception:  # noqa: BLE001
         pass

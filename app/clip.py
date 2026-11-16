@@ -67,11 +67,18 @@ def _clamp_fps(fps) -> int:
         return 24
 
 
-def _read_anim_pil(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, bool]:
-    """Read .gif/.webp via Pillow (offline, no ffmpeg frames needed)."""
+def _read_anim_pil(path: Path, max_frames: int, proxy_side: int,
+                   start_s: float = 0.0) -> tuple[list, int, bool, float, float]:
+    """Read .gif/.webp via Pillow (offline, no ffmpeg frames needed).
+
+    `start_s` skips the first `round(start_s * fps)` frames via `im.seek`
+    (Pillow has no time seek; frame-accurate by construction).
+    Returns (frames, fps, truncated, start_s, source_duration).
+    """
     frames: list[Image.Image] = []
     fps = 8
     truncated = False
+    start = max(0.0, float(start_s or 0.0))
     with Image.open(path) as im:
         total = int(getattr(im, "n_frames", 1) or 1)
         try:
@@ -79,9 +86,13 @@ def _read_anim_pil(path: Path, max_frames: int, proxy_side: int) -> tuple[list, 
             fps = _clamp_fps(1000.0 / max(1.0, dur))
         except (AttributeError, TypeError, ValueError):
             fps = 8
-        n = min(int(total), max(1, int(max_frames)))
-        truncated = bool(total > n)
-        for i in range(n):
+        source_duration = total / max(1, fps)
+        if start >= source_duration:
+            raise ValueError(f"start {start:.2f}s beyond clip length {source_duration:.2f}s: {path}")
+        skip = min(total - 1, int(start * fps))
+        n = min(int(total - skip), max(1, int(max_frames)))
+        truncated = bool(skip > 0 or total > skip + n)
+        for i in range(skip, skip + n):
             try:
                 im.seek(i)
             except EOFError:
@@ -89,7 +100,7 @@ def _read_anim_pil(path: Path, max_frames: int, proxy_side: int) -> tuple[list, 
             frames.append(_fit_proxy(im.convert("RGB"), proxy_side))
     if not frames:
         raise ValueError(f"no frames: {path}")
-    return frames, fps, truncated
+    return frames, fps, truncated, start, source_duration
 
 
 def _probe_meta(path: Path) -> dict:
@@ -111,28 +122,47 @@ def _probe_meta(path: Path) -> dict:
             pass
 
 
-def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, bool]:
-    """Read .mp4 via imageio-ffmpeg (first N frames, session proxy).
+def _read_mp4(path: Path, max_frames: int, proxy_side: int,
+              start_s: float = 0.0) -> tuple[list, int, bool, float, float | None]:
+    """Read .mp4 via imageio-ffmpeg (first N frames from `start_s`, session proxy).
 
     The proxy downscale happens *inside* ffmpeg (`size=` -> `-s`), not in
     Python: a 4K 452MB source went from 12.9s to 1.2s (11x) because the
     pipe never carries 24MB native frames. A header probe (no decode)
     gives the source size first; anything unexpected falls back to the
     native-size reader.
+
+    In-point seek uses a fast input `-ss` (`input_params`, before `-i`):
+    frame-accurate on ffmpeg 7.1 (frame 10/30 reads back exact gray).
+    Returns (frames, fps, truncated, start_s, source_duration).
     """
     import imageio.v2 as iio2
 
     frames: list[Image.Image] = []
     fps = 24
     truncated = False
+    start = max(0.0, float(start_s or 0.0))
     meta = _probe_meta(path)
     try:
         fps = _clamp_fps(meta.get("fps", 24))
     except Exception:  # noqa: BLE001
         fps = 24
+    source_duration: float | None = None
+    try:
+        import math as _math
+
+        d = float(meta.get("duration") or 0.0)
+        if d > 0 and _math.isfinite(d):
+            source_duration = d
+    except (TypeError, ValueError):
+        source_duration = None
+    if source_duration is not None and start >= source_duration:
+        raise ValueError(f"start {start:.2f}s beyond clip length {source_duration:.2f}s: {path}")
     total = meta.get("nframes", None)
     src = meta.get("size")
     kw: dict = {}
+    if start > 0:
+        kw["input_params"] = ["-ss", f"{start:.3f}"]
     if isinstance(src, (tuple, list)) and len(src) == 2:
         try:
             sw, sh = int(src[0]), int(src[1])
@@ -154,6 +184,8 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, 
                 break
             frames.append(_fit_proxy(Image.fromarray(arr).convert("RGB"), proxy_side))
             n += 1
+        if start > 0:
+            truncated = True  # frames exist before the window
         if total is not None:
             try:
                 import math as _math
@@ -163,7 +195,7 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, 
                 # "unknown", never "not truncated" — the cap flag set
                 # above must survive.
                 if _math.isfinite(t):
-                    truncated = int(t) > len(frames)
+                    truncated = truncated or int(t) > len(frames) + int(start * fps)
             except (TypeError, ValueError, OverflowError):
                 pass
     finally:
@@ -173,15 +205,19 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, 
             pass
     if not frames:
         raise ValueError(f"no frames: {path}")
-    return frames, fps, truncated
+    return frames, fps, truncated, start, source_duration
 
 
 def import_clip(path: str | Path, max_frames: int = CLIP_MAX_FRAMES,
-                proxy_side: int = CLIP_PROXY_SIDE) -> tuple[list[Image.Image], dict]:
+                proxy_side: int = CLIP_PROXY_SIDE,
+                start_s: float = 0.0) -> tuple[list[Image.Image], dict]:
     """Import a short clip (session-only proxy frames + info).
 
-    Returns (frames, info) with info {path, frames, fps, truncated,
-    size}. Raises VideoBackendMissing without the video extra,
+    `start_s` is the in-point in seconds (fast input `-ss` for MP4,
+    frame skip for GIF/WebP); clamped to the source duration, clean
+    ValueError past the end. Returns (frames, info) with info {path,
+    frames, fps, truncated, size, start_s, source_duration}.
+    Raises VideoBackendMissing without the video extra,
     FileNotFoundError for missing paths, ValueError for bad ext/empty.
     """
     _require_clip_io()
@@ -191,14 +227,19 @@ def import_clip(path: str | Path, max_frames: int = CLIP_MAX_FRAMES,
     ext = p.suffix.lower()
     if ext not in CLIP_EXTS:
         raise ValueError(f"clip must be {CLIP_EXTS}: {path}")
+    try:
+        start = max(0.0, float(start_s or 0.0))
+    except (TypeError, ValueError):
+        start = 0.0
     cap = max(1, min(CLIP_MAX_FRAMES, int(max_frames or CLIP_MAX_FRAMES)))
     side = max(64, min(1920, int(proxy_side or CLIP_PROXY_SIDE)))
     if ext in (".gif", ".webp"):
-        frames, fps, truncated = _read_anim_pil(p, cap, side)
+        frames, fps, truncated, start, duration = _read_anim_pil(p, cap, side, start)
     else:
-        frames, fps, truncated = _read_mp4(p, cap, side)
+        frames, fps, truncated, start, duration = _read_mp4(p, cap, side, start)
     info = {"path": str(p), "frames": len(frames), "fps": int(fps),
-            "truncated": bool(truncated), "size": [frames[0].width, frames[0].height]}
+            "truncated": bool(truncated), "size": [frames[0].width, frames[0].height],
+            "start_s": float(start), "source_duration": duration}
     return frames, info
 
 

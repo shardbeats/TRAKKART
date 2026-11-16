@@ -4,4 +4,5 @@ numpy>=1.24
 numba>=0.60
 imageio>=2.31
 imageio-ffmpeg>=0.4.9
-moderngl>=5.13.0
+# NOTE: moderngl is spike-only (tools/gpu_spike_preview.py + lazy app/gpu.py
+# fallback) — never in base requirements or the exe bundle.

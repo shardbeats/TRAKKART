@@ -3,6 +3,15 @@
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
 ## [Unreleased] - v2.1 caza de bugs + fixes de estabilidad (DONE nov-2026)
+### Added
+- In-point seek en el import de clip (candidata v2.x #1): control
+  "Start at (s)" junto a Open clip; MP4 con `-ss` de entrada (rápido y
+  exacto en ffmpeg 7.1), GIF/WebP con salto de frames. `info` gana
+  `start_s` + `source_duration`, `truncated` honesto (hay frames antes
+  o después de la ventana) y error limpio si el inicio supera el final.
+  Medido en 1080p/38MB real: `start=10s` importa en ~1.0s, píxeles
+  distintos al `start=0`. Pins: unit (GIF skip, MP4 `-ss`, clamps) +
+  Gherkin +1 (68).
 ### Fixed
 - **Crash duro al cargar un clip y hacer New project / cerrar** (sin
   traceback, `0xC0000409`): se soltaba la referencia de un `QThread`
@@ -42,8 +51,9 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - `tests/test_v21_bughunt.py` +28 (ciclo de vida QThread en preview/
   export/watch/pip, wipe de proyecto, caché de clip, entrada corrupta,
   nframes desconocido, mux con track corto, restos parciales de
-  mux/encode, colisión de nombres, proxy escalado en ffmpeg).
-  Suite: 778 (637 fast + 141 slow). Gherkin sigue 67/67.
+  mux/encode, colisión de nombres, proxy escalado en ffmpeg) +
+  `tests/test_clip.py` +2 (in-point seek GIF/MP4).
+  Suite: 780 (639 fast + 141 slow). Gherkin 68/68.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

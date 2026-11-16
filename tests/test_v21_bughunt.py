@@ -292,13 +292,13 @@ def test_mp4_unknown_nframes_still_flags_truncation(monkeypatch):
 
     monkeypatch.setattr(iio2, "get_reader",
                         lambda *a, **k: FakeReader(500, float("inf")))
-    frames, fps, truncated = _clip._read_mp4("x.mp4", 120, 64)
+    frames, fps, truncated, _s, _d = _clip._read_mp4("x.mp4", 120, 64)
     assert len(frames) == 120 and fps == 30
     assert truncated is True
 
     monkeypatch.setattr(iio2, "get_reader",
                         lambda *a, **k: FakeReader(4, 4))
-    frames, _fps, truncated = _clip._read_mp4("x.mp4", 120, 64)
+    frames, _fps, truncated, _s, _d = _clip._read_mp4("x.mp4", 120, 64)
     assert len(frames) == 4 and truncated is False
 
 
@@ -330,7 +330,7 @@ def test_mp4_proxy_scaled_by_ffmpeg(monkeypatch):
 
     monkeypatch.setattr(iio2, "get_reader",
                         lambda *a, **k: FakeReader(k.get("size")))
-    frames, fps, truncated = _clip._read_mp4("x.mp4", 10, 720)
+    frames, fps, truncated, _s, _d = _clip._read_mp4("x.mp4", 10, 720)
     assert seen["size"] == (720, 405)
     assert frames[0].size == (720, 405)
     assert (len(frames), fps, truncated) == (10, 30, True)

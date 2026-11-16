@@ -51,3 +51,29 @@ def trim_range_ok(ctx):
     assert len(ctx["out"]) == 3
     assert ctx["out"][0].getpixel((0, 0)) == (1, 0, 0)
     assert ctx["out"][-1].getpixel((0, 0)) == (3, 0, 0)
+
+
+@when("I import a 10-frame GIF from 0.3s")
+def import_gif_from_offset(ctx, tmp_path):
+    from PIL import Image as Img
+
+    from app.clip import import_clip
+
+    gif = tmp_path / "seek.gif"
+    frames10 = [Img.new("RGB", (48, 48), (i * 25 % 256, 40, 90)) for i in range(10)]
+    frames10[0].save(str(gif), save_all=True, append_images=frames10[1:],
+                     duration=100, loop=0)
+    frames, info = import_clip(gif, start_s=0.3)
+    ctx["seek_frames"] = frames
+    ctx["seek_info"] = info
+    ctx["seek_total"] = 10
+    ctx["seek_head"] = frames10[3].tobytes()
+
+
+@then("the import starts at the fourth frame and flags truncation")
+def seek_import_ok(ctx):
+    frames, info = ctx["seek_frames"], ctx["seek_info"]
+    assert len(frames) == ctx["seek_total"] - 3
+    assert info["start_s"] == 0.3
+    assert info["truncated"] is True
+    assert frames[0].tobytes() == ctx["seek_head"]

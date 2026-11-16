@@ -72,7 +72,9 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **Input:** File → Open clip (MP4/GIF/WebP, ≤120 frames, 720p proxy,
   session-only — never saved into presets, batch stays stills-only).
   Without the video backend the dialog explains the install instead
-  of failing.
+  of failing. **Start at (s)** sets the in-point: MP4 seeks with a fast
+  input `-ss`, GIF/WebP skip frames; past the end fails with a clean
+  message. The info line shows `from Xs` plus the source length.
 - **Timeline (MOTION → Clip):** info line (file, fps, trim, `=` length),
   Trim spins pick the inclusive `[start, end]` range, the slider
   scrubs the source proxy (visual only, no audio in-app).

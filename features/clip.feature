@@ -13,3 +13,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I trim a 5-frame clip from 1 to 3
     Then the trim holds 3 frames starting with the second
+
+  Scenario: Clip in-point skips the head of the clip
+    Given a 48x48 gradient image
+    When I import a 10-frame GIF from 0.3s
+    Then the import starts at the fourth frame and flags truncation

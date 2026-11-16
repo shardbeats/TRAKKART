@@ -76,11 +76,11 @@ features/engines3.feature :: 3 scenarios (cmyk/ascii/edges, motif, vector-pro)
 features/motion.feature   :: 4 scenarios (drift determinism, paste-up neutral, motion freeze, backend-missing skip)
 features/morph_modes.feature :: 11 scenarios (burst determinism, stagger-off legacy, blocks ends assembled, elastic loop + fat-dot joints, match-travel pour, tint, trail, shade, point-cap density, ...)
 features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
-features/clip.feature     :: 2 scenarios (clip dither deterministic, trim inclusive range)
+features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclusive range, in-point seek)
 ```
 
-Total: 67/67. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 778 tests (637 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 780 tests (639 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -138,8 +138,9 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
 - Pins: `tests/test_v21_bughunt.py` (28: thread life-cycle for preview
   / export / watch / pip, project wipe, cache hygiene, corrupt input,
   unknown nframes, ffmpeg-side proxy (`_proxy_dims`), short-track mux,
-  partial-file cleanup for mux + encode, collision rename). No new
-  Gherkin scenarios (gates stay 67).
+  partial-file cleanup for mux + encode, collision rename) +
+  `tests/test_clip.py` (2: GIF in-point skip, MP4 input `-ss` + clamps).
+  Gherkin 68 (+1 in-point seek).
 
 ## Canvas invariants (nov-2026 bug hunt)
 
@@ -540,7 +541,7 @@ C:\venvs\dev\Scripts\python.exe -m pytest tests/test_mosh.py tests/test_segments
 3b. CANVAS → ratio presets fill W/H; typing W/H flips Ratio to Custom. "Adjust crop..." opens the visual editor (frame + grid, drag pans, wheel zooms, Rotate/Reset/ratio/mode incl. Custom with free frame); Done applies, Cancel keeps values.
 4. Export dialog generates `<base>.png|jpg|webp` at the canvas W×H + optional `*_thumb1080p`, `*_vector.svg`, `*_gif.gif`, `*_vid.mp4`, `*_metadata.json` in the chosen folder (no size spin: size comes from CANVAS). MP4 defaults to 1080p (selector: Canvas/1080p/720p); the animation line shows the live VIDEO mode + honest `~MB` estimate.
 4. `*_thumb1080p` opens directly in TRAKKOUT with no odd cropping.
-5. `build_exe.py` produces a portable `dist/TRAKKART.exe` that starts on double-click.
+5. `build_portable.py` produces a portable `dist/TRAKKART-portable-<v>.zip` (one-dir `TRAKKART/TRAKKART.exe`) that starts on double-click.
 5b. Release extras: `build_installer.py` builds the Inno Setup installer (needs `dist/TRAKKART.exe` + ISCC); session smoke = open image → close → reopen restores it; Edit → Redo (Ctrl+Y) after Undo; Settings Export…/Import… round-trips the JSON; Settings → Extras shows accel/MP4 state (all included in the exe); F1 opens MANUAL.md; Help → Show logs folder reveals data dir.
 
 ## Perf (manual, before release)
