@@ -80,7 +80,7 @@ features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 788 tests (644 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 792 tests (647 fast + 145 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

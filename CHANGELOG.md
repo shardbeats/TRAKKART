@@ -2,7 +2,12 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [Unreleased] - v2.1 caza de bugs + fixes de estabilidad (DONE nov-2026)
+## [2.1.0] - 2026-11-16 — clip pipeline + estabilización
+Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
+v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
+y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
+orden visual de la UI. Los bloques `[Unreleased]` de abajo quedan como
+bitácora detallada por fase.
 ### Added
 - In-point seek en el import de clip (candidata v2.x #1): control
   "Start at (s)" junto a Open clip; MP4 con `-ss` de entrada (rápido y
