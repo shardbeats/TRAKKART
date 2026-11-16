@@ -383,14 +383,58 @@ def on_ratio_preset(win) -> None:
             spn.setValue(int(v))
         finally:
             spn.blockSignals(False)
+    try:
+        # A ratio preset is a new aspect: the link follows it (Photoshop).
+        if bool(getattr(win, "_canvas_link", False)):
+            win._canvas_link_ratio = max(1e-6, float(w) / max(1, float(h)))
+    except Exception:  # noqa: BLE001
+        pass
     sync_docdims(win)
     win._schedule_refresh()
 
 
-def on_canvas_wh_changed(win) -> None:
-    """Editing W/H jumps to Custom only (classic editors). No loops: activated never re-flips."""
-    from app.canvas import CUSTOM_LABEL
+def on_canvas_link(win, on: bool) -> None:
+    """Link toggle: locking captures the current W/H aspect (Photoshop)."""
+    win._canvas_link = bool(on)
+    if on:
+        try:
+            w = max(1, int(win.spn_canvas_w.value()))
+            h = max(1, int(win.spn_canvas_h.value()))
+            win._canvas_link_ratio = max(1e-6, float(w) / float(h))
+        except Exception:  # noqa: BLE001
+            win._canvas_link_ratio = 1.0
 
+
+def on_canvas_wh_changed(win, edited: str | None = None) -> None:
+    """Editing W/H jumps to Custom only (classic editors). No loops: activated never re-flips.
+
+    With the link on, the edited side drives the other (aspect kept,
+    clamped to canvas limits): type W on a square canvas and H follows —
+    3000 lands 3000×3000.
+    """
+    from app.canvas import CUSTOM_LABEL, MAX_DIM, MIN_DIM
+
+    if bool(getattr(win, "_canvas_link", False)) and edited in ("w", "h"):
+        try:
+            ratio = max(1e-6, float(getattr(win, "_canvas_link_ratio", 1.0) or 1.0))
+            if edited == "w":
+                w = max(MIN_DIM, min(MAX_DIM, int(win.spn_canvas_w.value())))
+                h = max(MIN_DIM, min(MAX_DIM, int(round(w / ratio))))
+                win.spn_canvas_h.blockSignals(True)
+                try:
+                    win.spn_canvas_h.setValue(h)
+                finally:
+                    win.spn_canvas_h.blockSignals(False)
+            else:
+                h = max(MIN_DIM, min(MAX_DIM, int(win.spn_canvas_h.value())))
+                w = max(MIN_DIM, min(MAX_DIM, int(round(h * ratio))))
+                win.spn_canvas_w.blockSignals(True)
+                try:
+                    win.spn_canvas_w.setValue(w)
+                finally:
+                    win.spn_canvas_w.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
     try:
         if win.cmb_ratio.currentText() != CUSTOM_LABEL:
             win.cmb_ratio.blockSignals(True)

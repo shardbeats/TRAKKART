@@ -23,6 +23,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   render (`render_clip_export`) se comparte entre ambos caminos.
 - MOTION de una sola línea (UX, nov-2026): fuente conmutable Animate still XOR Clip footage (radios + cajas por fuente, Timing/proxy colapsado en Details); una sola escritura al canvas.
 - Clip framing opción B (UX, nov-2026): sin crop propio — el clip sigue IMAGE → Crop del still (etiqueta visible + tooltip, pin en test_ux).
+- Link W×H (UX, nov-2026): botón 🔗 estilo Photoshop entre los spins del canvas — con el link puesto, editar un lado escala el otro (cuadrado entra, cuadrado sale: 3000 → 3000×3000). Presets de ratio re-derivan el link; SP-404 lo desactiva. Pin en test_ui_render.
   Pins: 3 (sección/plan/opciones del diálogo, clip-only, export real
   GIF vía `export_flow`).
 - VFR normalizado en el import de clip (candidata v2.x #2): el reader
@@ -74,7 +75,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   mux/encode, colisión de nombres, proxy escalado en ffmpeg) +
   `tests/test_clip.py` +2 (in-point seek GIF/MP4).
   `tests/test_ui_export.py` +3 (clip dialog section/clip-only/real GIF).
-  Suite: 787 (643 fast + 144 slow). Gherkin 68/68.
+  Suite: 788 (644 fast + 144 slow). Gherkin 68/68.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

@@ -92,6 +92,45 @@ def test_custom_canvas_free_wh(window, isolated_presets):
     assert abs(window.result.width / window.result.height - 1920 / 800) < 0.1
 
 
+def test_canvas_link_mirrors_wh(window):
+    # Link off by default: independent spins (legacy behavior intact).
+    assert window.btn_canvas_link.isChecked() is False
+    # Square in, square out: link a 3000x3000, type W, H follows.
+    window.cmb_ratio.setCurrentText("1:1")
+    window._on_ratio_preset()
+    window.btn_canvas_link.setChecked(True)
+    window.spn_canvas_w.setValue(2000)
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (2000, 2000)
+    assert window.cmb_ratio.currentText() == "Custom"
+    assert window.current_params().canvas_w == 2000
+    assert window.current_params().canvas_h == 2000
+    # Photoshop-style: a 2:1 aspect stays 2:1 when W is edited.
+    window.btn_canvas_link.setChecked(False)
+    window.spn_canvas_w.setValue(1920)
+    window.spn_canvas_h.setValue(960)
+    window.btn_canvas_link.setChecked(True)
+    window.spn_canvas_w.setValue(1280)
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (1280, 640)
+    # Editing H drives W too.
+    window.spn_canvas_h.setValue(480)
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (960, 480)
+    # Unlink: independent again.
+    window.btn_canvas_link.setChecked(False)
+    window.spn_canvas_w.setValue(3000)
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (3000, 480)
+    # Ratio presets re-derive the link; SP-404 (non-square) unlinks.
+    window.spn_canvas_h.setValue(3000)
+    window.btn_canvas_link.setChecked(True)
+    window.cmb_ratio.setCurrentText("9:16")
+    window._on_ratio_preset()
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (1688, 3000)
+    window.spn_canvas_w.setValue(844)
+    assert window.spn_canvas_h.value() == 1500
+    window.btn_sp404_canvas.click()
+    assert window.btn_canvas_link.isChecked() is False
+    assert (window.spn_canvas_w.value(), window.spn_canvas_h.value()) == (128, 64)
+
+
 def test_fx_controls_apply(window, isolated_presets, monkeypatch):
     from PySide6.QtGui import QColor
     from PySide6.QtWidgets import QColorDialog

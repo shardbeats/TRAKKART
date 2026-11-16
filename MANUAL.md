@@ -128,6 +128,10 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   128×64 canvas (document only); the "SP-404 OLED Preview: ON/OFF" toggle in
   IMAGE (same as View menu) shows the 1-bit result the device will show
   (DITHER threshold tunes the cut live).
+- **Link W×H (🔗, Photoshop-style):** with the link on, editing one side
+  scales the other keeping the aspect — link a square canvas, type 3000
+  in W and H follows (3000×3000). Ratio presets re-derive the link;
+  SP-404 (128×64, non-square) unlinks it.
 - **Quick export** repeats the last setup without asking. If you switch
   images, it asks again (never reuses the previous name).
 - **Distro 3000 (delivering to stores):** distributors (DistroKid,

@@ -80,7 +80,7 @@ features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 787 tests (643 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 788 tests (644 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -154,7 +154,8 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
   VFR normalization) + `tests/test_ui_export.py` (3: clip dialog
   section/plan/options, clip-only stills-off, real GIF via
   `export_flow`) + `tests/test_ux.py` (+2: MOTION source XOR, Details,
-  titles; clip follows still Crop). Gherkin 68 (+1 in-point seek).
+  titles; clip follows still Crop) + `tests/test_ui_render.py` (+1: W×H
+  aspect link). Gherkin 68 (+1 in-point seek).
 - Unified MOTION line (user request): source radios Animate still XOR
   Clip footage (one box visible, canvas titles `MOTION · …`); opening a
   clip selects footage, enabling Animate returns to the still; both

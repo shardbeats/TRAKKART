@@ -521,7 +521,8 @@ No new features until the tree is compact and hunted:
   Pins: `tests/test_v21_bughunt.py` (+28) + `tests/test_clip.py` (+3:
   in-point GIF/MP4, VFR normalization) + `tests/test_ui_export.py` (+3:
   clip Export section) + `tests/test_ux.py` (+2: MOTION XOR, clip
-  follows still Crop; suite 787 = 643 fast + 144 slow; Gherkin 68).
+  follows still Crop) + `tests/test_ui_render.py` (+1: W×H link;
+  suite 788 = 644 fast + 144 slow; Gherkin 68).
 - [x] Online research + measurement (nov-2026): proxy downscale moved
   inside ffmpeg (`size=`/`-s` on the reader) instead of decoding native
   frames and resizing in Python: **4K 452MB 12.9s → 1.2s (11x)**, 2GB

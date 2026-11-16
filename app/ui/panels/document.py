@@ -204,12 +204,31 @@ def _apply_sp404_canvas(win) -> None:
     Document-only: setting the spins fires the normal W/H path (flips
     Ratio to Custom + refresh). The OLED preview is an independent
     view toggle (btn_sp404_preview / View menu) and is NOT changed here.
+    A linked W×H would fight the pair (128 then 64), so SP-404 unlinks
+    first — it is inherently non-square.
     """
     from app.sp404 import SP_H, SP_W
 
     try:
+        for spn in (win.spn_canvas_w, win.spn_canvas_h):
+            spn.blockSignals(True)
         win.spn_canvas_w.setValue(int(SP_W))
         win.spn_canvas_h.setValue(int(SP_H))
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        for spn in (win.spn_canvas_w, win.spn_canvas_h):
+            try:
+                spn.blockSignals(False)
+            except Exception:  # noqa: BLE001
+                pass
+    try:
+        if win.btn_canvas_link.isChecked():
+            win.btn_canvas_link.setChecked(False)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._on_canvas_wh_changed()
     except Exception:  # noqa: BLE001
         pass
 
@@ -258,8 +277,15 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.spn_canvas_w.setSuffix(" px")
     win.spn_canvas_w.setMinimumWidth(85)
     win.spn_canvas_w.setToolTip("Canvas width: typing it flips Ratio to Custom (free)")
-    win.spn_canvas_w.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
+    win.spn_canvas_w.valueChanged.connect(lambda _: win._on_canvas_wh_changed("w"))
     doc_row.addWidget(win.spn_canvas_w, 1)
+    win.btn_canvas_link = QPushButton("🔗")
+    win.btn_canvas_link.setCheckable(True)
+    win.btn_canvas_link.setChecked(False)
+    win.btn_canvas_link.setFixedWidth(32)
+    win.btn_canvas_link.setToolTip("Link W×H (Photoshop-style): editing one scales the other, keeps the aspect — square in, square out (3000 → 3000×3000)")
+    win.btn_canvas_link.toggled.connect(win._on_canvas_link)
+    doc_row.addWidget(win.btn_canvas_link)
     doc_row.addWidget(QLabel("×"))
     win.spn_canvas_h = QSpinBox()
     win.spn_canvas_h.setRange(MIN_DIM, MAX_DIM)
@@ -267,7 +293,7 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.spn_canvas_h.setSuffix(" px")
     win.spn_canvas_h.setMinimumWidth(85)
     win.spn_canvas_h.setToolTip("Canvas height: typing it flips Ratio to Custom (free)")
-    win.spn_canvas_h.valueChanged.connect(lambda _: win._on_canvas_wh_changed())
+    win.spn_canvas_h.valueChanged.connect(lambda _: win._on_canvas_wh_changed("h"))
     doc_row.addWidget(win.spn_canvas_h, 1)
     win.lbl_docdims = QLabel()
     win.lbl_docdims.setMinimumWidth(110)

@@ -47,6 +47,9 @@ class MainWindow(QMainWindow):
         self.crop_fx = 50.0
         self.crop_fy = 50.0
         self.crop_zoom = 1.0
+        # -- canvas W×H link (Photoshop-style aspect lock, off by default) --
+        self._canvas_link: bool = False
+        self._canvas_link_ratio: float = 1.0
         self.setAcceptDrops(True)
         self.out_dir = Path(out_dir) if out_dir else get_out_dir()
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -584,10 +587,15 @@ class MainWindow(QMainWindow):
 
         _par.on_ratio_preset(self)
 
-    def _on_canvas_wh_changed(self) -> None:
+    def _on_canvas_wh_changed(self, edited: str | None = None) -> None:
         from app.ui import params_controller as _par
 
-        _par.on_canvas_wh_changed(self)
+        _par.on_canvas_wh_changed(self, edited)
+
+    def _on_canvas_link(self, on: bool) -> None:
+        from app.ui import params_controller as _par
+
+        _par.on_canvas_link(self, bool(on))
 
     def _sync_docdims(self) -> None:
         from app.ui import params_controller as _par
