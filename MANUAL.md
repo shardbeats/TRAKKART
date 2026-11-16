@@ -93,6 +93,12 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   fails, the silent MP4 is kept. Works with no still open (clip-only
   export); still outputs stay off in that case. No audio trimming/
   fades in-app.
+- **Framing (no per-clip crop):** the clip cover-fits the still canvas —
+  it follows IMAGE → Crop (mode/focus/zoom, `Adjust crop...`). Move the
+  still crop and the clip re-frames, preview and export alike (same
+  pixels, same ratio; the cache keys the recipe so no stale frame
+  survives). A vertical phone clip into a 1:1 canvas crops sides, like
+  any still would.
 - **Hygiene:** a long source shows "capped at 120f"; File → New
   project (or Close) drops the session clip and its preview cache.
   Exports never overwrite: a second export lands as `base_2`.

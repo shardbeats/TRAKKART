@@ -111,7 +111,7 @@ def test_no_timeline_leftovers(window):
         assert not hasattr(window, attr), attr
     for attr in ("btn_clip_open", "btn_clip_close", "spn_clip_start",
                  "spn_clip_end", "sld_clip", "btn_clip_play",
-                 "lbl_clip_info", "lbl_clip_pos",
+                 "lbl_clip_info", "lbl_clip_pos", "lbl_clip_crop",
                  "rb_motion_still", "rb_motion_clip",
                  "btn_motion_details"):
         assert hasattr(window, attr), attr
@@ -221,6 +221,38 @@ def test_motion_source_xor_and_details(window):
 
     cc.close_clip(window)
     assert cc.motion_source(window) == "still"
+
+
+def test_clip_framing_follows_still_crop(window):
+    """No per-clip framing: the clip cover-fits the still canvas.
+
+    Moving the still focus (IMAGE → Crop) re-frames the dithered clip
+    too (cache key includes focus/zoom, so no stale pixels survive).
+    """
+    from PIL import Image as Img
+
+    from app.ui import clip_controller as cc
+
+    gif = window.out_dir.parent / "wide.gif"
+    frames = [Img.new("RGB", (64, 32), (i * 60, 0, 0)) for i in range(4)]
+    for i, f in enumerate(frames[1:], 1):
+        from PIL import ImageDraw
+
+        d = ImageDraw.Draw(f)
+        d.rectangle([i * 8, 0, i * 8 + 10, 31], fill=(0, 200, 0))
+    frames[0].save(str(gif), save_all=True, append_images=frames[1:],
+                   duration=100, loop=0)
+    assert cc.open_path(window, gif) is True
+    window.crop_fx = 0.0
+    cc.note_preset_changed(window)
+    left = cc.dithered_frame(window, 1).tobytes()
+    window.crop_fx = 100.0
+    cc.note_preset_changed(window)
+    right = cc.dithered_frame(window, 1).tobytes()
+    assert left != right
+    # Same canvas as the still: 1:1 cover of a 64×32 source is square.
+    assert cc.dithered_frame(window, 1).size[0] == cc.dithered_frame(window, 1).size[1]
+    cc.close_clip(window)
 
 
 def test_morph_visual_crop_dialog(window, tmp_path, monkeypatch):
