@@ -576,6 +576,14 @@ keep/cut.
    for preset params (e.g. motion amount, drift, grain) instead of
    flat values. Session-only curves (like chain crops/repeats), never
    in presets. Pins: `tests/test_envelopes.py` + Gherkin +2.
+   DONE (nov-2026): `app/envelopes.py` (flat/ramp/LFO/keys, loop-perfect,
+   clamped, `envelopes_signature`) threads through still motion
+   (`gif_frames(..., envelopes)`: motion/drift/grain per frame) and clip
+   dither (`iter/dither_clip(..., envelopes)`: drift+grain; motion is
+   still-motion only). MOTION → Details → Envelopes UI (Off/Flat/Ramp/LFO
+   per param, session-only, preset meta untouched); preview fingerprint
+   includes the signature (stale ⚠ on curve change); still + clip exports
+   re-render with the session curves; batch stays flat.
 4. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
    New GRADE effect: N ink stops over luminance (duotone with more
    stops), post-dither stack item, strict 0=off. Pins: unit + Gherkin +1.

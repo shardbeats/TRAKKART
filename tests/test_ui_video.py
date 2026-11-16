@@ -22,7 +22,8 @@ def test_video_spec_and_proxy(window):
     assert vc.proxy_size(window) == 720  # Draft 720p default
     assert vc.preview_size(window) == 720
     s = vc.spec(window)
-    assert set(s) == {"size", "mode", "frames", "fps", "pingpong"}
+    assert set(s) == {"size", "mode", "frames", "fps", "pingpong", "envelopes"}
+    assert s["envelopes"] == "off"
     window.cmb_video_proxy.setCurrentText("Full (doc)")
     assert vc.proxy_size(window) == 0
     # Full doc falls back to the gif anim size (canvas long side).

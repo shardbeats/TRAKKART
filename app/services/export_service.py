@@ -56,6 +56,7 @@ def export_full(
     sp404: bool = False,
     dpi: int = 300,
     morph_src: Image.Image | None = None,
+    envelopes=None,
 ) -> tuple[dict[str, Path], list[str]]:
     """Render, generate SVG/GIF/MP4/WebP/separations on request, write bundle and log.
 
@@ -135,6 +136,7 @@ def export_full(
             pingpong=pp_eff,
             img_b=morph_src,
             fps=int(fps),
+            envelopes=envelopes,
         )
         if want_mp4 and mode_eff in ("dissolve", "morph"):
             from app.gif import MAX_MP4_FRAMES, MAX_TOTAL_FRAMES, plan_dissolve

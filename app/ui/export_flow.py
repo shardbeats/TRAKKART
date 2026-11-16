@@ -512,6 +512,10 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             QMessageBox.information(win, "TRAKKART", "Nothing selected to export.")
         return
     try:
+        env = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env = {}
+    try:
         paths, skipped = export_full(
             win.src, preset, out_dir, base=base, store=win.store,
             preset_name=win.cmb_preset.currentText(), selection=selection,
@@ -531,6 +535,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             sep_trap=bool(sep_trap),
             sp404=bool(sp404),
             morph_src=morph_src_for_mode(win, mode_go),
+            envelopes=env,
         )
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))
@@ -621,6 +626,10 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         preset_name = ""
     from app.ui.workers import ExportWorker
 
+    try:
+        env_snapshot = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env_snapshot = {}
     worker = ExportWorker(
         src_snapshot, preset_snapshot, out_dir, base=base, store=win.store,
         preset_name=preset_name, selection=selection, overwrite=overwrite,
@@ -633,7 +642,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         webp=bool(webp), tiff=bool(tiff), dpi=int(dpi or 300),
         social=bool(social),
         sep=bool(sep), sep_trap=bool(sep_trap), morph_src=morph_snapshot,
-        sp404=bool(sp404),
+        sp404=bool(sp404), envelopes=env_snapshot,
         parent=win,
     )
     worker.finished_ok.connect(

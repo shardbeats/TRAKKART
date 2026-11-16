@@ -39,7 +39,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
 | MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
-| MOTION | one line, one source: Animate still (procedural) XOR Clip footage (imported, dithered) + Details (timing/proxy) + ⚠ Rebuild when the preview is stale |
+| MOTION | one line, one source: Animate still (procedural) XOR Clip footage (imported, dithered) + Details (timing/proxy/envelopes) + ⚠ Rebuild when the preview is stale |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
 120ms / heavy 350ms); Still = manual only (F5). For slow machines or
@@ -66,6 +66,14 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   preview can never produce a stale MP4.
 - **Encoder:** MP4 always uses software H.264 (`libx264`, bundled).
   No hardware options, no probing: one encoder that works everywhere.
+- **Envelopes (session-only curves, v2.x #3):** MOTION → Details →
+  Envelopes modulates Motion (×), Drift and Grain over the clip
+  (t = 0→1). Per param: Off = follow the preset; Flat = hold one value;
+  Ramp = sweep v0→v1; LFO = loop-perfect sine breathe (base ± amp).
+  Empty = byte-identical to the flat preset. Session-only like chain
+  crops/repeats: never in presets, never in batch. Motion applies to
+  still-motion only; Drift + Grain also shape clip footage. Changing a
+  curve marks the preview stale (⚠ Rebuild); exports always re-render.
 
 ## Clip import (v2.0)
 

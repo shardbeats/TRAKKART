@@ -284,19 +284,36 @@ _SEED_ATTRS = ("grain_seed", "dust_seed", "glitch_slice_seed", "wave_seed",
                "mosh_seed", "drift_seed", "paste_seed", "pixelsort_seed")
 
 
-def _spec_for(preset, index: int, n: int, dpi: int = 300):
+def _spec_for(preset, index: int, n: int, dpi: int = 300, envelopes=None):
     """RenderSpec for frame `index`: base recipe + index-shifted seeds.
 
     Per-frame flicker is the aesthetic (documented): seeded post-fx
     (grain/dust/slice/wave/mosh/drift/paste) re-roll per frame while
     the recipe (method/palette/pixel/threshold/stack) stays put.
     Drift traverses 0->1 across the clip when enabled.
+    `envelopes` (session-only) modulates drift_amount + grain over
+    t=index/(n-1); motion_amount is still-motion only and ignored here.
+    Empty/None renders byte-identical.
     """
     from app.pipeline import RenderSpec
 
     progress = float(index) / max(1, int(n) - 1) if int(n) > 1 else 0.0
     spec = RenderSpec.from_preset(preset, phase=0,
                                   drift_progress=progress, dpi=dpi)
+    try:
+        from app.envelopes import frame_values as _env_vals
+        from app.envelopes import normalize_envelopes as _norm_env
+
+        _env = _norm_env(envelopes)
+        if _env:
+            _v = _env_vals(_env, progress,
+                           {"motion_amount": 1.0,
+                            "drift_amount": float(getattr(spec, "drift_amount", 0.0) or 0.0),
+                            "grain": float(getattr(spec, "grain", 0.0) or 0.0)})
+            spec.drift_amount = float(_v["drift_amount"])
+            spec.grain = float(_v["grain"])
+    except Exception:  # noqa: BLE001
+        pass
     for attr in _SEED_ATTRS:
         try:
             setattr(spec, attr, int(getattr(spec, attr, 0) or 0) + int(index))
@@ -305,11 +322,12 @@ def _spec_for(preset, index: int, n: int, dpi: int = 300):
     return spec
 
 
-def iter_dither_clip(frames, preset, dpi: int = 300):
+def iter_dither_clip(frames, preset, dpi: int = 300, envelopes=None):
     """Yield dithered frames one by one (streaming: O(1) RAM for MP4).
 
     Same pixels as dither_clip. Reuses render_spec, so combo/stack/
     GIF/MP4 writers inherit the recipe with zero extra plumbing.
+    `envelopes` modulates drift+grain per frame (session-only).
     """
     from app.pipeline import render_spec
 
@@ -318,17 +336,18 @@ def iter_dither_clip(frames, preset, dpi: int = 300):
         raise ValueError("no frames")
     n = len(seq)
     for i, frame in enumerate(seq):
-        yield render_spec(frame.convert("RGB"), _spec_for(preset, i, n, dpi))
+        yield render_spec(frame.convert("RGB"), _spec_for(preset, i, n, dpi, envelopes))
 
 
-def dither_clip(frames, preset, dpi: int = 300) -> list[Image.Image]:
+def dither_clip(frames, preset, dpi: int = 300, envelopes=None) -> list[Image.Image]:
     """Dither every frame with the preset recipe (deterministic).
 
     seed = base + index: same inputs -> same bytes; consecutive
     identical frames differ only through seeded post-fx (grain/dust/...
     >0), which is the documented flicker aesthetic.
+    `envelopes` is session-only (never in presets).
     """
-    return list(iter_dither_clip(frames, preset, dpi))
+    return list(iter_dither_clip(frames, preset, dpi, envelopes))
 
 
 # ---------------------------------------------------------------------------

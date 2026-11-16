@@ -54,6 +54,12 @@ def _reset_common(win) -> None:
     except Exception:  # noqa: BLE001
         pass
     try:
+        from app.ui import envelope_controller as _env
+
+        _env.clear_envelopes(win)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         win._apply_preset("SLIME_FS")
     except Exception:  # noqa: BLE001
         pass

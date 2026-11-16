@@ -168,6 +168,9 @@ def _build_still_source(win, g: QVBoxLayout) -> None:
     win.cmb_video_proxy.currentTextChanged.connect(win._on_video_proxy_changed)
     row3.addWidget(win.cmb_video_proxy)
     details.addLayout(row3)
+    from app.ui.envelope_controller import build_envelope_section
+
+    build_envelope_section(win, details)
     win._motion_details_box.setVisible(False)
     g.addWidget(win._motion_details_box)
     play_row = QHBoxLayout()

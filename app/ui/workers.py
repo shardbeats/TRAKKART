@@ -94,7 +94,7 @@ class ExportWorker(WorkerBase):
                  social: bool = False,
                  dpi: int = 300,
                  sep: bool = False, sep_trap: bool = False, sp404: bool = False,
-                 morph_src=None, parent=None) -> None:
+                 morph_src=None, envelopes=None, parent=None) -> None:
         super().__init__(parent)
         self.src = src
         self.preset = preset
@@ -123,6 +123,7 @@ class ExportWorker(WorkerBase):
         self.sep_trap = bool(sep_trap)
         self.sp404 = bool(sp404)
         self.morph_src = morph_src
+        self.envelopes = dict(envelopes or {})
 
     def work(self) -> None:
         from app.services.export_service import export_full
@@ -138,7 +139,7 @@ class ExportWorker(WorkerBase):
             mp4_fps=self.mp4_fps, mp4_size=self.mp4_size,
             webp=self.webp, tiff=self.tiff, social=self.social, dpi=self.dpi,
             sep=self.sep, sep_trap=self.sep_trap, morph_src=self.morph_src,
-            sp404=self.sp404,
+            sp404=self.sp404, envelopes=self.envelopes,
         )
         self.finished_ok.emit(dict(paths), bool(skipped))
 

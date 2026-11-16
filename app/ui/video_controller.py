@@ -33,9 +33,14 @@ def preview_size(win) -> int:
 
 
 def spec(win) -> dict:
+    try:
+        from app.envelopes import envelopes_signature
+        env_sig = envelopes_signature(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env_sig = "off"
     return {"size": preview_size(win), "mode": win._gif_anim_mode(),
             "frames": win._gif_anim_frames(), "fps": win._gif_anim_fps(),
-            "pingpong": win._gif_anim_pingpong()}
+            "pingpong": win._gif_anim_pingpong(), "envelopes": env_sig}
 
 
 def proxy_changed(win) -> None:
@@ -512,6 +517,7 @@ def start_async(win) -> None:
         s["frames"], s["mode"], s["pingpong"], win._video_token,
         morph_src=(_morph_imgs(win) if str(s["mode"]) in ("dissolve", "morph") else None),
         fps=int(s.get("fps", 8)),
+        envelopes=dict(getattr(win, "_envelopes", {}) or {}),
     )
     win._video_worker.finished_ok.connect(win._on_video_done)
     win._video_worker.finished_err.connect(win._on_video_error)

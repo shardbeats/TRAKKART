@@ -77,3 +77,42 @@ def seek_import_ok(ctx):
     assert info["start_s"] == 0.3
     assert info["truncated"] is True
     assert frames[0].tobytes() == ctx["seek_head"]
+
+
+@when("I render a still animation with empty envelopes")
+def render_empty_envelopes(ctx):
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    preset = Preset(name="e", method="bayer4", palette="BW", grain=40.0)
+    ctx["flat"] = gif_frames(ctx["img"], preset, frames=4, mode="both", max_side=48)
+    ctx["curved"] = gif_frames(ctx["img"], preset, frames=4, mode="both",
+                               max_side=48, envelopes={})
+
+
+@then("the envelope output matches the flat output")
+def empty_envelopes_identical(ctx):
+    assert [f.tobytes() for f in ctx["flat"]] == [f.tobytes() for f in ctx["curved"]]
+
+
+@when("I render a still animation with a grain ramp")
+def render_grain_ramp(ctx):
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    preset = Preset(name="e", method="bayer4", palette="BW", grain=40.0)
+    ctx["flat"] = gif_frames(ctx["img"], preset, frames=4, mode="both", max_side=48)
+    env = {"grain": {"kind": "ramp", "v0": 0, "v1": 100.0}}
+    ctx["ramp_a"] = gif_frames(ctx["img"], preset, frames=4, mode="both",
+                               max_side=48, envelopes=env)
+    ctx["ramp_b"] = gif_frames(ctx["img"], preset, frames=4, mode="both",
+                               max_side=48, envelopes=env)
+
+
+@then("the ramp output differs and re-renders identically")
+def grain_ramp_moves(ctx):
+    flat = [f.tobytes() for f in ctx["flat"]]
+    a = [f.tobytes() for f in ctx["ramp_a"]]
+    b = [f.tobytes() for f in ctx["ramp_b"]]
+    assert a != flat
+    assert a == b

@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.1.0] - 2026-11-16 — clip pipeline + estabilización
+## [2.2.0] - 2026-11-16 — timeline parameter envelopes (candidata v2.x #3)
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -103,6 +103,13 @@ bitácora detallada por fase.
   `tests/test_clip.py` +2 (in-point seek GIF/MP4).
   `tests/test_ui_export.py` +3 (clip dialog section/clip-only/real GIF).
   Suite: 788 (644 fast + 144 slow). Gherkin 68/68.
+- Envolventes de timeline (candidata v2.x #3, nov-2026): curvas
+  session-only (Off/Flat/Ramp/LFO) para Motion/Drift/Grain en
+  MOTION → Details; motor `app/envelopes.py` (loop-perfect,
+  determinista, firma para stale-check); still-motion y clip dither
+  las aplican por frame; batch sigue plano. Pins:
+  `tests/test_envelopes.py` + Gherkin +2 (clip.feature 5). Suite 804
+  (659 fast + 145 slow). Gherkin 70/70.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

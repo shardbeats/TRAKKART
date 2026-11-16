@@ -18,3 +18,13 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I import a 10-frame GIF from 0.3s
     Then the import starts at the fourth frame and flags truncation
+
+  Scenario: Empty envelopes render byte-identical
+    Given a 48x48 gradient image
+    When I render a still animation with empty envelopes
+    Then the envelope output matches the flat output
+
+  Scenario: A grain ramp moves pixels deterministically
+    Given a 48x48 gradient image
+    When I render a still animation with a grain ramp
+    Then the ramp output differs and re-renders identically

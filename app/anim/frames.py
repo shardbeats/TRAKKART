@@ -187,6 +187,7 @@ def gif_frames(
     pingpong: bool | None = None,
     img_b: Image.Image | list | None = None,
     fps: int | None = None,
+    envelopes=None,
 ) -> list[Image.Image]:
     """Build frames from the still image using pipeline render() + post anim.
 
@@ -200,6 +201,8 @@ def gif_frames(
     falls back to a dissolve of img so strict 0=off still holds).
     `fps` only sets end-hold durations for dissolve/morph (uniform fps
     playback); transition frames ignore it.
+    `envelopes` (session-only, never in presets) modulates motion_amount,
+    drift_amount and grain over t=i/n; empty/None renders byte-identical.
     """
     from app.ordered_maps import march_offset
     from app.render_params import normalize_slice_bands
@@ -228,7 +231,16 @@ def gif_frames(
     small = _fit_small(img.convert("RGB"), side)
     # Motion amount: 1.0 = legacy amplitudes (byte-identical), 0 = freeze, up to 3.
     # (NaN clamps to 0.0 via max below.)
-    amt = min(3.0, max(0.0, float(getattr(preset, "motion_amount", 1.0) or 0.0)))
+    base_amt = min(3.0, max(0.0, float(getattr(preset, "motion_amount", 1.0) or 0.0)))
+    base_drift_amt = float(getattr(preset, "drift_amount", 0.0) or 0.0)
+    try:
+        from app.envelopes import frame_values as _env_vals
+        from app.envelopes import normalize_envelopes as _norm_env
+
+        _env = _norm_env(envelopes)
+        _env_on = bool(_env)
+    except Exception:  # noqa: BLE001
+        _env, _env_on = {}, False
 
     from app.pipeline import render
     from app.render_params import preset_to_render_kwargs
@@ -265,10 +277,23 @@ def gif_frames(
     out: list[Image.Image] = []
     march_method = str(getattr(preset, "method", "bayer4"))
     for i in range(n):
+        progress = float(i) / float(n)
+        if _env_on:
+            _fb = {"motion_amount": base_amt, "drift_amount": base_drift_amt,
+                   "grain": float(base_grain or 0.0)}
+            _v = _env_vals(_env, progress, _fb)
+            amt = float(_v["motion_amount"])
+            drift_amt = float(_v["drift_amount"])
+            grain_base = float(_v["grain"])
+        else:
+            amt = base_amt
+            drift_amt = base_drift_amt
+            grain_base = float(base_grain or 0.0)
         kwargs = dict(base_kwargs)
+        kwargs["drift_amount"] = drift_amt
         kwargs["phase"] = march_offset(march_method, i, n, amt) if want_phase else 0
         # Drift owns its timeline: full traverse per clip, not dither march.
-        kwargs["drift_progress"] = float(i) / float(n)
+        kwargs["drift_progress"] = progress
         if want_hue:
             kwargs["pre_hue"] = base_hue + round(14.0 * amt * math.sin(2.0 * math.pi * i / n), 2)
         frame = render(small, **kwargs)
@@ -323,27 +348,28 @@ def gif_frames(
 
         # Grain shimmer in mix: strict 0=off (no forced grain on clean
         # presets). Loop-perfect breathing so the loop point has no jump.
+        # `grain_base` is the envelope-modulated grain (flat preset when off).
         g_seed = int(getattr(preset, "grain_seed", 0x7A4B) or 0)
         d_seed = int(getattr(preset, "dust_seed", 0xD57) or 0)
         if mode == "mix":
             from app.fx import apply_grain
 
-            if base_grain > 0:
-                g_eff = float(base_grain) * amt * (0.7 + 0.3 * math.sin(t))
+            if grain_base > 0:
+                g_eff = float(grain_base) * amt * (0.7 + 0.3 * math.sin(t))
                 frame = apply_grain(frame, amount=max(0.0, g_eff), seed=g_seed)
             if base_dust > 0:
                 from app.texture import dust as grain_dust
 
                 d_eff = float(base_dust) * amt * (0.7 + 0.3 * math.sin(t))
                 frame = grain_dust(frame, amount=max(0.0, d_eff), seed=d_seed)
-        elif base_grain > 0 or base_dust > 0:
+        elif grain_base > 0 or base_dust > 0:
             # Non-mix modes keep the preset grain but breathing (no freeze,
             # no jump cut).
             from app.fx import apply_grain
 
             t_grain = 2.0 * math.pi * i / n
-            if base_grain > 0:
-                g_eff = float(base_grain) * amt * (0.7 + 0.3 * math.sin(t_grain))
+            if grain_base > 0:
+                g_eff = float(grain_base) * amt * (0.7 + 0.3 * math.sin(t_grain))
                 frame = apply_grain(frame, amount=max(0.0, g_eff), seed=g_seed)
             if base_dust > 0:
                 from app.texture import dust as grain_dust

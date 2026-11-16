@@ -533,6 +533,7 @@ def render_clip_export(win, kind: str, preset, span: list, fps: int,
 
     `out` is the exact destination; callers own the naming policy
     (panel: first-free `_free_path`; Export window: dialog base+rename).
+    Envelopes come from the session (`win._envelopes`, drift+grain).
     """
     from pathlib import Path
 
@@ -540,21 +541,25 @@ def render_clip_export(win, kind: str, preset, span: list, fps: int,
     out.parent.mkdir(parents=True, exist_ok=True)
     if not list(span or []):
         raise ValueError("Empty trim range.")
+    try:
+        env = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env = {}
     if kind == "gif":
         from app.clip import dither_clip
         from app.gif import save_gif
 
-        return save_gif(dither_clip(list(span), preset), out, fps=fps)
+        return save_gif(dither_clip(list(span), preset, envelopes=env), out, fps=fps)
     if kind == "zip":
         from app.clip import dither_clip, save_clip_zip
 
-        return save_clip_zip(dither_clip(list(span), preset), out)
+        return save_clip_zip(dither_clip(list(span), preset, envelopes=env), out)
     if kind == "mp4":
         from app.clip import iter_dither_clip, mux_soundtrack, write_clip_mp4
 
         silent = out.parent / f"{out.stem}_silent.mp4"
         try:
-            write_clip_mp4(iter_dither_clip(list(span), preset), silent, fps=fps)
+            write_clip_mp4(iter_dither_clip(list(span), preset, envelopes=env), silent, fps=fps)
         except Exception:
             # No half-written MP4 left behind (ffmpeg failure).
             try:

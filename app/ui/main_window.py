@@ -125,6 +125,8 @@ class MainWindow(QMainWindow):
         self.morph_src = None
         self.morph_path = ""
         self.morph_list: list = []
+        # -- envelopes (session-only curves, candidate #3, never in presets) --
+        self._envelopes: dict = {}
         # -- clip import (session-only, <=120f, 720p proxy) --
         self._clip_frames: list = []
         self._clip_info: dict = {}
