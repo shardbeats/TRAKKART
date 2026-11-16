@@ -461,8 +461,13 @@ the new exact list, nothing else in the roster moves.
   `tests/test_color_access.py` (13 tests: anchors, determinism,
   WCAG, reports, all parsers, pack) + Gherkin `color_pro.feature` +1
   (daltonism deterministic).
-- Phase D — docs + gates: MANUAL (print flow, daltonism, Lospec),
-  Gherkin +1 (daltonism preview deterministic).
+- Phase D — docs + gates: DONE (nov-2026). MANUAL covers print flow
+  (DPI/LPI, trap, rosettes, mirror), daltonism, WCAG contrast and
+  Lospec (+ ostromoukhov/dizzy in the DITHER row); QA.md current
+  (65/65 scenarios, 738-suite split, gherkin gate at 65, flake8 line
+  without the gone `build_exe.py`); one stale v1.8C test caught by
+  the gates (`bundle_zip` in `test_batch_dialog_outputs`); 5/5 gates
+  PASS + clean flake8. v1.9 closed; next is v2.0 (clip import).
 - Out of scope: NeuQuant/Wu re-quantization, blue-noise mask assets,
   JXL (extra dep weight), APNG (candidate v2.x).
 

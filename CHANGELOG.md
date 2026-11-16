@@ -36,6 +36,18 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Pack curado: 16 rampas originales dark→light en `palettes/`
   (21 con las 5 previas, todas válidas 2-16 y ordenadas por
   luminancia). NIGHT re-entonada (la 2ª tinta colapsaba a 1.45:1).
+### v1.9 Fase D: docs + gates — DONE (nov-2026)
+- MANUAL cubre el flujo print (DPI/LPI, trap, rosetas, mirror),
+  daltonismo, contraste WCAG y Lospec; fila DITHER con
+  ostromoukhov/dizzy.
+- QA.md al día: 65/65 escenarios (color_pro +daltonismo, morph_modes
+  11), suite 738 (597 fast + 141 slow), gate gherkin a 65, línea
+  flake8 sin `build_exe.py` (no existe en el repo).
+- Test stale de v1.8C cazado por los gates: `bundle_zip` en el dict
+  esperado de `test_batch_dialog_outputs`.
+- 5/5 gates PASS (`tools/quality_metrics.py`: pass_rate 100%,
+  coverage ≥80%, gherkin 65, smoke, no-leak) + flake8 limpio.
+  v1.9 cerrada.
 ### v1.9 Fase B: print-shop — DONE (nov-2026)
 - RISO trap (`sep_trap`: opción de export + prefs): expande cada tinta
   1px (`MinFilter`), el overprint esconde las hairlines de

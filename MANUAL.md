@@ -34,7 +34,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | Panel | What it does |
 |---|---|
 | IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas), framing: cover / contain / stretch / blur / mirror (mirror wraps edges outward for print bleed) |
-| DITHER | preset, method, serpentine (ED scan alternates per row, less streaks), rosette + LPI (CMYK print: screen assignment + ruling at export DPI), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
+| DITHER | preset, method (incl. `ostromoukhov` variable-coefficient ED for clean midtones + `dizzy` IGN blue-noise-like threshold), serpentine (ED scan alternates per row, less streaks), rosette + LPI (CMYK print: screen assignment + ruling at export DPI), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library, daltonism preview (View menu), WCAG contrast hints, Lospec offline import |
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
