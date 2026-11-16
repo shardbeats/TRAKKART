@@ -73,7 +73,7 @@ def paint_orig(win) -> None:
 
     win.lbl_res.set_wipe_mode(False)
     win.lbl_res.setPixmap(pil_to_pixmap(win.src, max_side=PREVIEW_MAX_SIDE))
-    win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}x{win.src.height}")
+    win.lbl_res_title.setText(f"ORIGINAL (hold) · {win.src.width}×{win.src.height}")
 
 
 def paint_result(win) -> None:
@@ -92,14 +92,14 @@ def paint_result(win) -> None:
             oled = sp404_frame(win.result)
             pix = pil_to_pixmap(oled.convert("RGB"), max_side=PREVIEW_MAX_SIDE)
             win.lbl_res.setPixmap(guided_pixmap(win, pix, SP_W, SP_H))
-            win.lbl_res_title.setText(f"SP-404 · {SP_W}x{SP_H} 1-bit (preview)")
+            win.lbl_res_title.setText(f"SP-404 · {SP_W}×{SP_H} 1-bit (preview)")
             return
         pix = pil_to_pixmap(_cvd_view(win, win.result), max_side=PREVIEW_MAX_SIDE)
         win.lbl_res.setPixmap(guided_pixmap(win, pix, win.result.width, win.result.height))
         kind = "VIDEO" if win._video_on else "DITHER"
         _cvd = cvd_mode(win)
         win.lbl_res_title.setText(
-            f"{kind} · {win.result.width}x{win.result.height}"
+            f"{kind} · {win.result.width}×{win.result.height}"
             + (f" · {_cvd} (preview)" if _cvd != "off" else ""))
 
 
@@ -170,7 +170,7 @@ def paint_wipe(win, pos: int | None = None) -> None:
         pix = guided_pixmap(win, pil_to_pixmap(_cvd_view(win, base), max_side=PREVIEW_MAX_SIDE),
                             res.width, res.height)
         win.lbl_res.setPixmap(pix)
-        win.lbl_res_title.setText(f"WIPE 100% · {res.width}x{res.height}")
+        win.lbl_res_title.setText(f"WIPE 100% · {res.width}×{res.height}")
         return
     import numpy as np
 
@@ -192,7 +192,7 @@ def paint_wipe(win, pos: int | None = None) -> None:
 
     pix = pil_to_pixmap(Image.fromarray(comp), max_side=PREVIEW_MAX_SIDE)
     win.lbl_res.setPixmap(guided_pixmap(win, pix, res.width, res.height))
-    win.lbl_res_title.setText(f"WIPE {pos}% · {res.width}x{res.height}")
+    win.lbl_res_title.setText(f"WIPE {pos}% · {res.width}×{res.height}")
 
 
 def wipe(win) -> None:

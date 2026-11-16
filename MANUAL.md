@@ -108,9 +108,12 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).
 - **Folder:** destination; Settings default.
-- **Format/Quality/Size:** the document CANVAS dictates size.
-- **Include:** nothing is pre-ticked — pick what you need (main image,
-  1080p thumb, vector SVG, GIF/WebP/MP4, separations, SP-404 BMP, JSON).
+- **Format/Quality/DPI:** the document CANVAS dictates size; DPI only tags
+  print metadata (pixels never change).
+- **Outputs:** grouped as **Stills** (main image, 1080p thumb, vector SVG,
+  black vector, social pack, print TIFF, metadata JSON, lossless),
+  **Motion** (GIF/WebP/MP4) and **Print & device** (separations, RISO trap,
+  SP-404 BMP). Nothing is pre-ticked — pick what you need.
   The dialog remembers your picks for next time (Quick export repeats them).
   MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
   shows a weight estimate and warns on heavy files. The animation
@@ -125,10 +128,10 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   `EXPORT/PROJECT/PROJECT_XX/PICTURE`
   (UTILITY > SYSTEM > Scrn Saver Type = Custom), reimport, power cycle.
 - **SP-404 live framing:** "SP-404 128×64" button in IMAGE sets a Custom
-  128×64 canvas (document only); the "SP-404 OLED Preview: ON/OFF" toggle in
+  128×64 canvas (document only); the "OLED preview: ON/OFF" toggle in
   IMAGE (same as View menu) shows the 1-bit result the device will show
   (DITHER threshold tunes the cut live).
-- **Link W×H (🔗, Photoshop-style):** with the link on, editing one side
+- **Link W×H (chain icon, Photoshop-style):** with the link on, editing one side
   scales the other keeping the aspect — link a square canvas, type 3000
   in W and H follows (3000×3000). Ratio presets re-derive the link;
   SP-404 (128×64, non-square) unlinks it.

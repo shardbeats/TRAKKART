@@ -340,7 +340,7 @@ def open_crop_editor(win) -> None:
         finally:
             spn.blockSignals(False)
     win.crop_fx, win.crop_fy, win.crop_zoom = dlg.fx, dlg.fy, dlg.zoom
-    _status_msg = (f"Crop set: {ratio_label(dlg.ratio)} {dlg.doc_w}x{dlg.doc_h} {dlg.mode} "
+    _status_msg = (f"Crop set: {ratio_label(dlg.ratio)} {dlg.doc_w}×{dlg.doc_h} {dlg.mode} "
                    f"({dlg.fx:.0f}, {dlg.fy:.0f} · {dlg.zoom:.1f}x)")
     dlg.deleteLater()  # no hoard hidden dialogs (they linger in topLevelWidgets)
     sync_crop_label(win)

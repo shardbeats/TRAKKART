@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row, spin_row
+from app.ui.panels.widgets import hlab, labeled_slider, roll_seed, seed_row, spin_row, tight
 
 
 def build_motif_section(win, g: QVBoxLayout) -> None:
@@ -89,14 +89,16 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     win.sld_postblur, _ = labeled_slider(win, g, "Post blur:", 0, 50, 0, "Post-dither blur 0.0-5.0", div=10.0)
     win.spn_postsharp = spin_row(g, "Post sharp:", 0, 3, 0, "Post-dither sharpen 0-3")
     win.spn_postsharp.valueChanged.connect(lambda _: win._schedule_refresh())
-    hlab(g, "Paste-Up:")
+    hlab(g, "Paste-Up (paper texture):")
     paste_row = QHBoxLayout()
+    paste_row.addWidget(QLabel("Paper:"))
     win.cmb_paste = QComboBox()
     win.cmb_paste.addItems(["off", "paper", "riso", "fiber"])
     tight(win.cmb_paste, 8)
     win.cmb_paste.setToolTip("Procedural paper overlay (post-dither stack FX)")
     win.cmb_paste.currentTextChanged.connect(lambda _: win._schedule_refresh())
     paste_row.addWidget(win.cmb_paste, 1)
+    paste_row.addWidget(QLabel("Blend:"))
     win.cmb_paste_blend = QComboBox()
     win.cmb_paste_blend.addItems(["overlay", "multiply", "screen"])
     tight(win.cmb_paste_blend, 10)
@@ -104,11 +106,11 @@ def build_fx_stack_section(win, g: QVBoxLayout) -> None:
     win.cmb_paste_blend.currentTextChanged.connect(lambda _: win._schedule_refresh())
     paste_row.addWidget(win.cmb_paste_blend, 1)
     g.addLayout(paste_row)
-    win.sld_paste_op, _ = labeled_slider(win, g, "Paste:", 0, 100, 0, "Paste-Up opacity 0=off")
+    win.sld_paste_op, _ = labeled_slider(win, g, "Paste:", 0, 100, 0, "Paste-Up opacity 0=off", unit="%")
     seed_row(g, win, "spn_paste_seed", "btn_paste_dice", "Seed:", 0x9A57,
              "Paper fiber pattern 0-999999 (same seed = same fibers)",
              "Re-roll the paper fibers",
-             lambda: roll_seed_spin(win, "spn_paste_seed", "Paste-Up"))
+             lambda: roll_seed(win, "spn_paste_seed", "Paste-Up"))
     win.fx_stack_data: list = []
 
 
@@ -129,13 +131,13 @@ def build_mosh_section(win, g: QVBoxLayout) -> None:
     win.cmb_mosh_mode.currentTextChanged.connect(lambda _: win._schedule_refresh())
     mode_row.addWidget(win.cmb_mosh_mode, 1)
     g.addLayout(mode_row)
-    win.sld_mosh, _ = labeled_slider(win, g, "Amount:", 0, 100, 0, "Datamosh amount 0=off")
+    win.sld_mosh, _ = labeled_slider(win, g, "Amount:", 0, 100, 0, "Datamosh amount 0=off", unit="%")
     win.sld_mosh_size, _ = labeled_slider(
-        win, g, "Size:", 10, 200, 100, "Feature scale % (100 = classic)")
+        win, g, "Size:", 10, 200, 100, "Feature scale % (100 = classic)", unit="%")
     seed_row(g, win, "spn_mosh_seed", "btn_mosh_dice", "Variation:", 0,
              "Seed variation 0-999999: re-rolls the damage",
              "Re-roll the damage pattern",
-             lambda: _roll_mosh_seed(win))
+             lambda: roll_seed(win, "spn_mosh_seed", "Datamosh"))
 
 
 def build_drift_section(win, g: QVBoxLayout) -> None:
@@ -155,61 +157,21 @@ def build_drift_section(win, g: QVBoxLayout) -> None:
     win.cmb_drift.currentTextChanged.connect(lambda _: win._schedule_refresh())
     drow.addWidget(win.cmb_drift, 1)
     g.addLayout(drow)
-    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off")
+    win.sld_drift, _ = labeled_slider(win, g, "Drift:", 0, 100, 0, "Signal Drift amount 0=off", unit="%")
     win.sld_drift_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100,
                                             "Drift traversals per clip 0.25-4.0x (1 = full sweep)",
-                                            div=100.0)
+                                            div=100.0, unit="×")
     win.sld_drift_position, _ = labeled_slider(win, g, "Position:", 0, 100, 50,
-                                               "Still freeze 0-100 (50 = mid-traverse, visible)")
+                                               "Still freeze 0-100 (50 = mid-traverse, visible)", unit="%")
     seed_row(g, win, "spn_drift_seed", "btn_drift_dice", "Seed:", 0xD81F,
              "Drift mask pattern 0-999999 (same seed = same noise)",
              "Re-roll the drift pattern",
-             lambda: roll_seed_spin(win, "spn_drift_seed", "Drift"))
-
-
-def _roll_mosh_seed(win) -> None:
-    import random
-
-    seed = random.randint(0, 999999)
-    win.spn_mosh_seed.setValue(seed)
-    win._status(f"Mosh re-rolled (seed {seed})")
-
-
-def roll_seed_spin(win, spin_attr: str, label: str) -> None:
-    """Shared dice: random 0-999999 into a seed spin, status logs the seed."""
-    import random
-
-    seed = random.randint(0, 999999)
-    try:
-        getattr(win, spin_attr).setValue(seed)
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        win._status(f"{label} re-rolled (seed {seed})")
-    except Exception:  # noqa: BLE001
-        pass
-
-
-def _roll_pal_seed(win) -> None:
-    """Fresh seed into the spin, then generate (status logs the seed)."""
-    roll_seed_spin(win, "spn_pal_seed", "Palette")
-    try:
-        win.gen_palette()
-    except Exception:  # noqa: BLE001
-        pass
-
-
-def _roll_pal_shuffle(win) -> None:
-    """Fresh seed into the spin, then shuffle (status logs the seed)."""
-    roll_seed_spin(win, "spn_pal_seed", "Palette shuffle")
-    try:
-        win.shuffle_palette()
-    except Exception:  # noqa: BLE001
-        pass
+             lambda: roll_seed(win, "spn_drift_seed", "Drift"))
 
 
 def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     # Library: a loaded named palette = editable starting point.
+    hlab(g, "Palette (editable swatches):")
     lib_row = QHBoxLayout()
     lib_row.addWidget(QLabel("Palette:"))
     win.cmb_pal_preset = QComboBox()
@@ -229,7 +191,7 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     row.addWidget(win.btn_custom_add)
     win.btn_pal_gen = QPushButton("🎲")
     win.btn_pal_gen.setToolTip("Surprise palette: fresh random seed + generate (seed shown below, edit it to replay)")
-    win.btn_pal_gen.clicked.connect(lambda: _roll_pal_seed(win))
+    win.btn_pal_gen.clicked.connect(lambda: roll_seed(win, "spn_pal_seed", "Palette", win.gen_palette))
     row.addWidget(win.btn_pal_gen)
     win.cmb_palgen = QComboBox()
     tight(win.cmb_palgen, 8)
@@ -273,7 +235,7 @@ def build_custom_palette_section(win, g: QVBoxLayout) -> None:
     win.btn_pal_shuffle = QPushButton("🔀")
     win.btn_pal_shuffle.setFixedWidth(36)
     win.btn_pal_shuffle.setToolTip("Shuffle unlocked swatches with a fresh seed (locked stay)")
-    win.btn_pal_shuffle.clicked.connect(lambda: _roll_pal_shuffle(win))
+    win.btn_pal_shuffle.clicked.connect(lambda: roll_seed(win, "spn_pal_seed", "Palette shuffle", win.shuffle_palette))
     depth_row.addWidget(win.btn_pal_shuffle)
     depth_row.addStretch()
     g.addLayout(depth_row)

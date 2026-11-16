@@ -15,15 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row
-
-
-def _roll_dissolve_seed(win) -> None:
-    import random
-
-    seed = random.randint(0, 999999)
-    win.spn_dissolve_seed.setValue(seed)
-    win._status(f"Dissolve re-rolled (seed {seed})")
+from app.ui.panels.widgets import hlab, labeled_slider, roll_seed, seed_row, tight
 
 
 def build_morph_section(win, g: QVBoxLayout) -> None:
@@ -59,8 +51,8 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     erow.addWidget(QLabel("Ease:"))
     erow.addWidget(win.cmb_dissolve_ease, 1)
     g.addLayout(erow)
-    win.sld_dissolve_dotsize, _ = labeled_slider(win, g, "Dots:", 1, 4, 1, "Max dot swell 1-4px with the envelope (1 = classic 1px dots)", div=1.0)
-    win.sld_dissolve_travel, _ = labeled_slider(win, g, "Travel:", 0, 100, 100, "Dots pour A->B through destination matching (0 = classic cloud reform)", div=100.0)
+    win.sld_dissolve_dotsize, _ = labeled_slider(win, g, "Dots:", 1, 4, 1, "Max dot swell 1-4px with the envelope (1 = classic 1px dots)")
+    win.sld_dissolve_travel, _ = labeled_slider(win, g, "Travel:", 0, 100, 100, "Dots pour A->B through destination matching (0 = classic cloud reform)", unit="%")
     win.cmb_dissolve_path = QComboBox()
     win.cmb_dissolve_path.addItems(list(MORPH_PATHS))
     tight(win.cmb_dissolve_path, 8)
@@ -88,17 +80,17 @@ def build_morph_section(win, g: QVBoxLayout) -> None:
     dshrow.addWidget(QLabel("Dots shape:"))
     dshrow.addWidget(win.cmb_dissolve_dot_shape, 1)
     g.addLayout(dshrow)
-    win.sld_dissolve_tint, _ = labeled_slider(win, g, "Tint:", 0, 100, 0, "Source-color dots near home, fading as they disperse (0 = classic black dots)", div=100.0)
-    win.sld_dissolve_trail, _ = labeled_slider(win, g, "Trail:", 0, 8, 0, "Fading ghost dots behind moving particles, normalized so long trails stay subtle (0 = off)", div=1.0)
-    win.sld_dissolve_amount, _ = labeled_slider(win, g, "Amount:", 0, 200, 100, "Disperse strength 0=still · 100=classic · up to 200", div=100.0)
-    win.sld_dissolve_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100, "Traversals per clip 0.25-4.0x (1 = full sweep)", div=100.0)
+    win.sld_dissolve_tint, _ = labeled_slider(win, g, "Tint:", 0, 100, 0, "Source-color dots near home, fading as they disperse (0 = classic black dots)", unit="%")
+    win.sld_dissolve_trail, _ = labeled_slider(win, g, "Trail:", 0, 8, 0, "Fading ghost dots behind moving particles, normalized so long trails stay subtle (0 = off)")
+    win.sld_dissolve_amount, _ = labeled_slider(win, g, "Amount:", 0, 200, 100, "Disperse strength 0=still · 100=classic · up to 200", div=100.0, unit="×")
+    win.sld_dissolve_speed, _ = labeled_slider(win, g, "Speed:", 25, 400, 100, "Traversals per clip 0.25-4.0x (1 = full sweep)", div=100.0, unit="×")
     win.sld_dissolve_wind_x, _ = labeled_slider(win, g, "Wind X:", -500, 500, 120, "Horizontal wind px at full disperse")
     win.sld_dissolve_wind_y, _ = labeled_slider(win, g, "Wind Y:", -500, 500, -40, "Vertical wind px at full disperse")
     seed_row(g, win, "spn_dissolve_seed", "btn_dissolve_dice", "Seed:", 53596,
              "Deterministic pattern seed (same seed = same particles)",
              "Re-roll the particle pattern",
-             lambda: _roll_dissolve_seed(win))
-    win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per form 0-3.0s — adds time, Length is derived (each form reads)", div=10.0)
+             lambda: roll_seed(win, "spn_dissolve_seed", "Dissolve"))
+    win.sld_dissolve_hold, _ = labeled_slider(win, g, "Hold:", 0, 30, 10, "Still pause per form 0-3.0s — adds time, Length is derived (each form reads)", div=10.0, unit=" s")
     from PySide6.QtWidgets import QCheckBox as _Chk
 
     win.chk_dissolve_shade = _Chk("Shade (Heckel)")

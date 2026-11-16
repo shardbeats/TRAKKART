@@ -5,6 +5,9 @@ Split out of app/ui/panels.py (mechanical move, no logic change).
 
 from __future__ import annotations
 
+from contextlib import suppress
+
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -14,7 +17,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row
+from app.ui.panels.widgets import hlab, labeled_slider, roll_seed, seed_row, tight
 
 
 def build_image_section(win, g: QVBoxLayout) -> None:
@@ -25,13 +28,14 @@ def build_image_section(win, g: QVBoxLayout) -> None:
     g.addWidget(win.btn_open)
     ops_row = QHBoxLayout()
     for label, tip, fn in [
-        ("⟲", "Rotate left", lambda: win._op_image(rotate_left, "rotate left")),
-        ("⟳", "Rotate right", lambda: win._op_image(rotate_right, "rotate right")),
-        ("⇋", "Flip H", lambda: win._op_image(flip_h, "flip H")),
-        ("⇅", "Flip V", lambda: win._op_image(flip_v, "flip V")),
-        ("◐", "Invert", lambda: win._op_image(invert, "invert")),
+        ("Rot L", "Rotate left", lambda: win._op_image(rotate_left, "rotate left")),
+        ("Rot R", "Rotate right", lambda: win._op_image(rotate_right, "rotate right")),
+        ("Flip H", "Flip H", lambda: win._op_image(flip_h, "flip H")),
+        ("Flip V", "Flip V", lambda: win._op_image(flip_v, "flip V")),
+        ("Invert", "Invert colors", lambda: win._op_image(invert, "invert")),
     ]:
         b = QPushButton(label)
+        b.setObjectName("opBtn")
         b.setToolTip(tip)
         b.clicked.connect(fn)
         ops_row.addWidget(b)
@@ -49,19 +53,12 @@ def build_image_section(win, g: QVBoxLayout) -> None:
     seed_row(g, win, "spn_chaos_seed", "btn_chaos_dice", "Chaos seed:", 0,
              "Seed for Surprise me + 🎲 Adjust (same seed = same result, replays)",
              "Fresh random chaos seed",
-             lambda: _roll_chaos_seed(win))
-
-
-def _roll_chaos_seed(win) -> None:
-    import random
-
-    seed = random.randint(0, 999999)
-    win.spn_chaos_seed.setValue(seed)
-    win._status(f"Chaos seed {seed} (Surprise me / Adjust will replay it)")
+             lambda: roll_seed(win, "spn_chaos_seed", "Chaos"))
 
 
 def build_preset_section(win, g: QVBoxLayout) -> None:
     row = QHBoxLayout()
+    row.addWidget(QLabel("Preset:"))
     win.cmb_preset = QComboBox()
     win.cmb_preset.currentTextChanged.connect(win._on_preset_changed)
     row.addWidget(win.cmb_preset, 1)
@@ -74,7 +71,7 @@ def build_preset_section(win, g: QVBoxLayout) -> None:
 
 
 def build_method_section(win, g: QVBoxLayout, methods) -> None:
-    g.addWidget(QLabel("Method:"))
+    hlab(g, "Method:")
     row = QHBoxLayout()
     win.btn_method_prev = QPushButton("◀")
     win.btn_method_prev.setFixedWidth(36)
@@ -141,21 +138,27 @@ def build_method_section(win, g: QVBoxLayout, methods) -> None:
 
 
 def build_pixel_section(win, g: QVBoxLayout) -> None:
-    g.addWidget(QLabel("Pixel size:"))
+    hlab(g, "Pixel & threshold:")
+    row = QHBoxLayout()
+    row.addWidget(QLabel("Pixel size:"))
     win.spn_pixel = QSpinBox()
     win.spn_pixel.setRange(1, 8)
     win.spn_pixel.setValue(2)
     win.spn_pixel.setFixedWidth(56)
+    win.spn_pixel.setToolTip("Dither cell in pixels (1 = finest)")
     win.spn_pixel.valueChanged.connect(lambda _: win._schedule_refresh())
-    g.addWidget(win.spn_pixel)
+    row.addWidget(win.spn_pixel)
+    row.addStretch()
+    g.addLayout(row)
     win.sld_thr, _ = labeled_slider(win, g, "Threshold:", 1, 254, 128)
 
 
 def build_color_section(win, g: QVBoxLayout) -> None:
-    win.sld_bri, _ = labeled_slider(win, g, "Brightness:", 50, 200, 100, div=100.0)
-    win.sld_con, _ = labeled_slider(win, g, "Contrast:", 50, 200, 100, div=100.0)
-    win.sld_sat, _ = labeled_slider(win, g, "Saturation:", 0, 200, 100, div=100.0)
-    win.sld_mid, _ = labeled_slider(win, g, "Midtones:", 0, 200, 100, "Mids gamma 0.0-2.0", div=100.0)
+    hlab(g, "Adjust:")
+    win.sld_bri, _ = labeled_slider(win, g, "Brightness:", 50, 200, 100, div=100.0, unit="×")
+    win.sld_con, _ = labeled_slider(win, g, "Contrast:", 50, 200, 100, div=100.0, unit="×")
+    win.sld_sat, _ = labeled_slider(win, g, "Saturation:", 0, 200, 100, div=100.0, unit="×")
+    win.sld_mid, _ = labeled_slider(win, g, "Midtones:", 0, 200, 100, "Mids gamma 0.0-2.0", div=100.0, unit="×")
     win.sld_high, _ = labeled_slider(win, g, "Highlights:", -100, 100, 0, "Lift/cut brights")
     for sld in (win.sld_bri, win.sld_con, win.sld_sat, win.sld_mid, win.sld_high):
         try:
@@ -194,7 +197,7 @@ def _on_adjust_lock(win, key: str, on: bool, btn) -> None:
 def _on_adjust_dice(win) -> None:
     from app.ui import color_actions as _ca
 
-    _roll_chaos_seed(win)  # fresh seed so every click iterates; spin logs it
+    roll_seed(win, "spn_chaos_seed", "Chaos")  # fresh seed so every click iterates
     _ca.randomize_adjusts(win)
 
 
@@ -209,37 +212,27 @@ def _apply_sp404_canvas(win) -> None:
     """
     from app.sp404 import SP_H, SP_W
 
-    try:
-        for spn in (win.spn_canvas_w, win.spn_canvas_h):
+    for spn in (win.spn_canvas_w, win.spn_canvas_h):
+        with suppress(Exception):
             spn.blockSignals(True)
+    with suppress(Exception):
         win.spn_canvas_w.setValue(int(SP_W))
+    with suppress(Exception):
         win.spn_canvas_h.setValue(int(SP_H))
-    except Exception:  # noqa: BLE001
-        pass
-    finally:
-        for spn in (win.spn_canvas_w, win.spn_canvas_h):
-            try:
-                spn.blockSignals(False)
-            except Exception:  # noqa: BLE001
-                pass
-    try:
-        if win.btn_canvas_link.isChecked():
-            win.btn_canvas_link.setChecked(False)
-    except Exception:  # noqa: BLE001
-        pass
-    try:
+    for spn in (win.spn_canvas_w, win.spn_canvas_h):
+        with suppress(Exception):
+            spn.blockSignals(False)
+    with suppress(Exception):
+        win.btn_canvas_link.setChecked(False)
+    with suppress(Exception):
         win._on_canvas_wh_changed()
-    except Exception:  # noqa: BLE001
-        pass
 
 
 def _on_sp404_preview_toggled(win, on: bool) -> None:
     """IMAGE-panel toggle -> same flag as View > SP-404 OLED preview."""
-    try:
+    with suppress(Exception):
         if win.act_sp404.isChecked() != bool(on):
             win.act_sp404.setChecked(bool(on))
-    except Exception:  # noqa: BLE001
-        pass
     try:
         win.toggle_sp404_preview()
     except Exception:  # noqa: BLE001
@@ -249,11 +242,13 @@ def _on_sp404_preview_toggled(win, on: bool) -> None:
 def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     """Canvas editor-style: ratio fills W/H; editing W/H jumps to Custom."""
     from app.canvas import MAX_DIM, MIN_DIM, MODE_TIPS, canvas_ratios
+    from app.ui.icons import chain_icon
 
-    g.addWidget(QLabel("Ratio / Mode:"))
+    hlab(g, "Ratio & crop:")
     row = QHBoxLayout()
+    row.addWidget(QLabel("Ratio:"))
     win.cmb_ratio = QComboBox()
-    tight(win.cmb_ratio, 10)
+    tight(win.cmb_ratio, 5)
     win.cmb_ratio.addItems(canvas_ratios())
     win.cmb_ratio.setToolTip("Preset aspect, or Custom for free W×H")
     # activated = user gesture only: applies the preset without fighting sync.
@@ -261,15 +256,16 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_ratio.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_ratio, 1)
+    row.addWidget(QLabel("Crop:"))
     win.cmb_crop = QComboBox()
-    tight(win.cmb_crop, 10)
+    tight(win.cmb_crop, 7)
     win.cmb_crop.addItems(list(crop_modes))
     win.cmb_crop.setToolTip("; ".join(f"{m}: {MODE_TIPS.get(m, '')}" for m in crop_modes))
     win.cmb_crop.currentTextChanged.connect(lambda _: win._schedule_refresh())
     win.cmb_crop.currentTextChanged.connect(lambda _: win._sync_docdims())
     row.addWidget(win.cmb_crop, 1)
     g.addLayout(row)
-    hlab(g, "Canvas Size (W × H):")
+    hlab(g, "Canvas size (W × H):")
     doc_row = QHBoxLayout()
     win.spn_canvas_w = QSpinBox()
     win.spn_canvas_w.setRange(MIN_DIM, MAX_DIM)
@@ -288,40 +284,39 @@ def build_canvas_section(win, g: QVBoxLayout, ratios, crop_modes) -> None:
     win.spn_canvas_h.setToolTip("Canvas height: typing it flips Ratio to Custom (free)")
     win.spn_canvas_h.valueChanged.connect(lambda _: win._on_canvas_wh_changed("h"))
     doc_row.addWidget(win.spn_canvas_h, 1)
-    win.btn_canvas_link = QPushButton("🔗")
+    win.btn_canvas_link = QPushButton()
+    win.btn_canvas_link.setIcon(chain_icon())
     win.btn_canvas_link.setCheckable(True)
     win.btn_canvas_link.setChecked(False)
-    win.btn_canvas_link.setFixedWidth(32)
+    win.btn_canvas_link.setFixedWidth(34)
     win.btn_canvas_link.setToolTip("Link W×H (Photoshop-style): editing one scales the other, keeps the aspect — square in, square out (3000 → 3000×3000)")
     win.btn_canvas_link.toggled.connect(win._on_canvas_link)
     doc_row.addWidget(win.btn_canvas_link)
     win.lbl_docdims = QLabel()
     win.lbl_docdims.setMinimumWidth(110)
-    from PySide6.QtCore import Qt as _Qt2
-
-    win.lbl_docdims.setAlignment(_Qt2.AlignRight | _Qt2.AlignVCenter)
+    win.lbl_docdims.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
     doc_row.addWidget(win.lbl_docdims)
     g.addLayout(doc_row)
+    sp_row = QHBoxLayout()
     win.btn_sp404_canvas = QPushButton("SP-404 128×64")
     win.btn_sp404_canvas.setToolTip("Custom canvas at the Roland SP-404MKII OLED size (128×64): document only, preview unchanged")
     win.btn_sp404_canvas.clicked.connect(lambda: _apply_sp404_canvas(win))
-    g.addWidget(win.btn_sp404_canvas)
-    win.btn_sp404_preview = QPushButton("SP-404 OLED Preview: OFF")
+    sp_row.addWidget(win.btn_sp404_canvas, 1)
+    win.btn_sp404_preview = QPushButton("OLED preview: OFF")
     win.btn_sp404_preview.setCheckable(True)
     win.btn_sp404_preview.setChecked(False)
     win.btn_sp404_preview.setToolTip("Display-only 128x64 1-bit preview for the Roland SP-404MKII (same as View menu, stills only)")
     win.btn_sp404_preview.toggled.connect(lambda on: _on_sp404_preview_toggled(win, on))
-    g.addWidget(win.btn_sp404_preview)
+    sp_row.addWidget(win.btn_sp404_preview, 1)
+    g.addLayout(sp_row)
     hlab(g, "Crop (visual editor):")
     crop_row = QHBoxLayout()
     win.btn_crop = QPushButton("Adjust crop...")
     win.btn_crop.setToolTip("Visual crop: drag to move, wheel to zoom")
     win.btn_crop.clicked.connect(win.open_crop_editor)
     crop_row.addWidget(win.btn_crop, 1)
-    from PySide6.QtCore import Qt as _Qt
-
     win.lbl_crop = QLabel()
     win.lbl_crop.setMinimumWidth(110)
-    win.lbl_crop.setAlignment(_Qt.AlignRight | _Qt.AlignVCenter)
+    win.lbl_crop.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
     crop_row.addWidget(win.lbl_crop)
     g.addLayout(crop_row)

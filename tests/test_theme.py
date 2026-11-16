@@ -16,7 +16,9 @@ def test_stylesheet_loads_with_suite_tokens():
 def test_stylesheet_covers_selectors():
     css = THEME_FILE.read_text(encoding="utf-8")
     for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
-                "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
+                "QMenuBar", "QStatusBar", "QLabel#previewFrame",
+                "QLabel#sectionLabel", "QPushButton#accordion",
+                "QRadioButton", "QListWidget", "QDoubleSpinBox"):
         assert sel in css, sel
 
 
@@ -29,7 +31,9 @@ def test_stylesheet_covers_focus_and_disabled():
         assert sel in css, sel
     css = THEME_FILE.read_text(encoding="utf-8")
     for sel in ("QGroupBox", "QPushButton#exportBtn", "QSlider::groove:horizontal",
-                "QMenuBar", "QStatusBar", "QLabel#previewFrame"):
+                "QMenuBar", "QStatusBar", "QLabel#previewFrame",
+                "QLabel#sectionLabel", "QPushButton#accordion",
+                "QRadioButton", "QListWidget", "QDoubleSpinBox"):
         assert sel in css, sel
 
 

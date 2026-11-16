@@ -1158,6 +1158,15 @@ def _sync_morph_list_ui(win) -> None:
             except (TypeError, ValueError):
                 rep = 1
             lst.addItem(f"{i + 2}: {name}" + (f" ×{rep}" if rep > 1 else ""))
+        if not items:
+            from PySide6.QtCore import Qt as _Qt
+            from PySide6.QtGui import QColor
+            from PySide6.QtWidgets import QListWidgetItem
+
+            hint = QListWidgetItem("No chain images yet · Add... builds A → B → C")
+            hint.setFlags(_Qt.NoItemFlags)
+            hint.setForeground(QColor("#5A5D61"))
+            lst.addItem(hint)
     except Exception:  # noqa: BLE001
         pass
     finally:

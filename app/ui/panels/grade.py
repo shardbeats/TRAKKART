@@ -14,10 +14,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from app.ui.panels.studio import build_fx_stack_section
-from app.ui.panels.widgets import hlab, tight, labeled_slider, seed_row, spin_row
+from app.ui.panels.widgets import hlab, labeled_slider, roll_seed, seed_row, spin_row, tight
 
 
 def build_pre_section(win, g: QVBoxLayout) -> None:
+    hlab(g, "Pre-process:")
     win.sld_blur, _ = labeled_slider(win, g, "Blur:", 0, 50, 0, "Blur 0.0-5.0 (heavy: slower preview)", div=10.0)
     win.spn_sharp = spin_row(g, "Sharpen:", 0, 3, 0, "Sharpen 0-3")
     win.spn_sharp.valueChanged.connect(lambda _: win._schedule_refresh())
@@ -38,24 +39,9 @@ def build_effects_section(win, g: QVBoxLayout) -> None:
     build_fx_stack_section(win, g)
 
 
-def _roll_fx_seed(win, spin_attr: str, label: str) -> None:
-    """Shared dice for FX seeds: random 0-999999, status logs the seed."""
-    import random
-
-    seed = random.randint(0, 999999)
-    try:
-        getattr(win, spin_attr).setValue(seed)
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        win._status(f"{label} re-rolled (seed {seed})")
-    except Exception:  # noqa: BLE001
-        pass
-
-
 def build_tint_section(win, g: QVBoxLayout) -> None:
     """Duotone + brand: live on the COLOR page (extracted from grade)."""
-    g.addWidget(QLabel("Duotone:"))
+    hlab(g, "Duotone:")
     duo_row = QHBoxLayout()
     duo_row.addWidget(QLabel("Duo:"))
     win.btn_duo_dark = QPushButton("Dark...")
@@ -72,8 +58,8 @@ def build_tint_section(win, g: QVBoxLayout) -> None:
     win.duotone_dark = ""
     win.duotone_light = ""
     g.addLayout(duo_row)
-    win.sld_duo_mid, _ = labeled_slider(win, g, "Duo mid:", 0, 100, 50, "Gradient midpoint")
-    g.addWidget(QLabel("Brand:"))
+    win.sld_duo_mid, _ = labeled_slider(win, g, "Duo mid:", 0, 100, 50, "Gradient midpoint", unit="%")
+    hlab(g, "Brand:")
     brand_row = QHBoxLayout()
     win.btn_brand = QPushButton("Brand...")
     win.btn_brand.setToolTip("Brand color: replaces dither white")
@@ -86,14 +72,15 @@ def build_tint_section(win, g: QVBoxLayout) -> None:
 
 
 def build_grade_section(win, g: QVBoxLayout) -> None:
+    hlab(g, "Grade:")
     win.spn_poster = spin_row(g, "Posterize:", 0, 8, 0, "Tones 2-8, 0=off")
     win.spn_poster.valueChanged.connect(lambda _: win._schedule_refresh())
-    win.sld_split, _ = labeled_slider(win, g, "Split tone:", 0, 100, 0, "Cool shadows / warm highlights")
-    win.sld_fade, _ = labeled_slider(win, g, "Fade:", 0, 100, 0, "Lift blacks (matte film)")
-    win.sld_glow, _ = labeled_slider(win, g, "Glow:", 0, 100, 0, "Glow intensity")
+    win.sld_split, _ = labeled_slider(win, g, "Split tone:", 0, 100, 0, "Cool shadows / warm highlights", unit="%")
+    win.sld_fade, _ = labeled_slider(win, g, "Fade:", 0, 100, 0, "Lift blacks (matte film)", unit="%")
+    win.sld_glow, _ = labeled_slider(win, g, "Glow:", 0, 100, 0, "Glow intensity", unit="%")
     glow_row = QHBoxLayout()
     _glow_lab = QLabel("Glow r/t:")
-    _glow_lab.setFixedWidth(96)
+    _glow_lab.setFixedWidth(120)
     _glow_lab.setToolTip("Glow radius / threshold")
     glow_row.addWidget(_glow_lab)
     win.spn_glowrad = QSpinBox()
@@ -120,12 +107,12 @@ def build_texture_section(win, g: QVBoxLayout) -> None:
     seed_row(g, win, "spn_grain_seed", "btn_grain_dice", "Grain seed:", 0x7A4B,
              "Grain pattern 0-999999 (same seed = same grain)",
              "Re-roll the grain pattern",
-             lambda: _roll_fx_seed(win, "spn_grain_seed", "Grain"))
+             lambda: roll_seed(win, "spn_grain_seed", "Grain"))
     seed_row(g, win, "spn_dust_seed", "btn_dust_dice", "Dust seed:", 0xD57,
              "Dust pattern 0-999999 (same seed = same scratches)",
              "Re-roll the dust pattern",
-             lambda: _roll_fx_seed(win, "spn_dust_seed", "Dust"))
-    win.sld_vig, _ = labeled_slider(win, g, "Vignette:", 0, 100, 0, "Vignette 0-100")
+             lambda: roll_seed(win, "spn_dust_seed", "Dust"))
+    win.sld_vig, _ = labeled_slider(win, g, "Vignette:", 0, 100, 0, "Vignette 0-100", unit="%")
     half_row = QHBoxLayout()
     half_row.addWidget(QLabel("Halftone:"))
     win.spn_halftone = QSpinBox()
@@ -142,9 +129,10 @@ def build_texture_section(win, g: QVBoxLayout) -> None:
     win.cmb_halftone.currentTextChanged.connect(lambda _: win._schedule_refresh())
     half_row.addWidget(win.cmb_halftone, 1)
     g.addLayout(half_row)
-    win.sld_dust, _ = labeled_slider(win, g, "Dust:", 0, 100, 0, "Dust & scratches")
-    hlab(g, "Scanlines / Frame:")
+    win.sld_dust, _ = labeled_slider(win, g, "Dust:", 0, 100, 0, "Dust & scratches", unit="%")
+    hlab(g, "Scanlines / frame:")
     fx_row = QHBoxLayout()
+    fx_row.addWidget(QLabel("Every"))
     win.spn_scan = QSpinBox()
     win.spn_scan.setRange(0, 8)
     win.spn_scan.setValue(0)
@@ -152,27 +140,34 @@ def build_texture_section(win, g: QVBoxLayout) -> None:
     win.spn_scan.setToolTip("Scanlines: 0=off, every N rows (only 0,2,3,4,6,8 are valid)")
     win.spn_scan.valueChanged.connect(lambda _: win._schedule_refresh())
     fx_row.addWidget(win.spn_scan)
+    fx_row.addWidget(QLabel("rows"))
+    fx_row.addStretch()
+    g.addLayout(fx_row)
+    border_row = QHBoxLayout()
+    border_row.addWidget(QLabel("Border"))
     win.spn_border = QSpinBox()
     win.spn_border.setRange(0, 64)
     win.spn_border.setValue(0)
     win.spn_border.setFixedWidth(56)
     win.spn_border.setToolTip("Solid border 0-64px, 0=off")
     win.spn_border.valueChanged.connect(lambda _: win._schedule_refresh())
-    fx_row.addWidget(win.spn_border)
-    win.btn_border_color = QPushButton("Border...")
+    border_row.addWidget(win.spn_border)
+    win.btn_border_color = QPushButton("Color...")
     win.btn_border_color.setToolTip("Border color")
     win.btn_border_color.clicked.connect(win.pick_border_color)
-    fx_row.addWidget(win.btn_border_color)
+    border_row.addWidget(win.btn_border_color)
     win.lbl_border = QLabel("#000000")
-    fx_row.addWidget(win.lbl_border, 1)
+    win.lbl_border.setMinimumWidth(56)
+    border_row.addWidget(win.lbl_border)
+    border_row.addStretch()
+    g.addLayout(border_row)
     win.border_color = "#000000"
-    g.addLayout(fx_row)
     win.spn_letterbox = spin_row(g, "Letterbox:", 0, 25, 0, "Cinema bars % each side, 0=off")
     win.spn_letterbox.valueChanged.connect(lambda _: win._schedule_refresh())
 
 
 def build_glitch_section(win, g: QVBoxLayout) -> None:
-    g.addWidget(QLabel("Glitch:"))
+    hlab(g, "Glitch:")
     win.sld_chroma, _ = labeled_slider(win, g, "Chroma:", 0, 20, 0, "Chromatic aberration 0-20px")
     glitch_row = QHBoxLayout()
     _slices_lab = QLabel("Slices:")
@@ -213,15 +208,15 @@ def build_glitch_section(win, g: QVBoxLayout) -> None:
     seed_row(g, win, "spn_slice_seed", "btn_slice_dice", "Slice seed:", 0x6A17,
              "Slice offsets 0-999999 (same seed = same cuts)",
              "Re-roll the slice offsets",
-             lambda: _roll_fx_seed(win, "spn_slice_seed", "Slice"))
+             lambda: roll_seed(win, "spn_slice_seed", "Slice"))
     seed_row(g, win, "spn_pixelsort_seed", "btn_pixelsort_dice", "Sort seed:", 0x9150,
              "Pixel-sort pattern 0-999999 (same seed = same streaks)",
              "Re-roll the pixel-sort pattern",
-             lambda: _roll_fx_seed(win, "spn_pixelsort_seed", "Sort"))
+             lambda: roll_seed(win, "spn_pixelsort_seed", "Sort"))
     seed_row(g, win, "spn_wave_seed", "btn_wave_dice", "Wave seed:", 0x9A9E,
              "Wave phase 0-999999 (same seed = same wobble)",
              "Re-roll the wave phase",
-             lambda: _roll_fx_seed(win, "spn_wave_seed", "Wave"))
+             lambda: roll_seed(win, "spn_wave_seed", "Wave"))
     fx3_row = QHBoxLayout()
     fx3_row.addWidget(QLabel("Grille:"))
     win.spn_grille = QSpinBox()

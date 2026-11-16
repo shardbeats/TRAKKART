@@ -30,15 +30,16 @@ def make_accordion(host: QVBoxLayout):
 
     Returns `(add_page, pages)`: `add_page(title)` appends a collapsible
     page and returns its layout; opening one page closes the others.
-    The first page starts open.
+    The first page starts open. The header reads as navigation (left
+    chevron + accent when open), not as a generic action button.
     """
-    from PySide6.QtWidgets import QPushButton
-
     holders: list = []
 
     def add_page(title: str) -> QVBoxLayout:
-        btn = QPushButton(title)
+        btn = QPushButton(f"▸ {title}")
+        btn.setObjectName("accordion")
         btn.setCheckable(True)
+        btn.setCursor(Qt.PointingHandCursor)
         host.addWidget(btn)
         content = QWidget()
         lay = QVBoxLayout(content)
@@ -46,7 +47,8 @@ def make_accordion(host: QVBoxLayout):
         lay.setContentsMargins(2, 2, 2, 2)
         host.addWidget(content)
 
-        def _on_toggle(on: bool, _content=content) -> None:
+        def _on_toggle(on: bool, _content=content, _btn=btn, _title=title) -> None:
+            _btn.setText(f"{'▾' if on else '▸'} {_title}")
             if on:
                 for _b, _c in holders:
                     if _c is not _content:
@@ -67,9 +69,10 @@ def make_accordion(host: QVBoxLayout):
 
 
 def hlab(parent, text: str) -> QLabel:
-    """Section header that wraps instead of forcing panel width."""
+    """Section header: quieter than the page button, wraps inside the panel."""
     lab = QLabel(text)
     lab.setWordWrap(True)
+    lab.setObjectName("sectionLabel")
     parent.addWidget(lab)
     return lab
 
@@ -84,20 +87,36 @@ def tight(cmb, chars: int = 12):
     return cmb
 
 
-def labeled_slider(win, parent, label, lo, hi, val, tooltip="", div=None):
-    """Row [label | slider | value]. Double-click resets (ValueSlider)."""
+def labeled_slider(win, parent, label, lo, hi, val, tooltip="", div=None, unit=""):
+    """Row [label | slider | value]. Double-click resets (ValueSlider).
+
+    `div` keeps the legacy normalized storage (100 = 1.0). The readout
+    keeps one decimal when normalized, so "1" no longer hides a 1.0×
+    multiplier: 100 -> "1.0×", 125 -> "1.25×".
+    """
     row = QHBoxLayout()
     lab = QLabel(label)
     lab.setMinimumWidth(120)
     row.addWidget(lab)
-    sld, val_lbl = mini_slider(win, lo, hi, val, tooltip, div)
+    sld, val_lbl = mini_slider(win, lo, hi, val, tooltip, div, unit)
     row.addWidget(sld, 1)
     row.addWidget(val_lbl)
     parent.addLayout(row)
     return sld, val_lbl
 
 
-def mini_slider(win, lo, hi, val, tooltip="", div=None):
+def value_text(v, div=None, unit: str = "") -> str:
+    """Human readout for a normalized slider value."""
+    if div and div != 1:
+        text = f"{v / div:.2f}".rstrip("0").rstrip(".")
+        if "." not in text:
+            text += ".0"
+    else:
+        text = f"{v:g}"
+    return f"{text}{unit}"
+
+
+def mini_slider(win, lo, hi, val, tooltip="", div=None, unit=""):
     from app.ui.widgets import ValueSlider
 
     sld = ValueSlider(Qt.Horizontal)
@@ -108,11 +127,11 @@ def mini_slider(win, lo, hi, val, tooltip="", div=None):
         sld.setToolTip(tooltip)
     val_lbl = QLabel()
     val_lbl.setObjectName("valueLabel")
-    val_lbl.setMinimumWidth(40)
+    val_lbl.setMinimumWidth(46)
     val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-    def _show(v, _lbl=val_lbl, _div=div):
-        _lbl.setText(f"{(v / _div if _div else v):g}")
+    def _show(v, _lbl=val_lbl, _div=div, _unit=unit):
+        _lbl.setText(value_text(v, _div, _unit))
 
     sld.valueChanged.connect(_show)
     sld.valueChanged.connect(lambda _: win._schedule_refresh())
@@ -129,7 +148,8 @@ def spin_row(parent, label: str, lo: int, hi: int, val: int, tooltip: str = "") 
     spn.setFixedWidth(56)
     row = QHBoxLayout()
     row.addWidget(QLabel(label))
-    row.addWidget(spn, 1)
+    row.addWidget(spn)
+    row.addStretch()
     parent.addLayout(row)
     return spn
 
@@ -168,3 +188,27 @@ def seed_row(parent, win, spin_attr: str, dice_attr: str, label_text: str,
     setattr(win, spin_attr, spn)
     setattr(win, dice_attr, dice)
     return spn, dice
+
+
+def roll_seed(win, spin_attr: str, label: str, after=None) -> int:
+    """One dice behavior for every seed control: fresh 0-999999 + status.
+
+    `after` runs once the spin is set (palette rolls then regenerate).
+    """
+    import random
+
+    seed = random.randint(0, 999999)
+    try:
+        getattr(win, spin_attr).setValue(seed)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win._status(f"{label} re-rolled (seed {seed})")
+    except Exception:  # noqa: BLE001
+        pass
+    if after is not None:
+        try:
+            after()
+        except Exception:  # noqa: BLE001
+            pass
+    return seed

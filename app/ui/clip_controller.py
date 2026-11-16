@@ -229,7 +229,7 @@ def show_frame(win, idx: int) -> None:
         win.lbl_res.set_wipe_mode(False)
         win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
         win.lbl_res_title.setText(
-            f"MOTION · {frame.width}x{frame.height} · f{i + 1}/{n} (clip)")
+            f"MOTION · {frame.width}×{frame.height} · f{i + 1}/{n} (clip)")
         win.lbl_clip_pos.setText(f"{i + 1}/{n}")
     except Exception:  # noqa: BLE001
         pass
@@ -256,7 +256,7 @@ def playpause(win) -> None:
     playing = not bool(getattr(win, "_clip_playing", False))
     win._clip_playing = playing
     try:
-        win.btn_clip_play.setText("⏸ Pause" if playing else "▶ Play")
+        win.btn_clip_play.setText("Pause" if playing else "Play")
     except Exception:  # noqa: BLE001
         pass
     timer = getattr(win, "_clip_timer", None)
@@ -304,7 +304,7 @@ def stop(win) -> None:
     except Exception:  # noqa: BLE001
         pass
     try:
-        win.btn_clip_play.setText("▶ Play")
+        win.btn_clip_play.setText("Play")
     except Exception:  # noqa: BLE001
         pass
 

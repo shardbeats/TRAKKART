@@ -22,6 +22,19 @@ QLabel#valueLabel {
     color: #F5A623;
 }
 
+/* Section header inside an accordion page: one hierarchy level above
+   the slider labels, quieter than the page button itself. */
+QLabel#sectionLabel {
+    color: #A7AAB0;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding-top: 7px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #2C2E31;
+    margin-bottom: 2px;
+}
+
 QLabel#subtitleLabel {
     font-size: 11px;
     color: #92959A;
@@ -84,6 +97,42 @@ QPushButton:pressed {
     color: #161617;
 }
 
+/* Checkable toggles (link, details, preview switches) show state. */
+QPushButton:checked {
+    background-color: #2A2C30;
+    border-color: #F5A623;
+    color: #F5A623;
+}
+
+QPushButton#opBtn {
+    padding: 6px 4px;
+    font-size: 11px;
+}
+
+QPushButton#accordion {
+    text-align: left;
+    background-color: #1A1B1D;
+    border: 1px solid #2C2E31;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #C9CBCE;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+QPushButton#accordion:hover {
+    border-color: #F5A623;
+    color: #F5A623;
+}
+
+QPushButton#accordion:checked {
+    background-color: #232528;
+    border: 1px solid #3A3C40;
+    border-left: 3px solid #F5A623;
+    color: #F5A623;
+}
+
 QPushButton:disabled {
     background-color: #1C1D1F;
     border-color: #45474A;
@@ -117,7 +166,7 @@ QPushButton#exportBtn:disabled {
     color: #383B40;
 }
 
-QComboBox, QSpinBox, QLineEdit {
+QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
     background-color: #202124;
     border: 1px solid #45474A;
     border-radius: 4px;
@@ -128,11 +177,11 @@ QComboBox, QSpinBox, QLineEdit {
     selection-color: #161617;
 }
 
-QComboBox:hover, QSpinBox:hover, QLineEdit:hover {
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {
     border-color: #F5A623;
 }
 
-QComboBox:focus, QSpinBox:focus, QLineEdit:focus {
+QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {
     border-color: #F5A623;
 }
 
@@ -149,13 +198,15 @@ QComboBox::drop-down {
     width: 20px;
 }
 
-QSpinBox::up-button, QSpinBox::down-button {
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
     background-color: #2A2C30;
     border: none;
     width: 16px;
 }
 
-QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
     background-color: #F5A623;
 }
 
@@ -205,6 +256,7 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: #F5A623;
     border-color: #F5A623;
+    image: url("__CHECK__");
 }
 
 QProgressBar {
@@ -315,7 +367,7 @@ QPushButton:focus {
     outline: none;
 }
 
-QComboBox:disabled, QSpinBox:disabled, QLineEdit:disabled {
+QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled {
     background-color: #1C1D1F;
     color: #383B40;
     border-color: #45474A;
@@ -336,6 +388,52 @@ QCheckBox:disabled {
 QCheckBox::indicator:disabled {
     background-color: #1C1D1F;
     border-color: #383B40;
+}
+
+QRadioButton {
+    color: #E5E5E5;
+    font-size: 12px;
+    spacing: 6px;
+}
+
+QRadioButton:hover {
+    color: #F5A623;
+}
+
+QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #45474A;
+    border-radius: 8px;
+    background-color: #202124;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #F5A623;
+    border: 4px solid #202124;
+}
+
+QListWidget {
+    background-color: #1C1D1F;
+    border: 1px solid #2C2E31;
+    border-radius: 4px;
+    color: #E5E5E5;
+    font-size: 12px;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 5px 8px;
+    border-bottom: 1px solid #232528;
+}
+
+QListWidget::item:selected {
+    background-color: #2A2C30;
+    color: #F5A623;
+}
+
+QListWidget::item:hover {
+    background-color: #232528;
 }
 
 QLabel#previewFrame {

@@ -46,6 +46,15 @@ def setup_ui(win) -> None:
         qss = qss_path.read_text(encoding="utf-8") if qss_path.exists() else ""
         if qss:
             try:
+                from app.paths import get_data_dir
+
+                from app.ui.icons import ensure_theme_assets
+
+                check = ensure_theme_assets(get_data_dir() / "_theme")
+                qss = qss.replace("__CHECK__", check)
+            except Exception:  # noqa: BLE001
+                qss = qss.replace("__CHECK__", "")
+            try:
                 app = QApplication.instance()
                 if app is not None:
                     app.setStyleSheet(qss)
@@ -64,6 +73,10 @@ def setup_ui(win) -> None:
     title = QLabel("TRAKKART")
     title.setObjectName("titleLabel")
     header.addWidget(title)
+    tagline = QLabel("DITHER / HALFTONE STUDIO")
+    tagline.setObjectName("subtitleLabel")
+    tagline.setContentsMargins(10, 6, 0, 0)
+    header.addWidget(tagline)
     header.addStretch()
     col.addLayout(header)
 
@@ -94,7 +107,6 @@ def setup_ui(win) -> None:
     setup_action_bar(win)
     setup_previews(win, root)
 
-    win.statusBar().showMessage("TRAKKART ready")
     ver = QLabel(f"v{__version__}")
     ver.setObjectName("subtitleLabel")
     win.statusBar().addPermanentWidget(ver)
@@ -182,7 +194,7 @@ def setup_action_bar(win) -> None:
     batch_row.addWidget(win.btn_cancel)
     from PySide6.QtWidgets import QCheckBox
 
-    win.chk_batch_drop = QCheckBox("Drop=Batch")
+    win.chk_batch_drop = QCheckBox("Drop = batch")
     win.chk_batch_drop.setToolTip("OFF = dropping only loads images. ON = dropping a folder asks for confirmation and processes it.")
     win.chk_batch_drop.setChecked(False)
     batch_row.addWidget(win.chk_batch_drop)

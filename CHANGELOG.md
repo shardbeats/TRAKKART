@@ -33,6 +33,28 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   honesto (29 ≈ duración × N). El `fps` de `info` es el efectivo.
   Medido en real CFR (1080p y 4K): mismo 120f/30fps, mismo ~1.2s.
   Pins: unit (VFR sintético + CFR intacto).
+### Changed
+- Pasada de orden visual (UX, nov-2026): cada página del panel usa
+  cabeceras de sección (subrayado fino) y el acordeón se lee como
+  navegación (chevron ▸/▾, barra ámbar en la página abierta). Los radios,
+  listas y toggles siguen el tema oscuro; los checkboxes llevan tick
+  dibujado (no un cuadrado ámbar ambiguo).
+- Lecturas numéricas honestas: los sliders normalizados muestran `1.0×`,
+  `50%` o `0.0` en vez de un `1`/`0` que ocultaba la escala; sliders de
+  porcentaje llevan sufijo `%` y los multiplicadores `×`.
+- Controles autoexplicativos: `Ratio:`/`Crop:` con etiqueta propia,
+  `Preset:` visible, `Pixel size` en su fila, `Scanlines`/`Border` con
+  etiquetas y `Color...` en el borde, `Paper:`/`Blend:` en Paste-Up.
+- Cadena W×H dibujada con QPainter (sin depender del font de emoji) y
+  botones de play/pause solo texto; los títulos de preview usan `×`.
+- Ventana Export ordenada: grupos **Stills / Motion / Print & device** en
+  dos columnas, `Format` + `Quality` en una fila, barra de acciones fija
+  y contenido con scroll para pantallas bajas; plan y total más claros.
+- Una sola línea de estado (el status bar ya no duplica el mensaje) y
+  cabecera `DITHER / HALFTONE STUDIO` junto al título.
+- Código: helpers de seed unificados en `panels/widgets.roll_seed`,
+  `contextlib.suppress` en los toggles SP-404 y assets de tema generados
+  en `app/ui/icons.py`.
 ### Fixed
 - **Crash duro al cargar un clip y hacer New project / cerrar** (sin
   traceback, `0xC0000409`): se soltaba la referencia de un `QThread`

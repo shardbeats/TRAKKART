@@ -125,10 +125,15 @@ def sync_stale_badge(win) -> None:
 def toggle(win) -> None:
     win._video_on = bool(win.chk_video.isChecked())
     win._video_bar_widget.setVisible(win._video_on)
+    for widget in (win.btn_video_play, win.chk_video_pingpong):
+        try:
+            widget.setEnabled(win._video_on)
+        except Exception:  # noqa: BLE001
+            pass
     if win._video_on:
         win._video_playing = True
         try:
-            win.btn_video_play.setText("⏸ Pause")
+            win.btn_video_play.setText("Pause")
         except Exception:  # noqa: BLE001
             pass
         try:
@@ -447,7 +452,7 @@ def pause(win) -> None:
     """Stop procedural playback, keep the mode (clip takes the canvas)."""
     win._video_playing = False
     try:
-        win.btn_video_play.setText("▶ Play")
+        win.btn_video_play.setText("Play")
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -461,7 +466,7 @@ def playpause(win) -> None:
         return  # footage owns the canvas: use the clip Play instead
     win._video_playing = not win._video_playing
     try:
-        win.btn_video_play.setText("⏸ Pause" if win._video_playing else "▶ Play")
+        win.btn_video_play.setText("Pause" if win._video_playing else "Play")
     except Exception:  # noqa: BLE001
         pass
     if win._video_playing and win._video_frames and not win._video_timer.isActive():
@@ -533,7 +538,7 @@ def on_done(win, frames: list, token: int) -> None:
     if win._video_playing and len(win._video_frames) > 1:
         win._video_timer.start()
     win._status(f"Video ready: {len(win._video_frames)}f "
-                f"{s['mode']} @{win.result.width}x{win.result.height}")
+                f"{s['mode']} @{win.result.width}×{win.result.height}")
 
 
 def on_error(win, msg: str, token: int) -> None:
@@ -561,7 +566,7 @@ def show_frame(win, force: bool = False) -> None:
         mode = "mix"
     win.lbl_res.set_wipe_mode(False)
     win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
-    win.lbl_res_title.setText(f"MOTION · {frame.width}x{frame.height} · f{idx + 1}/{len(win._video_frames)} ({mode})")
+    win.lbl_res_title.setText(f"MOTION · {frame.width}×{frame.height} · f{idx + 1}/{len(win._video_frames)} ({mode})")
     win.lbl_video_pos.setText(f"{idx + 1}/{len(win._video_frames)}")
     if win.sld_video.value() != idx:
         win.sld_video.blockSignals(True)

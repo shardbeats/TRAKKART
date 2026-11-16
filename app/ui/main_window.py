@@ -418,12 +418,9 @@ class MainWindow(QMainWindow):
             pass
 
     def _status(self, msg: str) -> None:
-        """Single status point: label + status bar (SUITE pattern)."""
+        """Single status line (action bar). The status bar keeps only the
+        viewport/version readouts, so the same text never appears twice."""
         self.lbl_status.setText(msg)
-        try:
-            self.statusBar().showMessage(msg)
-        except Exception:
-            pass
 
     def _report_error(self, prefix: str, msg: str) -> None:
         """Show a worker error with its report id + plain-language hint.

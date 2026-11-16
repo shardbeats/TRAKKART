@@ -181,7 +181,7 @@ class BatchDialog(QDialog):
                 self._canvas_size[0], self._canvas_size[1], int(self.spn_vcell.value()))
             kb = estimate_bytes(cols, rows) // 1024
             warn = " (!)" if kb * 1024 > 2 * 1024 * 1024 else ""
-            self.lbl_vec_est.setText(f"~{cols}x{rows} cells, ~{kb}KB{warn}")
+            self.lbl_vec_est.setText(f"~{cols}×{rows} cells, ~{kb}KB{warn}")
         except Exception:  # noqa: BLE001
             self.lbl_vec_est.setText("")
 

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -32,6 +33,7 @@ from app.exporter import (
     plan_export,
     sanitize_base,
 )
+from app.ui.panels.widgets import hlab
 
 
 def _fmt_size(n: int) -> str:
@@ -79,6 +81,7 @@ class ExportDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Export")
         self.setMinimumWidth(480)
+        self.resize(560, 820)
         self._img = img
         self._meta = meta or {}
         self._vector_cells = vector_cells
@@ -89,8 +92,22 @@ class ExportDialog(QDialog):
         self._clip_info = dict(clip_info) if clip_info else None
 
         col = QVBoxLayout(self)
+        # Content scrolls on short screens; the action bar stays pinned.
+        from PySide6.QtWidgets import QFrame, QScrollArea, QWidget
+
+        outer = col
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        body = QWidget()
+        col = QVBoxLayout(body)
+        col.setContentsMargins(0, 0, 0, 0)
+        scroll.setWidget(body)
+        outer.addWidget(scroll, 1)
+        self._scroll = scroll
         # -- file name (dedicated section: base + reset + sanitized preview) --
-        col.addWidget(QLabel("File name:"))
+        hlab(col, "File name:")
         name_row = QHBoxLayout()
         self._init_base = base
         self.edit_base = QLineEdit(base)
@@ -130,36 +147,37 @@ class ExportDialog(QDialog):
         self.cmb_format, self.spn_quality = build_format_quality(format, quality)
         self.cmb_format.setToolTip("PNG: lossless, ideal dither · JPG: small, artifacts · WebP: small, modern")
         self.cmb_format.currentTextChanged.connect(self._refresh_plan)
-        fmt_row.addWidget(self.cmb_format)
+        fmt_row.addWidget(self.cmb_format, 1)
+        fmt_row.addWidget(QLabel("Quality:"))
         self.spn_quality.setToolTip("Quality for JPG/WebP (PNG ignores it)")
         self.spn_quality.valueChanged.connect(self._refresh_plan)
         fmt_row.addWidget(self.spn_quality)
         col.addLayout(fmt_row)
+        self.chk_lossless = QCheckBox("Lossless (force PNG)")
+        self.chk_lossless.setToolTip("Ignores format combo: exports main + thumb as PNG")
+        self.chk_lossless.setChecked(False)
+        self.chk_lossless.stateChanged.connect(self._on_lossless)
         # -- resolution tags (print; distributors ignore DPI, RISO does not) --
         dpi_row = QHBoxLayout()
         dpi_row.addWidget(QLabel("DPI:"))
         self.spn_dpi = QSpinBox()
         self.spn_dpi.setRange(72, 600)
         self.spn_dpi.setValue(max(72, min(600, int(dpi or 300))))
+        self.spn_dpi.setFixedWidth(80)
         self.spn_dpi.setToolTip("Resolution tags on JPG/PNG/TIFF + separations + metadata")
         self.spn_dpi.valueChanged.connect(self._refresh_plan)
         dpi_row.addWidget(self.spn_dpi)
         dpi_row.addWidget(QLabel("(tags only: pixels never change)"))
+        dpi_row.addStretch()
         col.addLayout(dpi_row)
-        # -- outputs --
-        col.addWidget(QLabel("Include:"))
         self.chk_image = QCheckBox("Main image")
-        self.chk_thumb = QCheckBox("Social thumb 1080p")
+        self.chk_thumb = QCheckBox("Social thumb (1080p)")
         self.chk_vector = QCheckBox("Vector SVG")
-        self.chk_anim = QCheckBox("Animation GIF")
+        self.chk_anim = QCheckBox("Animated GIF")
         self.chk_meta = QCheckBox("Metadata JSON")
         self.chk_black = QCheckBox("Black vector (print ink only)")
         self.chk_black.setToolTip("SVG with black ink on transparent (no paper rects)")
         self.chk_black.setChecked(bool(getattr(selection, "black_vector", False)))
-        self.chk_lossless = QCheckBox("Lossless (force PNG)")
-        self.chk_lossless.setToolTip("Ignores format combo: exports main + thumb as PNG")
-        self.chk_lossless.setChecked(False)
-        self.chk_lossless.stateChanged.connect(self._on_lossless)
         sel = selection or ExportSelection()
         self.chk_image.setChecked(sel.image)
         self.chk_thumb.setChecked(sel.thumb_1080p)
@@ -167,13 +185,13 @@ class ExportDialog(QDialog):
         self.chk_vector.setToolTip("Vector for logos/merch (no post-fx)")
         self.chk_anim.setChecked(sel.anim)
         self.chk_anim.setToolTip("Animation for socials (Pillow only)")
-        self.chk_webp = QCheckBox("Animation WebP")
+        self.chk_webp = QCheckBox("Animated WebP")
         self.chk_webp.setChecked(bool(webp))
         self.chk_webp.setToolTip("Same frames as the GIF, ~1/3 the weight, full color (Pillow only)")
         self.chk_tiff = QCheckBox("Print TIFF (LZW)")
         self.chk_tiff.setChecked(bool(tiff))
         self.chk_tiff.setToolTip("Full-doc lossless TIFF with DPI tags for stores/print")
-        self.chk_social = QCheckBox("Social pack (YT + 9:16 + 1:1)")
+        self.chk_social = QCheckBox("Social pack (16:9 + 9:16 + 1:1)")
         self.chk_social.setChecked(bool(social))
         self.chk_social.setToolTip("One click, same render: 1280×720 + 1080×1920 + 1080×1080, center-anchored (grids crop to center)")
         self.chk_sep = QCheckBox("Ink separations (print)")
@@ -186,11 +204,10 @@ class ExportDialog(QDialog):
         self.chk_sp404.setChecked(bool(sp404))
         self.chk_sp404.setToolTip("Roland SP-404MKII still: one 128×64 1-bit BMP of the current image (rename it to startup_N/screen_saver_N yourself)")
         self.chk_meta.setChecked(sel.metadata)
-        self.chk_black.setChecked(bool(getattr(sel, "black_vector", False)))
         from app.video_io import has_video as _has_video
 
         self._video_ok = bool(_has_video())
-        self.chk_mp4 = QCheckBox("Animation MP4")
+        self.chk_mp4 = QCheckBox("MP4 video")
         self.chk_mp4.setChecked(bool(mp4))
         if self._video_ok:
             self.chk_mp4.setToolTip("H.264 clip at MP4 size below (video backend present)")
@@ -201,7 +218,6 @@ class ExportDialog(QDialog):
                     self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
-            col.addWidget(chk)
         if not self._still_enabled:
             # Clip-only export (no still open): still outputs stay off.
             for chk in (self.chk_image, self.chk_thumb,
@@ -215,6 +231,20 @@ class ExportDialog(QDialog):
             self.cmb_format.setEnabled(False)
             self.spn_quality.setEnabled(False)
             self.spn_dpi.setEnabled(False)
+        # -- grouped outputs, top to bottom: stills -> motion -> print --
+        hlab(col, "Stills:")
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(2)
+        stills = (self.chk_image, self.chk_thumb, self.chk_vector,
+                  self.chk_black, self.chk_social, self.chk_tiff,
+                  self.chk_meta, self.chk_lossless)
+        for i, chk in enumerate(stills):
+            grid.addWidget(chk, i // 2, i % 2)
+        col.addLayout(grid)
+        hlab(col, "Motion:")
+        for chk in (self.chk_anim, self.chk_webp, self.chk_mp4):
+            col.addWidget(chk)
         from PySide6.QtWidgets import QComboBox as _Cmb
 
         from app.gif import MP4_SIZES
@@ -229,7 +259,6 @@ class ExportDialog(QDialog):
         self.cmb_mp4_size.currentTextChanged.connect(self._refresh_plan)
         mp4_row.addWidget(self.cmb_mp4_size, 1)
         col.addLayout(mp4_row)
-        col.addWidget(self.chk_lossless)
         # -- animation: no duplicates (edited only in VIDEO); on/off here --
         self._gif_spec = normalize_gif_spec(gif_frames, gif_mode, gif_fps, gif_pingpong)
         self.lbl_gifspec = QLabel()
@@ -237,9 +266,17 @@ class ExportDialog(QDialog):
         self.lbl_gifspec.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_gifspec)
         self._sync_gifspec_label()
+        hlab(col, "Print & device:")
+        print_grid = QGridLayout()
+        print_grid.setHorizontalSpacing(12)
+        print_grid.setVerticalSpacing(2)
+        print_grid.addWidget(self.chk_sep, 0, 0)
+        print_grid.addWidget(self.chk_trap, 0, 1)
+        print_grid.addWidget(self.chk_sp404, 1, 0, 1, 2)
+        col.addLayout(print_grid)
         # -- clip (session footage): rendered here, not in the MOTION panel --
         if self._clip_info is not None:
-            col.addWidget(QLabel("Clip (session footage):"))
+            hlab(col, "Clip (session footage):")
             self.lbl_clipinfo = QLabel()
             self.lbl_clipinfo.setWordWrap(True)
             self.lbl_clipinfo.setObjectName("subtitleLabel")
@@ -307,9 +344,10 @@ class ExportDialog(QDialog):
         self.lbl_policy.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_policy)
         # -- plan (classic editors show estimated size: here the list + ~weight) --
-        col.addWidget(QLabel("Files to write:"))
+        hlab(col, "Files to write:")
         self.list_files = QListWidget()
         self.list_files.setMinimumHeight(110)
+        self.list_files.setMaximumHeight(180)
         col.addWidget(self.list_files, 1)
         self.lbl_total = QLabel()
         col.addWidget(self.lbl_total)
@@ -328,7 +366,7 @@ class ExportDialog(QDialog):
         self.btn_export.setDefault(True)
         self.btn_export.clicked.connect(self._on_export)
         bar.addWidget(self.btn_export)
-        col.addLayout(bar)
+        outer.addLayout(bar)
 
         self._ready = True
         self._refresh_plan()
@@ -567,7 +605,8 @@ class ExportDialog(QDialog):
                         n += 1
             except Exception:  # noqa: BLE001
                 clip_names = []
-        self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
+        self.lbl_total.setText(
+            f"{n} {'file' if n == 1 else 'files'} · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
         try:
             dest = Path(self.edit_dir.text())
