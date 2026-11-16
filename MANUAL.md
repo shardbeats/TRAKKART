@@ -83,8 +83,14 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **Export (FPS spin = trim length):** GIF (silent, `{base}_clip.gif`),
   ZIP (PNG sequence `{base}_frames.zip`), MP4 (`{base}_clip.mp4`,
   software H.264 like still MP4s). Pick a Track for music
-  (`-c:v copy -c:a aac -shortest`, video never re-encoded); empty
-  track = silent MP4. No audio trimming/fades/playback in-app.
+  (`-c:v copy -c:a aac`, cut at the *clip* end; video never
+  re-encoded); empty track = silent MP4. A shorter track leaves
+  silence at the end — it never shortens the video. If the track
+  fails, the silent MP4 is kept. No audio trimming/fades/playback
+  in-app.
+- **Hygiene:** a long source shows "capped at 120f"; File → New
+  project (or Close) drops the session clip and its preview cache.
+  Exports never overwrite: a second export lands as `base_2`.
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).

@@ -110,7 +110,11 @@ def _read_mp4(path: Path, max_frames: int, proxy_side: int) -> tuple[list, int, 
                 import math as _math
 
                 t = float(total)
-                truncated = bool(_math.isfinite(t) and int(t) > len(frames))
+                # imageio reports inf for many MP4s (no index): that is
+                # "unknown", never "not truncated" — the cap flag set
+                # above must survive.
+                if _math.isfinite(t):
+                    truncated = int(t) > len(frames)
             except (TypeError, ValueError, OverflowError):
                 pass
     finally:
@@ -265,13 +269,32 @@ def write_clip_mp4(frames_or_iter, out_path: str | Path,
     return wrote
 
 
+def _mp4_duration(path: str | Path) -> float | None:
+    """Duration in seconds from the video stream (None when unknown)."""
+    try:
+        import math
+
+        import imageio.v2 as iio2
+
+        with iio2.get_reader(str(path)) as reader:
+            d = float((reader.get_meta_data() or {}).get("duration") or 0.0)
+        return d if d > 0 and math.isfinite(d) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
                    out_path: str | Path) -> Path:
-    """Mux a chosen soundtrack: `-c:v copy -c:a aac -shortest` (offline).
+    """Mux a chosen soundtrack (video copied, never re-encoded).
 
-    Video is never re-encoded (stays libx264-only by construction);
-    audio joins as AAC and `-shortest` cuts at the clip end. Silent
-    MP4 (no track chosen) skips this entirely — silence stays silent.
+    `-c:v copy -c:a aac` keeps the libx264-only guarantee. The output is
+    cut at the *video* duration (`-t`), so a track shorter than the clip
+    no longer truncates the video (a 3s song used to turn a 10s clip
+    into 3s) and a long track is cut at the clip end. `-af apad` was
+    tried first: padding infinite silence with `-shortest` on a copied
+    video stream **hangs** ffmpeg, so it is deliberately not used.
+    Writes a `.part` file and renames on success, so a failed mux never
+    leaves a half-written export behind.
     """
     import subprocess
 
@@ -285,11 +308,28 @@ def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
         raise FileNotFoundError(f"audio not found: {audio_path}")
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    part = out.with_name(f"{out.stem}.part{out.suffix}")
+    duration = _mp4_duration(src)
     cmd = [get_ffmpeg_exe(), "-y", "-i", str(src), "-i", str(track),
-           "-c:v", "copy", "-c:a", "aac", "-shortest", str(out)]
+           "-map", "0:v:0", "-map", "1:a:0",
+           "-c:v", "copy", "-c:a", "aac"]
+    if duration is not None:
+        cmd += ["-t", f"{duration:.3f}"]
+    else:
+        cmd += ["-shortest"]
+    cmd.append(str(part))
     proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0 or not out.is_file():
+    if proc.returncode != 0 or not part.is_file() or part.stat().st_size == 0:
+        try:
+            part.unlink(missing_ok=True)
+        except OSError:
+            pass
         raise RuntimeError(f"ffmpeg mux failed: {proc.stderr[-500:]}")
+    try:
+        out.unlink(missing_ok=True)
+    except OSError:
+        pass
+    part.replace(out)
     return out
 
 

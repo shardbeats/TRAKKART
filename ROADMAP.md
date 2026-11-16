@@ -504,16 +504,29 @@ only (no audio playback in-app); sound joins at MP4 export.
 - Out of scope: webcam, audio analysis/BPM, audio trimming/fades,
   in-app audio playback, clips in batch, >120f, 4K clip edit.
 
-### v2.1 — Stabilize (planned, next, before any candidate)
+### v2.1 — Stabilize (in progress: bug hunt done nov-2026)
 
 No new features until the tree is compact and hunted:
-- Compact: weight audit (base exe stays light, no OpenCV/GPU in core),
-  dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
-- Model reload + bug-hunt test pass: targeted tests that try to break
-  things (bad inputs, error paths, off-by-one trims, collision/rename,
-  missing-backend paths) + real-render utility checks — kept only if
-  useful, same keep/cut rule as v1.8/v1.9.
-- Gates green (5/5 + flake8) before any v2.x candidate starts.
+- [x] Bug-hunt test pass (nov-2026): reproduced the reported hard crash
+  (`0xC0000409`, no traceback) — a live `QThread` reference was
+  dropped by `new_project`, `preview.on_done/on_error` and
+  `closeEvent`. Fixed with `app/ui/thread_safe.py` (retire/hold/stop).
+  Also fixed: New project now closes the session clip; clip cache
+  invalidated on reopen; `nframes=inf` no longer clears the 120f cap
+  notice; mux cuts at video length (`apad`+`-shortest` hangs) and
+  keeps the silent MP4 on failure; `has_video()` checks the ffmpeg
+  binary. Real 2GB clip: import 3.5s, 120f dither 1.05s (~9ms/frame),
+  GIF/ZIP/MP4 valid; clip exports now rename instead of overwriting.
+  Pins: `tests/test_v21_bughunt.py` (+26, suite 776 = 635 fast + 141
+  slow; Gherkin stays 67).
+- [ ] Compact: weight audit (base exe stays light, no OpenCV/GPU in
+  core), dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
+- [ ] Gates green (5/5 + flake8) before any v2.x candidate starts.
+
+Keep/cut from the hunt: kept every fix above (all reproduced, all
+pinned); cut nothing. Noted but deferred (design, not a bug): clip
+import/export still run on the GUI thread (3.5s import); a worker is
+the natural follow-up if it ever hurts.
 
 ### Candidates v2.x (planned queue, ordered, not scheduled)
 
@@ -595,6 +608,11 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
   first, then envelopes → gradient-maps → CRT/VHS → SVG regions →
   cross-dissolve → APNG → MCP, infra cheapest-first; each candidate
   keep/cut by real-render utility check, gates green before commit.
+- QThread rule (v2.1): never release the last reference to a running
+  worker — Qt fast-fails the process (`0xC0000409`, no traceback).
+  All worker handoff goes through `app/ui/thread_safe.py`
+  (`retire`/`drop`/`stop`); `closeEvent` waits bounded and orphans a
+  stuck render. `new_project` cancels preview + clip + video token.
 
 ## 5. Known tech debt
 

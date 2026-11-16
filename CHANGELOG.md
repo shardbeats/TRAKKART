@@ -2,6 +2,37 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased] - v2.1 caza de bugs + fixes de estabilidad (DONE nov-2026)
+### Fixed
+- **Crash duro al cargar un clip y hacer New project / cerrar** (sin
+  traceback, `0xC0000409`): se soltaba la referencia de un `QThread`
+  en marcha (`on_done/on_error` del preview, `new_project`, cierre de
+  ventana, export, watch y el instalador de extras). Nuevo guardián
+  `app/ui/thread_safe.py`: retira workers ociosos y retiene los vivos
+  hasta su señal `finished`; el cierre espera con tope y "orfana" un
+  render atascado en vez de destruirlo.
+- New project ahora cierra el clip de sesión (libera ≤120 frames proxy
+  + caché de dither), cancela el preview en vuelo e invalida el token
+  de VIDEO (un resultado tardío ya no resucita frames tras el wipe).
+- Abrir otro clip limpia `_clip_dither_cache`: el frame 0 del clip B
+  ya no mostraba el bitmap cacheado del clip A.
+- MP4 largos: `nframes=inf` de imageio ya no borra el aviso de tope
+  120f (un video de 54 min se anunciaba sin truncar).
+- Mux de soundtrack: corte por duración de vídeo (`-t`); un track de
+  0.4s ya no encoge un clip de 2s. `-af apad -shortest` se descartó
+  porque **cuelga** ffmpeg con vídeo copiado. Salida atómica `.part`
+  y, si el mux falla, se conserva el MP4 silencioso ya codificado.
+- `has_video()` verifica también el binario ffmpeg del bundle
+  (`VideoBackendMissing` limpio si falta, sin fallo crudo de ffmpeg).
+- Los exports de clip ya no sobrescriben: GIF/ZIP/MP4 toman el primer
+  nombre libre (`base_2`, `base_3`…), igual que el export de stills.
+### Tests
+- `tests/test_v21_bughunt.py` +26 (ciclo de vida QThread en preview/
+  export/watch/pip, wipe de proyecto, caché de clip, entrada corrupta,
+  nframes desconocido, mux con track corto, restos parciales de
+  mux/encode, colisión de nombres). Suite: 776 (635 fast + 141 slow).
+  Gherkin sigue 67/67.
+
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added
 - Clip import (`app/clip.py`): MP4/GIF/WebP vía backend de video

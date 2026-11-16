@@ -247,7 +247,11 @@ class SettingsDialog(QDialog):
         else:
             self.lbl_extra_note.setText(f"Failed to install {kind}: {log}")
         try:
-            self._pip_worker.deleteLater()
+            from app.ui.thread_safe import retire
+
+            w = getattr(self, "_pip_worker", None)
+            self._pip_worker = None
+            retire(w)  # emit happens inside run(): never drop a live QThread
         except Exception:  # noqa: BLE001
             pass
 

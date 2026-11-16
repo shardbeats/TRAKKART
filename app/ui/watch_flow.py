@@ -129,8 +129,15 @@ def watch_stop(win, msg: str = "Watch stopped", quiet: bool = False) -> None:
         except Exception:  # noqa: BLE001
             pass
     try:
-        if getattr(win, "_watch_worker", None) is not None:
-            win._watch_worker.blockSignals(True)
+        from app.ui.thread_safe import retire
+
+        w = getattr(win, "_watch_worker", None)
+        if w is not None:
+            try:
+                w.blockSignals(True)
+            except Exception:  # noqa: BLE001
+                pass
+            retire(w)  # keep a live cycle referenced (hard-crash guard)
     except Exception:  # noqa: BLE001
         pass
     win._watch_worker = None
@@ -213,8 +220,12 @@ def _watch_cycle(win) -> None:
 
 
 def _on_watch_finished(win, results: list) -> None:
+    from app.ui.thread_safe import retire
+
     win._watch_busy = False
+    w = win._watch_worker
     win._watch_worker = None
+    retire(w)
     if not is_watching(win):
         return
     ok = sum(1 for r in results if r.get("status") == "ok")
@@ -230,8 +241,12 @@ def _on_watch_finished(win, results: list) -> None:
 
 
 def _on_watch_error(win, msg: str) -> None:
+    from app.ui.thread_safe import retire
+
     win._watch_busy = False
+    w = win._watch_worker
     win._watch_worker = None
+    retire(w)
     if not is_watching(win):
         return
     try:

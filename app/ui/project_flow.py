@@ -35,6 +35,9 @@ def _reset_common(win) -> None:
         win._video_on = False
         win._video_frames = []
         win._video_idx = 0
+        # Invalidate an in-flight video render: otherwise a late result
+        # repopulates frames after the reset (stale video resurrection).
+        win._video_token = int(getattr(win, "_video_token", 0) or 0) + 1
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -85,19 +88,34 @@ def reset_settings_keep_image(win) -> None:
 
 
 def new_project(win) -> None:
-    """Empty project: clear image + back to init recipe."""
+    """Empty project: clear image + clip + back to init recipe."""
     from PySide6.QtWidgets import QMessageBox
 
-    if getattr(win, "src", None) is not None:
+    try:
+        from app.ui import clip_controller as _clip
+
+        has_clip = _clip.has_clip(win)
+    except Exception:  # noqa: BLE001
+        _clip = None
+        has_clip = False
+    if getattr(win, "src", None) is not None or has_clip:
         ans = QMessageBox.question(
             win, "New project",
-            "Start an empty project? Image and settings are cleared.",
+            "Start an empty project? Image, clip and settings are cleared.",
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
         if ans != QMessageBox.StandardButton.Ok:
             return
     _reset_common(win)
+    # Cancel any in-flight preview before dropping src: nulling a running
+    # QThread reference aborts the process (no traceback).
+    try:
+        from app.ui import preview_controller as _pc
+
+        _pc.cancel(win)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         win.history.clear()
     except Exception:  # noqa: BLE001
@@ -111,12 +129,11 @@ def new_project(win) -> None:
     win.src = None
     win.result = None
     win.src_name = "trakkart_cover"
-    try:
-        win._preview_token += 1
-        win._preview_pending = False
-        win._preview_worker = None
-    except Exception:  # noqa: BLE001
-        pass
+    if _clip is not None:
+        try:
+            _clip.close_clip(win)  # frees ≤120 proxy frames + dither cache
+        except Exception:  # noqa: BLE001
+            pass
     try:
         win.lbl_res.setText("No image — open one to start")
     except Exception:  # noqa: BLE001

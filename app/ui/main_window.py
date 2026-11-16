@@ -232,10 +232,22 @@ class MainWindow(QMainWindow):
             pass
         workers = [self._preview_worker, self._batch_worker,
                    self._video_worker, getattr(self, "_export_worker", None)]
+        try:
+            from app.ui import thread_safe as _ts
+        except Exception:  # noqa: BLE001
+            _ts = None
+        self._preview_pending = False
         for worker in workers:
+            if worker is None:
+                continue
+            if _ts is not None:
+                # Block signals + bounded wait; a stuck render is held
+                # referenced (never destroyed alive: that is the 0xC0000409
+                # "QThread: Destroyed while thread is still running" abort).
+                _ts.stop(worker)
+                continue
             try:
-                if worker is not None:
-                    worker.blockSignals(True)  # sus slots nunca tocan UI muerta
+                worker.blockSignals(True)  # sus slots nunca tocan UI muerta
             except Exception:  # noqa: BLE001
                 pass
         try:
@@ -722,6 +734,11 @@ class MainWindow(QMainWindow):
         from app.ui import preview_controller as _pc
 
         _pc.on_done(self, qimg, pil_img, token)
+
+    def _on_preview_worker_finished(self) -> None:
+        from app.ui import preview_controller as _pc
+
+        _pc.drain_pending(self)
 
     def _on_preview_error(self, msg: str, token: int) -> None:
         from app.ui import preview_controller as _pc

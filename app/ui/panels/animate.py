@@ -208,7 +208,7 @@ def build_clip_section(win, g: QVBoxLayout) -> None:
 
     win.txt_clip_audio = QLineEdit()
     win.txt_clip_audio.setPlaceholderText("Soundtrack (optional, MP4 only)")
-    win.txt_clip_audio.setToolTip("Audio file muxed at MP4 export (-c:v copy -c:a aac -shortest); empty = silent MP4")
+    win.txt_clip_audio.setToolTip("Audio file muxed at MP4 export (-c:v copy -c:a aac, cut at clip end); empty = silent MP4")
     win.txt_clip_audio.setEnabled(False)
     track_row.addWidget(win.txt_clip_audio, 1)
     win.btn_clip_audio = QPushButton("Browse...")

@@ -28,13 +28,17 @@ class VideoBackendMissing(RuntimeError):
 
 
 def has_video() -> bool:
-    """True if imageio (+ffmpeg plugin) is importable. No side effects."""
+    """True if imageio + a real ffmpeg binary are available. No network."""
     try:
         import imageio  # noqa: F401
-        import imageio_ffmpeg  # noqa: F401
+        import imageio_ffmpeg
     except ImportError:
         return False
-    return True
+    try:
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001 — binary missing/broken must be "no backend"
+        return False
+    return bool(exe) and Path(str(exe)).is_file()
 
 
 def _require_video() -> None:

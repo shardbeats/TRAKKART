@@ -338,15 +338,11 @@ def on_export_done(win, paths: dict, skipped: bool, base: str, out_dir) -> None:
 
     from PySide6.QtWidgets import QMessageBox
 
+    from app.ui.thread_safe import retire
+
     w = getattr(win, "_export_worker", None)
     win._export_worker = None
-    if w is not None:
-        try:
-            deleter = getattr(w, "deleteLater", None)
-            if callable(deleter):
-                deleter()
-        except Exception:  # noqa: BLE001
-            pass
+    retire(w)  # the emit happens inside run(): never drop a live QThread
     if skipped and not paths:
         QMessageBox.information(
             win, "TRAKKART",
@@ -359,15 +355,11 @@ def on_export_done(win, paths: dict, skipped: bool, base: str, out_dir) -> None:
 
 def on_export_error(win, msg: str) -> None:
     """Export worker error slot (GUI thread): report + cleanup."""
+    from app.ui.thread_safe import retire
+
     w = getattr(win, "_export_worker", None)
     win._export_worker = None
-    if w is not None:
-        try:
-            deleter = getattr(w, "deleteLater", None)
-            if callable(deleter):
-                deleter()
-        except Exception:  # noqa: BLE001
-            pass
+    retire(w)
     win._report_error("Export error", msg)
 
 

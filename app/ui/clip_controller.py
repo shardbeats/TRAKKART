@@ -46,6 +46,7 @@ def open_path(win, path) -> bool:
 
     from app.clip import VideoBackendMissing, import_clip
 
+    _busy(win, True, "Importing clip...")
     try:
         frames, info = import_clip(Path(path))
     except VideoBackendMissing as e:
@@ -54,11 +55,20 @@ def open_path(win, path) -> bool:
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Could not open clip:\n{e}")
         return False
+    finally:
+        _busy(win, False)
     win._clip_frames = frames
     win._clip_info = info
     win._clip_start = 0
     win._clip_end = len(frames) - 1
     win._clip_audio = ""
+    # New clip = new pixels: a stale cache keyed by frame index would
+    # show the previous clip's frames when the recipe is unchanged.
+    try:
+        if isinstance(getattr(win, "_clip_dither_cache", None), dict):
+            win._clip_dither_cache.clear()
+    except Exception:  # noqa: BLE001
+        pass
     try:
         win.txt_clip_audio.setText("")
         win.spn_clip_fps.setValue(max(2, min(60, int(info.get("fps", 24)))))
@@ -166,6 +176,37 @@ def show_frame(win, idx: int) -> None:
             win.sld_clip.blockSignals(False)
     except Exception:  # noqa: BLE001
         pass
+
+
+def _busy(win, on: bool, msg: str = "") -> None:
+    """Cursor + status for the synchronous import/export (no worker yet)."""
+    from PySide6.QtWidgets import QApplication
+
+    try:
+        if on:
+            from PySide6.QtCore import Qt
+
+            win.setCursor(Qt.WaitCursor)
+            if msg:
+                win._status(msg)
+        else:
+            win.unsetCursor()
+        QApplication.processEvents()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _replace(src, dst) -> None:
+    """Move an export into place (Windows-safe over an existing file)."""
+    from pathlib import Path
+
+    s, d = Path(src), Path(dst)
+    d.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        d.unlink(missing_ok=True)
+    except OSError:
+        pass
+    s.replace(d)
 
 
 def _dither_on(win) -> bool:
@@ -352,6 +393,20 @@ def _clip_base(win) -> str:
     return sanitize_base(stem or "clip")
 
 
+def _free_path(path):
+    """First free name (`base`, `base_2`, `base_3`…) — never overwrite."""
+    from pathlib import Path
+
+    p = Path(path)
+    if not p.exists():
+        return p
+    for n in range(2, 1000):
+        cand = p.with_name(f"{p.stem}_{n}{p.suffix}")
+        if not cand.exists():
+            return cand
+    return p
+
+
 def export_clip(win, kind: str) -> None:
     """Session-clip export: silent GIF, frame ZIP, MP4 (+track when set).
 
@@ -380,41 +435,55 @@ def export_clip(win, kind: str) -> None:
     try:
         from app.clip import dither_clip, iter_dither_clip
 
-        if kind == "gif":
-            from app.gif import save_gif
+        _busy(win, True, f"Exporting clip ({kind})... {len(span)}f @{fps}fps")
+        try:
+            if kind == "gif":
+                from app.gif import save_gif
 
-            out = out_dir / f"{base}_clip.gif"
-            save_gif(dither_clip(span, preset), out, fps=fps)
-        elif kind == "zip":
-            from app.clip import save_clip_zip
+                out = _free_path(out_dir / f"{base}_clip.gif")
+                save_gif(dither_clip(span, preset), out, fps=fps)
+            elif kind == "zip":
+                from app.clip import save_clip_zip
 
-            out = out_dir / f"{base}_frames.zip"
-            save_clip_zip(dither_clip(span, preset), out)
-        elif kind == "mp4":
-            from app.clip import mux_soundtrack, write_clip_mp4
+                out = _free_path(out_dir / f"{base}_frames.zip")
+                save_clip_zip(dither_clip(span, preset), out)
+            elif kind == "mp4":
+                from app.clip import mux_soundtrack, write_clip_mp4
 
-            silent = out_dir / f"{base}_clip_silent.mp4"
-            out = out_dir / f"{base}_clip.mp4"
-            write_clip_mp4(iter_dither_clip(span, preset), silent, fps=fps)
-            track = str(getattr(win, "_clip_audio", "") or "").strip()
-            if track and Path(track).is_file():
+                out = _free_path(out_dir / f"{base}_clip.mp4")
+                silent = out_dir / f"{out.stem}_silent.mp4"
                 try:
-                    mux_soundtrack(silent, track, out)
-                finally:
+                    write_clip_mp4(iter_dither_clip(span, preset), silent, fps=fps)
+                except Exception:
+                    # No half-written MP4 left behind (ffmpeg failure).
                     try:
                         silent.unlink(missing_ok=True)
                     except OSError:
                         pass
+                    raise
+                track = str(getattr(win, "_clip_audio", "") or "").strip()
+                if track and Path(track).is_file():
+                    try:
+                        mux_soundtrack(silent, track, out)
+                    except Exception as mux_exc:  # noqa: BLE001
+                        # Never lose the encoded video because the track
+                        # failed: fall back to the silent export.
+                        _replace(silent, out)
+                        raise RuntimeError(
+                            f"soundtrack failed ({mux_exc}); exported silent"
+                        ) from mux_exc
+                    finally:
+                        try:
+                            silent.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                else:
+                    _replace(silent, out)
             else:
-                try:
-                    if out.is_file():
-                        out.unlink()
-                except OSError:
-                    pass
-                silent.rename(out)
-        else:
-            QMessageBox.warning(win, "TRAKKART", f"Unknown clip export: {kind}")
-            return
+                QMessageBox.warning(win, "TRAKKART", f"Unknown clip export: {kind}")
+                return
+        finally:
+            _busy(win, False)
     except Exception as e:  # noqa: BLE001
         try:
             from app.video_io import VideoBackendMissing

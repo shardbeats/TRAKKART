@@ -135,11 +135,12 @@ def start_async(win, *, full: bool = False,
                 target: tuple[int, int] | None = None,
                 max_side: int | None = None) -> None:
     from app.ui.preview_worker import PreviewWorker
+    from app.ui.thread_safe import is_running
 
     # Real guard: if a worker is alive, queue. If one is already queued,
     # don't spawn another. Don't rely on isRunning() alone: it isn't
     # visible right after start() and that opens a race window.
-    if win._preview_worker is not None and win._preview_worker.isRunning():
+    if is_running(win._preview_worker):
         win._preview_pending = True
         win._status("Rendering heavy preview in the background...")
         return
@@ -153,6 +154,7 @@ def start_async(win, *, full: bool = False,
     )
     win._preview_worker.finished_ok.connect(win._on_preview_done)
     win._preview_worker.finished_err.connect(win._on_preview_error)
+    win._preview_worker.finished.connect(win._on_preview_worker_finished)
     win._status("Rendering full preview in the background..." if full
                 else "Rendering heavy preview in the background...")
     try:
@@ -165,12 +167,16 @@ def start_async(win, *, full: bool = False,
 
 
 def on_done(win, qimg, pil_img, token: int) -> None:
+    from app.ui.thread_safe import is_running, retire
+
     if token != win._preview_token:
         return  # stale: another render is already on its way
     if getattr(win, "src", None) is None:
         win.result = None
+        w = win._preview_worker
         win._preview_worker = None
         win._preview_pending = False
+        retire(w)  # never drop a live QThread (hard crash)
         try:
             _restore_cursor(win)
         except Exception:  # noqa: BLE001
@@ -184,20 +190,12 @@ def on_done(win, qimg, pil_img, token: int) -> None:
     w = win._preview_worker
     win._preview_worker = None
     if w is not None:
-        try:
-            alive = bool(w.isRunning())
-        except Exception:  # noqa: BLE001
-            alive = False
-        try:
-            deleter = getattr(w, "deleteLater", None)
-            if callable(deleter):
-                deleter()
-        except Exception:  # noqa: BLE001
-            pass
+        alive = is_running(w)
+        retire(w)
         if alive:
-            # Still truly alive (or fake-busy in tests): re-queue without
-            # spawning or looping. The next on_done/on_error drains it.
-            # No wait() here: blocking the GUI slot up to 5s freezes the UI.
+            # Still truly alive (or fake-busy in tests): re-queue. The
+            # worker's own `finished` drains it (no wait() in the GUI
+            # slot: blocking up to 5s would freeze the UI).
             win._preview_pending = True
             return
     if win._preview_pending:
@@ -208,24 +206,18 @@ def on_done(win, qimg, pil_img, token: int) -> None:
 
 
 def on_error(win, msg: str, token: int) -> None:
+    from app.ui.thread_safe import is_running, retire
+
     if token != win._preview_token:
         return
     w = win._preview_worker
     win._preview_worker = None
     if w is not None:
-        try:
-            alive = bool(w.isRunning())
-        except Exception:  # noqa: BLE001
-            alive = False
-        try:
-            deleter = getattr(w, "deleteLater", None)
-            if callable(deleter):
-                deleter()
-        except Exception:  # noqa: BLE001
-            pass
+        alive = is_running(w)
+        retire(w)
         if alive:
-            # Worker still alive (or fake-busy in tests): re-queue without
-            # spawning or looping. Slot untouched. No wait() in GUI slot.
+            # Worker still alive (or fake-busy in tests): re-queue; the
+            # `finished` hook drains it. Slot untouched. No wait() here.
             win._preview_pending = True
             return
     if win._preview_pending:
@@ -234,3 +226,39 @@ def on_error(win, msg: str, token: int) -> None:
         return
     _restore_cursor(win)
     win._report_error("Preview error", msg)
+
+
+def drain_pending(win) -> None:
+    """After a worker finishes, honor the render that was queued behind it."""
+    from app.ui.thread_safe import is_running
+
+    if not getattr(win, "_preview_pending", False):
+        return
+    if is_running(getattr(win, "_preview_worker", None)):
+        return
+    win._preview_pending = False
+    if getattr(win, "src", None) is None:
+        return
+    try:
+        render_still(win)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def cancel(win) -> None:
+    """Drop an in-flight preview for a project wipe/settings reset.
+
+    Bumps the token (late results are discarded) and retires the worker
+    safely: `new_project` used to null the reference on a running
+    thread, which aborts the process.
+    """
+    from app.ui.thread_safe import retire
+
+    try:
+        win._preview_token = int(getattr(win, "_preview_token", 0)) + 1
+        win._preview_pending = False
+        w = getattr(win, "_preview_worker", None)
+        win._preview_worker = None
+        retire(w)
+    except Exception:  # noqa: BLE001
+        pass
