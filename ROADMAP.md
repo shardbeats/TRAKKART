@@ -504,18 +504,57 @@ only (no audio playback in-app); sound joins at MP4 export.
 - Out of scope: webcam, audio analysis/BPM, audio trimming/fades,
   in-app audio playback, clips in batch, >120f, 4K clip edit.
 
-### Candidates v2.x (researched, not scheduled)
+### v2.1 — Stabilize (planned, next, before any candidate)
 
-Cross-dissolve frame interpolation (numpy-only motion smoothing);
-animated APNG (Pillow-native); JPEG XL stills (needs plugin dep —
-weigh bundle size first); NeuQuant/Wu quantization; precomputed
-blue-noise masks; tile renderer for 8000px exports; preset fuzzer in
-CI; SSIM-based weight estimator. From the DitherEffect survey
-(nov-2026, mechanics only, no affiliation): multi-stop gradient-map
-FX; SVG color-region export (one layer per ink); timeline param
-envelopes (keyframes/curves/LFO, deterministic); temporal CRT/VHS
-motion modes; MCP stdio server over the headless CLI. Ops (not code): code-signing cert to
-end SmartScreen warnings on the Setup.
+No new features until the tree is compact and hunted:
+- Compact: weight audit (base exe stays light, no OpenCV/GPU in core),
+  dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
+- Model reload + bug-hunt test pass: targeted tests that try to break
+  things (bad inputs, error paths, off-by-one trims, collision/rename,
+  missing-backend paths) + real-render utility checks — kept only if
+  useful, same keep/cut rule as v1.8/v1.9.
+- Gates green (5/5 + flake8) before any v2.x candidate starts.
+
+### Candidates v2.x (planned queue, ordered, not scheduled)
+
+House rules for every candidate: offline, Pillow+numpy (+ffmpeg only
+where video already uses it), deterministic (seed = base + index
+pattern), MP4 stays libx264-only, batch stays stills-only unless the
+item says otherwise. Each lands in A/B/C/D phases (engine → UI →
+export → docs+gates) with pinned tests, MANUAL + QA.md updates, and
+5/5 gates + flake8 before commit. A real-render utility check decides
+keep/cut.
+1. Timeline param envelopes (keyframes/curves/LFO, deterministic).
+   Builds on the v2.0 timeline + sacred-Length math: per-clip curves
+   for preset params (e.g. motion amount, drift, grain) instead of
+   flat values. Session-only curves (like chain crops/repeats), never
+   in presets. Pins: `tests/test_envelopes.py` + Gherkin +2.
+2. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
+   New GRADE effect: N ink stops over luminance (duotone with more
+   stops), post-dither stack item, strict 0=off. Pins: unit + Gherkin +1.
+3. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
+   tracking wobble, chroma bleed over time) reusing the march/hue
+   engine; ED-frozen rule respected (post-fx animation only).
+   Pins: determinism + Gherkin +1.
+4. SVG color-region export (one layer per ink). Vector Pro extension:
+   rect runs grouped per palette ink (display + separation reuse).
+   Pins: layer count + byte checks.
+5. Cross-dissolve frame interpolation (numpy-only motion smoothing).
+   Optional smoothing between clip/dissolve frames; strict 0=off,
+   default off (flicker stays the aesthetic). Pins: 0=identity,
+   determinism, cap behavior.
+6. Animated APNG (Pillow-native). Same frames as the GIF path, full
+   color like WebP; dialog-only extra. Pins: roundtrip + size note.
+7. MCP stdio server over the headless CLI. New surface: needs its own
+   spec (commands, schemas, no-network guard) before any code; last
+   in the queue for that reason.
+8. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
+   SSIM-based weight estimator (replaces the B/px constants only if
+   it wins); precomputed blue-noise masks (only if measured faster
+   than IGN); NeuQuant/Wu quantization (only if it beats median-cut
+   on covers); tile renderer for 8000px exports; JPEG XL stills
+   (plugin weight first — likely cut).
+Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -552,6 +591,10 @@ end SmartScreen warnings on the Setup.
   the removed BPM grid; Length stays Frames/FPS/Hold.
 - MP4 stays software `libx264`-only (HW selector tried and reverted
   pre-release: fake detection, quality mapping, streaming fallback bug).
+- v2.x queue ordered (owner nov-2026): stabilize (compact + bug-hunt)
+  first, then envelopes → gradient-maps → CRT/VHS → SVG regions →
+  cross-dissolve → APNG → MCP, infra cheapest-first; each candidate
+  keep/cut by real-render utility check, gates green before commit.
 
 ## 5. Known tech debt
 
