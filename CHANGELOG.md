@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.2.0] - 2026-11-16 — timeline parameter envelopes (candidata v2.x #3)
+## [2.3.0] - 2026-11-16 — MP4 completo por streaming (clip largo)
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -110,6 +110,14 @@ bitácora detallada por fase.
   las aplican por frame; batch sigue plano. Pins:
   `tests/test_envelopes.py` + Gherkin +2 (clip.feature 5). Suite 804
   (659 fast + 145 slow). Gherkin 70/70.
+- MP4 completo por streaming (nov-2026, a pedido): el import de 120f
+  es solo la ventana de preview — **Full length MP4** en Export
+  renderiza el clip entero desde Start at (s) hasta el final
+  (tope 3600f/60s), decodificado en ventanas de 120f con RAM plana.
+  Mismos píxeles que un render full-RAM (seeds globales + envolventes).
+  Trim no aplica al completo; GIF/ZIP siguen en el trim. Pins:
+  `tests/test_clip_long.py` + Gherkin +1 (clip.feature 6). Suite 812
+  (665 fast + 147 slow). Gherkin 71/71.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

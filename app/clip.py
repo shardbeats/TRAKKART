@@ -67,6 +67,45 @@ def _clamp_fps(fps) -> int:
         return 24
 
 
+def _anim_info(path: Path) -> tuple[int, int, float]:
+    """GIF/WebP header: (total_frames, fps, source_duration), no decode."""
+    with Image.open(path) as im:
+        total = int(getattr(im, "n_frames", 1) or 1)
+        try:
+            dur = float(im.info.get("duration", 125) or 125)
+            fps = _clamp_fps(1000.0 / max(1.0, dur))
+        except (AttributeError, TypeError, ValueError):
+            fps = 8
+    return total, fps, total / max(1, fps)
+
+
+def _read_anim_frames(path: Path, skip_frames: int, n: int,
+                      proxy_side: int) -> tuple[list, int, int]:
+    """Raw window read for GIF/WebP: `n` proxy frames from `skip_frames`.
+
+    No time math, no errors past the end (returns what exists, possibly
+    empty). The public entry points keep their clamps and clean errors;
+    the long-clip iterator builds on this.
+    """
+    frames: list[Image.Image] = []
+    with Image.open(path) as im:
+        total = int(getattr(im, "n_frames", 1) or 1)
+        try:
+            dur = float(im.info.get("duration", 125) or 125)
+            fps = _clamp_fps(1000.0 / max(1.0, dur))
+        except (AttributeError, TypeError, ValueError):
+            fps = 8
+        skip = max(0, min(total, int(skip_frames)))
+        want = max(0, min(int(n), total - skip))
+        for i in range(skip, skip + want):
+            try:
+                im.seek(i)
+            except EOFError:
+                break
+            frames.append(_fit_proxy(im.convert("RGB"), proxy_side))
+    return frames, fps, total
+
+
 def _read_anim_pil(path: Path, max_frames: int, proxy_side: int,
                    start_s: float = 0.0) -> tuple[list, int, bool, float, float]:
     """Read .gif/.webp via Pillow (offline, no ffmpeg frames needed).
@@ -75,29 +114,14 @@ def _read_anim_pil(path: Path, max_frames: int, proxy_side: int,
     (Pillow has no time seek; frame-accurate by construction).
     Returns (frames, fps, truncated, start_s, source_duration).
     """
-    frames: list[Image.Image] = []
-    fps = 8
-    truncated = False
     start = max(0.0, float(start_s or 0.0))
-    with Image.open(path) as im:
-        total = int(getattr(im, "n_frames", 1) or 1)
-        try:
-            dur = float(im.info.get("duration", 125) or 125)
-            fps = _clamp_fps(1000.0 / max(1.0, dur))
-        except (AttributeError, TypeError, ValueError):
-            fps = 8
-        source_duration = total / max(1, fps)
-        if start >= source_duration:
-            raise ValueError(f"start {start:.2f}s beyond clip length {source_duration:.2f}s: {path}")
-        skip = min(total - 1, int(start * fps))
-        n = min(int(total - skip), max(1, int(max_frames)))
-        truncated = bool(skip > 0 or total > skip + n)
-        for i in range(skip, skip + n):
-            try:
-                im.seek(i)
-            except EOFError:
-                break
-            frames.append(_fit_proxy(im.convert("RGB"), proxy_side))
+    total, fps, source_duration = _anim_info(path)
+    if start >= source_duration:
+        raise ValueError(f"start {start:.2f}s beyond clip length {source_duration:.2f}s: {path}")
+    skip = min(total - 1, int(start * fps))
+    n = min(int(total - skip), max(1, int(max_frames)))
+    frames, _, _ = _read_anim_frames(path, skip, n, proxy_side)
+    truncated = bool(skip > 0 or total > skip + n)
     if not frames:
         raise ValueError(f"no frames: {path}")
     return frames, fps, truncated, start, source_duration
@@ -451,8 +475,223 @@ def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
     return out
 
 
+# ---------------------------------------------------------------------------
+# Long-clip MP4 via streaming (v2.x follow-up): the 120f preview window
+# stays, but a full-length MP4 no longer needs the whole clip in RAM.
+# Windows of <=120f decode sequentially from the source file (MP4 seeks
+# with the same fast input `-ss`; GIF/WebP skip by frame index), each
+# frame dithered with its *global* index so seeds/envelopes stay
+# identical to a hypothetical full-RAM render. Hard cap 3600f (60s@60fps,
+# same as write_mp4_iter): the limit becomes CPU/time, not memory.
+# ---------------------------------------------------------------------------
+LONG_MP4_MAX_FRAMES = 3600
+
+
+def clip_full_length(path: str | Path, start_s: float = 0.0,
+                     max_total: int = LONG_MP4_MAX_FRAMES) -> dict:
+    """Plan a full-length export without decoding (header probe only).
+
+    Returns {fps, source_duration, start_s, total_frames|None, capped}.
+    `total_frames=None` means the header gave no duration (MP4 with
+    unknown length): the iterator then decodes until exhausted or capped.
+    GIF/WebP always know their frame count. Never raises for unknown
+    lengths; errors only on missing path/bad ext/past-the-end start.
+    """
+    _require_clip_io()
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"clip not found: {path}")
+    ext = p.suffix.lower()
+    if ext not in CLIP_EXTS:
+        raise ValueError(f"clip must be {CLIP_EXTS}: {path}")
+    try:
+        start = max(0.0, float(start_s or 0.0))
+    except (TypeError, ValueError):
+        start = 0.0
+    cap = max(1, min(LONG_MP4_MAX_FRAMES, int(max_total or LONG_MP4_MAX_FRAMES)))
+    if ext in (".gif", ".webp"):
+        total, fps, duration = _anim_info(p)
+        if start >= duration:
+            raise ValueError(f"start {start:.2f}s beyond clip length {duration:.2f}s: {path}")
+        skip = min(total, int(start * fps))
+        remaining = max(0, total - skip)
+        n = min(remaining, cap)
+        return {"fps": fps, "source_duration": duration, "start_s": start,
+                "total_frames": n, "capped": remaining > n}
+    meta = _probe_meta(p)
+    try:
+        fps = _clamp_fps(meta.get("fps", 24))
+    except Exception:  # noqa: BLE001
+        fps = 24
+    duration: float | None = None
+    try:
+        import math as _math
+
+        d = float(meta.get("duration") or 0.0)
+        if d > 0 and _math.isfinite(d):
+            duration = d
+    except (TypeError, ValueError):
+        duration = None
+    if duration is not None:
+        if start >= duration:
+            raise ValueError(f"start {start:.2f}s beyond clip length {duration:.2f}s: {path}")
+        import math as _math
+
+        remaining = max(0, int(_math.floor((duration - start) * fps)))
+        n = min(remaining, cap)
+        return {"fps": fps, "source_duration": duration, "start_s": start,
+                "total_frames": n, "capped": remaining > n}
+    return {"fps": fps, "source_duration": None, "start_s": start,
+            "total_frames": None, "capped": True}
+
+
+def iter_source_frames(path: str | Path, start_s: float = 0.0,
+                       max_total: int = LONG_MP4_MAX_FRAMES,
+                       proxy_side: int = CLIP_PROXY_SIDE):
+    """Yield source proxy frames across 120f windows (O(window) RAM).
+
+    Stops at the source end or `max_total` (3600). Deterministic: window
+    reads reuse the exact single-window code paths, so frames match
+    `import_clip` byte for byte over the same range.
+    """
+    _require_clip_io()
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(f"clip not found: {path}")
+    ext = p.suffix.lower()
+    if ext not in CLIP_EXTS:
+        raise ValueError(f"clip must be {CLIP_EXTS}: {path}")
+    try:
+        start = max(0.0, float(start_s or 0.0))
+    except (TypeError, ValueError):
+        start = 0.0
+    cap = max(1, min(LONG_MP4_MAX_FRAMES, int(max_total or LONG_MP4_MAX_FRAMES)))
+    side = max(64, min(1920, int(proxy_side or CLIP_PROXY_SIDE)))
+    produced = 0
+    if ext in (".gif", ".webp"):
+        _, fps, duration = _anim_info(p)
+        if start >= duration:
+            raise ValueError(f"start {start:.2f}s beyond clip length {duration:.2f}s: {path}")
+        skip = min(int(_anim_info(p)[0]), int(start * fps))
+        while produced < cap:
+            want = min(CLIP_MAX_FRAMES, cap - produced)
+            batch, _, _ = _read_anim_frames(p, skip + produced, want, side)
+            if not batch:
+                break
+            for frame in batch:
+                yield frame
+                produced += 1
+                if produced >= cap:
+                    break
+        return
+    try:
+        plan = clip_full_length(p, start, cap)
+        fps = int(plan["fps"])
+    except ValueError:
+        raise
+    except Exception:  # noqa: BLE001
+        fps = 24
+    while produced < cap:
+        want = min(CLIP_MAX_FRAMES, cap - produced)
+        t = start + produced / max(1, fps)
+        try:
+            batch, *_ = _read_mp4(p, want, side, t)
+        except ValueError:
+            break
+        if not batch:
+            break
+        for frame in batch:
+            if produced >= cap:
+                break
+            yield frame
+            produced += 1
+        if len(batch) < want:
+            break
+
+
+def iter_dither_source(path: str | Path, preset, start_s: float = 0.0,
+                       max_total: int = LONG_MP4_MAX_FRAMES,
+                       proxy_side: int = CLIP_PROXY_SIDE, dpi: int = 300,
+                       envelopes=None, total_hint: int | None = None):
+    """Yield dithered full-length frames (streaming, O(window) RAM).
+
+    Global progress t = i/(n-1) drives seeds + envelopes exactly like
+    `iter_dither_clip` would over the same range. `total_hint` (from
+    `clip_full_length`) avoids a second probe; unknown lengths fall back
+    to per-window progress (still deterministic, envelopes approximate).
+    """
+    from app.pipeline import render_spec
+
+    n_hint = None
+    try:
+        if total_hint is not None and int(total_hint) > 0:
+            n_hint = int(total_hint)
+    except (TypeError, ValueError):
+        n_hint = None
+    if n_hint is None:
+        try:
+            plan = clip_full_length(path, start_s, max_total)
+            n_hint = plan["total_frames"]
+        except Exception:  # noqa: BLE001
+            n_hint = None
+    try:
+        from app.envelopes import frame_values as _env_vals
+        from app.envelopes import normalize_envelopes as _norm_env
+
+        _env = _norm_env(envelopes)
+    except Exception:  # noqa: BLE001
+        _env = {}
+    i = 0
+    yielded = False
+    for frame in iter_source_frames(path, start_s, max_total, proxy_side):
+        # Unknown length: progress falls back to the running count (still
+        # deterministic per run; envelopes approximate until the end).
+        n = n_hint if n_hint else max(2, i + 1)
+        progress = float(i) / max(1, n - 1) if n > 1 else 0.0
+        spec = _spec_for(preset, i, max(2, n), dpi, None)
+        if _env:
+            try:
+                _v = _env_vals(_env, progress,
+                               {"motion_amount": 1.0,
+                                "drift_amount": float(getattr(spec, "drift_amount", 0.0) or 0.0),
+                                "grain": float(getattr(spec, "grain", 0.0) or 0.0)})
+                spec.drift_amount = float(_v["drift_amount"])
+                spec.grain = float(_v["grain"])
+            except Exception:  # noqa: BLE001
+                pass
+        yield render_spec(frame.convert("RGB"), spec)
+        yielded = True
+        i += 1
+    if not yielded:
+        raise ValueError(f"no frames: {path}")
+
+
+def write_clip_mp4_long(path: str | Path, out_path: str | Path, preset,
+                        start_s: float = 0.0, fps: int = 24,
+                        max_total: int = LONG_MP4_MAX_FRAMES,
+                        proxy_side: int = CLIP_PROXY_SIDE, dpi: int = 300,
+                        envelopes=None) -> tuple[Path, int]:
+    """Full-length silent MP4 from the source file (streaming, O(window)).
+
+    Returns (path, n_written). Same pixels as a full-RAM render over the
+    same range (global seeds/progress), capped at 3600f.
+    """
+    from app.video_io import write_mp4_iter
+
+    plan = clip_full_length(path, start_s, max_total)
+    out = Path(out_path)
+    total = plan["total_frames"]
+    stream = iter_dither_source(path, preset, plan["start_s"], max_total,
+                                proxy_side, dpi, envelopes, total)
+    wrote, n = write_mp4_iter(stream, out, fps=int(plan["fps"] if fps is None else fps or plan["fps"]))
+    return wrote, n
+
+
 __all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_EXTS",
            "VideoBackendMissing", "has_clip_io",
            "import_clip", "trim_clip", "clip_duration",
            "iter_dither_clip", "dither_clip",
-           "save_clip_zip", "write_clip_mp4", "mux_soundtrack"]
+           "save_clip_zip", "write_clip_mp4", "mux_soundtrack",
+           "LONG_MP4_MAX_FRAMES", "clip_full_length",
+           "iter_source_frames", "iter_dither_source",
+           "write_clip_mp4_long"]

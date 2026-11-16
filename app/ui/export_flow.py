@@ -52,7 +52,8 @@ def _clip_info_for_dialog(win) -> dict | None:
         return {"name": name, "frames": n, "fps": fps, "start": s, "end": e,
                 "span": span, "duration": clip_duration(span, fps),
                 "start_s": float(info.get("start_s", 0.0) or 0.0),
-                "truncated": bool(info.get("truncated", False))}
+                "truncated": bool(info.get("truncated", False)),
+                "path": str(info.get("path", "") or "")}
     except Exception:  # noqa: BLE001
         return None
 
@@ -458,12 +459,26 @@ def _run_clip_exports(win, base: str, out_dir, clip: dict | None,
         fps = 24
     track = str(clip.get("track", "") or "").strip()
     names: list[str] = []
-    _busy(win, True, f"Exporting clip... {len(span)}f @{fps}fps")
+    full_mp4 = bool(clip.get("mp4") and clip.get("full"))
+    short_span = len(span)
+    try:
+        label = f"{short_span}f @{fps}fps" + (" + full-length MP4" if full_mp4 else "")
+    except Exception:  # noqa: BLE001
+        label = ""
+    _busy(win, True, f"Exporting clip... {label}")
     try:
         for kind in ("gif", "zip", "mp4"):
             if not clip.get(kind):
                 continue
             out = _free_path(Path(out_dir) / clip_names(base)[kind])
+            if kind == "mp4" and full_mp4:
+                try:
+                    _cc.render_clip_export_long(win, preset, fps, out, track)
+                except Exception as e:  # noqa: BLE001
+                    QMessageBox.warning(win, "TRAKKART", f"Clip export error ({kind}): {e}")
+                    continue
+                names.append(out.name)
+                continue
             try:
                 _cc.render_clip_export(win, kind, preset, span, fps, out, track)
             except Exception as e:  # noqa: BLE001

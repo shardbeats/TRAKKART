@@ -527,6 +527,71 @@ def clip_names(base: str) -> dict:
             "mp4": f"{base}_clip.mp4"}
 
 
+def render_clip_export_long(win, preset, fps: int, out, track: str = ""):
+    """Full-length MP4 from the source file (streaming, O(window) RAM).
+
+    From the session in-point (`_clip_info.start_s`) to the source end,
+    capped at 3600f. Same pixels as a full-RAM render over the range
+    (global seeds/progress + session envelopes). Trim spins do not apply
+    (they drive the 120f preview + short exports); the dialog says so.
+    Muxes `track` like the short path (video copied, never re-encoded).
+    """
+    from pathlib import Path
+
+    from app.clip import clip_full_length, iter_dither_source, mux_soundtrack
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        info = dict(getattr(win, "_clip_info", {}) or {})
+        src = str(info.get("path", "") or "")
+        start_s = float(info.get("start_s", 0.0) or 0.0)
+    except Exception:  # noqa: BLE001
+        src, start_s = "", 0.0
+    if not src or not Path(src).is_file():
+        raise ValueError("Clip source missing (re-open the clip)")
+    try:
+        env = dict(getattr(win, "_envelopes", {}) or {})
+    except Exception:  # noqa: BLE001
+        env = {}
+    plan = clip_full_length(src, start_s)
+    stream = iter_dither_source(src, preset, plan["start_s"],
+                                total_hint=plan["total_frames"],
+                                envelopes=env)
+    from app.video_io import write_mp4_iter
+
+    silent = out.parent / f"{out.stem}_silent.mp4"
+    try:
+        _wrote, n = write_mp4_iter(stream, silent, fps=fps)
+    except Exception:
+        try:
+            silent.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+    track = str(track or "").strip()
+    if track and Path(track).is_file():
+        try:
+            mux_soundtrack(silent, track, out)
+        except Exception as mux_exc:  # noqa: BLE001
+            _replace(silent, out)
+            raise RuntimeError(
+                f"soundtrack failed ({mux_exc}); exported silent"
+            ) from mux_exc
+        finally:
+            try:
+                silent.unlink(missing_ok=True)
+            except OSError:
+                pass
+    else:
+        _replace(silent, out)
+    try:
+        win._status(f"Clip full-length MP4: {out.name} ({n}f @{fps}fps, streaming)")
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 def render_clip_export(win, kind: str, preset, span: list, fps: int,
                        out, track: str = ""):
     """Render one clip export (no dialogs; raises on error). Returns the path.
@@ -653,4 +718,4 @@ __all__ = ["has_clip", "clip_fps", "motion_source", "set_motion_source",
            "next_frame", "stop", "sync_info", "sync_ui",
            "dithered_frame", "note_preset_changed",
            "pick_audio", "clear_audio", "clip_names", "render_clip_export",
-           "export_clip"]
+           "render_clip_export_long", "export_clip"]

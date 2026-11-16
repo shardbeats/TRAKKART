@@ -28,3 +28,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I render a still animation with a grain ramp
     Then the ramp output differs and re-renders identically
+
+  Scenario: Full-length plan covers the whole clip
+    Given a 48x48 gradient image
+    When I plan a full-length export of a 10-frame GIF
+    Then the plan holds 10 frames uncapped from the in-point

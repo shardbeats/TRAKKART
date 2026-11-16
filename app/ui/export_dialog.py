@@ -298,9 +298,22 @@ class ExportDialog(QDialog):
                 chk.setChecked(False)
                 chk.stateChanged.connect(self._refresh_plan)
                 col.addWidget(chk)
+            self.chk_clip_full = QCheckBox("Full length MP4 (streaming, from in-point)")
+            self.chk_clip_full.setChecked(False)
+            self.chk_clip_full.setToolTip(
+                "MP4 renders the whole clip from Start at (s), streamed in 120f windows "
+                "(preview + GIF/ZIP stay on the trim range). Capped at 3600f.")
+            self.chk_clip_full.stateChanged.connect(self._refresh_plan)
+            self.chk_clip_full.setEnabled(False)  # needs MP4 on (toggled below)
+            self.chk_clip_mp4.stateChanged.connect(
+                lambda _s: self.chk_clip_full.setEnabled(
+                    bool(self.chk_clip_mp4.isChecked()) and self._video_ok))
+            col.addWidget(self.chk_clip_full)
             if not self._video_ok:
                 self.chk_clip_mp4.setEnabled(False)
                 self.chk_clip_mp4.setToolTip("Settings → Extras → Install video")
+                self.chk_clip_full.setEnabled(False)
+                self.chk_clip_full.setToolTip("Settings → Extras → Install video")
             clip_fps_row = QHBoxLayout()
             clip_fps_row.addWidget(QLabel("Clip FPS:"))
             self.spn_clip_fps = QSpinBox()
@@ -333,6 +346,7 @@ class ExportDialog(QDialog):
             col.addLayout(track_row)
         else:
             self.chk_clip_gif = self.chk_clip_mp4 = self.chk_clip_zip = None
+            self.chk_clip_full = None
         # -- distributor readiness (honest hints, nothing blocked) --
         self.lbl_distro = QLabel()
         self.lbl_distro.setWordWrap(True)
@@ -594,6 +608,28 @@ class ExportDialog(QDialog):
                 from app.ui.clip_controller import clip_names as _clip_names
 
                 safe = sanitize_base(self.edit_base.text().strip() or "cover")
+                try:
+                    full_mp4 = bool(
+                        self.chk_clip_full is not None
+                        and self.chk_clip_full.isChecked()
+                        and self.chk_clip_full.isEnabled())
+                except Exception:  # noqa: BLE001
+                    full_mp4 = False
+                full_note = ""
+                if full_mp4:
+                    try:
+                        from app.clip import clip_full_length
+
+                        ci = self._clip_info
+                        plan = clip_full_length(str(ci.get("path", "")),
+                                                float(ci.get("start_s", 0.0) or 0.0))
+                        total_f = plan["total_frames"]
+                        full_note = (f"full {total_f}f"
+                                     if total_f is not None else "full length")
+                        if plan.get("capped"):
+                            full_note += ", capped 3600f"
+                    except Exception:  # noqa: BLE001
+                        full_note = "full length"
                 for kind, want in (("gif", self.chk_clip_gif.isChecked()),
                                    ("mp4", self.chk_clip_mp4.isChecked()
                                     and self._video_ok),
@@ -601,7 +637,11 @@ class ExportDialog(QDialog):
                     if want:
                         fname = _clip_names(safe)[kind]
                         clip_names.append(fname)
-                        self.list_files.addItem(f"{fname}  (clip, rendered at export)")
+                        if kind == "mp4" and full_mp4:
+                            self.list_files.addItem(
+                                f"{fname}  ({full_note}, streaming, rendered at export)")
+                        else:
+                            self.list_files.addItem(f"{fname}  (clip, rendered at export)")
                         n += 1
             except Exception:  # noqa: BLE001
                 clip_names = []
@@ -679,13 +719,16 @@ class ExportDialog(QDialog):
             gif = bool(self.chk_clip_gif.isChecked())
             mp4 = bool(self.chk_clip_mp4.isChecked() and self._video_ok)
             zip_ = bool(self.chk_clip_zip.isChecked())
+            full = bool(mp4 and self.chk_clip_full.isChecked()
+                        and self.chk_clip_full.isEnabled())
             fps = max(2, min(60, int(self.spn_clip_fps.value())))
             track = str(self.edit_track.text()).strip()
         except Exception:  # noqa: BLE001
             return None
         if not (gif or mp4 or zip_):
             return None
-        return {"gif": gif, "mp4": mp4, "zip": zip_, "fps": fps, "track": track}
+        return {"gif": gif, "mp4": mp4, "zip": zip_, "fps": fps,
+                "track": track, "full": full}
 
     def _sync_distro_label(self) -> None:
         """Distributor readiness hints (never blocks; honest, not nagging)."""

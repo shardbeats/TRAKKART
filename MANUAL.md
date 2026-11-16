@@ -101,6 +101,12 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   fails, the silent MP4 is kept. Works with no still open (clip-only
   export); still outputs stay off in that case. No audio trimming/
   fades in-app.
+- **Full length MP4 (streaming):** the 120f import is only the preview
+  window — tick **Full length MP4** and the export renders the whole
+  clip from Start at (s) to the source end (capped at 3600f / 60s),
+  decoded in 120f windows so RAM stays flat. Same pixels as a full-RAM
+  render (global seeds + envelopes). Trim spins do not apply to the
+  full export; GIF/ZIP always stay on the trim range.
 - **Framing (no per-clip crop):** the clip cover-fits the still canvas —
   it follows IMAGE → Crop (mode/focus/zoom, `Adjust crop...`). Move the
   still crop and the clip re-frames, preview and export alike (same

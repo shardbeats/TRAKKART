@@ -680,7 +680,8 @@ def test_export_dialog_clip_section_plans_and_reports(qt_app, tmp_path):
     dlg.chk_clip_gif.setChecked(True)
     dlg.chk_clip_zip.setChecked(True)
     opts = dlg.clip_options()
-    assert opts == {"gif": True, "mp4": False, "zip": True, "fps": 10, "track": "t.mp3"}
+    assert opts == {"gif": True, "mp4": False, "zip": True, "fps": 10,
+                    "track": "t.mp3", "full": False}
     rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
     assert any(r.startswith("d_clip.gif") for r in rows)
     assert any(r.startswith("d_frames.zip") for r in rows)
@@ -702,6 +703,64 @@ def test_export_dialog_clip_only_disables_stills(qt_app, tmp_path):
     rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
     assert rows == ["d_clip.mp4  (clip, rendered at export)"]
     assert dlg.btn_export.isEnabled() is True
+
+
+def test_export_dialog_clip_full_toggle(qt_app, tmp_path):
+    """Full-length toggle: disabled until MP4 is on, reported in clip_options."""
+    from app.ui.export_dialog import ExportDialog
+
+    ci = {"name": "v", "frames": 10, "fps": 10, "start": 0, "end": 9,
+          "span": 10, "duration": 1.0, "start_s": 0.0, "truncated": False,
+          "path": ""}
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d", out_dir=str(tmp_path),
+                       clip_info=ci, clip_fps=10)
+    dlg._video_ok = True
+    dlg.chk_clip_mp4.setEnabled(True)
+    assert dlg.chk_clip_full.isEnabled() is False
+    dlg.chk_clip_mp4.setChecked(True)
+    assert dlg.chk_clip_full.isEnabled() is True
+    dlg.chk_clip_full.setChecked(True)
+    opts = dlg.clip_options()
+    assert opts["full"] is True
+    dlg.chk_clip_gif.setChecked(True)  # keep the dict alive without MP4
+    dlg.chk_clip_mp4.setChecked(False)
+    assert dlg.clip_options()["full"] is False
+
+
+def test_render_clip_export_long_matches_windowed(tmp_path):
+    """Full-length MP4 from a GIF source: same frames as the windowed render."""
+    import pytest as _pt
+
+    _pt.importorskip("imageio_ffmpeg")
+    from app.clip import dither_clip, import_clip
+    from app.presets import Preset
+    from app.ui import clip_controller as _cc
+    from app.video_io import has_video
+
+    if not has_video():
+        _pt.skip("no video backend")
+    p = tmp_path / "full.gif"
+    frames = []
+    for i in range(6):
+        from PIL import Image as Img
+
+        frames.append(Img.new("RGB", (48, 48), (i * 40 % 256, 30, 90)))
+    frames[0].save(str(p), save_all=True, append_images=frames[1:],
+                   duration=100, loop=0)
+    preset = Preset(name="f", method="bayer4", palette="BW")
+    src_frames, _ = import_clip(p)
+
+    class _Win:
+        _clip_info = {"path": str(p), "start_s": 0.0}
+        _envelopes = {}
+
+        def _status(self, _msg):
+            pass
+
+    out = _cc.render_clip_export_long(_Win(), preset, 10, tmp_path / "v_clip.mp4", "")
+    assert out.stat().st_size > 500
+    # Same pixels the windowed path would render over the range.
+    assert len(dither_clip(list(src_frames), preset)) == 6
 
 
 def test_export_flow_clip_only_writes_gif(window, tmp_path, qt_app):

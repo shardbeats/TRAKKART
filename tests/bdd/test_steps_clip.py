@@ -116,3 +116,26 @@ def grain_ramp_moves(ctx):
     b = [f.tobytes() for f in ctx["ramp_b"]]
     assert a != flat
     assert a == b
+
+
+@when("I plan a full-length export of a 10-frame GIF")
+def plan_full_length(ctx, tmp_path):
+    from PIL import Image as Img
+
+    from app.clip import clip_full_length
+
+    gif = tmp_path / "full.gif"
+    frames = [Img.new("RGB", (48, 48), (i * 25 % 256, 40, 90)) for i in range(10)]
+    frames[0].save(str(gif), save_all=True, append_images=frames[1:],
+                   duration=100, loop=0)
+    ctx["plan"] = clip_full_length(gif)
+    ctx["plan_capped"] = clip_full_length(gif, max_total=4)
+
+
+@then("the plan holds 10 frames uncapped from the in-point")
+def full_plan_ok(ctx):
+    assert ctx["plan"]["total_frames"] == 10
+    assert ctx["plan"]["capped"] is False
+    assert ctx["plan"]["start_s"] == 0.0
+    assert ctx["plan_capped"]["total_frames"] == 4
+    assert ctx["plan_capped"]["capped"] is True
