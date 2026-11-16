@@ -39,7 +39,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | FX | pre/grade/texture/glitch + reorderable effect stack |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
 | MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
-| MOTION | video preview + Signal Drift + ⚠ Rebuild when the preview is stale |
+| MOTION | video preview + Signal Drift + clip import (short footage as input, session-only) + ⚠ Rebuild when the preview is stale |
 
 **Viewport** (View): Full = instant render; Live = debounced (fast
 120ms / heavy 350ms); Still = manual only (F5). For slow machines or
@@ -66,6 +66,25 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   preview can never produce a stale MP4.
 - **Encoder:** MP4 always uses software H.264 (`libx264`, bundled).
   No hardware options, no probing: one encoder that works everywhere.
+
+## Clip import (v2.0)
+
+- **Input:** File → Open clip (MP4/GIF/WebP, ≤120 frames, 720p proxy,
+  session-only — never saved into presets, batch stays stills-only).
+  Without the video backend the dialog explains the install instead
+  of failing.
+- **Timeline (MOTION → Clip):** info line (file, fps, trim, `=` length),
+  Trim spins pick the inclusive `[start, end]` range, the slider
+  scrubs the source proxy (visual only, no audio in-app).
+- **Dithered preview:** tick "Dithered preview" to scrub frames through
+  the live preset recipe (seed = base + frame index, so grain/dust
+  flicker per frame — that is the look; untick for the clean proxy).
+  Changing the preset re-renders the current frame (cached per recipe).
+- **Export (FPS spin = trim length):** GIF (silent, `{base}_clip.gif`),
+  ZIP (PNG sequence `{base}_frames.zip`), MP4 (`{base}_clip.mp4`,
+  software H.264 like still MP4s). Pick a Track for music
+  (`-c:v copy -c:a aac -shortest`, video never re-encoded); empty
+  track = silent MP4. No audio trimming/fades/playback in-app.
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).

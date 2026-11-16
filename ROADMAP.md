@@ -492,9 +492,15 @@ only (no audio playback in-app); sound joins at MP4 export.
   silent MP4 when no track chosen); preview scrub + Length math
   inherited (FPS spin = trim duration); batch stays stills-only.
   Pinned by `tests/test_clip.py` (zip/mux with-without track).
-- Phase D — docs + gates: MANUAL clip flow, `tests/test_clip.py`
-  (import caps, determinism, mux with/without track, missing-extra),
-  Gherkin +2.
+- Phase D — docs + gates: DONE (nov-2026). MANUAL clip flow
+  (MOTION row + Clip section: session input, timeline, dithered
+  preview, GIF/ZIP/MP4 + optional soundtrack);
+  `tests/test_clip.py` (import caps, determinism, mux with/without
+  track, missing-extra) + `features/clip.feature` +2 (dither
+  determinism, inclusive trim); QA.md current (67/67, 750-suite
+  split, gherkin gate at 67); one stale trim-guard test updated to
+  the reversed rule (`test_ux.py`: clip widgets exist, no layer
+  model); 5/5 gates PASS + clean flake8. v2.0 closed.
 - Out of scope: webcam, audio analysis/BPM, audio trimming/fades,
   in-app audio playback, clips in batch, >120f, 4K clip edit.
 

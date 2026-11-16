@@ -125,6 +125,18 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   de la carpeta output va a `<output>_bundle.zip` (stdlib zipfile,
   mismo helper que usará el frame-ZIP de v2.0). Utilidad verificada en
   batch real (9 ficheros → 1 zip) — se queda.
+### v2.0 Fase D: docs + gates — DONE (nov-2026)
+- MANUAL: fila MOTION con clip + sección "Clip import" (input
+  solo-sesión, timeline, preview ditherizado, export GIF/ZIP/MP4 con
+  soundtrack opcional).
+- QA.md al día: 67/67 escenarios (clip.feature +2), suite 750
+  (609 fast + 141 slow), gate gherkin a 67.
+- Test guard obsoleto actualizado a la regla nueva (`test_ux.py`:
+  widgets de clip existen, sin modelo de layers; la vieja "no clip
+  import" quedó void en v2.0).
+- 5/5 gates PASS (`tools/quality_metrics.py`: pass_rate 100%,
+  coverage ≥80%, gherkin 67, smoke, no-leak) + flake8 limpio.
+  v2.0 cerrada.
 - DPI (72–600, defecto 300) en `ExportOptions` + diálogo: tags en
   JPG/PNG/TIFF, separaciones y metadata JSON. Prefs lo recuerdan.
 
