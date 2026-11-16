@@ -537,31 +537,42 @@ item says otherwise. Each lands in A/B/C/D phases (engine → UI →
 export → docs+gates) with pinned tests, MANUAL + QA.md updates, and
 5/5 gates + flake8 before commit. A real-render utility check decides
 keep/cut.
-1. Timeline param envelopes (keyframes/curves/LFO, deterministic).
+1. Clip in-point seek on import (`-ss`). v2.0 always imports the first
+   120 frames, so a 157s video only ever yields its first ~4s. Add a
+   "Start at (s)" control next to Open clip: fast-seek with ffmpeg
+   `-ss` before `-i` (`input_params`), GIF/WebP via `im.seek(frame)`;
+   clamp to the source duration and fail clean past the end. `info`
+   gains `start_s` + `source_duration` and `truncated` stays honest
+   (frames left before OR after the window). Still session-only,
+   ≤120f, 720p proxy, deterministic, no network. Pins: different
+   offset → different pixels, bounds/EOF errors, truncated flags,
+   PIL seek path + Gherkin +1. Cheap and it closes a v2.0 gap, hence
+   first.
+2. Timeline param envelopes (keyframes/curves/LFO, deterministic).
    Builds on the v2.0 timeline + sacred-Length math: per-clip curves
    for preset params (e.g. motion amount, drift, grain) instead of
    flat values. Session-only curves (like chain crops/repeats), never
    in presets. Pins: `tests/test_envelopes.py` + Gherkin +2.
-2. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
+3. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
    New GRADE effect: N ink stops over luminance (duotone with more
    stops), post-dither stack item, strict 0=off. Pins: unit + Gherkin +1.
-3. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
+4. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
    tracking wobble, chroma bleed over time) reusing the march/hue
    engine; ED-frozen rule respected (post-fx animation only).
    Pins: determinism + Gherkin +1.
-4. SVG color-region export (one layer per ink). Vector Pro extension:
+5. SVG color-region export (one layer per ink). Vector Pro extension:
    rect runs grouped per palette ink (display + separation reuse).
    Pins: layer count + byte checks.
-5. Cross-dissolve frame interpolation (numpy-only motion smoothing).
+6. Cross-dissolve frame interpolation (numpy-only motion smoothing).
    Optional smoothing between clip/dissolve frames; strict 0=off,
    default off (flicker stays the aesthetic). Pins: 0=identity,
    determinism, cap behavior.
-6. Animated APNG (Pillow-native). Same frames as the GIF path, full
+7. Animated APNG (Pillow-native). Same frames as the GIF path, full
    color like WebP; dialog-only extra. Pins: roundtrip + size note.
-7. MCP stdio server over the headless CLI. New surface: needs its own
+8. MCP stdio server over the headless CLI. New surface: needs its own
    spec (commands, schemas, no-network guard) before any code; last
    in the queue for that reason.
-8. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
+9. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
    SSIM-based weight estimator (replaces the B/px constants only if
    it wins); precomputed blue-noise masks (only if measured faster
    than IGN); NeuQuant/Wu quantization (only if it beats median-cut
@@ -608,6 +619,9 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
   first, then envelopes → gradient-maps → CRT/VHS → SVG regions →
   cross-dissolve → APNG → MCP, infra cheapest-first; each candidate
   keep/cut by real-render utility check, gates green before commit.
+- Clip in-point seek (`-ss`) added at the head of the v2.x queue
+  (nov-2026): cheap, closes the v2.0 "first 120 frames only" gap, and
+  long videos become usable without a new engine. Envelopes follow.
 - QThread rule (v2.1): never release the last reference to a running
   worker — Qt fast-fails the process (`0xC0000409`, no traceback).
   All worker handoff goes through `app/ui/thread_safe.py`
