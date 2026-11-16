@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
         self._clip_start: int = 0
         self._clip_end: int = -1
         self._clip_dither_cache: dict = {}
+        self._clip_audio: str = ""
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -1258,6 +1259,21 @@ class MainWindow(QMainWindow):
         from app.ui import clip_controller as _cc
 
         _cc.toggle_dither(self)
+
+    def _on_clip_audio(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.pick_audio(self)
+
+    def _on_clip_audio_clear(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.clear_audio(self)
+
+    def _on_clip_export(self, kind: str) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.export_clip(self, str(kind))
 
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""

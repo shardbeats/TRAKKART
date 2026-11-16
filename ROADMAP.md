@@ -486,11 +486,12 @@ only (no audio playback in-app); sound joins at MP4 export.
   `iter_dither_clip` (receta viva por frame, seed = base + índice,
   flicker documentado; reusa `render_spec` + writers GIF/MP4);
   preview ditherizado conmutado en el timeline (caché por receta).
-- Phase C — export wiring: silent GIF, frame ZIP (PNG sequence via
-  stdlib), MP4 with a chosen soundtrack (user picks an audio file;
-  ffmpeg mux `-c:v copy -c:a aac -shortest`; silent MP4 when no track
-  chosen); preview scrub + Length math inherited; batch stays
-  stills-only.
+- Phase C — export wiring: DONE (nov-2026). Silent GIF, frame ZIP
+  (PNG sequence via stdlib), MP4 with a chosen soundtrack (user
+  picks an audio file; ffmpeg mux `-c:v copy -c:a aac -shortest`;
+  silent MP4 when no track chosen); preview scrub + Length math
+  inherited (FPS spin = trim duration); batch stays stills-only.
+  Pinned by `tests/test_clip.py` (zip/mux with-without track).
 - Phase D — docs + gates: MANUAL clip flow, `tests/test_clip.py`
   (import caps, determinism, mux with/without track, missing-extra),
   Gherkin +2.

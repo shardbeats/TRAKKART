@@ -111,7 +111,9 @@ def test_no_timeline_leftovers(window):
         assert not hasattr(window, attr), attr
     for attr in ("btn_clip_open", "btn_clip_close", "spn_clip_start",
                  "spn_clip_end", "sld_clip", "lbl_clip_info", "lbl_clip_pos",
-                 "chk_clip_dither"):
+                 "chk_clip_dither", "txt_clip_audio", "btn_clip_audio",
+                 "btn_clip_audio_clear", "spn_clip_fps", "btn_clip_gif",
+                 "btn_clip_zip", "btn_clip_mp4"):
         assert hasattr(window, attr), attr
     assert window.sld_clip.value() == 0
     assert window.lbl_clip_pos.text() == "–"

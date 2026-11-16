@@ -26,6 +26,18 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   vivo (caché por receta, se invalida al cambiar el preset vía
   `refresh`). Sin hilos: un frame proxy es barato, el caché lo deja
   en instantáneo al revisitar.
+## [Unreleased] - v2.0 Fase C: export del clip (DONE nov-2026)
+### Added
+- `save_clip_zip` (PNG `frame_0001.png…`, stdlib), `write_clip_mp4`
+  (libx264-only, mismo writer que el MP4 de stills) y
+  `mux_soundtrack` (`-c:v copy -c:a aac -shortest`, sin re-encodear;
+  MP4 silencioso cuando no hay track). Pinned por
+  `tests/test_clip.py` (ZIP determinista, MP4 silencioso + mux con
+  WAV sintético, audios/rutas ausentes).
+- Export en el timeline: FPS editable (= duración del trim),
+  soundtrack opcional (Browse/X, solo se muxea en MP4), botones
+  GIF/ZIP/MP4 (`{base}_clip.gif`, `{base}_frames.zip`,
+  `{base}_clip.mp4`, a `out_dir`). Batch sigue stills-only.
 ## [Unreleased] - v1.9 Fase A: ostromoukhov + dizzy + serpentine
 ### Added
 - Motores `ostromoukhov` (difusión de error de coeficientes variables:

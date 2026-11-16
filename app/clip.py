@@ -228,7 +228,73 @@ def dither_clip(frames, preset, dpi: int = 300) -> list[Image.Image]:
     return list(iter_dither_clip(frames, preset, dpi))
 
 
+# ---------------------------------------------------------------------------
+# Fase C — export wiring: silent GIF, frame ZIP, MP4 (+ optional soundtrack).
+# ---------------------------------------------------------------------------
+def save_clip_zip(frames, out_path: str | Path) -> Path:
+    """Frame ZIP: PNG sequence `frame_0001.png...` (stdlib only, offline).
+
+    Same helper spirit as the batch bundle-ZIP (v1.8C), but the
+    members are a deterministic PNG sequence instead of a folder.
+    """
+    import io
+    import zipfile
+
+    seq = list(frames or [])
+    if not seq:
+        raise ValueError("no frames")
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, frame in enumerate(seq, 1):
+            buf = io.BytesIO()
+            frame.convert("RGB").save(buf, "PNG")
+            zf.writestr(f"frame_{i:04d}.png", buf.getvalue())
+    return out
+
+
+def write_clip_mp4(frames_or_iter, out_path: str | Path,
+                   fps: int = 24) -> Path:
+    """Silent clip MP4 (software libx264-only, same writer as still MP4)."""
+    from app.video_io import write_mp4, write_mp4_iter
+
+    out = Path(out_path)
+    if isinstance(frames_or_iter, list):
+        return write_mp4(list(frames_or_iter), out, fps=fps)
+    wrote, _ = write_mp4_iter(frames_or_iter, out, fps=fps)
+    return wrote
+
+
+def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
+                   out_path: str | Path) -> Path:
+    """Mux a chosen soundtrack: `-c:v copy -c:a aac -shortest` (offline).
+
+    Video is never re-encoded (stays libx264-only by construction);
+    audio joins as AAC and `-shortest` cuts at the clip end. Silent
+    MP4 (no track chosen) skips this entirely — silence stays silent.
+    """
+    import subprocess
+
+    from imageio_ffmpeg import get_ffmpeg_exe
+
+    src = Path(silent_mp4)
+    if not src.is_file():
+        raise FileNotFoundError(f"silent mp4 not found: {silent_mp4}")
+    track = Path(audio_path)
+    if not track.is_file():
+        raise FileNotFoundError(f"audio not found: {audio_path}")
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [get_ffmpeg_exe(), "-y", "-i", str(src), "-i", str(track),
+           "-c:v", "copy", "-c:a", "aac", "-shortest", str(out)]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0 or not out.is_file():
+        raise RuntimeError(f"ffmpeg mux failed: {proc.stderr[-500:]}")
+    return out
+
+
 __all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_EXTS",
            "VideoBackendMissing", "has_clip_io",
            "import_clip", "trim_clip", "clip_duration",
-           "iter_dither_clip", "dither_clip"]
+           "iter_dither_clip", "dither_clip",
+           "save_clip_zip", "write_clip_mp4", "mux_soundtrack"]

@@ -114,6 +114,57 @@ def test_dither_index_seed_flicker():
         dither_clip([], clean)
 
 
+def test_frame_zip_sequence(tmp_path):
+    import zipfile
+
+    from app.clip import save_clip_zip
+
+    frames = [Image.new("RGB", (16, 12), (i * 40, 0, 0)) for i in range(3)]
+    out = save_clip_zip(frames, tmp_path / "clip_frames.zip")
+    assert out.is_file()
+    with zipfile.ZipFile(out) as zf:
+        assert zf.namelist() == ["frame_0001.png", "frame_0002.png", "frame_0003.png"]
+        first = Image.open(__import__("io").BytesIO(zf.read("frame_0001.png")))
+        assert first.size == (16, 12)
+    with pytest.raises(ValueError):
+        save_clip_zip([], tmp_path / "empty.zip")
+
+
+def _wav(path, secs=1.0, rate=8000):
+    import math
+    import struct
+    import wave
+
+    n = int(secs * rate)
+    with wave.open(str(path), "w") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        for i in range(n):
+            v = int(12000 * math.sin(2 * math.pi * 440 * i / rate))
+            w.writeframes(struct.pack("<h", v))
+    return path
+
+
+def test_mp4_silent_and_mux(tmp_path):
+    pytest.importorskip("imageio_ffmpeg")
+    from app.clip import mux_soundtrack, write_clip_mp4
+    from app.video_io import has_video
+
+    if not has_video():
+        pytest.skip("no video backend")
+    frames = [Image.new("RGB", (64, 48), (i * 60, 20, 20)) for i in range(4)]
+    silent = write_clip_mp4(frames, tmp_path / "clip.mp4", fps=10)
+    assert silent.is_file() and silent.stat().st_size > 500
+    track = _wav(tmp_path / "track.wav")
+    final = mux_soundtrack(silent, track, tmp_path / "clip_music.mp4")
+    assert final.is_file() and final.stat().st_size > 500
+    with pytest.raises(FileNotFoundError):
+        mux_soundtrack(silent, tmp_path / "missing.wav", tmp_path / "x.mp4")
+    with pytest.raises(FileNotFoundError):
+        mux_soundtrack(tmp_path / "missing.mp4", track, tmp_path / "y.mp4")
+
+
 def test_import_mp4_when_backend(tmp_path):
     pytest.importorskip("imageio_ffmpeg")
     from app.clip import import_clip
