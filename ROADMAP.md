@@ -515,8 +515,9 @@ No new features until the tree is compact and hunted:
   invalidated on reopen; `nframes=inf` no longer clears the 120f cap
   notice; mux cuts at video length (`apad`+`-shortest` hangs) and
   keeps the silent MP4 on failure; `has_video()` checks the ffmpeg
-  binary. Real 2GB clip: import 3.5s, 120f dither 1.05s (~9ms/frame),
-  GIF/ZIP/MP4 valid; clip exports now rename instead of overwriting.
+  binary. Real 2GB clip: import 3.5s → 0.5s after the ffmpeg-side
+  scaling, 120f dither 1.05s (~9ms/frame), GIF/ZIP/MP4 valid; clip
+  exports now rename instead of overwriting.
   Pins: `tests/test_v21_bughunt.py` (+28, suite 778 = 637 fast + 141
   slow; Gherkin stays 67).
 - [x] Online research + measurement (nov-2026): proxy downscale moved
@@ -529,7 +530,9 @@ No new features until the tree is compact and hunted:
   normal (never call `count_frames`, it decodes the whole file).
 - [ ] Compact: weight audit (base exe stays light, no OpenCV/GPU in
   core), dead-code sweep, docs sync (ROADMAP/CHANGELOG/MANUAL/QA).
-- [ ] Gates green (5/5 + flake8) before any v2.x candidate starts.
+- [x] Gates green (5/5 + flake8) before any v2.x candidate starts:
+  last run 100% pass (776/778, 2 skipped), coverage 84.9%, Gherkin 67,
+  export smoke, no-leak + clean flake8.
 
 Keep/cut from the hunt: kept every fix above (all reproduced, all
 pinned); cut nothing. Deferred: clip import/export still run on the GUI
@@ -633,6 +636,14 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
   stay silent). The old "no clip import by design" is void.
 - Tap-tempo/pulse-sync REJECTED (owner nov-2026): same fiddly family as
   the removed BPM grid; Length stays Frames/FPS/Hold.
+- Clip import decodes 8-bit RGB only (no HDR/10-bit tone mapping): HDR
+  sources are downconverted by ffmpeg, so washed colors are expected.
+  Detect HDR/10-bit and warn if it ever matters; tonemapping is out of
+  scope for the same reason MP4 stays libx264-only (keep one simple,
+  predictable path).
+- Clip mux rule: cut at the video duration (`-t`, from a header probe);
+  never use `-af apad -shortest` with `-c:v copy` (hangs ffmpeg), and
+  never re-encode the video. A failed mux keeps the silent MP4.
 - MP4 stays software `libx264`-only (HW selector tried and reverted
   pre-release: fake detection, quality mapping, streaming fallback bug).
 - v2.x queue ordered (owner nov-2026): stabilize (compact + bug-hunt)
