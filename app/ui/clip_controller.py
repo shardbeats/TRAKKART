@@ -127,6 +127,13 @@ def show_frame(win, idx: int) -> None:
         return
     i = max(0, min(len(frames) - 1, int(idx)))
     frame = frames[i]
+    tag = "proxy"
+    if _dither_on(win):
+        try:
+            frame = dithered_frame(win, i)
+            tag = "dithered"
+        except Exception:  # noqa: BLE001
+            frame = frames[i]
     try:
         from app.ui.preview_canvas import PREVIEW_MAX_SIDE
         from app.ui.qt_image import pil_to_pixmap
@@ -134,7 +141,7 @@ def show_frame(win, idx: int) -> None:
         win.lbl_res.set_wipe_mode(False)
         win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
         win.lbl_res_title.setText(
-            f"CLIP · {frame.width}x{frame.height} · f{i + 1}/{len(frames)} (proxy)")
+            f"CLIP · {frame.width}x{frame.height} · f{i + 1}/{len(frames)} ({tag})")
         win.lbl_clip_pos.setText(f"{i + 1}/{len(frames)}")
     except Exception:  # noqa: BLE001
         pass
@@ -145,6 +152,89 @@ def show_frame(win, idx: int) -> None:
             win.sld_clip.blockSignals(False)
     except Exception:  # noqa: BLE001
         pass
+
+
+def _dither_on(win) -> bool:
+    try:
+        return bool(win.chk_clip_dither.isChecked())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _recipe_key(win):
+    """Current preset recipe fingerprint (cache key; None = unknown)."""
+    try:
+        preset = win.current_params() if hasattr(win, "current_params") else None
+        meta = preset.meta() if preset is not None and hasattr(preset, "meta") else None
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        import json
+
+        return json.dumps(meta, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return None
+
+
+def dithered_frame(win, idx: int):
+    """Frame `idx` through the live preset (cached per recipe; sync)."""
+    from app.clip import _spec_for
+    from app.pipeline import render_spec
+
+    frames = list(getattr(win, "_clip_frames", []) or [])
+    i = max(0, min(len(frames) - 1, int(idx)))
+    key = _recipe_key(win)
+    cache = getattr(win, "_clip_dither_cache", None)
+    if not isinstance(cache, dict):
+        cache = {}
+        win._clip_dither_cache = cache
+    hit = cache.get(i)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    n = len(frames)
+    try:
+        preset = win.current_params()
+    except Exception:  # noqa: BLE001
+        return frames[i]
+    out = render_spec(frames[i].convert("RGB"), _spec_for(preset, i, n))
+    cache[i] = (key, out)
+    # Session cap: trimmed range at most (proxy RAM, no hoard).
+    if len(cache) > max(8, n + 1):
+        cache.pop(next(iter(cache)))
+    return out
+
+
+def toggle_dither(win) -> None:
+    if _dither_on(win):
+        cache = getattr(win, "_clip_dither_cache", None)
+        if isinstance(cache, dict):
+            cache.clear()
+    try:
+        cur = int(win.sld_clip.value())
+    except Exception:  # noqa: BLE001
+        cur = int(getattr(win, "_clip_start", 0) or 0)
+    show_frame(win, cur)
+
+
+def note_preset_changed(win) -> None:
+    """Refresh hook: stale dither cache drops, live frame re-renders.
+
+    Called at the top of refresh(); cheap when no clip (one hasattr).
+    """
+    if not has_clip(win) or not _dither_on(win):
+        return
+    cache = getattr(win, "_clip_dither_cache", None)
+    key = _recipe_key(win)
+    keys = [v[0] for v in cache.values()] if isinstance(cache, dict) else []
+    if keys and all(k == key for k in keys):
+        return  # recipe untouched: cache stays
+    if isinstance(cache, dict):
+        cache.clear()
+    try:
+        cur = int(win.sld_clip.value())
+    except Exception:  # noqa: BLE001
+        return
+    show_frame(win, cur)
 
 
 def sync_info(win) -> None:
@@ -164,7 +254,8 @@ def sync_info(win) -> None:
 def sync_ui(win) -> None:
     on = has_clip(win)
     n = len(getattr(win, "_clip_frames", []) or [])
-    for attr in ("btn_clip_close", "spn_clip_start", "spn_clip_end", "sld_clip"):
+    for attr in ("btn_clip_close", "spn_clip_start", "spn_clip_end", "sld_clip",
+                 "chk_clip_dither"):
         try:
             getattr(win, attr).setEnabled(on)
         except Exception:  # noqa: BLE001
@@ -195,4 +286,5 @@ def sync_ui(win) -> None:
 
 
 __all__ = ["has_clip", "trimmed", "open_dialog", "open_path", "close_clip",
-           "set_range", "scrub", "show_frame", "sync_info", "sync_ui"]
+           "set_range", "scrub", "show_frame", "sync_info", "sync_ui",
+           "dithered_frame", "toggle_dither", "note_preset_changed"]

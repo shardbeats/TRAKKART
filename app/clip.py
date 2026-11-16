@@ -174,6 +174,61 @@ def clip_duration(frames: int, fps: int) -> float:
     return max(0.0, float(int(frames or 0)) / max(1, _clamp_fps(fps)))
 
 
+# ---------------------------------------------------------------------------
+# Fase B — dither: the current preset recipe applied per frame.
+# ---------------------------------------------------------------------------
+_SEED_ATTRS = ("grain_seed", "dust_seed", "glitch_slice_seed", "wave_seed",
+               "mosh_seed", "drift_seed", "paste_seed", "pixelsort_seed")
+
+
+def _spec_for(preset, index: int, n: int, dpi: int = 300):
+    """RenderSpec for frame `index`: base recipe + index-shifted seeds.
+
+    Per-frame flicker is the aesthetic (documented): seeded post-fx
+    (grain/dust/slice/wave/mosh/drift/paste) re-roll per frame while
+    the recipe (method/palette/pixel/threshold/stack) stays put.
+    Drift traverses 0->1 across the clip when enabled.
+    """
+    from app.pipeline import RenderSpec
+
+    progress = float(index) / max(1, int(n) - 1) if int(n) > 1 else 0.0
+    spec = RenderSpec.from_preset(preset, phase=0,
+                                  drift_progress=progress, dpi=dpi)
+    for attr in _SEED_ATTRS:
+        try:
+            setattr(spec, attr, int(getattr(spec, attr, 0) or 0) + int(index))
+        except (TypeError, ValueError):
+            pass
+    return spec
+
+
+def iter_dither_clip(frames, preset, dpi: int = 300):
+    """Yield dithered frames one by one (streaming: O(1) RAM for MP4).
+
+    Same pixels as dither_clip. Reuses render_spec, so combo/stack/
+    GIF/MP4 writers inherit the recipe with zero extra plumbing.
+    """
+    from app.pipeline import render_spec
+
+    seq = list(frames or [])
+    if not seq:
+        raise ValueError("no frames")
+    n = len(seq)
+    for i, frame in enumerate(seq):
+        yield render_spec(frame.convert("RGB"), _spec_for(preset, i, n, dpi))
+
+
+def dither_clip(frames, preset, dpi: int = 300) -> list[Image.Image]:
+    """Dither every frame with the preset recipe (deterministic).
+
+    seed = base + index: same inputs -> same bytes; consecutive
+    identical frames differ only through seeded post-fx (grain/dust/...
+    >0), which is the documented flicker aesthetic.
+    """
+    return list(iter_dither_clip(frames, preset, dpi))
+
+
 __all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_EXTS",
            "VideoBackendMissing", "has_clip_io",
-           "import_clip", "trim_clip", "clip_duration"]
+           "import_clip", "trim_clip", "clip_duration",
+           "iter_dither_clip", "dither_clip"]

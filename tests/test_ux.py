@@ -110,7 +110,8 @@ def test_no_timeline_leftovers(window):
                  "anim_layers_data"):
         assert not hasattr(window, attr), attr
     for attr in ("btn_clip_open", "btn_clip_close", "spn_clip_start",
-                 "spn_clip_end", "sld_clip", "lbl_clip_info", "lbl_clip_pos"):
+                 "spn_clip_end", "sld_clip", "lbl_clip_info", "lbl_clip_pos",
+                 "chk_clip_dither"):
         assert hasattr(window, attr), attr
     assert window.sld_clip.value() == 0
     assert window.lbl_clip_pos.text() == "–"

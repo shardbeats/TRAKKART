@@ -482,9 +482,10 @@ only (no audio playback in-app); sound joins at MP4 export.
   session-only clip store (cap 120f, 720p proxy); timeline editor
   (MOTION → Clip: info + trim spins + scrub) con preview visual
   fuente (sin audio, sin dither aún). Pinned por `tests/test_clip.py`.
-- Phase B — dither: current preset recipe applied per frame
-  (deterministic seed = base + index; per-frame flicker is the
-  aesthetic, documented); reuses `render_spec` + GIF/MP4 writers.
+- Phase B — dither: DONE (nov-2026). `dither_clip` /
+  `iter_dither_clip` (receta viva por frame, seed = base + índice,
+  flicker documentado; reusa `render_spec` + writers GIF/MP4);
+  preview ditherizado conmutado en el timeline (caché por receta).
 - Phase C — export wiring: silent GIF, frame ZIP (PNG sequence via
   stdlib), MP4 with a chosen soundtrack (user picks an audio file;
   ffmpeg mux `-c:v copy -c:a aac -shortest`; silent MP4 when no track

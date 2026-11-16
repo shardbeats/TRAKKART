@@ -127,6 +127,7 @@ class MainWindow(QMainWindow):
         self._clip_info: dict = {}
         self._clip_start: int = 0
         self._clip_end: int = -1
+        self._clip_dither_cache: dict = {}
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -469,6 +470,12 @@ class MainWindow(QMainWindow):
         return self.current_params().to_render_kwargs()
 
     def refresh(self) -> None:
+        try:
+            from app.ui import clip_controller as _cc
+
+            _cc.note_preset_changed(self)
+        except Exception:  # noqa: BLE001
+            pass
         if self.src is None:
             return
         try:
@@ -1246,6 +1253,11 @@ class MainWindow(QMainWindow):
         from app.ui import clip_controller as _cc
 
         _cc.scrub(self, int(value))
+
+    def _on_clip_dither_toggle(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.toggle_dither(self)
 
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""

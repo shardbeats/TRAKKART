@@ -13,6 +13,19 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   y panel), info de sesión, spins Trim inicio/fin, scrub del proxy
   fuente (`app/ui/clip_controller.py`, preview visual sin audio).
   Batch sigue stills-only por diseño (sin ruta de clip).
+## [Unreleased] - v2.0 Fase B: dither por frame (DONE nov-2026)
+### Added
+- `dither_clip` / `iter_dither_clip` (`app/clip.py`): la receta viva
+  del preset por frame vía `render_spec` (seed = base + índice en
+  grain/dust/slice/wave/mosh/drift/paste/pixelsort; drift 0→1 en el
+  clip; flicker por frame es la estética, documentado). Streaming
+  O(1) RAM para el MP4 largo de Fase C. Pinned por
+  `tests/test_clip.py` (determinismo, receta, flicker con/semilla).
+- Preview ditherizado en el timeline: checkbox "Dithered preview"
+  (off = proxy fuente); el scrub renderiza el frame con el preset
+  vivo (caché por receta, se invalida al cambiar el preset vía
+  `refresh`). Sin hilos: un frame proxy es barato, el caché lo deja
+  en instantáneo al revisitar.
 ## [Unreleased] - v1.9 Fase A: ostromoukhov + dizzy + serpentine
 ### Added
 - Motores `ostromoukhov` (difusión de error de coeficientes variables:

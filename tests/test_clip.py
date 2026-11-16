@@ -75,6 +75,45 @@ def test_missing_backend_raises_clean(tmp_path, monkeypatch):
         _clip.import_clip(tmp_path / "c.mp4")
 
 
+def _gradient(w=48, h=32):
+    import numpy as np
+
+    x = np.tile(np.linspace(0, 255, w, dtype=np.uint8), (h, 1))
+    arr = np.stack([x, x, x], axis=-1)
+    return Image.fromarray(arr, "RGB")
+
+
+def test_dither_deterministic_and_recipe():
+    from app.clip import dither_clip
+    from app.presets import Preset
+
+    frames = [_gradient(), _gradient()]
+    p = Preset(name="t", method="bayer4", palette="BW", grain=8.0)
+    a = dither_clip(frames, p)
+    b = dither_clip(frames, p)
+    assert len(a) == 2
+    for x, y in zip(a, b):
+        assert x.tobytes() == y.tobytes()
+    q = Preset(name="t", method="floyd", palette="BW", grain=8.0)
+    c = dither_clip(frames, q)
+    assert any(x.tobytes() != y.tobytes() for x, y in zip(a, c))
+
+
+def test_dither_index_seed_flicker():
+    from app.clip import dither_clip
+    from app.presets import Preset
+
+    same = [Image.new("RGB", (32, 32), (120, 120, 120))] * 2
+    grainy = Preset(name="t", method="bayer4", palette="BW", grain=30.0)
+    out = dither_clip(same, grainy)
+    assert out[0].tobytes() != out[1].tobytes()  # flicker aesthetic
+    clean = Preset(name="t", method="bayer4", palette="BW")
+    flat = dither_clip(same, clean)
+    assert flat[0].tobytes() == flat[1].tobytes()  # no seeds -> stable
+    with pytest.raises(ValueError):
+        dither_clip([], clean)
+
+
 def test_import_mp4_when_backend(tmp_path):
     pytest.importorskip("imageio_ffmpeg")
     from app.clip import import_clip
