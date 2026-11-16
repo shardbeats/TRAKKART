@@ -190,12 +190,11 @@ def test_new_project_drops_session_clip(window, monkeypatch):
                         lambda *a, **k: QMessageBox.StandardButton.Ok)
     gif = _anim(window.out_dir.parent / "a.gif", [(200, 0, 0)] * 3)
     assert cc.open_path(window, gif)
-    window.chk_clip_dither.setChecked(True)
     assert window._clip_frames
     window.new_project()
     assert window._clip_frames == []
     assert window._clip_dither_cache == {}
-    assert window.chk_clip_dither.isEnabled() is False
+    assert window.btn_clip_play.isEnabled() is False
 
 
 def test_new_project_retires_inflight_preview(window, monkeypatch):
@@ -236,7 +235,6 @@ def test_reopen_clip_drops_stale_dither_cache(window):
     base = window.out_dir.parent
     a = _anim(base / "red.gif", [(255, 0, 0)] * 3)
     b = _anim(base / "blue.gif", [(0, 0, 255)] * 3)
-    window.chk_clip_dither.setChecked(True)
     assert cc.open_path(window, a)
     cc.scrub(window, 0)
     first_a = cc.dithered_frame(window, 0)
@@ -255,7 +253,6 @@ def test_close_clip_frees_frames_and_cache(window):
 
     gif = _anim(window.out_dir.parent / "c.gif", [(0, 120, 0)] * 4)
     assert cc.open_path(window, gif)
-    window.chk_clip_dither.setChecked(True)
     cc.scrub(window, 0)
     assert window._clip_dither_cache
     cc.close_clip(window)

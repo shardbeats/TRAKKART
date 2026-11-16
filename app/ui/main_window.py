@@ -122,13 +122,14 @@ class MainWindow(QMainWindow):
         self.morph_src = None
         self.morph_path = ""
         self.morph_list: list = []
-        # -- clip import (v2.0 Fase A: session-only, <=120f, 720p proxy) --
+        # -- clip import (session-only, <=120f, 720p proxy) --
         self._clip_frames: list = []
         self._clip_info: dict = {}
         self._clip_start: int = 0
         self._clip_end: int = -1
         self._clip_dither_cache: dict = {}
         self._clip_audio: str = ""
+        self._clip_playing: bool = False
         from PySide6.QtCore import QTimer
 
         # -- viewport: prefs default BEFORE _build_menus (actions read it) --
@@ -159,6 +160,9 @@ class MainWindow(QMainWindow):
         self._video_timer = QTimer(self)
         self._video_timer.timeout.connect(self._next_video_frame)
         self._video_timer.setInterval(125)  # 8fps default
+        self._clip_timer = QTimer(self)
+        self._clip_timer.timeout.connect(self._next_clip_frame)
+        self._clip_timer.setInterval(125)  # retimed to the clip fps on play
         self._setup_ui()
         self._build_menus()
         try:
@@ -217,6 +221,10 @@ class MainWindow(QMainWindow):
             pass
         try:
             self._video_timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self._clip_timer.stop()
         except Exception:  # noqa: BLE001
             pass
         self._batch_cancel[0] = True
@@ -1272,10 +1280,15 @@ class MainWindow(QMainWindow):
 
         _cc.scrub(self, int(value))
 
-    def _on_clip_dither_toggle(self) -> None:
+    def _on_clip_playpause(self) -> None:
         from app.ui import clip_controller as _cc
 
-        _cc.toggle_dither(self)
+        _cc.playpause(self)
+
+    def _next_clip_frame(self) -> None:
+        from app.ui import clip_controller as _cc
+
+        _cc.next_frame(self)
 
     def _on_clip_audio(self) -> None:
         from app.ui import clip_controller as _cc
@@ -1286,11 +1299,6 @@ class MainWindow(QMainWindow):
         from app.ui import clip_controller as _cc
 
         _cc.clear_audio(self)
-
-    def _on_clip_export(self, kind: str) -> None:
-        from app.ui import clip_controller as _cc
-
-        _cc.export_clip(self, str(kind))
 
     def export(self, quick: bool = False) -> None:
         """Export bundle. Pro dialog by default; `quick` repeats the last one."""
@@ -1311,11 +1319,12 @@ class MainWindow(QMainWindow):
                     tiff: bool = False, dpi: int = 300,
                     social: bool = False,
                     sep: bool = False, sep_trap: bool = False,
-                    sp404: bool = False, _sync: bool = False) -> None:
+                    sp404: bool = False, _sync: bool = False,
+                    clip: dict | None = None) -> None:
         """Render full-res + bundle per options. Stills full-res, MP4 sized."""
         from app.ui import export_flow as _ef
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
                        overwrite, size, format, quality, mp4, mp4_size,
                        webp, tiff, dpi, social, sep, sep_trap,
-                       sp404=bool(sp404), _sync=_sync)
+                       sp404=bool(sp404), _sync=_sync, clip=clip)

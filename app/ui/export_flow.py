@@ -34,6 +34,29 @@ def _gif_opts_from_preset(preset) -> dict:
             "sep": False, "sep_trap": False, "sp404": False}
 
 
+def _clip_info_for_dialog(win) -> dict | None:
+    """Session-clip summary for the Export window (None when no clip)."""
+    from app.clip import clip_duration
+    from app.ui import clip_controller as _cc
+
+    if not _cc.has_clip(win):
+        return None
+    try:
+        info = dict(getattr(win, "_clip_info", {}) or {})
+        n = len(getattr(win, "_clip_frames", []) or [])
+        s = max(0, min(n - 1, int(win._clip_start)))
+        e = max(0, min(n - 1, int(win._clip_end)))
+        fps = _cc.clip_fps(win)
+        span = max(0, e - s + 1)
+        name = __import__("pathlib").Path(str(info.get("path", "clip"))).stem
+        return {"name": name, "frames": n, "fps": fps, "start": s, "end": e,
+                "span": span, "duration": clip_duration(span, fps),
+                "start_s": float(info.get("start_s", 0.0) or 0.0),
+                "truncated": bool(info.get("truncated", False))}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def export(win, quick: bool = False) -> None:
     """Export bundle. Pro dialog by default; `quick` repeats the last one."""
     from pathlib import Path
@@ -44,18 +67,25 @@ def export(win, quick: bool = False) -> None:
     from app.exporter import ExportSelection
     from app.ui.export_dialog import ExportDialog
 
-    if win.src is None:
+    clip_info = _clip_info_for_dialog(win)
+    if win.src is None and clip_info is None:
         QMessageBox.information(win, "TRAKKART", "Open an image first.")
         return
     try:
         preset = win.current_params()
         prefs = load_prefs(win._prefs_path)
         recent_files = list(getattr(prefs, "recent_files", []) or [])
-        # Stale-name guard: prefs belong to the image they were saved for.
-        # New image (or untracked old prefs) -> fresh defaults, never the
-        # previous name. Quick with a new image falls through to the dialog
-        # on purpose: silent writes must not reuse a stale base.
-        prefs_match = (not getattr(prefs, "src_name", "")) or prefs.src_name == win.src_name
+        if win.src is None:
+            # Clip-only export (no still open): fresh dialog, no prefs,
+            # no quick path (quick repeats still bundles only).
+            prefs_match = False
+        else:
+            # Stale-name guard: prefs belong to the image they were saved for.
+            # New image (or untracked old prefs) -> fresh defaults, never the
+            # previous name. Quick with a new image falls through to the dialog
+            # on purpose: silent writes must not reuse a stale base.
+            prefs_match = ((not getattr(prefs, "src_name", ""))
+                           or prefs.src_name == win.src_name)
         if quick and prefs.out_dir and prefs_match:
             selection = prefs.to_selection()
             gopts_prefs = _gif_opts_from_prefs(prefs)
@@ -84,7 +114,10 @@ def export(win, quick: bool = False) -> None:
         else:
             init_sel = ExportSelection(vector=bool(preset.vector_export),
                                        anim=bool(preset.gif_export))
-            init_base, init_out = win.src_name, str(win.out_dir)
+            if win.src is None:
+                init_base, init_out = str(clip_info.get("name", "clip")), str(win.out_dir)
+            else:
+                init_base, init_out = win.src_name, str(win.out_dir)
             init_dpi = 300
             init_size, init_fmt, init_q = (int(preset.export_size),
                                            str(preset.export_format), int(preset.export_quality))
@@ -104,7 +137,8 @@ def export(win, quick: bool = False) -> None:
 
             init_sel = replace(init_sel, anim=True)
         dlg = ExportDialog(
-            win.src, preset.meta(), base=init_base, out_dir=init_out,
+            win.src, preset.meta() if win.src is not None else {},
+            base=init_base, out_dir=init_out,
             selection=init_sel,
             gif_frames=int(init_gopts["frames"]), gif_mode=str(init_gopts["mode"]),
             gif_fps=int(init_gopts["fps"]),
@@ -120,6 +154,10 @@ def export(win, quick: bool = False) -> None:
             sep=bool(init_gopts.get("sep", False)),
             sep_trap=bool(init_gopts.get("sep_trap", False)),
             sp404=bool(init_gopts.get("sp404", False)),
+            clip_info=clip_info,
+            clip_fps=int(clip_info["fps"]) if clip_info else None,
+            clip_track=str(getattr(win, "_clip_audio", "") or ""),
+            still_enabled=win.src is not None,
             parent=win,
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
@@ -127,13 +165,17 @@ def export(win, quick: bool = False) -> None:
             win._status("Export cancelled")
             return
         options, out_dir, gopts = dlg.options()
+        clip = dlg.clip_options()
+        if clip and clip.get("track"):
+            win._clip_audio = str(clip["track"])  # session persists
         dlg.deleteLater()
         choice = resolve_collision(win, out_dir, options,
                                    want_mp4=bool(gopts.get("mp4", False)),
                                    want_webp=bool(gopts.get("webp", False)),
                                    want_tiff=bool(gopts.get("tiff", False)),
                                    want_social=bool(gopts.get("social", False)),
-                                   want_sep=bool(gopts.get("sep", False)))
+                                   want_sep=bool(gopts.get("sep", False)),
+                                   want_clip=clip)
         if choice is None:
             win._status("Export cancelled")
             return
@@ -150,29 +192,32 @@ def export(win, quick: bool = False) -> None:
             sep=bool(gopts.get("sep", False)),
             sep_trap=bool(gopts.get("sep_trap", False)),
             sp404=bool(gopts.get("sp404", False)),
+            clip=clip,
         )
-        save_prefs(ExportPrefs(
-            out_dir=str(out_dir), base=options.base,
-            image=options.selection.image,
-            thumb_1080p=options.selection.thumb_1080p,
-            vector=options.selection.vector, anim=options.selection.anim,
-            metadata=options.selection.metadata,
-            webp=bool(gopts.get("webp", False)),
-            tiff=bool(gopts.get("tiff", False)),
-            social=bool(gopts.get("social", False)),
-            sep=bool(gopts.get("sep", False)),
-            sep_trap=bool(gopts.get("sep_trap", False)),
-            sp404=bool(gopts.get("sp404", False)),
-            mp4=bool(gopts.get("mp4", False)),
-            gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
-            gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
-            gif_pingpong=bool(gopts["pingpong"]),
-            mp4_size=str(gopts.get("mp4_size", "1080p")),
-            overwrite="rename",  # per-run choice is not persisted (quick is always safe)
-            size=options.size, format=options.format, quality=options.quality,
-            dpi=int(options.dpi),
-            recent_files=recent_files, src_name=win.src_name,
-        ), win._prefs_path)
+        # Clip-only runs never touch still prefs (they belong to an image).
+        if win.src is not None:
+            save_prefs(ExportPrefs(
+                out_dir=str(out_dir), base=options.base,
+                image=options.selection.image,
+                thumb_1080p=options.selection.thumb_1080p,
+                vector=options.selection.vector, anim=options.selection.anim,
+                metadata=options.selection.metadata,
+                webp=bool(gopts.get("webp", False)),
+                tiff=bool(gopts.get("tiff", False)),
+                social=bool(gopts.get("social", False)),
+                sep=bool(gopts.get("sep", False)),
+                sep_trap=bool(gopts.get("sep_trap", False)),
+                sp404=bool(gopts.get("sp404", False)),
+                mp4=bool(gopts.get("mp4", False)),
+                gif_frames=int(gopts["frames"]), gif_mode=str(gopts["mode"]),
+                gif_fps=int(gopts["fps"]), gif_size=int(gopts["size"]),
+                gif_pingpong=bool(gopts["pingpong"]),
+                mp4_size=str(gopts.get("mp4_size", "1080p")),
+                overwrite="rename",  # per-run choice is not persisted (quick is always safe)
+                size=options.size, format=options.format, quality=options.quality,
+                dpi=int(options.dpi),
+                recent_files=recent_files, src_name=win.src_name,
+            ), win._prefs_path)
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
 
@@ -180,7 +225,8 @@ def export(win, quick: bool = False) -> None:
 def resolve_collision(win, out_dir, options, want_mp4: bool = False,
                       want_webp: bool = False, want_tiff: bool = False,
                       want_social: bool = False,
-                      want_sep: bool = False) -> str | None:
+                      want_sep: bool = False,
+                      want_clip: dict | None = None) -> str | None:
     """Post-accept collision check: "overwrite" | "rename" | None (cancel).
 
     No collision -> "rename" without asking (rename of a free base is a
@@ -213,6 +259,16 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
             for i, p in enumerate(sorted(out_dir.glob(f"{options.base}_sep_*.png"))):
                 names[f"sep{i}"] = p.name
         except OSError:
+            pass
+    if want_clip:
+        try:
+            from app.ui.clip_controller import clip_names as _clip_names
+
+            for kind, on in (("gif", want_clip.get("gif")), ("mp4", want_clip.get("mp4")),
+                             ("zip", want_clip.get("zip"))):
+                if on:
+                    names[f"clip_{kind}"] = _clip_names(options.base)[kind]
+        except Exception:  # noqa: BLE001
             pass
     try:
         existing = [f for f in names.values() if (out_dir / f).exists()]
@@ -363,6 +419,67 @@ def on_export_error(win, msg: str) -> None:
     win._report_error("Export error", msg)
 
 
+def _wants_stills(selection, mp4: bool, webp: bool,
+                  tiff: bool, social: bool, sep: bool, sp404: bool) -> bool:
+    """Any still output on (image/thumb/vector/anim/meta + extras)."""
+    try:
+        sel = selection
+        if any((sel.image, sel.thumb_1080p, sel.vector, sel.anim,
+                sel.metadata, bool(getattr(sel, "black_vector", False)))):
+            return True
+    except Exception:  # noqa: BLE001
+        return True
+    try:
+        if any((mp4, webp, tiff, social, sep, sp404)):
+            return True
+    except Exception:  # noqa: BLE001
+        return True
+    return False
+
+
+def _run_clip_exports(win, base: str, out_dir, clip: dict | None,
+                      preset) -> list[str]:
+    """Clip files for the Export window (sync, first-free names, never overwrite)."""
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.ui import clip_controller as _cc
+    from app.ui.clip_controller import _busy, _free_path, clip_names
+
+    if not clip or not _cc.has_clip(win):
+        return []
+    span = _cc.trimmed(win)
+    if not span:
+        return []
+    try:
+        fps = _cc._export_fps(win, clip.get("fps"))
+    except Exception:  # noqa: BLE001
+        fps = 24
+    track = str(clip.get("track", "") or "").strip()
+    names: list[str] = []
+    _busy(win, True, f"Exporting clip... {len(span)}f @{fps}fps")
+    try:
+        for kind in ("gif", "zip", "mp4"):
+            if not clip.get(kind):
+                continue
+            out = _free_path(Path(out_dir) / clip_names(base)[kind])
+            try:
+                _cc.render_clip_export(win, kind, preset, span, fps, out, track)
+            except Exception as e:  # noqa: BLE001
+                QMessageBox.warning(win, "TRAKKART", f"Clip export error ({kind}): {e}")
+                continue
+            names.append(out.name)
+    finally:
+        _busy(win, False)
+    if names:
+        try:
+            win._status(f"Clip exported: {', '.join(names)} ({len(span)}f @{fps}fps)")
+        except Exception:  # noqa: BLE001
+            pass
+    return names
+
+
 def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      overwrite: str, size: int, format: str,
                      quality: int, mp4: bool = False,
@@ -371,7 +488,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      tiff: bool = False, dpi: int = 300,
                      social: bool = False,
                      sep: bool = False, sep_trap: bool = False,
-                     sp404: bool = False) -> None:
+                     sp404: bool = False, clip: dict | None = None) -> None:
     """Blocking export (tests + fallback): the pre-worker behavior, intact."""
     from dataclasses import replace
     from pathlib import Path
@@ -386,6 +503,14 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
         preset = replace(preset, vector_black=True)
     go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
     mode_go = str(go.get("mode", "both"))
+    clip_names = _run_clip_exports(win, base, out_dir, clip, preset)
+    if not _wants_stills(selection, mp4, webp, tiff, social, sep, sp404):
+        # Clip-only export (no still open): still bundle skipped.
+        if clip_names:
+            show_exported(win, Path(out_dir).resolve(), clip_names)
+        else:
+            QMessageBox.information(win, "TRAKKART", "Nothing selected to export.")
+        return
     try:
         paths, skipped = export_full(
             win.src, preset, out_dir, base=base, store=win.store,
@@ -417,7 +542,8 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             f"Skipped: {base} already exists (policy: skip).")
         win._status(f"Export skipped (exists): {base}")
         return
-    show_exported(win, Path(out_dir).resolve(), [p.name for p in paths.values()])
+    show_exported(win, Path(out_dir).resolve(),
+                  [p.name for p in paths.values()] + list(clip_names))
     win._status(f"Exported to {Path(out_dir).resolve()}")
 
 
@@ -429,10 +555,12 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                tiff: bool = False, dpi: int = 300,
                social: bool = False,
                sep: bool = False, sep_trap: bool = False,
-               sp404: bool = False, _sync: bool = False) -> None:
+               sp404: bool = False, _sync: bool = False,
+               clip: dict | None = None) -> None:
     """Render full-res + bundle (+MP4/WebP/seps) per options. Stills always full-res;
     MP4 uses its own size (Canvas/1080p/720p) so 3000px docs don't ship GBs;
     WebP reuses the GIF frames at ~1/3 the weight; seps write one PNG per ink.
+    Clip files (Export window section) render synchronously first.
 
     Async by default (ExportWorker, no GUI freeze); `_sync=True` or
     `win._export_sync` keeps the blocking path (tests).
@@ -447,7 +575,8 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, tiff, dpi, social, sep, sep_trap, sp404)
+                         mp4_size, webp, tiff, dpi, social, sep, sep_trap, sp404,
+                         clip=clip)
         return
     running = getattr(win, "_export_worker", None)
     try:
@@ -457,7 +586,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if is_running:
         win._status("Export already running...")
         return
-    if win.src is None:
+    if win.src is None and not clip:
         QMessageBox.information(win, "TRAKKART", "Open an image first.")
         return
     try:
@@ -467,6 +596,14 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         return
     if bool(getattr(selection, "black_vector", False)):
         preset = replace(preset, vector_black=True)
+    # Clip files render synchronously first (same pass as the dialog plan);
+    # stills follow on the worker (or not at all when clip-only).
+    clip_names = _run_clip_exports(win, base, out_dir, clip, preset)
+    if not _wants_stills(selection, mp4, webp, tiff, social, sep, sp404):
+        from pathlib import Path as _P
+
+        show_exported(win, _P(out_dir).resolve(), clip_names)
+        return
     go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
     mode_go = str(go.get("mode", "both"))
     try:

@@ -70,6 +70,10 @@ class ExportDialog(QDialog):
         sep: bool = False,
         sep_trap: bool = False,
         sp404: bool = False,
+        clip_info: dict | None = None,
+        clip_fps: int | None = None,
+        clip_track: str = "",
+        still_enabled: bool = True,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -81,6 +85,8 @@ class ExportDialog(QDialog):
         self._preset = preset  # kept for compat; preview lives in Video mode
         self._gif_count = max(1, int(gif_frames))
         self._ready = False  # __init__ signals paint nothing yet
+        self._still_enabled = bool(still_enabled) and img is not None
+        self._clip_info = dict(clip_info) if clip_info else None
 
         col = QVBoxLayout(self)
         # -- file name (dedicated section: base + reset + sanitized preview) --
@@ -196,6 +202,19 @@ class ExportDialog(QDialog):
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
             col.addWidget(chk)
+        if not self._still_enabled:
+            # Clip-only export (no still open): still outputs stay off.
+            for chk in (self.chk_image, self.chk_thumb,
+                        self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
+                        self.chk_black, self.chk_mp4, self.chk_sp404, self.chk_lossless):
+                try:
+                    chk.setChecked(False)
+                    chk.setEnabled(False)
+                except Exception:  # noqa: BLE001
+                    pass
+            self.cmb_format.setEnabled(False)
+            self.spn_quality.setEnabled(False)
+            self.spn_dpi.setEnabled(False)
         from PySide6.QtWidgets import QComboBox as _Cmb
 
         from app.gif import MP4_SIZES
@@ -218,6 +237,65 @@ class ExportDialog(QDialog):
         self.lbl_gifspec.setObjectName("subtitleLabel")
         col.addWidget(self.lbl_gifspec)
         self._sync_gifspec_label()
+        # -- clip (session footage): rendered here, not in the MOTION panel --
+        if self._clip_info is not None:
+            col.addWidget(QLabel("Clip (session footage):"))
+            self.lbl_clipinfo = QLabel()
+            self.lbl_clipinfo.setWordWrap(True)
+            self.lbl_clipinfo.setObjectName("subtitleLabel")
+            col.addWidget(self.lbl_clipinfo)
+            try:
+                ci = self._clip_info
+                self.lbl_clipinfo.setText(
+                    f"{ci.get('name', 'clip')} · {ci.get('span', ci.get('frames', 0))}f "
+                    f"@{ci.get('fps', 24)}fps (trim {ci.get('start', 0)}-{ci.get('end', 0)}"
+                    f" = {ci.get('duration', 0.0):.1f}s, dithered)")
+                if ci.get("truncated"):
+                    self.lbl_clipinfo.setText(self.lbl_clipinfo.text() + " · capped at 120f")
+            except Exception:  # noqa: BLE001
+                pass
+            self.chk_clip_gif = QCheckBox("Clip GIF (trimmed range, dithered)")
+            self.chk_clip_mp4 = QCheckBox("Clip MP4 (libx264, dithered)")
+            self.chk_clip_zip = QCheckBox("Clip frame ZIP (PNG sequence)")
+            for chk in (self.chk_clip_gif, self.chk_clip_mp4, self.chk_clip_zip):
+                chk.setChecked(False)
+                chk.stateChanged.connect(self._refresh_plan)
+                col.addWidget(chk)
+            if not self._video_ok:
+                self.chk_clip_mp4.setEnabled(False)
+                self.chk_clip_mp4.setToolTip("Settings → Extras → Install video")
+            clip_fps_row = QHBoxLayout()
+            clip_fps_row.addWidget(QLabel("Clip FPS:"))
+            self.spn_clip_fps = QSpinBox()
+            self.spn_clip_fps.setRange(2, 60)
+            try:
+                default_fps = int(clip_fps if clip_fps is not None
+                                  else self._clip_info.get("fps", 24))
+            except (TypeError, ValueError):
+                default_fps = 24
+            self.spn_clip_fps.setValue(max(2, min(60, default_fps)))
+            self.spn_clip_fps.setToolTip("Clip export fps (preview Length = frames / fps)")
+            self.spn_clip_fps.valueChanged.connect(self._refresh_plan)
+            clip_fps_row.addWidget(self.spn_clip_fps)
+            col.addLayout(clip_fps_row)
+            track_row = QHBoxLayout()
+            track_row.addWidget(QLabel("Track:"))
+            self.edit_track = QLineEdit(str(clip_track or ""))
+            self.edit_track.setPlaceholderText("Soundtrack (optional, MP4 only)")
+            self.edit_track.setToolTip("Audio file muxed at MP4 export (-c:v copy -c:a aac, cut at clip end); empty = silent MP4")
+            track_row.addWidget(self.edit_track, 1)
+            self.btn_track = QPushButton("Browse...")
+            self.btn_track.setToolTip("Pick the soundtrack (offline file, never analyzed)")
+            self.btn_track.clicked.connect(self._browse_track)
+            track_row.addWidget(self.btn_track)
+            self.btn_track_clear = QPushButton("X")
+            self.btn_track_clear.setFixedWidth(32)
+            self.btn_track_clear.setToolTip("Clear the soundtrack (back to silent MP4)")
+            self.btn_track_clear.clicked.connect(lambda: self.edit_track.setText(""))
+            track_row.addWidget(self.btn_track_clear)
+            col.addLayout(track_row)
+        else:
+            self.chk_clip_gif = self.chk_clip_mp4 = self.chk_clip_zip = None
         # -- distributor readiness (honest hints, nothing blocked) --
         self.lbl_distro = QLabel()
         self.lbl_distro.setWordWrap(True)
@@ -312,9 +390,14 @@ class ExportDialog(QDialog):
 
             w, h = self._doc_wh()
             note = output_budget_note(w, h)
-            self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
-            self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
-            if note:
+            if not self._still_enabled:
+                self.lbl_dims.setText("— (clip only, no stills)")
+                self.lbl_dims.setToolTip("Open a still to enable the document outputs")
+                set_warning(self.lbl_dims, False)
+            else:
+                self.lbl_dims.setText(f"{w}×{h} (from CANVAS)")
+                self.lbl_dims.setToolTip("Main image renders at the CANVAS document size")
+            if note and self._still_enabled:
                 self.lbl_dims.setText(
                     f"{w}×{h} (from CANVAS) · ⚠ {output_megapixels(w, h):g} MP")
                 self.lbl_dims.setToolTip(
@@ -331,14 +414,17 @@ class ExportDialog(QDialog):
                 quality=int(self.spn_quality.value()),
                 dpi=int(self.spn_dpi.value()),
             )
-            plan = plan_export(
-                self._img, opts, meta=self._meta,
-                has_vector=True, has_gif=True,
-                extra={"vector_cells": self._vector_cells or (0, 0),
-                       "gif_frames": int(go_d["frames"]),
-                       "gif_size": int(go_d["size"]),
-                       "gif_trans": gif_trans, "gif_forms": gif_forms},
-            )
+            if not self._still_enabled or self._img is None:
+                plan = []  # clip-only: no still files planned
+            else:
+                plan = plan_export(
+                    self._img, opts, meta=self._meta,
+                    has_vector=True, has_gif=True,
+                    extra={"vector_cells": self._vector_cells or (0, 0),
+                           "gif_frames": int(go_d["frames"]),
+                           "gif_size": int(go_d["size"]),
+                           "gif_trans": gif_trans, "gif_forms": gif_forms},
+                )
         except ValueError:
             plan = []
         self.list_files.clear()
@@ -464,6 +550,23 @@ class ExportDialog(QDialog):
             self.list_files.addItem(f"{safe}_sp404.bmp (128×64 1-bit · ~1KB)")
             total += 2048
             n += 1
+        clip_names = []
+        if getattr(self, "_clip_info", None) is not None:
+            try:
+                from app.ui.clip_controller import clip_names as _clip_names
+
+                safe = sanitize_base(self.edit_base.text().strip() or "cover")
+                for kind, want in (("gif", self.chk_clip_gif.isChecked()),
+                                   ("mp4", self.chk_clip_mp4.isChecked()
+                                    and self._video_ok),
+                                   ("zip", self.chk_clip_zip.isChecked())):
+                    if want:
+                        fname = _clip_names(safe)[kind]
+                        clip_names.append(fname)
+                        self.list_files.addItem(f"{fname}  (clip, rendered at export)")
+                        n += 1
+            except Exception:  # noqa: BLE001
+                clip_names = []
         self.lbl_total.setText(f"{n} file(s) · {_fmt_size(total)} total (approx)")
         self.btn_export.setEnabled(n > 0)
         try:
@@ -497,6 +600,12 @@ class ExportDialog(QDialog):
                     clashing += sum(1 for _ in dest.glob(f"{safe}_sep_*.png"))
                 except OSError:
                     pass
+            for fname in clip_names:
+                try:
+                    if (dest / fname).exists():
+                        clashing += 1
+                except OSError:
+                    pass
         except OSError:
             clashing = 0
         notes = []
@@ -511,6 +620,33 @@ class ExportDialog(QDialog):
         d = QFileDialog.getExistingDirectory(self, "Export folder", self.edit_dir.text())
         if d:
             self.edit_dir.setText(d)
+
+    def _browse_track(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Soundtrack (MP4 only, optional)",
+            "", "Audio (*.mp3 *.wav *.ogg *.m4a *.flac *.aac)")
+        if path:
+            self.edit_track.setText(path)
+
+    def clip_options(self) -> dict | None:
+        """Clip export choice (None when no clip or nothing checked).
+
+        {gif, mp4, zip, fps, track}: consumed by export_flow, which owns
+        the render + naming (dialog base, first-free per file).
+        """
+        if getattr(self, "_clip_info", None) is None:
+            return None
+        try:
+            gif = bool(self.chk_clip_gif.isChecked())
+            mp4 = bool(self.chk_clip_mp4.isChecked() and self._video_ok)
+            zip_ = bool(self.chk_clip_zip.isChecked())
+            fps = max(2, min(60, int(self.spn_clip_fps.value())))
+            track = str(self.edit_track.text()).strip()
+        except Exception:  # noqa: BLE001
+            return None
+        if not (gif or mp4 or zip_):
+            return None
+        return {"gif": gif, "mp4": mp4, "zip": zip_, "fps": fps, "track": track}
 
     def _sync_distro_label(self) -> None:
         """Distributor readiness hints (never blocks; honest, not nagging)."""

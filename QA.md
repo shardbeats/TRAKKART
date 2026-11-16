@@ -80,7 +80,7 @@ features/clip.feature     :: 3 scenarios (clip dither deterministic, trim inclus
 ```
 
 Total: 68/68. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 782 tests (641 fast + 141 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Current suite: 785 tests (641 fast + 144 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 
@@ -140,12 +140,20 @@ python -m pytest tests/test_v21_bughunt.py tests/test_clip.py -q -p no:cacheprov
   (byte-identical frames); VFR collapses to an honest CFR (30 real →
   29 reads ≈ duration × N instead of 57 duplicates). `info` fps is the
   effective rate; no UI change (automatic).
+- **Unified clip UX (user request):** clip export moved out of the
+  panel into the Export window (Clip section: GIF/MP4/ZIP + fps + track
+  picker, honest `(clip, rendered at export)` plan rows, collision
+  aware, clip-only with no still open, no prefs/quick pollution). The
+  panel is watch-only: ▶ Play loops the dithered trim, slider scrubs,
+  canvas always dithered. Shared render core (`render_clip_export`).
 - Pins: `tests/test_v21_bughunt.py` (28: thread life-cycle for preview
   / export / watch / pip, project wipe, cache hygiene, corrupt input,
   unknown nframes, ffmpeg-side proxy (`_proxy_dims`), short-track mux,
   partial-file cleanup for mux + encode, collision rename) +
-  `tests/test_clip.py` (2: GIF in-point skip, MP4 input `-ss` + clamps).
-  Gherkin 68 (+1 in-point seek).
+  `tests/test_clip.py` (3: GIF in-point skip, MP4 input `-ss` + clamps,
+  VFR normalization) + `tests/test_ui_export.py` (3: clip dialog
+  section/plan/options, clip-only stills-off, real GIF via
+  `export_flow`). Gherkin 68 (+1 in-point seek).
 
 ## Canvas invariants (nov-2026 bug hunt)
 

@@ -152,10 +152,12 @@ def build_video_section(win, g: QVBoxLayout) -> None:
 
 
 def build_clip_section(win, g: QVBoxLayout) -> None:
-    """Clip import + timeline (v2.0 Fase A): session-only, ≤120f, 720p proxy.
+    """Clip import + timeline: session-only, ≤120f, 720p proxy.
 
-    Source-only scrub here; Fase B dithers per frame with the preset.
-    Batch stays stills-only by design (no clip path there).
+    The canvas shows the clip dithered through the live preset recipe
+    (no raw/proxy toggle: what you see is what the export renders).
+    Export lives in the Export window (File → Export → Clip section);
+    batch stays stills-only by design (no clip path there).
     """
     hlab(g, "Clip (session-only input):")
     open_row = QHBoxLayout()
@@ -184,12 +186,6 @@ def build_clip_section(win, g: QVBoxLayout) -> None:
     win.lbl_clip_info.setWordWrap(True)
     win.lbl_clip_info.setObjectName("subtitleLabel")
     g.addWidget(win.lbl_clip_info)
-    win.chk_clip_dither = QCheckBox("Dithered preview")
-    win.chk_clip_dither.setToolTip("Scrub shows the frame through the current preset recipe (seed = base + index); off = source proxy")
-    win.chk_clip_dither.setChecked(False)
-    win.chk_clip_dither.setEnabled(False)
-    win.chk_clip_dither.stateChanged.connect(lambda _: win._on_clip_dither_toggle())
-    g.addWidget(win.chk_clip_dither)
     trim_row = QHBoxLayout()
     trim_row.addWidget(QLabel("Trim:"))
     win.spn_clip_start = QSpinBox()
@@ -207,55 +203,16 @@ def build_clip_section(win, g: QVBoxLayout) -> None:
     win.lbl_clip_pos.setToolTip("Timeline position (frame / total)")
     trim_row.addWidget(win.lbl_clip_pos, 1)
     g.addLayout(trim_row)
+    play_row = QHBoxLayout()
+    win.btn_clip_play = QPushButton("▶ Play")
+    win.btn_clip_play.setToolTip("Play / pause the trimmed range, dithered (no audio in-app)")
+    win.btn_clip_play.setEnabled(False)
+    win.btn_clip_play.clicked.connect(win._on_clip_playpause)
+    play_row.addWidget(win.btn_clip_play)
     win.sld_clip = QSlider(Qt.Horizontal)
     win.sld_clip.setRange(0, 0)
     win.sld_clip.setEnabled(False)
-    win.sld_clip.setToolTip("Scrub the source proxy (visual only, no audio)")
+    win.sld_clip.setToolTip("Scrub the trimmed range, dithered (visual only, no audio)")
     win.sld_clip.valueChanged.connect(lambda v: win._on_clip_scrub(v))
-    g.addWidget(win.sld_clip)
-    track_row = QHBoxLayout()
-    track_row.addWidget(QLabel("Track:"))
-    from PySide6.QtWidgets import QLineEdit
-
-    win.txt_clip_audio = QLineEdit()
-    win.txt_clip_audio.setPlaceholderText("Soundtrack (optional, MP4 only)")
-    win.txt_clip_audio.setToolTip("Audio file muxed at MP4 export (-c:v copy -c:a aac, cut at clip end); empty = silent MP4")
-    win.txt_clip_audio.setEnabled(False)
-    track_row.addWidget(win.txt_clip_audio, 1)
-    win.btn_clip_audio = QPushButton("Browse...")
-    win.btn_clip_audio.setToolTip("Pick the soundtrack (offline file, never analyzed)")
-    win.btn_clip_audio.setEnabled(False)
-    win.btn_clip_audio.clicked.connect(win._on_clip_audio)
-    track_row.addWidget(win.btn_clip_audio)
-    win.btn_clip_audio_clear = QPushButton("X")
-    win.btn_clip_audio_clear.setFixedWidth(32)
-    win.btn_clip_audio_clear.setToolTip("Clear the soundtrack (back to silent MP4)")
-    win.btn_clip_audio_clear.setEnabled(False)
-    win.btn_clip_audio_clear.clicked.connect(win._on_clip_audio_clear)
-    track_row.addWidget(win.btn_clip_audio_clear)
-    g.addLayout(track_row)
-    exp_row = QHBoxLayout()
-    exp_row.addWidget(QLabel("FPS:"))
-    win.spn_clip_fps = QSpinBox()
-    win.spn_clip_fps.setRange(2, 60)
-    win.spn_clip_fps.setValue(24)
-    win.spn_clip_fps.setToolTip("Clip export fps (preview Length = frames / fps)")
-    win.spn_clip_fps.setEnabled(False)
-    win.spn_clip_fps.valueChanged.connect(lambda _: win._on_clip_range())
-    exp_row.addWidget(win.spn_clip_fps)
-    win.btn_clip_gif = QPushButton("GIF")
-    win.btn_clip_gif.setToolTip("Silent GIF of the trimmed range (dithered)")
-    win.btn_clip_gif.setEnabled(False)
-    win.btn_clip_gif.clicked.connect(lambda: win._on_clip_export("gif"))
-    exp_row.addWidget(win.btn_clip_gif)
-    win.btn_clip_zip = QPushButton("ZIP")
-    win.btn_clip_zip.setToolTip("Frame ZIP: PNG sequence of the trimmed range (dithered)")
-    win.btn_clip_zip.setEnabled(False)
-    win.btn_clip_zip.clicked.connect(lambda: win._on_clip_export("zip"))
-    exp_row.addWidget(win.btn_clip_zip)
-    win.btn_clip_mp4 = QPushButton("MP4")
-    win.btn_clip_mp4.setToolTip("Clip MP4 (dithered, libx264-only; with the track above when set, else silent)")
-    win.btn_clip_mp4.setEnabled(False)
-    win.btn_clip_mp4.clicked.connect(lambda: win._on_clip_export("mp4"))
-    exp_row.addWidget(win.btn_clip_mp4)
-    g.addLayout(exp_row)
+    play_row.addWidget(win.sld_clip, 1)
+    g.addLayout(play_row)

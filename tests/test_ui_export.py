@@ -665,3 +665,59 @@ def test_export_async_worker_writes_bundle(window, tmp_path, qt_app):
         qt_app.processEvents()
     assert (out / "async.png").exists()
     assert "Exported" in window.lbl_status.text()
+
+
+def test_export_dialog_clip_section_plans_and_reports(qt_app, tmp_path):
+    """Clip section: checks add (clip) rows, clip_options reports fps/track."""
+    from app.ui.export_dialog import ExportDialog
+
+    ci = {"name": "v", "frames": 10, "fps": 10, "start": 0, "end": 9,
+          "span": 10, "duration": 1.0, "start_s": 0.0, "truncated": False}
+    dlg = ExportDialog(_img(), {"ratio": "1:1"}, base="d", out_dir=str(tmp_path),
+                       clip_info=ci, clip_fps=10, clip_track="t.mp3")
+    assert dlg.clip_options() is None  # nothing checked yet
+    assert "dithered" in dlg.lbl_clipinfo.text()
+    dlg.chk_clip_gif.setChecked(True)
+    dlg.chk_clip_zip.setChecked(True)
+    opts = dlg.clip_options()
+    assert opts == {"gif": True, "mp4": False, "zip": True, "fps": 10, "track": "t.mp3"}
+    rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
+    assert any(r.startswith("d_clip.gif") for r in rows)
+    assert any(r.startswith("d_frames.zip") for r in rows)
+
+
+def test_export_dialog_clip_only_disables_stills(qt_app, tmp_path):
+    """Clip-only (no still): still outputs off, clip rows still planned."""
+    from app.ui.export_dialog import ExportDialog
+
+    ci = {"name": "v", "frames": 10, "fps": 10, "start": 0, "end": 9,
+          "span": 10, "duration": 1.0, "start_s": 0.0, "truncated": True}
+    dlg = ExportDialog(None, {}, base="d", out_dir=str(tmp_path),
+                       clip_info=ci, still_enabled=False)
+    assert dlg.chk_image.isEnabled() is False
+    assert dlg.chk_image.isChecked() is False
+    assert "capped at 120f" in dlg.lbl_clipinfo.text()
+    dlg.chk_clip_mp4.setEnabled(True)
+    dlg.chk_clip_mp4.setChecked(True)
+    rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
+    assert rows == ["d_clip.mp4  (clip, rendered at export)"]
+    assert dlg.btn_export.isEnabled() is True
+
+
+def test_export_flow_clip_only_writes_gif(window, tmp_path, qt_app):
+    """Export window with a session clip and no still: clip GIF lands."""
+    from PIL import Image as Img
+
+    from app.ui import clip_controller as cc
+    from app.ui import export_flow as ef
+
+    window._clip_frames = [Img.new("RGB", (32, 24), (i * 40, 0, 0)) for i in range(4)]
+    window._clip_info = {"path": "v.mp4", "fps": 10, "frames": 4}
+    window._clip_start, window._clip_end = 0, 3
+    window._clip_audio = ""
+    window.src = None
+    clip = {"gif": True, "mp4": False, "zip": False, "fps": 10, "track": ""}
+    names = ef._run_clip_exports(window, "v", tmp_path, clip, window.current_params())
+    assert names == ["v_clip.gif"]
+    assert (tmp_path / "v_clip.gif").is_file()
+    cc.close_clip(window)

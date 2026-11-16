@@ -69,32 +69,35 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 
 ## Clip import (v2.0)
 
-- **Input:** File → Open clip (MP4/GIF/WebP, ≤120 frames, 720p proxy,
+- **Input:** MOTION → Open clip (MP4/GIF/WebP, ≤120 frames, 720p proxy,
   session-only — never saved into presets, batch stays stills-only).
   Without the video backend the dialog explains the install instead
   of failing. **Start at (s)** sets the in-point: MP4 seeks with a fast
   input `-ss`, GIF/WebP skip frames; past the end fails with a clean
   message. The info line shows `from Xs` plus the source length.
-- **Timeline (MOTION → Clip):** info line (file, fps, trim, `=` length),
-  Trim spins pick the inclusive `[start, end]` range, the slider
-  scrubs the source proxy (visual only, no audio in-app).
-- **Dithered preview:** tick "Dithered preview" to scrub frames through
-  the live preset recipe (seed = base + frame index, so grain/dust
-  flicker per frame — that is the look; untick for the clean proxy).
-  Changing the preset re-renders the current frame (cached per recipe).
-- **Export (FPS spin = trim length):** GIF (silent, `{base}_clip.gif`),
-  ZIP (PNG sequence `{base}_frames.zip`), MP4 (`{base}_clip.mp4`,
-  software H.264 like still MP4s). Pick a Track for music
+- **Watch:** Trim spins pick the inclusive `[start, end]` range; ▶ Play
+  loops it dithered through the live preset (seed = base + frame index,
+  so grain/dust flicker per frame — that is the look), or drag the
+  slider to scrub frame by frame. No audio in-app, ever. The canvas
+  always shows the clip dithered: what you see is what the export
+  renders. Phone (VFR) footage is normalized to a constant fps on
+  import (rounded source rate), so the frame count always matches real
+  time.
+- **Export (File → Export → Clip section):** GIF (`{base}_clip.gif`),
+  MP4 (`{base}_clip.mp4`, software H.264), frame ZIP
+  (`{base}_frames.zip`, PNG sequence) — all dithered over the trimmed
+  range at the Clip FPS shown. Pick a Track for music
   (`-c:v copy -c:a aac`, cut at the *clip* end; video never
   re-encoded); empty track = silent MP4. A shorter track leaves
   silence at the end — it never shortens the video. If the track
-  fails, the silent MP4 is kept. No audio trimming/fades/playback
-  in-app.
+  fails, the silent MP4 is kept. Works with no still open (clip-only
+  export); still outputs stay off in that case. No audio trimming/
+  fades in-app.
 - **Hygiene:** a long source shows "capped at 120f"; File → New
   project (or Close) drops the session clip and its preview cache.
   Exports never overwrite: a second export lands as `base_2`.
-  Phone (VFR) footage is normalized to a constant fps on import
-  (rounded source rate), so the frame count always matches real time.
+  Quick export repeats still bundles only (clip is dialog-only,
+  on purpose).
 
 ## Exporting
 - **File name:** base for all files (weird characters → `_`).

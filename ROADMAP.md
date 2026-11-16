@@ -519,8 +519,9 @@ No new features until the tree is compact and hunted:
   scaling, 120f dither 1.05s (~9ms/frame), GIF/ZIP/MP4 valid; clip
   exports now rename instead of overwriting.
   Pins: `tests/test_v21_bughunt.py` (+28) + `tests/test_clip.py` (+3:
-  in-point GIF/MP4, VFR normalization; suite 782 = 641 fast + 141
-  slow; Gherkin 68).
+  in-point GIF/MP4, VFR normalization) + `tests/test_ui_export.py` (+3:
+  clip Export section; suite 782 → 785 = 641 fast + 144 slow;
+  Gherkin 68).
 - [x] Online research + measurement (nov-2026): proxy downscale moved
   inside ffmpeg (`size=`/`-s` on the reader) instead of decoding native
   frames and resizing in Python: **4K 452MB 12.9s → 1.2s (11x)**, 2GB
@@ -646,6 +647,11 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
 - Clip mux rule: cut at the video duration (`-t`, from a header probe);
   never use `-af apad -shortest` with `-c:v copy` (hangs ffmpeg), and
   never re-encode the video. A failed mux keeps the silent MP4.
+- Clip UX rule (nov-2026, user request): the panel is watch-only (Play
+  + trim + scrub, canvas always dithered); all clip export lives in
+  the Export window (dialog base + first-free names, clip-only without
+  a still, quick export stays stills-only). The render core is shared,
+  never duplicated per surface.
 - MP4 stays software `libx264`-only (HW selector tried and reverted
   pre-release: fake detection, quality mapping, streaming fallback bug).
 - v2.x queue ordered (owner nov-2026): stabilize (compact + bug-hunt)

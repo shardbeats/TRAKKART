@@ -12,6 +12,17 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   Medido en 1080p/38MB real: `start=10s` importa en ~1.0s, píxeles
   distintos al `start=0`. Pins: unit (GIF skip, MP4 `-ss`, clamps) +
   Gherkin +1 (68).
+- Clip unificado (UX, nov-2026, pedido de usuario): el export de clip
+  (GIF/MP4/ZIP + soundtrack) vive en la ventana Export, sección Clip
+  con plan honesto (`(clip, rendered at export)`) y colisiones; funciona
+  sin still abierto (clip-only, stills apagados) y no toca prefs ni el
+  quick export. El panel Clip ahora es solo ver: ▶ Play en bucle del
+  trim + slider, canvas siempre dithered (fuera el toggle
+  "Dithered preview", los 3 botones de export, la fila Track y el spin
+  FPS del panel — el FPS y el track viven en el diálogo). El núcleo de
+  render (`render_clip_export`) se comparte entre ambos caminos.
+  Pins: 3 (sección/plan/opciones del diálogo, clip-only, export real
+  GIF vía `export_flow`).
 - VFR normalizado en el import de clip (candidata v2.x #2): el reader
   lleva siempre `-vf fps=N` (N = fps fuente redondeado, 2–60). En CFR
   es passthrough (verificado: mismos 30 frames, mismos bytes); en VFR
@@ -60,7 +71,8 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
   nframes desconocido, mux con track corto, restos parciales de
   mux/encode, colisión de nombres, proxy escalado en ffmpeg) +
   `tests/test_clip.py` +2 (in-point seek GIF/MP4).
-  Suite: 782 (641 fast + 141 slow). Gherkin 68/68.
+  `tests/test_ui_export.py` +3 (clip dialog section/clip-only/real GIF).
+  Suite: 785 (641 fast + 144 slow). Gherkin 68/68.
 
 ## [Unreleased] - v2.0 Fase A: clip import + timeline (DONE nov-2026)
 ### Added

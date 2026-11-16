@@ -1,7 +1,8 @@
-"""Clip controller (v2.0 Fase A): session-only clip store + timeline scrub.
+"""Clip controller: session-only clip store + timeline scrub + play.
 
-Source-only preview (no dither yet — Fase B reuses render_spec per
-frame). Batch stays stills-only; the clip never touches presets.
+The canvas always shows the clip dithered through the live preset
+(what you see is what the Export window renders). Batch stays
+stills-only; the clip never touches presets.
 """
 
 from __future__ import annotations
@@ -9,6 +10,16 @@ from __future__ import annotations
 
 def has_clip(win) -> bool:
     return bool(getattr(win, "_clip_frames", []))
+
+
+def clip_fps(win) -> int:
+    """Playback/export fps: session clip rate, clamped 2–60."""
+    try:
+        from app.clip import _clamp_fps
+
+        return _clamp_fps(dict(getattr(win, "_clip_info", {}) or {}).get("fps", 24))
+    except Exception:  # noqa: BLE001
+        return 24
 
 
 def trimmed(win) -> list:
@@ -61,6 +72,7 @@ def open_path(win, path) -> bool:
         return False
     finally:
         _busy(win, False)
+    stop(win)
     win._clip_frames = frames
     win._clip_info = info
     win._clip_start = 0
@@ -71,11 +83,6 @@ def open_path(win, path) -> bool:
     try:
         if isinstance(getattr(win, "_clip_dither_cache", None), dict):
             win._clip_dither_cache.clear()
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        win.txt_clip_audio.setText("")
-        win.spn_clip_fps.setValue(max(2, min(60, int(info.get("fps", 24)))))
     except Exception:  # noqa: BLE001
         pass
     sync_ui(win)
@@ -91,13 +98,13 @@ def open_path(win, path) -> bool:
 
 
 def close_clip(win) -> None:
+    stop(win)
     win._clip_frames = []
     win._clip_info = {}
     win._clip_start = 0
     win._clip_end = -1
     win._clip_audio = ""
     try:
-        win.txt_clip_audio.setText("")
         cache = getattr(win, "_clip_dither_cache", None)
         if isinstance(cache, dict):
             cache.clear()
@@ -155,14 +162,11 @@ def show_frame(win, idx: int) -> None:
     if not frames:
         return
     i = max(0, min(len(frames) - 1, int(idx)))
-    frame = frames[i]
-    tag = "proxy"
-    if _dither_on(win):
-        try:
-            frame = dithered_frame(win, i)
-            tag = "dithered"
-        except Exception:  # noqa: BLE001
-            frame = frames[i]
+    try:
+        frame = dithered_frame(win, i)
+    except Exception:  # noqa: BLE001
+        frame = frames[i]
+    n = len(frames)
     try:
         from app.ui.preview_canvas import PREVIEW_MAX_SIDE
         from app.ui.qt_image import pil_to_pixmap
@@ -170,8 +174,8 @@ def show_frame(win, idx: int) -> None:
         win.lbl_res.set_wipe_mode(False)
         win.lbl_res.setPixmap(pil_to_pixmap(frame, max_side=PREVIEW_MAX_SIDE))
         win.lbl_res_title.setText(
-            f"CLIP · {frame.width}x{frame.height} · f{i + 1}/{len(frames)} ({tag})")
-        win.lbl_clip_pos.setText(f"{i + 1}/{len(frames)}")
+            f"CLIP · {frame.width}x{frame.height} · f{i + 1}/{n} (dithered)")
+        win.lbl_clip_pos.setText(f"{i + 1}/{n}")
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -179,6 +183,66 @@ def show_frame(win, idx: int) -> None:
             win.sld_clip.blockSignals(True)
             win.sld_clip.setValue(i)
             win.sld_clip.blockSignals(False)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def playpause(win) -> None:
+    """Toggle trim-range playback (dithered, no audio in-app)."""
+    if not has_clip(win):
+        return
+    playing = not bool(getattr(win, "_clip_playing", False))
+    win._clip_playing = playing
+    try:
+        win.btn_clip_play.setText("⏸ Pause" if playing else "▶ Play")
+    except Exception:  # noqa: BLE001
+        pass
+    timer = getattr(win, "_clip_timer", None)
+    if playing and timer is not None:
+        try:
+            timer.setInterval(max(33, 1000 // max(1, clip_fps(win))))
+            if not timer.isActive():
+                timer.start()
+        except Exception:  # noqa: BLE001
+            pass
+    elif timer is not None:
+        try:
+            timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def next_frame(win) -> None:
+    """Timer tick: advance within the trim range, loop at the end."""
+    if not bool(getattr(win, "_clip_playing", False)):
+        return
+    if not has_clip(win):
+        stop(win)
+        return
+    n = len(win._clip_frames)
+    try:
+        s = max(0, min(n - 1, int(win._clip_start)))
+        e = max(0, min(n - 1, int(win._clip_end)))
+    except Exception:  # noqa: BLE001
+        s, e = 0, n - 1
+    try:
+        cur = int(win.sld_clip.value())
+    except Exception:  # noqa: BLE001
+        cur = s
+    nxt = cur + 1 if cur < e else s
+    scrub(win, nxt)
+
+
+def stop(win) -> None:
+    win._clip_playing = False
+    try:
+        timer = getattr(win, "_clip_timer", None)
+        if timer is not None:
+            timer.stop()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        win.btn_clip_play.setText("▶ Play")
     except Exception:  # noqa: BLE001
         pass
 
@@ -212,13 +276,6 @@ def _replace(src, dst) -> None:
     except OSError:
         pass
     s.replace(d)
-
-
-def _dither_on(win) -> bool:
-    try:
-        return bool(win.chk_clip_dither.isChecked())
-    except Exception:  # noqa: BLE001
-        return False
 
 
 def _recipe_key(win):
@@ -264,24 +321,12 @@ def dithered_frame(win, idx: int):
     return out
 
 
-def toggle_dither(win) -> None:
-    if _dither_on(win):
-        cache = getattr(win, "_clip_dither_cache", None)
-        if isinstance(cache, dict):
-            cache.clear()
-    try:
-        cur = int(win.sld_clip.value())
-    except Exception:  # noqa: BLE001
-        cur = int(getattr(win, "_clip_start", 0) or 0)
-    show_frame(win, cur)
-
-
 def note_preset_changed(win) -> None:
     """Refresh hook: stale dither cache drops, live frame re-renders.
 
     Called at the top of refresh(); cheap when no clip (one hasattr).
     """
-    if not has_clip(win) or not _dither_on(win):
+    if not has_clip(win):
         return
     cache = getattr(win, "_clip_dither_cache", None)
     key = _recipe_key(win)
@@ -320,10 +365,8 @@ def sync_info(win) -> None:
 def sync_ui(win) -> None:
     on = has_clip(win)
     n = len(getattr(win, "_clip_frames", []) or [])
-    for attr in ("btn_clip_close", "spn_clip_start", "spn_clip_end", "sld_clip",
-                 "chk_clip_dither", "txt_clip_audio", "btn_clip_audio",
-                 "btn_clip_audio_clear", "spn_clip_fps", "btn_clip_gif",
-                 "btn_clip_zip", "btn_clip_mp4"):
+    for attr in ("btn_clip_close", "spn_clip_start", "spn_clip_end",
+                 "sld_clip", "btn_clip_play"):
         try:
             getattr(win, attr).setEnabled(on)
         except Exception:  # noqa: BLE001
@@ -353,15 +396,18 @@ def sync_ui(win) -> None:
     sync_info(win)
 
 
-def _export_fps(win) -> int:
+def _export_fps(win, fps: int | None = None) -> int:
+    """Clip fps for export/playback: explicit value wins, then session rate."""
+    if fps is not None:
+        try:
+            return max(2, min(60, int(fps)))
+        except (TypeError, ValueError):
+            pass
     try:
         return max(2, min(60, int(win.spn_clip_fps.value())))
     except Exception:  # noqa: BLE001
         pass
-    try:
-        return max(2, min(60, int(dict(getattr(win, "_clip_info", {}) or {}).get("fps", 24))))
-    except Exception:  # noqa: BLE001
-        return 24
+    return clip_fps(win)
 
 
 def pick_audio(win) -> None:
@@ -413,10 +459,76 @@ def _free_path(path):
     return p
 
 
-def export_clip(win, kind: str) -> None:
+def clip_names(base: str) -> dict:
+    """Export filenames per kind for a base (dialog plan + collisions)."""
+    return {"gif": f"{base}_clip.gif", "zip": f"{base}_frames.zip",
+            "mp4": f"{base}_clip.mp4"}
+
+
+def render_clip_export(win, kind: str, preset, span: list, fps: int,
+                       out, track: str = ""):
+    """Render one clip export (no dialogs; raises on error). Returns the path.
+
+    `out` is the exact destination; callers own the naming policy
+    (panel: first-free `_free_path`; Export window: dialog base+rename).
+    """
+    from pathlib import Path
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not list(span or []):
+        raise ValueError("Empty trim range.")
+    if kind == "gif":
+        from app.clip import dither_clip
+        from app.gif import save_gif
+
+        return save_gif(dither_clip(list(span), preset), out, fps=fps)
+    if kind == "zip":
+        from app.clip import dither_clip, save_clip_zip
+
+        return save_clip_zip(dither_clip(list(span), preset), out)
+    if kind == "mp4":
+        from app.clip import iter_dither_clip, mux_soundtrack, write_clip_mp4
+
+        silent = out.parent / f"{out.stem}_silent.mp4"
+        try:
+            write_clip_mp4(iter_dither_clip(list(span), preset), silent, fps=fps)
+        except Exception:
+            # No half-written MP4 left behind (ffmpeg failure).
+            try:
+                silent.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+        track = str(track or "").strip()
+        if track and Path(track).is_file():
+            try:
+                mux_soundtrack(silent, track, out)
+            except Exception as mux_exc:  # noqa: BLE001
+                # Never lose the encoded video because the track
+                # failed: fall back to the silent export.
+                _replace(silent, out)
+                raise RuntimeError(
+                    f"soundtrack failed ({mux_exc}); exported silent"
+                ) from mux_exc
+            finally:
+                try:
+                    silent.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        else:
+            _replace(silent, out)
+        return out
+    raise ValueError(f"Unknown clip export: {kind}")
+
+
+def export_clip(win, kind: str, fps: int | None = None, track: str | None = None,
+                base: str | None = None, out_dir=None):
     """Session-clip export: silent GIF, frame ZIP, MP4 (+track when set).
 
-    Batch stays stills-only: this path never touches batch_flow.
+    Panel path (explicit args are for the Export window): dialogs here,
+    render in `render_clip_export`. Batch stays stills-only: this path
+    never touches batch_flow. Returns the written path (None on cancel).
     """
     from pathlib import Path
 
@@ -424,90 +536,53 @@ def export_clip(win, kind: str) -> None:
 
     if not has_clip(win):
         QMessageBox.information(win, "TRAKKART", "Open a clip first.")
-        return
+        return None
     span = trimmed(win)
     if not span:
         QMessageBox.information(win, "TRAKKART", "Empty trim range.")
-        return
-    fps = _export_fps(win)
-    base = _clip_base(win)
-    out_dir = Path(getattr(win, "out_dir", "."))
+        return None
+    fps = _export_fps(win, fps)
+    base = base or _clip_base(win)
+    out_dir = Path(out_dir if out_dir is not None else getattr(win, "out_dir", "."))
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
         preset = win.current_params()
     except Exception as e:  # noqa: BLE001
         QMessageBox.warning(win, "TRAKKART", f"Export error: {e}")
-        return
+        return None
+    if track is None:
+        track = str(getattr(win, "_clip_audio", "") or "").strip()
     try:
-        from app.clip import dither_clip, iter_dither_clip
-
         _busy(win, True, f"Exporting clip ({kind})... {len(span)}f @{fps}fps")
         try:
-            if kind == "gif":
-                from app.gif import save_gif
-
-                out = _free_path(out_dir / f"{base}_clip.gif")
-                save_gif(dither_clip(span, preset), out, fps=fps)
-            elif kind == "zip":
-                from app.clip import save_clip_zip
-
-                out = _free_path(out_dir / f"{base}_frames.zip")
-                save_clip_zip(dither_clip(span, preset), out)
-            elif kind == "mp4":
-                from app.clip import mux_soundtrack, write_clip_mp4
-
-                out = _free_path(out_dir / f"{base}_clip.mp4")
-                silent = out_dir / f"{out.stem}_silent.mp4"
-                try:
-                    write_clip_mp4(iter_dither_clip(span, preset), silent, fps=fps)
-                except Exception:
-                    # No half-written MP4 left behind (ffmpeg failure).
-                    try:
-                        silent.unlink(missing_ok=True)
-                    except OSError:
-                        pass
-                    raise
-                track = str(getattr(win, "_clip_audio", "") or "").strip()
-                if track and Path(track).is_file():
-                    try:
-                        mux_soundtrack(silent, track, out)
-                    except Exception as mux_exc:  # noqa: BLE001
-                        # Never lose the encoded video because the track
-                        # failed: fall back to the silent export.
-                        _replace(silent, out)
-                        raise RuntimeError(
-                            f"soundtrack failed ({mux_exc}); exported silent"
-                        ) from mux_exc
-                    finally:
-                        try:
-                            silent.unlink(missing_ok=True)
-                        except OSError:
-                            pass
-                else:
-                    _replace(silent, out)
-            else:
-                QMessageBox.warning(win, "TRAKKART", f"Unknown clip export: {kind}")
-                return
+            out = _free_path(out_dir / clip_names(base)[kind])
+            render_clip_export(win, kind, preset, span, fps, out, track)
         finally:
             _busy(win, False)
+    except KeyError:
+        QMessageBox.warning(win, "TRAKKART", f"Unknown clip export: {kind}")
+        return None
     except Exception as e:  # noqa: BLE001
         try:
             from app.video_io import VideoBackendMissing
 
             if isinstance(e, VideoBackendMissing):
                 QMessageBox.warning(win, "TRAKKART", str(e))
-                return
+                return None
         except ImportError:
             pass
         QMessageBox.warning(win, "TRAKKART", f"Clip export error: {e}")
-        return
+        return None
     try:
         win._status(f"Clip {kind} exported: {out.name} ({len(span)}f @{fps}fps)")
     except Exception:  # noqa: BLE001
         pass
+    return out
 
 
-__all__ = ["has_clip", "trimmed", "open_dialog", "open_path", "close_clip",
-           "set_range", "scrub", "show_frame", "sync_info", "sync_ui",
-           "dithered_frame", "toggle_dither", "note_preset_changed",
-           "pick_audio", "clear_audio", "export_clip"]
+__all__ = ["has_clip", "clip_fps", "trimmed", "open_dialog", "open_path",
+           "close_clip", "set_range", "scrub", "show_frame", "playpause",
+           "next_frame", "stop", "sync_info", "sync_ui",
+           "dithered_frame", "note_preset_changed",
+           "pick_audio", "clear_audio", "clip_names", "render_clip_export",
+           "export_clip"]
