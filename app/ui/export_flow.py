@@ -17,6 +17,7 @@ def _gif_opts_from_prefs(prefs) -> dict:
             "mp4_size": getattr(prefs, "mp4_size", "1080p"),
             "mp4": getattr(prefs, "mp4", False),
             "webp": getattr(prefs, "webp", False),
+            "apng": getattr(prefs, "apng", False),
             "tiff": getattr(prefs, "tiff", False),
             "social": getattr(prefs, "social", False),
             "sep": getattr(prefs, "sep", False),
@@ -30,7 +31,7 @@ def _gif_opts_from_preset(preset) -> dict:
             "size": int(getattr(preset, "gif_size", 1200)),
             "pingpong": bool(getattr(preset, "gif_pingpong", False)),
             "mp4_size": "1080p",
-            "mp4": False, "webp": False, "tiff": False, "social": False,
+            "mp4": False, "webp": False, "apng": False, "tiff": False, "social": False,
             "sep": False, "sep_trap": False, "sp404": False}
 
 
@@ -100,6 +101,7 @@ def export(win, quick: bool = False) -> None:
                 mp4=bool(gopts_prefs.get("mp4", False)),
                 mp4_size=str(gopts_prefs.get("mp4_size", "1080p")),
                 webp=bool(gopts_prefs.get("webp", False)),
+                apng=bool(gopts_prefs.get("apng", False)),
                 tiff=bool(gopts_prefs.get("tiff", False)),
                 social=bool(gopts_prefs.get("social", False)),
                 dpi=int(getattr(prefs, "dpi", 300) or 300),
@@ -129,7 +131,7 @@ def export(win, quick: bool = False) -> None:
         init_gopts = _gif_opts_from_preset(preset)
         if prefs.out_dir and prefs_match:
             init_gopts["mp4_size"] = getattr(prefs, "mp4_size", "1080p")
-            for key in ("mp4", "webp", "tiff", "social", "sep", "sep_trap", "sp404"):
+            for key in ("mp4", "webp", "apng", "tiff", "social", "sep", "sep_trap", "sp404"):
                 init_gopts[key] = bool(getattr(prefs, key, False))
         if getattr(win, "_video_on", False):
             # VIDEO preview is ON: the user is watching motion, so the dialog
@@ -150,6 +152,7 @@ def export(win, quick: bool = False) -> None:
             mp4_size=str(init_gopts.get("mp4_size", "1080p")),
             mp4=bool(init_gopts.get("mp4", False)),
             webp=bool(init_gopts.get("webp", False)),
+            apng=bool(init_gopts.get("apng", False)),
             tiff=bool(init_gopts.get("tiff", False)),
             social=bool(init_gopts.get("social", False)),
             dpi=int(init_dpi),
@@ -174,6 +177,7 @@ def export(win, quick: bool = False) -> None:
         choice = resolve_collision(win, out_dir, options,
                                    want_mp4=bool(gopts.get("mp4", False)),
                                    want_webp=bool(gopts.get("webp", False)),
+                                   want_apng=bool(gopts.get("apng", False)),
                                    want_tiff=bool(gopts.get("tiff", False)),
                                    want_social=bool(gopts.get("social", False)),
                                    want_sep=bool(gopts.get("sep", False)),
@@ -188,6 +192,7 @@ def export(win, quick: bool = False) -> None:
             mp4=bool(gopts.get("mp4", False)),
             mp4_size=str(gopts.get("mp4_size", "1080p")),
             webp=bool(gopts.get("webp", False)),
+            apng=bool(gopts.get("apng", False)),
             tiff=bool(gopts.get("tiff", False)),
             social=bool(gopts.get("social", False)),
             dpi=int(options.dpi),
@@ -205,6 +210,7 @@ def export(win, quick: bool = False) -> None:
                 vector=options.selection.vector, anim=options.selection.anim,
                 metadata=options.selection.metadata,
                 webp=bool(gopts.get("webp", False)),
+                apng=bool(gopts.get("apng", False)),
                 tiff=bool(gopts.get("tiff", False)),
                 social=bool(gopts.get("social", False)),
                 sep=bool(gopts.get("sep", False)),
@@ -225,7 +231,7 @@ def export(win, quick: bool = False) -> None:
 
 
 def resolve_collision(win, out_dir, options, want_mp4: bool = False,
-                      want_webp: bool = False, want_tiff: bool = False,
+                      want_webp: bool = False, want_apng: bool = False, want_tiff: bool = False,
                       want_social: bool = False,
                       want_sep: bool = False,
                       want_clip: dict | None = None) -> str | None:
@@ -246,6 +252,10 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
         names["video"] = mp4_name(options.base)
     if want_webp:
         names["webp"] = webp_name(options.base)
+    if want_apng:
+        from app.exporter import apng_name as _apng_name
+
+        names["apng"] = _apng_name(options.base)
     if want_tiff:
         from app.exporter import tiff_name as _tiff_name
 
@@ -422,6 +432,7 @@ def on_export_error(win, msg: str) -> None:
 
 
 def _wants_stills(selection, mp4: bool, webp: bool,
+                  apng: bool,
                   tiff: bool, social: bool, sep: bool, sp404: bool) -> bool:
     """Any still output on (image/thumb/vector/anim/meta + extras)."""
     try:
@@ -432,7 +443,7 @@ def _wants_stills(selection, mp4: bool, webp: bool,
     except Exception:  # noqa: BLE001
         return True
     try:
-        if any((mp4, webp, tiff, social, sep, sp404)):
+        if any((mp4, webp, apng, tiff, social, sep, sp404)):
             return True
     except Exception:  # noqa: BLE001
         return True
@@ -512,6 +523,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
                      quality: int, mp4: bool = False,
                      mp4_size: str = "1080p",
                      webp: bool = False,
+                     apng: bool = False,
                      tiff: bool = False, dpi: int = 300,
                      social: bool = False,
                      sep: bool = False, sep_trap: bool = False,
@@ -531,7 +543,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
     go = dict(gif_opts) if isinstance(gif_opts, dict) else {"frames": gif_opts}
     mode_go = str(go.get("mode", "both"))
     clip_names = _run_clip_exports(win, base, out_dir, clip, preset)
-    if not _wants_stills(selection, mp4, webp, tiff, social, sep, sp404):
+    if not _wants_stills(selection, mp4, webp, apng, tiff, social, sep, sp404):
         # Clip-only export (no still open): still bundle skipped.
         if clip_names:
             show_exported(win, Path(out_dir).resolve(), clip_names)
@@ -555,6 +567,7 @@ def _run_export_sync(win, base: str, out_dir, selection, gif_opts: dict,
             mp4_fps=int(go.get("fps", 8)),
             mp4_size=str(go.get("mp4_size", mp4_size)),
             webp=bool(webp),
+            apng=bool(apng),
             tiff=bool(tiff),
             dpi=int(dpi or 300),
             social=bool(social),
@@ -584,6 +597,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
                quality: int, mp4: bool = False,
                mp4_size: str = "1080p",
                webp: bool = False,
+               apng: bool = False,
                tiff: bool = False, dpi: int = 300,
                social: bool = False,
                sep: bool = False, sep_trap: bool = False,
@@ -607,7 +621,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     if bool(_sync) or bool(getattr(win, "_export_sync", False)):
         _run_export_sync(win, base, out_dir, selection, gif_opts,
                          overwrite, size, format, quality, mp4,
-                         mp4_size, webp, tiff, dpi, social, sep, sep_trap, sp404,
+                         mp4_size, webp, apng, tiff, dpi, social, sep, sep_trap, sp404,
                          clip=clip)
         return
     running = getattr(win, "_export_worker", None)
@@ -631,7 +645,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
     # Clip files render synchronously first (same pass as the dialog plan);
     # stills follow on the worker (or not at all when clip-only).
     clip_names = _run_clip_exports(win, base, out_dir, clip, preset)
-    if not _wants_stills(selection, mp4, webp, tiff, social, sep, sp404):
+    if not _wants_stills(selection, mp4, webp, apng, tiff, social, sep, sp404):
         from pathlib import Path as _P
 
         show_exported(win, _P(out_dir).resolve(), clip_names)
@@ -666,7 +680,7 @@ def run_export(win, base: str, out_dir, selection, gif_opts: dict,
         size=int(size), format=str(format), quality=int(quality),
         mp4=bool(mp4), mp4_fps=int(go.get("fps", 8)),
         mp4_size=str(go.get("mp4_size", mp4_size)),
-        webp=bool(webp), tiff=bool(tiff), dpi=int(dpi or 300),
+        webp=bool(webp), apng=bool(apng), tiff=bool(tiff), dpi=int(dpi or 300),
         social=bool(social),
         sep=bool(sep), sep_trap=bool(sep_trap), morph_src=morph_snapshot,
         sp404=bool(sp404), envelopes=env_snapshot,

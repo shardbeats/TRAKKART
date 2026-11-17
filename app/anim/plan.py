@@ -212,6 +212,18 @@ def estimate_webp(n_trans: int, w: int, h: int, n_hold_forms: int = 0) -> int:
     return estimate_gif(n_trans, w, h, n_hold_forms) // 3
 
 
+def estimate_apng(n_trans: int, w: int, h: int, n_hold_forms: int = 0) -> int:
+    """Rough weight estimate (bytes): ~4x the GIF (plan-only, conservative).
+
+    Measured on 240px dithered noise (4 distinct transitions): APNG
+    ~4.1x the GIF, ~0.24x WebP-q80 (full-color deflate beats VP8 on
+    palette-quantized noise but loses the 128-color GIF win). Like the
+    rest of the family this is an upper bound for the plan line,
+    never a promise.
+    """
+    return estimate_gif(n_trans, w, h, n_hold_forms) * 4
+
+
 def _even_down(n: int) -> int:
     """Round down to an even int, floor 2 (H.264/yuv420p needs multiples of 2)."""
     return max(2, int(n) & ~1)

@@ -2,6 +2,13 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.13.0] - 2026-11-17 — APNG animado (v2.x #8)
+- Extra solo-diálogo `{base}_anim.png`: mismos frames que el GIF, a
+  todo color como WebP (Pillow, sin deps; el primer frame sirve de
+  still). Estimador ~4x GIF medido en ruido dithered, línea de plan
+  honesta. Pins: `tests/test_apng.py` (4) + Gherkin +1
+  (export.feature). Docs (MANUAL/ROADMAP), gates 5/5, flake8 0.
+
 ## [2.12.0] - 2026-11-17 — cross-dissolve opt-in (v2.x #7)
 - `app.xfade`: mezclas lineales entre frames de clip/dissolve
   (numpy, determinista; `xfade` 0..1 x `xfade_steps`, con cap que

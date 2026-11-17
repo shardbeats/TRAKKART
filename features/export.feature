@@ -20,3 +20,8 @@ Feature: Palettes and export
     Given a 128x128 solid test image
     When I export the image with base "smoke"
     Then every PNG weighs more than 500 bytes
+
+  Scenario: Animated APNG mirrors the GIF frames in full color
+    Given a 128x128 solid test image
+    When I save the still as APNG with 3 frames
+    Then the APNG holds 3 frames and weighs more than 100 bytes

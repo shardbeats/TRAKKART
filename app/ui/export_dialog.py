@@ -66,6 +66,7 @@ class ExportDialog(QDialog):
         mp4_size: str = "1080p",
         mp4: bool = False,
         webp: bool = False,
+        apng: bool = False,
         tiff: bool = False,
         social: bool = False,
         dpi: int = 300,
@@ -189,6 +190,9 @@ class ExportDialog(QDialog):
         self.chk_webp = QCheckBox("Animated WebP")
         self.chk_webp.setChecked(bool(webp))
         self.chk_webp.setToolTip("Same frames as the GIF, ~1/3 the weight, full color (Pillow only)")
+        self.chk_apng = QCheckBox("Animated PNG (APNG)")
+        self.chk_apng.setChecked(bool(apng))
+        self.chk_apng.setToolTip("Same frames as the GIF, full color like WebP (Pillow only; first frame doubles as the still)")
         self.chk_tiff = QCheckBox("Print TIFF (LZW)")
         self.chk_tiff.setChecked(bool(tiff))
         self.chk_tiff.setToolTip("Full-doc lossless TIFF with DPI tags for stores/print")
@@ -216,13 +220,13 @@ class ExportDialog(QDialog):
             self.chk_mp4.setEnabled(False)
             self.chk_mp4.setToolTip("Settings → Extras → Install video")
         for chk in (self.chk_image, self.chk_thumb,
-                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
+                    self.chk_vector, self.chk_anim, self.chk_webp, self.chk_apng, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
                     self.chk_black, self.chk_mp4, self.chk_sp404):
             chk.stateChanged.connect(self._refresh_plan)
         if not self._still_enabled:
             # Clip-only export (no still open): still outputs stay off.
             for chk in (self.chk_image, self.chk_thumb,
-                        self.chk_vector, self.chk_anim, self.chk_webp, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
+                        self.chk_vector, self.chk_anim, self.chk_webp, self.chk_apng, self.chk_tiff, self.chk_social, self.chk_sep, self.chk_trap, self.chk_meta,
                         self.chk_black, self.chk_mp4, self.chk_sp404, self.chk_lossless):
                 try:
                     chk.setChecked(False)
@@ -244,7 +248,7 @@ class ExportDialog(QDialog):
             grid.addWidget(chk, i // 2, i % 2)
         col.addLayout(grid)
         hlab(col, "Motion:")
-        for chk in (self.chk_anim, self.chk_webp, self.chk_mp4):
+        for chk in (self.chk_anim, self.chk_webp, self.chk_apng, self.chk_mp4):
             col.addWidget(chk)
         from PySide6.QtWidgets import QComboBox as _Cmb
 
@@ -629,6 +633,7 @@ class ExportDialog(QDialog):
             total += est
         n = len(plan)
         webp_fname = ""
+        apng_fname = ""
         mp4_fname = ""
         mp4_hint = ""
         if self.chk_mp4.isChecked() and self._video_ok:
@@ -693,6 +698,24 @@ class ExportDialog(QDialog):
                 webp_fname = webp_name(sanitize_base(self.edit_base.text().strip() or "cover"))
                 self.list_files.addItem(f"{webp_fname}  ({_fmt_size(est_w)} · {dw}×{dh})")
                 total += est_w
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
+        if self.chk_apng.isChecked():
+            try:
+                from app.gif import estimate_apng
+                from app.exporter import apng_name
+
+                dw, dh = self._doc_wh()
+                if gif_trans is None:
+                    go = self._gif_opts()
+                    n_trans_a, forms_a = int(go["frames"]), 0
+                else:
+                    n_trans_a, forms_a = gif_trans, gif_forms
+                est_a = estimate_apng(n_trans_a, dw, dh, forms_a)
+                apng_fname = apng_name(sanitize_base(self.edit_base.text().strip() or "cover"))
+                self.list_files.addItem(f"{apng_fname}  ({_fmt_size(est_a)} · {dw}×{dh})")
+                total += est_a
                 n += 1
             except Exception:  # noqa: BLE001
                 pass
@@ -845,6 +868,8 @@ class ExportDialog(QDialog):
                 clashing += 1
             if webp_fname and (dest / webp_fname).exists():
                 clashing += 1
+            if apng_fname and (dest / apng_fname).exists():
+                clashing += 1
             if self.chk_tiff.isChecked():
                 try:
                     from app.exporter import tiff_name as _tiff_name
@@ -979,6 +1004,7 @@ class ExportDialog(QDialog):
         g["pingpong"] = bool(g.get("pingpong", False))
         g["mp4"] = bool(self.chk_mp4.isChecked() and self._video_ok)
         g["webp"] = bool(self.chk_webp.isChecked())
+        g["apng"] = bool(self.chk_apng.isChecked())
         g["tiff"] = bool(self.chk_tiff.isChecked())
         g["social"] = bool(self.chk_social.isChecked())
         g["sep"] = bool(self.chk_sep.isChecked())

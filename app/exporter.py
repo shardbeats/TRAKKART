@@ -52,6 +52,15 @@ def webp_name(base: str) -> str:
     return f"{base}{WEBP_SUFFIX}"
 
 
+# Animated PNG/APNG (v2.x #8): same frames as the GIF, full color.
+APNG_SUFFIX = "_anim.png"
+
+
+def apng_name(base: str) -> str:
+    """`{base}_anim.png` (same frames as the GIF)."""
+    return f"{base}{APNG_SUFFIX}"
+
+
 # Print master (v1.8): full-doc lossless TIFF, dialog-only extra like
 # MP4/WebP (never the main format, so presets/prefs are untouched).
 TIFF_SUFFIX = ".tif"

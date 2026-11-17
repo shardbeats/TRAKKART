@@ -57,7 +57,7 @@ If `coverage` fails, check the HTML report for uncovered lines in `app/`.
 ```
 features/dither.feature   :: 3 scenarios (B&W Bayer, palette Bayer, dispatch)
 features/floyd.feature    :: 1 scenario (B&W Floyd)
-features/export.feature   :: 3 scenarios (palettes, main image + thumb, smoke 500B)
+features/export.feature   :: 4 scenarios (palettes, main image + thumb, smoke 500B, apng mirrors gif)
 features/presets.feature  :: 2 scenarios (roundtrip, bundled never overwritten)
 features/batch.feature    :: 1 scenario (3-image batch, 2 PNGs each)
 features/adjust_text.feature :: 2 scenarios (brightness differs, valid metadata)
@@ -79,8 +79,8 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 features/clip.feature     :: 12 scenarios (clip dither deterministic, trim inclusive range, in-point seek, empty envelopes identical, grain ramp moves, full-length plan, quiet vs noisy estimate, envelope key, short track warns, strip layout, proxy vs source estimate, xfade opt-in)
 ```
 
-Total: 80/80. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 871 tests (721 fast + 150 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Total: 81/81. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 876 tests (726 fast + 150 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

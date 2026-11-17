@@ -90,6 +90,7 @@ class ExportWorker(WorkerBase):
                  mp4: bool = False, mp4_fps: int = 8,
                  mp4_size: str = "1080p",
                  webp: bool = False,
+                 apng: bool = False,
                  tiff: bool = False,
                  social: bool = False,
                  dpi: int = 300,
@@ -116,6 +117,7 @@ class ExportWorker(WorkerBase):
         self.mp4_fps = int(mp4_fps)
         self.mp4_size = str(mp4_size)
         self.webp = bool(webp)
+        self.apng = bool(apng)
         self.tiff = bool(tiff)
         self.social = bool(social)
         self.dpi = int(dpi or 300)
@@ -138,6 +140,7 @@ class ExportWorker(WorkerBase):
             format=self.format, quality=self.quality, mp4=self.mp4,
             mp4_fps=self.mp4_fps, mp4_size=self.mp4_size,
             webp=self.webp, tiff=self.tiff, social=self.social, dpi=self.dpi,
+            apng=self.apng,
             sep=self.sep, sep_trap=self.sep_trap, morph_src=self.morph_src,
             sp404=self.sp404, envelopes=self.envelopes,
         )

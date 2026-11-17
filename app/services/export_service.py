@@ -49,6 +49,7 @@ def export_full(
     mp4_fps: int | None = None,
     mp4_size: str | int | None = None,
     webp: bool = False,
+    apng: bool = False,
     tiff: bool = False,
     social: bool = False,
     sep: bool = False,
@@ -69,6 +70,9 @@ def export_full(
     3000px doc at 60fps doesn't ship hundreds of MB.
     WebP is written as an extra `{base}_anim.webp` with the same frames
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
+    APNG is written as `{base}_anim.png` with the same frames (full
+    color like WebP, heavier on dither noise; first frame doubles as
+    the still for viewers without APNG). Dialog-only like MP4/WebP.
     TIFF is written as an extra `{base}.tif` (full-doc RGB, LZW + DPI
     tags) for stores/print. Dialog-only like MP4/WebP.
     Social pack writes `{base}_social_{yt,916,11}` (1280x720 + 1080x1920
@@ -90,6 +94,7 @@ def export_full(
     want_gif = bool(sel.anim)
     want_mp4 = bool(mp4)
     want_webp = bool(webp)
+    want_apng = bool(apng)
     want_tiff = bool(tiff)
     want_social = bool(social)
     want_sep = bool(sep)
@@ -123,7 +128,7 @@ def export_full(
                   else getattr(preset, "gif_pingpong", False))
     mp4_stream_info: dict | None = None
     mp4_size_eff = str(mp4_size) if mp4_size not in (None, "") else "1080p"
-    if want_gif or want_mp4 or want_webp or want_sp404:
+    if want_gif or want_mp4 or want_webp or want_apng or want_sp404:
         from app.gif import gif_frames as _gif_frames  # alias: no shadowing of the parameter
 
         # GIF (and short MP4s) keep the capped list path (<=256f, ping-pong
@@ -244,6 +249,21 @@ def export_full(
                     i += 1
             save_webp(frames, webp_path, fps=fps)
             paths["webp"] = webp_path
+    if want_apng and frames:
+        from app.exporter import APNG_SUFFIX, apng_name as _apng_name
+        from app.gif import save_apng
+
+        apng_path = Path(out_dir) / _apng_name(options.base)
+        if overwrite == "skip" and apng_path.exists():
+            skipped = [*skipped, "apng"]
+        else:
+            if overwrite == "rename":
+                i = 2
+                while apng_path.exists():
+                    apng_path = Path(out_dir) / f"{options.base}_{i}{APNG_SUFFIX}"
+                    i += 1
+            save_apng(frames, apng_path, fps=fps)
+            paths["apng"] = apng_path
     if want_tiff:
         from app.exporter import TIFF_SUFFIX, save_tiff_still, tiff_name as _tiff_name
 

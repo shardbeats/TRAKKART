@@ -92,4 +92,30 @@ def save_webp(
     return out
 
 
-__all__ = ["_fit_small", "_pingpong", "save_gif", "save_webp"]
+def save_apng(
+    frames: list[Image.Image],
+    path: str | Path,
+    fps: int = 8,
+    loop: int = 0,
+) -> Path:
+    """Save an animated PNG/APNG (v2.x #8): same frames as the GIF.
+
+    Pillow only, no new deps. Full color like WebP (no 128-color
+    quantize); heavier than WebP on dither noise (deflate vs VP8), so
+    the plan line shows an honest estimate. The first frame doubles
+    as the default image (viewers without APNG show the still).
+    """
+    if not frames:
+        raise ValueError("no frames")
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(fps)))
+    rgb = [f if f.mode == "RGB" else f.convert("RGB") for f in frames]
+    rgb[0].save(
+        str(out), save_all=True, append_images=rgb[1:],
+        duration=max(1, int(1000 / fps)), loop=int(loop),
+    )
+    return out
+
+
+__all__ = ["_fit_small", "_pingpong", "save_gif", "save_webp", "save_apng"]

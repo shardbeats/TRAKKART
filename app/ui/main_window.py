@@ -1363,6 +1363,7 @@ class MainWindow(QMainWindow):
                     quality: int, mp4: bool = False,
                     mp4_size: str = "1080p",
                     webp: bool = False,
+                    apng: bool = False,
                     tiff: bool = False, dpi: int = 300,
                     social: bool = False,
                     sep: bool = False, sep_trap: bool = False,
@@ -1373,5 +1374,5 @@ class MainWindow(QMainWindow):
 
         _ef.run_export(self, base, out_dir, selection, gif_opts,
                        overwrite, size, format, quality, mp4, mp4_size,
-                       webp, tiff, dpi, social, sep, sep_trap,
+                       webp, apng, tiff, dpi, social, sep, sep_trap,
                        sp404=bool(sp404), _sync=_sync, clip=clip)

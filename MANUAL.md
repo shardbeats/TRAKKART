@@ -169,11 +169,14 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   print metadata (pixels never change).
 - **Outputs:** grouped as **Stills** (main image, 1080p thumb, vector SVG,
   black vector, social pack, print TIFF, metadata JSON, lossless),
-  **Motion** (GIF/WebP/MP4) and **Print & device** (separations, RISO trap,
+  **Motion** (GIF/WebP/APNG/MP4) and **Print & device** (separations, RISO trap,
   SP-404 BMP). Nothing is pre-ticked — pick what you need.
   The dialog remembers your picks for next time (Quick export repeats them).
   MP4 has its own size (Canvas/1080p/720p, default 1080p); the dialog
-  shows a weight estimate and warns on heavy files. The animation
+  shows a weight estimate and warns on heavy files. APNG (`{base}_anim.png`,
+  v2.x #8) carries the same frames as the GIF in full color — heavier
+  than WebP on dither noise, but the first frame doubles as the still
+  for viewers without APNG support. The animation
   always follows the live MOTION section. The MOTION proxy (Draft 720p /
   HD 1080p / Full doc) never changes the export; particle density scales
   with the canvas, so Full/doc looks as dense as the smaller previews.

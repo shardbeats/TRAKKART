@@ -63,6 +63,24 @@ def smoke_500(ctx):
         assert p.stat().st_size > 500, p
 
 
+@when("I save the still as APNG with 3 frames")
+def save_apng_3(ctx):
+    from PIL import Image as _Img
+
+    from app.gif import save_apng
+
+    w, h = ctx["img"].size
+    frames = [_Img.new("RGB", (w, h), c) for c in ((255, 0, 0), (0, 255, 0), (0, 0, 255))]
+    ctx["apng"] = save_apng(frames, ctx["tmp"] / "anim.png", fps=8)
+
+
+@then("the APNG holds 3 frames and weighs more than 100 bytes")
+def apng_3(ctx):
+    assert ctx["apng"].stat().st_size > 100
+    back = Image.open(ctx["apng"])
+    assert back.n_frames == 3
+
+
 @when('I export the image with 9:16 ratio')
 def export_916(ctx):
     from app.canvas import canvas_size_for

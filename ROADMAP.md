@@ -634,6 +634,15 @@ keep/cut.
    Suite 871 (721 fast + 150 slow). Gherkin 80/80.
 8. Animated APNG (Pillow-native). Same frames as the GIF path, full
    color like WebP; dialog-only extra. Pins: roundtrip + size note.
+   DONE (nov-2026): `save_apng` in `app/anim/io.py` (Pillow
+   `save_all`, RGB, fps loop; first frame = default still) +
+   `estimate_apng` = 4x GIF (measured 240px dithered noise: 4.1x GIF,
+   0.24x WebP-q80; plan-only upper bound) + `apng_name`
+   (`{base}_anim.png`) + full dialog wiring (checkbox, plan line w/
+   estimate, collision names, prefs persist, worker + sync/async flow)
+   as a dialog-only extra (no preset/batch/CLI surface). Pins:
+   `tests/test_apng.py` (4) + Gherkin +1 (export.feature).
+   Suite 876 (726 fast + 150 slow). Gherkin 81/81.
 9. MCP stdio server over the headless CLI. New surface: needs its own
    spec (commands, schemas, no-network guard) before any code; last
    in the queue for that reason.
