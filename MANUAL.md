@@ -214,6 +214,10 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
 - **RISO trap:** tick "RISO trap (1px ink expand)" with separations to
   grow every ink area by 1px — small misregistrations overprint
   instead of showing white hairlines.
+- **SVG layers (v2.x #6):** the vector SVG groups rect runs one layer
+  per ink (`<g id="ink-RRGGBB">`, rects inherit the group fill) —
+  toggle/extract a spot ink straight from the file, same count as the
+  separation plates. Black-vector stays a single `ink-000000` layer.
 - **CMYK print method:** `rosette` picks the screen assignment
   (standard / alt / single) and `LPI` the ruling in lines/inch at the
   export DPI (0 = off, legacy 8px cell). Both are recipe fields: they

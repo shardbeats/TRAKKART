@@ -139,10 +139,13 @@ def raster_to_svg(
     background: tuple[int, int, int] | None = None,
     ink_only: bool = False,
 ) -> str:
-    """Convert a grid-sized raster to SVG with per-row RLE.
+    """Convert a grid-sized raster to SVG with per-row RLE, grouped per ink.
 
-    ink_only (v1.3 black-vector): skips near-white cells (paper) so the
-    SVG is black ink on transparent, ready for print.
+    One <g id="ink-RRGGBB"> layer per ink (first-appearance order), rects
+    inside inherit the group fill (no per-rect fill). Display + separation
+    reuse: toggle/extract a layer per spot ink. ink_only (v1.3
+    black-vector): skips near-white cells (paper) so the SVG is black ink
+    on transparent, ready for print (single ink-000000 layer).
     """
     rgb = raster.convert("RGB")
     w, h = rgb.size
@@ -154,6 +157,7 @@ def raster_to_svg(
     if background is not None and not ink_only:
         r, g, b = background
         parts.append(f'<rect width="100%" height="100%" fill="#{r:02x}{g:02x}{b:02x}"/>')
+    layers: dict[str, list[str]] = {}
     for y in range(h):
         x = 0
         while x < w:
@@ -167,10 +171,13 @@ def raster_to_svg(
             r, g, b = color
             if ink_only:
                 r, g, b = (0, 0, 0)
-            parts.append(
+            key = f"{r:02X}{g:02X}{b:02X}"
+            layers.setdefault(key, []).append(
                 f'<rect x="{x * cell}" y="{y * cell}" width="{run * cell}" '
-                f'height="{cell}" fill="#{r:02x}{g:02x}{b:02x}"/>'
+                f'height="{cell}"/>'
             )
             x += run
+    for key, rects in layers.items():
+        parts.append(f'<g id="ink-{key}" fill="#{key.lower()}">{"".join(rects)}</g>')
     parts.append("</svg>")
     return "".join(parts)

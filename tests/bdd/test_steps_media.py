@@ -188,6 +188,20 @@ def svg_rects(ctx):
     assert ctx["svg"].count("<rect") == 32  # 16 rows x 2 runs
 
 
+@then("it holds 2 ink layers and 32 rects")
+def svg_layers(ctx):
+    assert ctx["svg"].count("<g ") == 2
+    assert ctx["svg"].count("<rect") == 32
+    assert 'id="ink-FF0000"' in ctx["svg"]
+
+
+@when("I generate the layered SVG with cell 8")
+def gen_svg_layered(ctx):
+    from app.vector import raster_to_svg
+
+    ctx["svg"] = raster_to_svg(ctx["img"], 8)
+
+
 # -- gif.feature --
 @when("I generate 4 frames in phase mode")
 def gen_4(ctx):

@@ -2,6 +2,14 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.11.0] - 2026-11-17 — SVG por capas de tinta (v2.x #6)
+- Vector SVG con una capa `<g id="ink-RRGGBB">` por tinta (fill del
+  grupo, rects heredan; RLE por fila intacto, mismo nº de rects,
+  menos bytes). Reúso directo para separaciones; black-vector en una
+  sola capa `ink-000000`. Pins: `tests/test_svg_layers.py` (6) +
+  Gherkin +1 (vector.feature). Docs (MANUAL/ROADMAP), gates 5/5,
+  flake8 0.
+
 ## [2.10.0] - 2026-11-17 — modos CRT temporales (v2.x #5)
 - MOTION modo `crt` ("CRT drift"): scanline roll + tracking wobble +
   chroma bleed sobre el matrix march (congelado en error-diffusion,

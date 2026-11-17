@@ -66,7 +66,7 @@ features/dnd.feature      :: 2 scenarios (blob is not batch, http download)
 features/canvas.feature   :: 3 scenarios (9:16 export, crop clamp, free Custom 1920x800)
 features/kernels.feature  :: 7 scenarios (Atkinson, blue-noise, halftone, JJN, numba parity, new kernels, Hilbert)
 features/fx.feature       :: 4 scenarios (scanlines, replace-color, duotone, halftone)
-features/vector.feature   :: 1 scenario (valid SVG with rects)
+features/vector.feature   :: 2 scenarios (valid SVG with rects, layered ink groups)
 features/flow.feature     :: 4 scenarios (chromatic aberration, deterministic slice, pixel sort, mosh modes)
 features/gif.feature      :: 3 scenarios (N frames, glitch animates ED, mix ping-pong loop)
 features/safety.feature   :: 2 scenarios (giant image, huge vector)
@@ -79,8 +79,8 @@ features/ux.feature       :: 2 scenarios (viewport modes, heavy presets)
 features/clip.feature     :: 11 scenarios (clip dither deterministic, trim inclusive range, in-point seek, empty envelopes identical, grain ramp moves, full-length plan, quiet vs noisy estimate, envelope key, short track warns, strip layout, proxy vs source estimate)
 ```
 
-Total: 78/78. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
-Current suite: 857 tests (707 fast + 150 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
+Total: 79/79. Steps live in `tests/bdd/test_steps_*.py` by domain (scenarios bound per module), shared givens in `tests/bdd/conftest.py`, `ctx` fixture in `tests/conftest.py`.
+Current suite: 863 tests (713 fast + 150 slow; `slow` = whole files with `pytestmark = pytest.mark.slow`, excluded with `-m "not slow"` in the fast loop).
 `tools/bench.py` is manual (not a gate): B&W 960px ~0.01s, color 960px ~0.02s with numba.
 If you add a scenario, update the `gherkin` gate in `tools/quality_metrics.py` and this file.
 

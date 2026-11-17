@@ -9,3 +9,8 @@ Feature: SVG vector
     When I generate the SVG with cell 8
     Then the SVG opens with <svg and closes with </svg>
     And it holds one rect per color run
+
+  Scenario: Vector export groups runs one layer per ink
+    Given a test image with 2 flat colors
+    When I generate the layered SVG with cell 8
+    Then it holds 2 ink layers and 32 rects

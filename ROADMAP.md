@@ -611,6 +611,14 @@ keep/cut.
 6. SVG color-region export (one layer per ink). Vector Pro extension:
    rect runs grouped per palette ink (display + separation reuse).
    Pins: layer count + byte checks.
+   DONE (nov-2026): `raster_to_svg` emits one `<g id="ink-RRGGBB">`
+   layer per ink (first-appearance order, group fill, rects inherit —
+   no per-rect fill); row RLE unchanged so rect counts match legacy
+   (`<rect` totals identical, bytes smaller). Black-vector stays one
+   `ink-000000` layer (paper skipped); optional bg rect stays outside
+   layers. Pins: `tests/test_svg_layers.py` (6) + Gherkin +1
+   (vector.feature 2 escenarios). Suite 863 (713 fast + 150 slow).
+   Gherkin 79/79.
 7. Cross-dissolve frame interpolation (numpy-only motion smoothing).
    Optional smoothing between clip/dissolve frames; strict 0=off,
    default off (flicker stays the aesthetic). Pins: 0=identity,
