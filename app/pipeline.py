@@ -88,6 +88,7 @@ class RenderSpec:
     posterize: int = 0
     split_tone: float = 0.0
     fade: float = 0.0
+    gradient_stops: list | None = None
     glow_threshold: int = 0
     halftone: int = 0
     halftone_shape: str = "dots"
@@ -177,6 +178,8 @@ class RenderSpec:
             posterize=normalize_posterize(int(getattr(preset, "posterize", 0))),
             split_tone=float(getattr(preset, "split_tone", 0.0)),
             fade=float(getattr(preset, "fade", 0.0)),
+            gradient_stops=(__import__("copy").deepcopy(getattr(preset, "gradient_stops", None))
+                            if getattr(preset, "gradient_stops", None) is not None else None),
             glow_threshold=int(getattr(preset, "glow_threshold", 0)),
             halftone=normalize_halftone(int(getattr(preset, "halftone", 0))),
             halftone_shape=str(getattr(preset, "halftone_shape", "dots")),
@@ -278,6 +281,7 @@ class RenderSpec:
                 "posterize": int(getattr(self, "posterize", 0) or 0),
                 "split_tone": float(getattr(self, "split_tone", 0.0) or 0.0),
                 "fade": float(getattr(self, "fade", 0.0) or 0.0),
+                "gradient_map": [list(s) for s in (getattr(self, "gradient_stops", None) or [])],
                 "glow_threshold": int(getattr(self, "glow_threshold", 0) or 0),
             },
             "texture": {

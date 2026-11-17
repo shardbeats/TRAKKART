@@ -825,6 +825,16 @@ class MainWindow(QMainWindow):
 
         _ca.sync_duo_label(self)
 
+    def set_gradient_ramp(self, name: str) -> None:
+        from app.ui import color_actions as _ca
+
+        _ca.set_gradient_ramp(self, name)
+
+    def _sync_gradient_label(self) -> None:
+        from app.ui import color_actions as _ca
+
+        _ca.sync_gradient_label(self)
+
     def pick_border_color(self) -> None:
         from app.ui import color_actions as _ca
 

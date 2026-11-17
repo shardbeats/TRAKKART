@@ -587,6 +587,14 @@ keep/cut.
 4. Multi-stop gradient-map FX (DitherEffect survey, mechanics only).
    New GRADE effect: N ink stops over luminance (duotone with more
    stops), post-dither stack item, strict 0=off. Pins: unit + Gherkin +1.
+   DONE (nov-2026): `app/grade.py::gradient_stops` (piecewise-linear
+   over luminance, <2 valid stops = identity, junk never raises) +
+   `GRADIENT_RAMPS` (Ember/Abyss/Acid/Bone); preset/spec/meta carry
+   `gradient_stops` (`grade.gradient_map` in JSON); FX STACK id
+   `gradient_map` after `fade` (legacy presets byte-identical, off by
+   default); GRADE combo + honest label (named ramp, custom N stops,
+   or off); pins `tests/test_gradient_map.py` (8) + Gherkin +1
+   (fx_stack.feature). Suite 850 (700 fast + 150 slow). Gherkin 77/77.
 5. Temporal CRT/VHS motion modes. New GIF modes (scanline roll,
    tracking wobble, chroma bleed over time) reusing the march/hue
    engine; ED-frozen rule respected (post-fx animation only).

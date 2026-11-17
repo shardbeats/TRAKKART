@@ -233,6 +233,7 @@ FIELDS: tuple[_Field, ...] = (
     _Field("posterize", "int", ("oneof", (0, 2, 3, 4, 5, 6, 7, 8))),
     _Field("split_tone", "float", ("range", 0.0, 100.0)),
     _Field("fade", "float", ("range", 0.0, 100.0)),
+    _Field("gradient_stops", "stack"),
     _Field("glow_threshold", "int", ("range", 0, 255)),
     _Field("halftone", "int", ("oneof", (0, *range(3, 13)))),
     _Field("halftone_shape", "str", ("oneof", ("dots", "lines"))),
@@ -372,6 +373,7 @@ class Preset:
     posterize: int = 0  # 0 = off, 2-8 levels
     split_tone: float = 0.0  # 0-100
     fade: float = 0.0  # 0-100
+    gradient_stops: list | None = None  # N-stop ramp [(pos, hex)]; None/[] = off
     glow_threshold: int = 0  # 0-255, 0 = everything glows
     # -- texture/decay (pack B) --
     halftone: int = 0  # 0 = off, else 3-12 px per cell
@@ -534,6 +536,7 @@ class Preset:
             "posterize": int(self.posterize),
             "split_tone": float(self.split_tone),
             "fade": float(self.fade),
+            "gradient_map": [list(s) for s in (self.gradient_stops or [])],
             "glow_threshold": int(self.glow_threshold),
         }
         m["texture"] = {
@@ -814,6 +817,7 @@ def preset_from_metadata(data: dict, name: str | None = None) -> "Preset":
         "posterize": _get(grade, "posterize", 0),
         "split_tone": _get(grade, "split_tone", 0.0),
         "fade": _get(grade, "fade", 0.0),
+        "gradient_stops": [list(s) for s in (_get(grade, "gradient_map", []) or [])],
         "glow_threshold": _get(grade, "glow_threshold", 0),
         "halftone": _get(texture, "halftone", 0),
         "halftone_shape": str(_get(texture, "halftone_shape", "dots") or "dots"),

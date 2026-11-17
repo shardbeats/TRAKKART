@@ -2,6 +2,14 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.9.0] - 2026-11-17 — gradient-map multistop (v2.x #4)
+- GRADE → Gradient map: rampa de N tintas sobre luminancia (duotone
+  con más paradas: Ember/Abyss/Acid/Bone, Off = bypass) como item del
+  FX STACK post-dither (reordenable); <2 paradas válidas = identidad.
+  Stops planos en preset/meta (`grade.gradient_map`); presets legacy
+  byte-idénticos. Pins: `tests/test_gradient_map.py` (8) + Gherkin +1
+  (fx_stack.feature). Docs (MANUAL/ROADMAP), gates 5/5, flake8 0.
+
 ## [2.8.0] - 2026-11-17 — selector res/calidad MP4 de clip
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)

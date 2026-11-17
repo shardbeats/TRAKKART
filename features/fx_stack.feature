@@ -13,3 +13,8 @@ Feature: Stackable FX pipeline
     Given a 48x48 gradient image
     When I apply JPEG glitch twice with amount 60
     Then both JPEG outputs are identical
+
+  Scenario: Gradient map is deterministic and off-safe
+    Given a 48x48 gradient image
+    When I apply a 3-stop gradient map twice
+    Then both gradient outputs are identical and off is the input

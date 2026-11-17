@@ -19,6 +19,7 @@ log = logging.getLogger("trakkart")
 DEFAULT_FX_ORDER: tuple[str, ...] = (
     "split_tone",
     "fade",
+    "gradient_map",
     "glow",
     "grain",
     "halftone",
@@ -45,6 +46,7 @@ FX_IDS: frozenset[str] = frozenset(DEFAULT_FX_ORDER)
 FX_LABELS: dict[str, str] = {
     "split_tone": "Split tone",
     "fade": "Fade",
+    "gradient_map": "Gradient map",
     "glow": "Halo",
     "grain": "Grain",
     "halftone": "Halftone dots",

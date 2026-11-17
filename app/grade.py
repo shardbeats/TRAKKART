@@ -97,4 +97,64 @@ def fade(img: Image.Image, amount: float = 0.0) -> Image.Image:
     return Image.fromarray(np.clip(arr + lift[..., None], 0, 255).astype(np.uint8))
 
 
-__all__ = ["gradient_map", "posterize", "split_tone", "fade"]
+def normalize_stops(stops) -> list[tuple[float, tuple[int, int, int]]]:
+    """Clean an N-stop ramp: [(pos 0-100, #RRGGBB), ...] -> sorted, valid only.
+
+    Positions clamp to 0-100, bad hex dropped, duplicate positions keep
+    the last stop. <2 valid stops = off (the caller returns the image).
+    Deterministic, never raises on junk (session/UI safety).
+    """
+    clean: dict[float, tuple[int, int, int]] = {}
+    try:
+        seq = list(stops or [])
+    except TypeError:
+        return []
+    for entry in seq:
+        try:
+            pos_raw, color = entry
+            pos = max(0.0, min(100.0, float(pos_raw)))
+            rgb = _parse_hex(str(color or ""))
+        except (TypeError, ValueError):
+            continue
+        if rgb is None:
+            continue
+        clean[pos] = rgb
+    return [(p, clean[p]) for p in sorted(clean)]
+
+
+def gradient_stops(img: Image.Image, stops) -> Image.Image:
+    """Multi-stop gradient map: luminance -> N-ink ramp (piecewise linear).
+
+    Duotone with more stops; runs as a post-dither STACK item (recolors
+    flat dithered art by luminance, like split-tone/fade). <2 valid
+    stops = off (identity). Deterministic numpy, no seeds.
+    """
+    pts = normalize_stops(stops)
+    if len(pts) < 2:
+        return img
+    arr = np.asarray(_rgb(img), dtype=np.float32)
+    lum = np.clip(_luminance(arr), 0.0, 1.0) * 100.0
+    pos = np.array([p for p, _ in pts], dtype=np.float32)
+    inks = np.array([c for _, c in pts], dtype=np.float32)
+    # Piecewise-linear per channel over the stop positions.
+    out = np.empty_like(arr)
+    for ch in range(3):
+        out[..., ch] = np.interp(lum, pos, inks[:, ch])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
+#: Curated ramps for the GRADE combo (engine accepts any N-stop list;
+#: these are just named shortcuts, stored as plain stops in the preset).
+GRADIENT_RAMPS: dict[str, list[tuple[float, str]]] = {
+    "Ember": [(0.0, "#000000"), (45.0, "#7A1F00"), (75.0, "#E8641B"),
+              (100.0, "#FFE9C4")],
+    "Abyss": [(0.0, "#02030A"), (50.0, "#0B2A5B"), (80.0, "#1E90A8"),
+              (100.0, "#D8F6F0")],
+    "Acid": [(0.0, "#0A0A00"), (40.0, "#3F7A00"), (70.0, "#C6F500"),
+             (100.0, "#F4FFE0")],
+    "Bone": [(0.0, "#111111"), (100.0, "#F2F0E8")],
+}
+
+
+__all__ = ["gradient_map", "posterize", "split_tone", "fade",
+           "normalize_stops", "gradient_stops", "GRADIENT_RAMPS"]

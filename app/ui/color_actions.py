@@ -65,6 +65,47 @@ def sync_duo_label(win) -> None:
         win.lbl_duo.setText("(off)")
 
 
+def set_gradient_ramp(win, name: str) -> None:
+    """GRADE combo: named N-stop ramp -> session stops (Off = bypass)."""
+    from app.grade import GRADIENT_RAMPS
+
+    stops = GRADIENT_RAMPS.get(str(name or ""), [])
+    win.gradient_stops = [list(s) for s in stops]
+    sync_gradient_label(win)
+    win.refresh()
+
+
+def sync_gradient_label(win) -> None:
+    """Honest label: named ramp, custom count, or off. Never rewrites stops."""
+    from app.grade import GRADIENT_RAMPS
+
+    try:
+        stops = [list(s) for s in (getattr(win, "gradient_stops", None) or [])]
+    except (TypeError, ValueError):
+        stops = []
+    if not stops:
+        try:
+            win.lbl_gradient.setText("(off)")
+        except Exception:  # noqa: BLE001
+            pass
+        return
+    match = next((n for n, ramp in GRADIENT_RAMPS.items()
+                  if [list(s) for s in ramp] == stops), "")
+    try:
+        win.lbl_gradient.setText(
+            f"{match} · {len(stops)} stops" if match
+            else f"custom · {len(stops)} stops")
+        win.cmb_gradient.blockSignals(True)
+        win.cmb_gradient.setCurrentText(match if match else "Off")
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        try:
+            win.cmb_gradient.blockSignals(False)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def pick_border_color(win) -> None:
     from PySide6.QtWidgets import QColorDialog
 

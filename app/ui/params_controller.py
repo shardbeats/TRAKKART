@@ -760,6 +760,7 @@ def build_params(win):
         export_quality=int(win._export_quality),
         duotone_dark=win.duotone_dark,
         duotone_light=win.duotone_light,
+        gradient_stops=[list(s) for s in (getattr(win, "gradient_stops", None) or [])],
         glitch_slice_max=24,
         fx_stack=normalize_stack(getattr(win, "fx_stack_data", None)),
         motif=read_motif(win),
@@ -829,6 +830,11 @@ def apply_preset(win, name: str) -> None:
     win.duotone_dark = str(p.duotone_dark or "")
     win.duotone_light = str(p.duotone_light or "")
     win._sync_duo_label()
+    try:
+        win.gradient_stops = [list(s) for s in (getattr(p, "gradient_stops", None) or [])]
+    except (TypeError, ValueError):
+        win.gradient_stops = []
+    win._sync_gradient_label()
     win.border_color = str(p.border_color or "#000000")
     win.lbl_border.setText(win.border_color)
     sync_anim_ui(win)

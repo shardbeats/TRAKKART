@@ -36,7 +36,7 @@ product); an **animation** (GIF/MP4) is a loop built from stills. The
 | IMAGE | open, rotate, flip, invert, visual crop, CANVAS size ("SP-404 128×64" button for the Roland OLED canvas), framing: cover / contain / stretch / blur / mirror (mirror wraps edges outward for print bleed) |
 | DITHER | preset, method (incl. `ostromoukhov` variable-coefficient ED for clean midtones + `dizzy` IGN blue-noise-like threshold), serpentine (ED scan alternates per row, less streaks), rosette + LPI (CMYK print: screen assignment + ruling at export DPI), pixel, motif, ascii (charset, columns 20-300, gamma, color mono/source/palette, ink/bg, invert, dither; pixel_size ignored) |
 | COLOR | adjustments, duotone/brand, custom strip, palette library, daltonism preview (View menu), WCAG contrast hints, Lospec offline import |
-| FX | pre/grade/texture/glitch + reorderable effect stack |
+| FX | pre/grade/texture/glitch + reorderable effect stack (incl. multi-stop gradient map) |
 | DATAMOSH | 10 mosh flavors (incl. codec-style bleed/hold/tear) + amount + size + seed |
 | MORPH | particle chain (Add/Remove/Up/Down) + per-leg Repeat ×1-8 + "Loop (last → first)" for a seamless loop. Dissolve controls: Field, Stagger, Ease, Dots, Travel, Path, Match (smooth/hilbert/radial/morton), Dots shape (square/round), Tint (fades as dots disperse), Trail, Amount, Speed, Wind, Seed, Hold, Shade |
 | MOTION | one line, one source: Animate still (procedural) XOR Clip footage (imported, dithered) + Details (timing/proxy/envelopes) + ⚠ Rebuild when the preview is stale |
@@ -74,6 +74,13 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   crops/repeats: never in presets, never in batch. Motion applies to
   still-motion only; Drift + Grain also shape clip footage. Changing a
   curve marks the preview stale (⚠ Rebuild); exports always re-render.
+- **Gradient map (v2.x #4):** GRADE → Gradient map recolors by
+  luminance through an N-stop ink ramp (duotone with more stops:
+  Ember/Abyss/Acid/Bone, Off = bypass). It runs as a post-dither FX
+  STACK item (reorderable, like split-tone/fade); fewer than 2 valid
+  stops is identity. Stored as plain stops in the preset, so it
+  shares/saves like any recipe field; legacy presets render
+  byte-identical.
 
 ## Clip import (v2.0)
 

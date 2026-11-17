@@ -245,6 +245,24 @@ def jpeg_same(ctx):
     assert list(ctx["out_a"].get_flattened_data()) != list(ctx["img"].get_flattened_data())
 
 
+@when("I apply a 3-stop gradient map twice")
+def gradient_twice(ctx):
+    from app.grade import gradient_stops
+
+    stops = [(0.0, "#000000"), (50.0, "#E8641B"), (100.0, "#FFE9C4")]
+    ctx["out_a"] = gradient_stops(ctx["img"], stops)
+    ctx["out_b"] = gradient_stops(ctx["img"], stops)
+    ctx["out_off"] = gradient_stops(ctx["img"], [])
+
+
+@then("both gradient outputs are identical and off is the input")
+def gradient_same(ctx):
+    assert (list(ctx["out_a"].get_flattened_data())
+            == list(ctx["out_b"].get_flattened_data()))
+    assert list(ctx["out_a"].get_flattened_data()) != list(ctx["img"].get_flattened_data())
+    assert ctx["out_off"] is ctx["img"]
+
+
 # -- engines3.feature (v1.3) --
 @when("I render bayer32, lines and grid in B&W")
 def render_new_ordered(ctx):

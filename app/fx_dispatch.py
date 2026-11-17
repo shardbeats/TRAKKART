@@ -20,6 +20,7 @@ from app.glitch import (
 )
 from app.glitch import wave as _glitch_wave
 from app.grade import fade as _grade_fade
+from app.grade import gradient_stops as _grade_stops
 from app.grade import split_tone as _grade_split_tone
 from app.texture import border as _frame_border
 from app.texture import dust as _grain_dust
@@ -36,6 +37,11 @@ def _split_tone(s: "RenderSpec", img: Image.Image) -> Image.Image:
 
 def _fade(s: "RenderSpec", img: Image.Image) -> Image.Image:
     return _grade_fade(img, amount=float(s.fade)) if s.fade else img
+
+
+def _gradient_map(s: "RenderSpec", img: Image.Image) -> Image.Image:
+    stops = getattr(s, "gradient_stops", None) or []
+    return _grade_stops(img, stops) if len(stops) >= 2 else img
 
 
 def _glow(s: "RenderSpec", img: Image.Image) -> Image.Image:
@@ -163,6 +169,7 @@ def _pasteup(s: "RenderSpec", img: Image.Image) -> Image.Image:
 APPLY: dict[str, object] = {
     "split_tone": _split_tone,
     "fade": _fade,
+    "gradient_map": _gradient_map,
     "glow": _glow,
     "grain": _grain,
     "halftone": _halftone,
