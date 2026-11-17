@@ -21,6 +21,18 @@ def test_prefs_new_fields_roundtrip(tmp_path):
     assert back.out_dir.endswith("out")
 
 
+def test_prefs_non_dict_json_falls_back(tmp_path):
+    """Valid JSON that is not an object must not crash startup."""
+    from app.export_prefs import ExportPrefs, load_prefs
+
+    for payload in ("[]", "null", "\"text\"", "42"):
+        p = tmp_path / "p.json"
+        p.write_text(payload, encoding="utf-8")
+        back = load_prefs(p)
+        assert back.jobs == ExportPrefs().jobs
+        assert back.base == ExportPrefs().base
+
+
 def test_prefs_normalizes_bad_values(tmp_path):
     import json
 

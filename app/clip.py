@@ -528,6 +528,25 @@ def track_fit_note(track_s: float | None, video_s: float | None) -> str:
     return f"track {t:.1f}s vs clip {v:.1f}s → cut at the clip end"
 
 
+def _scratch_path(out: str | Path) -> Path:
+    """Reserve a unique scratch file next to `out` (never clobbers a file).
+
+    Encoders write the silent video / mux output to a temporary sibling
+    before the final rename. A fixed `{stem}_silent.mp4` name could sit on
+    a user file born in that folder; reserving the name atomically makes
+    the "never overwrite" promise hold for the scratch step too.
+    """
+    import os
+    import tempfile
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=f".{out.stem}_", suffix=out.suffix,
+                                dir=str(out.parent))
+    os.close(fd)
+    return Path(name)
+
+
 def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
                    out_path: str | Path) -> Path:
     """Mux a chosen soundtrack (video copied, never re-encoded).
@@ -538,8 +557,9 @@ def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
     into 3s) and a long track is cut at the clip end. `-af apad` was
     tried first: padding infinite silence with `-shortest` on a copied
     video stream **hangs** ffmpeg, so it is deliberately not used.
-    Writes a `.part` file and renames on success, so a failed mux never
-    leaves a half-written export behind.
+    Writes a unique scratch file and renames on success, so a failed mux
+    never leaves a half-written export behind and never clobbers a
+    same-named file already in the destination.
     """
     import subprocess
 
@@ -553,7 +573,7 @@ def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
         raise FileNotFoundError(f"audio not found: {audio_path}")
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    part = out.with_name(f"{out.stem}.part{out.suffix}")
+    part = _scratch_path(out)
     duration = _mp4_duration(src)
     cmd = [get_ffmpeg_exe(), "-y", "-i", str(src), "-i", str(track),
            "-map", "0:v:0", "-map", "1:a:0",

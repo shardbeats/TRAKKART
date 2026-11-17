@@ -18,6 +18,9 @@ def test_strip_indices_layout():
     assert len(idx) == STRIP_MAX_THUMBS
     assert idx[0] == 0 and idx[-1] == 119
     assert idx == sorted(set(idx))
+    # Degenerate cap used to divide by zero (cap - 1).
+    assert strip_indices(5, 1) == [0]
+    assert strip_indices(5, 0) == [0]
 
 
 def _open_clip(window, n=6):

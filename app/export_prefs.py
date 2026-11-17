@@ -74,6 +74,8 @@ def load_prefs(prefs_path: str | Path | None = None) -> ExportPrefs:
     p = Path(prefs_path) if prefs_path else _prefs_path()
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return ExportPrefs()  # valid JSON, wrong shape (list/null/string)
         known = {f for f in ExportPrefs.__dataclass_fields__}
         prefs = ExportPrefs(**{k: v for k, v in raw.items() if k in known})
     except (OSError, ValueError, TypeError):

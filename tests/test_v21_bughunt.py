@@ -366,7 +366,10 @@ def test_mux_short_track_never_cuts_video(tmp_path):
     frames = [Image.new("RGB", (64, 48), (i * 30, 20, 20)) for i in range(20)]
     silent = write_clip_mp4(frames, tmp_path / "clip.mp4", fps=10)  # 2.0s
     track = _wav(tmp_path / "short.wav", secs=0.4)
+    keep = tmp_path / "out.part.mp4"  # old scratch name: must survive
+    keep.write_bytes(b"user file")
     out = mux_soundtrack(silent, track, tmp_path / "out.mp4")
+    assert keep.read_bytes() == b"user file"
 
     from app.clip import clip_duration
     import imageio.v2 as iio2

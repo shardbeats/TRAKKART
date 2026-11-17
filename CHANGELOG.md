@@ -17,6 +17,14 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - MCP: `estimate` reutiliza `plan_export` (mismas dimensiones/frames
   que el bundle real, `gif_size` incluido) y las notificaciones JSON-RPC
   (sin `id`) ya no reciben respuesta. Pins: `tests/test_mcp.py` (+2).
+- Prefs: un `export_prefs.json` con JSON válido pero que no es objeto
+  (`[]`, `null`, texto) tumbaba `load_prefs` con `AttributeError` al
+  arrancar; ahora cae a los valores por defecto como el JSON roto. Pin:
+  `tests/test_settings.py` (+1).
+- Clip MP4: el archivo temporal de salida (`{base}_silent.mp4`, `.part.mp4`)
+  podía pisar un archivo del usuario con ese nombre en la carpeta destino.
+  Ahora se reserva un nombre único junto al destino y se renombra al
+  terminar. Pins: `tests/test_v21_bughunt.py`.
 - Limpieza: rama muerta en `load_preset` y en `export_full`
   (`vector_cells` nunca se usaba). Gates 5/5, flake8 0.
 

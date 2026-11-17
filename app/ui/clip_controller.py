@@ -117,6 +117,10 @@ def strip_indices(n: int, max_thumbs: int = STRIP_MAX_THUMBS) -> list[int]:
         return []
     if total <= cap:
         return list(range(total))
+    if cap == 1:
+        # A one-thumb strip can only show the first frame: avoid `cap - 1`
+        # division by zero for callers that pass max_thumbs<=1.
+        return [0]
     return sorted({round(i * (total - 1) / (cap - 1)) for i in range(cap)})
 
 
@@ -863,7 +867,8 @@ def render_clip_export_long(win, preset, fps: int, out, track: str = "",
     from pathlib import Path
 
     from app.clip import (CLIP_PROXY_SIDE, CLIP_SOURCE_SIDE,
-                          clip_full_length, iter_dither_source, mux_soundtrack)
+                          _scratch_path, clip_full_length,
+                          iter_dither_source, mux_soundtrack)
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -891,7 +896,7 @@ def render_clip_export_long(win, preset, fps: int, out, track: str = "",
                                 envelopes=env)
     from app.video_io import write_mp4_iter
 
-    silent = out.parent / f"{out.stem}_silent.mp4"
+    silent = _scratch_path(out)
     try:
         _wrote, n = write_mp4_iter(stream, silent, fps=fps, quality=q)
     except Exception:
@@ -954,7 +959,7 @@ def render_clip_export(win, kind: str, preset, span: list, fps: int,
 
         return save_clip_zip(dither_clip(list(span), preset, envelopes=env), out)
     if kind == "mp4":
-        from app.clip import (CLIP_SOURCE_SIDE,
+        from app.clip import (CLIP_SOURCE_SIDE, _scratch_path,
                               iter_dither_clip, iter_dither_trim_source,
                               mux_soundtrack, write_clip_mp4)
 
@@ -962,7 +967,7 @@ def render_clip_export(win, kind: str, preset, span: list, fps: int,
             q = max(0, min(10, int(quality)))
         except (TypeError, ValueError):
             q = 8
-        silent = out.parent / f"{out.stem}_silent.mp4"
+        silent = _scratch_path(out)
         try:
             if str(res or "proxy").lower() == "source":
                 try:
