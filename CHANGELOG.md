@@ -2,6 +2,20 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.0] - 2026-11-17 — MCP stdio + fuzzer (v2.x #9, #10: roadmap done)
+- Servidor MCP stdio (`python main.py --mcp`): JSON-RPC 2.0 por
+  stdin/stdout con la superficie headless (spec primero en
+  `docs/MCP_SPEC.md`; 3 herramientas: list_presets/render/estimate;
+  sin red, sin Qt, extras de diálogo fuera). Pins:
+  `tests/test_mcp.py` (7).
+- Fuzzer de presets en CI (`tools/fuzz_presets.py`, guiado por el
+  esquema `FIELDS`, determinista; 1050 casos, 0 crashes) + paso en el
+  job fast + `tests/test_preset_fuzz.py` (2).
+- Resto de #10 cerrado con mediciones (cortes honestos, sin
+  gold-plate): SSIM, blue-noise, NeuQuant/Wu, tile renderer, JPEG XL
+  y PyAV no ganan — números en `ROADMAP.md`. Docs (MANUAL/ROADMAP),
+  gates 5/5, flake8 0.
+
 ## [2.13.0] - 2026-11-17 — APNG animado (v2.x #8)
 - Extra solo-diálogo `{base}_anim.png`: mismos frames que el GIF, a
   todo color como WebP (Pillow, sin deps; el primer frame sirve de

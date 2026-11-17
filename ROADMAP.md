@@ -646,12 +646,35 @@ keep/cut.
 9. MCP stdio server over the headless CLI. New surface: needs its own
    spec (commands, schemas, no-network guard) before any code; last
    in the queue for that reason.
+   DONE (nov-2026): spec first (`docs/MCP_SPEC.md`: JSON-RPC 2.0 over
+   stdio, `initialize`/`tools/list`/`tools/call`/`ping`, 3 tools —
+   `list_presets`/`render`/`estimate`; no-network + no-Qt hard guards;
+   MP4/WebP/APNG stay dialog-only). `app/mcp.py` (`handle`/`run_mcp`,
+   pure stdlib + cli/presets building blocks), `main.py --mcp` entry.
+   Pins: `tests/test_mcp.py` (7: handshake, list, presets+estimate,
+   render roundtrip, in-band errors, no-network scan, --mcp without Qt)
+   + MANUAL section. Suite 885 (735 fast + 150 slow). Gherkin 81/81.
 10. Infra/quality (ongoing, cheapest first): preset fuzzer in CI;
    SSIM-based weight estimator (replaces the B/px constants only if
    it wins); precomputed blue-noise masks (only if measured faster
    than IGN); NeuQuant/Wu quantization (only if it beats median-cut
    on covers); tile renderer for 8000px exports; JPEG XL stills
    (plugin weight first — likely cut).
+   DONE (nov-2026, measured — winner or cut, no gold-plate):
+   `tools/fuzz_presets.py` (seeded, schema-driven over `FIELDS`,
+   render-capped 128px; 1050 cases, 0 render crashes across 6 seeds;
+   invalid combos correctly rejected by `validate()` count as skips)
+   + CI fast-job step (120 cases) + `tests/test_preset_fuzz.py` (2).
+   Cuts with numbers: SSIM estimator CUT (B/px measured at 3000px:
+   png 51x over on smooth gradients, jpg 0.91, webp 2x — SSIM predicts
+   quality, not bytes, and needs scikit-image; plan lines stay honest
+   `approx`); blue-noise CUT (1080p: IGN 28ms wins over blue 33ms,
+   computed = no mask memory); NeuQuant/Wu CUT (median-cut 27ms at
+   1080p — nothing to beat); tile renderer CUT (20MP single-pass
+   render 0.6s, no OOM; canvas caps 8000); JPEG XL CUT (Pillow here
+   has no JXL codec — needs pillow-jxl plugin = new dep + bundle
+   weight, offline); PyAV CUT (not installed; imageio-ffmpeg path
+   already 0.5–1.2s; native dep weight unjustified).
     PyAV backend evaluation (imageio-ffmpeg's own README recommends
     it, but after ffmpeg-side scaling our 120f proxy import is
     0.5–1.2s; the bundled-FFmpeg weight must be measured first —

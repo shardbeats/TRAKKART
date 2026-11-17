@@ -47,6 +47,12 @@ def install_crash_hook(log_path):
 
 
 def main() -> int:
+    if "--mcp" in sys.argv[1:]:
+        # MCP stdio server (v2.x #9): JSON-RPC over stdin/stdout, no Qt,
+        # no network — same headless contract as --cli (see docs/MCP_SPEC.md).
+        from app.mcp import run_mcp
+
+        return run_mcp()
     if "--cli" in sys.argv[1:]:
         # Headless: never import Qt on this path (fast, display-free).
         from app.cli import run_cli

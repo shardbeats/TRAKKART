@@ -258,6 +258,17 @@ TRAKKART.exe --cli --preset SLIME_FS --in covers\ --out out\
 metadata, SVG/GIF per preset). MP4/WebP/separations stay dialog-only.
 Exit 0 = done, 1 = some file failed, 2 = usage error.
 
+**MCP stdio server** (v2.x #9, automation/agents): newline-delimited
+JSON-RPC 2.0 over stdin/stdout — same headless surface, no new logic:
+
+```
+echo {"jsonrpc":"2.0","id":1,"method":"tools/list"} | TRAKKART.exe --mcp
+```
+
+Tools: `list_presets`, `render` (one image + preset → CLI bundle),
+`estimate` (bundle filenames + byte plan). No sockets, no network,
+never Qt (full spec: `docs/MCP_SPEC.md`).
+
 ## Presets & Settings
 
 - **Presets:** the combo saves the current recipe (Save…), Export/Import
