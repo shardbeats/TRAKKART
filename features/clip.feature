@@ -58,3 +58,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I compare proxy and source estimates
     Then the source weight is larger
+
+  Scenario: Cross-dissolve smoothing is opt-in and deterministic
+    Given a 48x48 gradient image
+    When I smooth a 2-frame clip with xfade off and on
+    Then the off output matches the inputs and the on output re-renders identically

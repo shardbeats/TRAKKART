@@ -623,6 +623,15 @@ keep/cut.
    Optional smoothing between clip/dissolve frames; strict 0=off,
    default off (flicker stays the aesthetic). Pins: 0=identity,
    determinism, cap behavior.
+   DONE (nov-2026): `app.xfade` (`xfade_pair`/`xfade_frames`/
+   `xfade_stream`, numpy lerp + round, no seeds) + kwargs on
+   `iter_dissolve`/`dissolve_frames`/`iter_morph_chain`/
+   `morph_chain_frames`/`morph_frames` (`xfade` 0..1, `xfade_steps`
+   0..8, `xfade_cap`; all default off = legacy bytes). Dissolve wraps
+   loop=True, morph follows the chain loop flag; streaming is O(1).
+   Caps shrink blends, never drop inputs. UI exposes no knob yet.
+   Pins: `tests/test_xfade.py` (7) + Gherkin +1 (clip.feature).
+   Suite 871 (721 fast + 150 slow). Gherkin 80/80.
 8. Animated APNG (Pillow-native). Same frames as the GIF path, full
    color like WebP; dialog-only extra. Pins: roundtrip + size note.
 9. MCP stdio server over the headless CLI. New surface: needs its own

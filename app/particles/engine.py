@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
+from app.anim.limits import MAX_TOTAL_FRAMES
 from app.particles.color import (_darkness_of, morph_ink, sample_colors,
                                  tint_dots, tint_strength)
 from app.particles.fields import ease_env, stagger_delays
@@ -88,18 +89,18 @@ def _tint_cols(base, tv: float, env: float, pos=None, home=None,
     return tint_dots(base, st)
 
 
-def iter_dissolve(img: Image.Image, method: str = "bayer8",
-                  threshold: float = 128.0, pixel_size: int = 1,
-                  frames: int = 8, seed: int = 0xD15C,
-                  wind: tuple[float, float] = (120.0, -40.0),
-                  mode: str = "wind", loops: float = 1.0,
-                  amount: float = 1.0,
-                  max_side: int = 480,
-                  hold_start: int = 0, hold_end: int = 0,
-                  stagger: str = "off", ease: str = "sine",
-                  dotsize: int = 1, tint: float = 0.0, trail: int = 0,
-                  shade: bool = False, adjust=None, palette=None,
-                  palette_depth: int = 0, dot_shape: str = "square"):
+def _iter_dissolve_core(img: Image.Image, method: str = "bayer8",
+                        threshold: float = 128.0, pixel_size: int = 1,
+                        frames: int = 8, seed: int = 0xD15C,
+                        wind: tuple[float, float] = (120.0, -40.0),
+                        mode: str = "wind", loops: float = 1.0,
+                        amount: float = 1.0,
+                        max_side: int = 480,
+                        hold_start: int = 0, hold_end: int = 0,
+                        stagger: str = "off", ease: str = "sine",
+                        dotsize: int = 1, tint: float = 0.0, trail: int = 0,
+                        shade: bool = False, adjust=None, palette=None,
+                        palette_depth: int = 0, dot_shape: str = "square"):
     """Yield dissolve frames one by one (streaming: O(1) RAM for long MP4).
 
     Same pixels as dissolve_frames(), no list kept alive. Lets MP4 stream
@@ -200,6 +201,43 @@ def iter_dissolve(img: Image.Image, method: str = "bayer8",
         yield still.copy()
 
 
+def iter_dissolve(img: Image.Image, method: str = "bayer8",
+                  threshold: float = 128.0, pixel_size: int = 1,
+                  frames: int = 8, seed: int = 0xD15C,
+                  wind: tuple[float, float] = (120.0, -40.0),
+                  mode: str = "wind", loops: float = 1.0,
+                  amount: float = 1.0,
+                  max_side: int = 480,
+                  hold_start: int = 0, hold_end: int = 0,
+                  stagger: str = "off", ease: str = "sine",
+                  dotsize: int = 1, tint: float = 0.0, trail: int = 0,
+                  shade: bool = False, adjust=None, palette=None,
+                  palette_depth: int = 0, dot_shape: str = "square",
+                  xfade: float = 0.0, xfade_steps: int = 1,
+                  xfade_cap: int = MAX_TOTAL_FRAMES):
+    """Streaming dissolve (same pixels as _iter_dissolve_core).
+
+    `xfade` 0..1 + `xfade_steps` insert linear blends per gap
+    (numpy-only, loop-closing; 0 = off = legacy bytes). `xfade_cap`
+    bounds blends (inputs never dropped). Default off: flicker stays
+    the aesthetic.
+    """
+    from app.xfade import normalize_xfade, normalize_xfade_steps, xfade_stream
+
+    core = _iter_dissolve_core(
+        img, method=method, threshold=threshold, pixel_size=pixel_size,
+        frames=frames, seed=seed, wind=wind, mode=mode, loops=loops,
+        amount=amount, max_side=max_side, hold_start=hold_start,
+        hold_end=hold_end, stagger=stagger, ease=ease, dotsize=dotsize,
+        tint=tint, trail=trail, shade=shade, adjust=adjust,
+        palette=palette, palette_depth=palette_depth, dot_shape=dot_shape)
+    if normalize_xfade(xfade) <= 0.0 or normalize_xfade_steps(xfade_steps) <= 0:
+        yield from core
+        return
+    yield from xfade_stream(core, amount=xfade, steps=xfade_steps,
+                            cap=xfade_cap, loop=True)
+
+
 def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     threshold: float = 128.0, pixel_size: int = 1,
                     frames: int = 8, seed: int = 0xD15C,
@@ -211,7 +249,9 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                     stagger: str = "off", ease: str = "sine",
                     dotsize: int = 1, tint: float = 0.0, trail: int = 0,
                     shade: bool = False, adjust=None, palette=None,
-                    palette_depth: int = 0, dot_shape: str = "square") -> list[Image.Image]:
+                    palette_depth: int = 0, dot_shape: str = "square",
+                    xfade: float = 0.0, xfade_steps: int = 1,
+                    xfade_cap: int = MAX_TOTAL_FRAMES) -> list[Image.Image]:
     """Full disperse loop for one image (assembled -> dispersed -> assembled).
 
     Dithers once at max_side, then marches progress=i/n. amount 0 returns
@@ -223,6 +263,7 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
     ghost dots (0 = legacy). `shade` sizes dots by source darkness
     (False = uniform swell). `adjust` grades first (identity = legacy).
     `palette` (None|"SOURCE"|inks) prints the inks (None = legacy BW).
+    `xfade`/`xfade_steps` insert loop-closing blends (0 = off = legacy).
     """
     from app.gif import GIF_MAX_FRAMES, GIF_MIN_FRAMES
 
@@ -240,7 +281,8 @@ def dissolve_frames(img: Image.Image, method: str = "bayer8",
                 hold_end=hold_end, stagger=stagger, ease=ease,
                 dotsize=dotsize, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,
-                palette_depth=palette_depth, dot_shape=dot_shape))
+                palette_depth=palette_depth, dot_shape=dot_shape,
+                xfade=xfade, xfade_steps=xfade_steps, xfade_cap=xfade_cap))
 
 
 def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
@@ -257,7 +299,9 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                  trail: int = 0, shade: bool = False, adjust=None,
                  palette=None, palette_depth: int = 0,
                  path: str = "pour", match: str = "morton",
-                 dot_shape: str = "square") -> list[Image.Image]:
+                 dot_shape: str = "square",
+                 xfade: float = 0.0, xfade_steps: int = 1,
+                 xfade_cap: int = MAX_TOTAL_FRAMES) -> list[Image.Image]:
     """One-shot swap A -> B through a shared particle cloud (Fase 5).
 
     Both images are fitted to the same HxW (B resized to A), dithered
@@ -265,6 +309,7 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
     progress>=0.5 renders dispersed B, envelope sin(pi*progress) so both
     ends are assembled and the middle is a full cloud. amount 0 returns
     A copies then B copies (hard cut, strict 0=off).
+    `xfade`/`xfade_steps` insert smoothing blends (0 = off = legacy).
     """
     chained = morph_chain_frames([img_a, img_b], method=method, threshold=threshold,
                                  pixel_size=pixel_size, frames=frames, seed=seed,
@@ -275,27 +320,29 @@ def morph_frames(img_a: Image.Image, img_b: Image.Image, method: str = "bayer8",
                                  travel=travel, tint=tint, trail=trail,
                                  shade=shade, adjust=adjust, palette=palette,
                                  palette_depth=palette_depth, path=path,
-                                 match=match, dot_shape=dot_shape)
+                                 match=match, dot_shape=dot_shape,
+                                 xfade=xfade, xfade_steps=xfade_steps,
+                                 xfade_cap=xfade_cap)
     return chained
 
 
-def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
-                     threshold: float = 128.0, pixel_size: int = 1,
-                     frames: int = 8, seed: int = 0xD15C,
-                     wind: tuple[float, float] = (120.0, -40.0),
-                     mode: str = "wind", amount: float = 1.0,
-                     max_side: int = 480,
-                     hold_start: int = 0, hold_end: int = 0,
-                     hold_joint: int | list | tuple = 0,
-                     crops: list[dict] | None = None,
-                     loop: bool = False,
-                     repeats: list[int] | None = None,
-                     stagger: str = "off", ease: str = "sine",
-                     dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
-                     trail: int = 0, shade: bool = False, adjust=None,
-                     palette=None, palette_depth: int = 0,
-                     path: str = "pour", match: str = "morton",
-                     dot_shape: str = "square"):
+def _iter_morph_chain_core(imgs: list[Image.Image], method: str = "bayer8",
+                           threshold: float = 128.0, pixel_size: int = 1,
+                           frames: int = 8, seed: int = 0xD15C,
+                           wind: tuple[float, float] = (120.0, -40.0),
+                           mode: str = "wind", amount: float = 1.0,
+                           max_side: int = 480,
+                           hold_start: int = 0, hold_end: int = 0,
+                           hold_joint: int | list | tuple = 0,
+                           crops: list[dict] | None = None,
+                           loop: bool = False,
+                           repeats: list[int] | None = None,
+                           stagger: str = "off", ease: str = "sine",
+                           dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
+                           trail: int = 0, shade: bool = False, adjust=None,
+                           palette=None, palette_depth: int = 0,
+                           path: str = "pour", match: str = "morton",
+                           dot_shape: str = "square"):
     """Yield chain frames one by one (streaming: O(1) RAM).
 
     Same pixels as morph_chain_frames(), no list kept alive.
@@ -563,6 +610,50 @@ def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
         yield dithered_all[0 if loop_v else -1].copy()
 
 
+def iter_morph_chain(imgs: list[Image.Image], method: str = "bayer8",
+                     threshold: float = 128.0, pixel_size: int = 1,
+                     frames: int = 8, seed: int = 0xD15C,
+                     wind: tuple[float, float] = (120.0, -40.0),
+                     mode: str = "wind", amount: float = 1.0,
+                     max_side: int = 480,
+                     hold_start: int = 0, hold_end: int = 0,
+                     hold_joint: int | list | tuple = 0,
+                     crops: list[dict] | None = None,
+                     loop: bool = False,
+                     repeats: list[int] | None = None,
+                     stagger: str = "off", ease: str = "sine",
+                     dotsize: int = 1, travel: float = 0.0, tint: float = 0.0,
+                     trail: int = 0, shade: bool = False, adjust=None,
+                     palette=None, palette_depth: int = 0,
+                     path: str = "pour", match: str = "morton",
+                     dot_shape: str = "square",
+                     xfade: float = 0.0, xfade_steps: int = 1,
+                     xfade_cap: int = MAX_TOTAL_FRAMES):
+    """Streaming chain (same pixels as _iter_morph_chain_core).
+
+    `xfade` 0..1 + `xfade_steps` insert linear blends per gap
+    (numpy-only; 0 = off = legacy bytes). The wrap blend follows the
+    chain `loop` flag (closed loop closes smoothly). `xfade_cap`
+    bounds blends (inputs never dropped). Default off.
+    """
+    from app.xfade import normalize_xfade, normalize_xfade_steps, xfade_stream
+
+    core = _iter_morph_chain_core(
+        imgs, method=method, threshold=threshold, pixel_size=pixel_size,
+        frames=frames, seed=seed, wind=wind, mode=mode, amount=amount,
+        max_side=max_side, hold_start=hold_start, hold_end=hold_end,
+        hold_joint=hold_joint, crops=crops, loop=loop, repeats=repeats,
+        stagger=stagger, ease=ease, dotsize=dotsize, travel=travel,
+        tint=tint, trail=trail, shade=shade, adjust=adjust,
+        palette=palette, palette_depth=palette_depth, path=path,
+        match=match, dot_shape=dot_shape)
+    if normalize_xfade(xfade) <= 0.0 or normalize_xfade_steps(xfade_steps) <= 0:
+        yield from core
+        return
+    yield from xfade_stream(core, amount=xfade, steps=xfade_steps,
+                            cap=xfade_cap, loop=bool(loop))
+
+
 def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        threshold: float = 128.0, pixel_size: int = 1,
                        frames: int = 8, seed: int = 0xD15C,
@@ -579,7 +670,9 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                        trail: int = 0, shade: bool = False, adjust=None,
                        palette=None, palette_depth: int = 0,
                        path: str = "pour", match: str = "morton",
-                       dot_shape: str = "square") -> list[Image.Image]:
+                       dot_shape: str = "square",
+                       xfade: float = 0.0, xfade_steps: int = 1,
+                       xfade_cap: int = MAX_TOTAL_FRAMES) -> list[Image.Image]:
     """Chain swap A -> B -> C ... through particle clouds (v1.8 Fase 1).
 
     All images fitted to the same HxW (rest cover-fit to A), dithered with
@@ -598,6 +691,7 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
     With adjust set, sources grade first (identity = legacy).
     With palette set (F7: "SOURCE"|inks), dots print the inks at full
     strength (None = legacy BW).
+    `xfade`/`xfade_steps` insert smoothing blends (0 = off = legacy).
     """
     return list(iter_morph_chain(imgs, method=method, threshold=threshold,
                 pixel_size=pixel_size, frames=frames, seed=seed,
@@ -610,7 +704,8 @@ def morph_chain_frames(imgs: list[Image.Image], method: str = "bayer8",
                 travel=travel, tint=tint, trail=trail, shade=shade,
                 adjust=adjust, palette=palette,
                 palette_depth=palette_depth, path=path,
-                match=match, dot_shape=dot_shape))
+                match=match, dot_shape=dot_shape,
+                xfade=xfade, xfade_steps=xfade_steps, xfade_cap=xfade_cap))
 
 
 __all__ = ["_fit_cover", "_refit_coords", "iter_dissolve", "dissolve_frames",

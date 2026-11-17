@@ -87,6 +87,11 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   every method). Each channel follows its FX knob (Scanlines/Slices/
   Chroma/Wave, 0 = off, motion 0 = freeze); clean presets on ordered
   methods still march.
+- **Cross-dissolve (v2.x #7, engine opt-in):** `app.xfade` inserts
+  linear blends between clip/dissolve frames (numpy-only,
+  deterministic; `xfade` 0..1 x `xfade_steps` per gap, capped so
+  inputs are never dropped). Default off everywhere — flicker stays
+  the aesthetic; the UI exposes no knob yet.
 
 ## Clip import (v2.0)
 

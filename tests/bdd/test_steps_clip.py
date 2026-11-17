@@ -204,3 +204,25 @@ def compare_estimates(ctx):
 @then("the source weight is larger")
 def source_heavier(ctx):
     assert ctx["est_source"] > ctx["est_proxy"]
+
+
+@when("I smooth a 2-frame clip with xfade off and on")
+def smooth_clip(ctx):
+    from PIL import Image
+
+    from app.xfade import xfade_frames
+
+    frames = [ctx["img"], ctx["img"].transpose(Image.FLIP_LEFT_RIGHT)]
+    ctx["clip_off"] = xfade_frames(frames, amount=0.0, steps=2)
+    ctx["clip_on"] = xfade_frames(frames, amount=1.0, steps=1)
+    ctx["clip_on2"] = xfade_frames(frames, amount=1.0, steps=1)
+    ctx["clip_frames"] = frames
+
+
+@then("the off output matches the inputs and the on output re-renders identically")
+def smooth_clip_ok(ctx):
+    flat = lambda frames: [tuple(f.get_flattened_data()) for f in frames]  # noqa: E731
+    assert flat(ctx["clip_off"]) == flat(ctx["clip_frames"])
+    assert len(ctx["clip_on"]) == 3
+    assert flat(ctx["clip_on"]) == flat(ctx["clip_on2"])
+    assert len(set(flat(ctx["clip_on"]))) == 3  # A, blend, B all differ

@@ -2,6 +2,14 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.12.0] - 2026-11-17 — cross-dissolve opt-in (v2.x #7)
+- `app.xfade`: mezclas lineales entre frames de clip/dissolve
+  (numpy, determinista; `xfade` 0..1 x `xfade_steps`, con cap que
+  nunca recorta inputs). Cableado al motor (dissolve + morph, lista
+  y streaming) con default off = bytes legacy; sin knob en UI.
+  Pins: `tests/test_xfade.py` (7) + Gherkin +1 (clip.feature). Docs
+  (MANUAL/ROADMAP), gates 5/5, flake8 0.
+
 ## [2.11.0] - 2026-11-17 — SVG por capas de tinta (v2.x #6)
 - Vector SVG con una capa `<g id="ink-RRGGBB">` por tinta (fill del
   grupo, rects heredan; RLE por fila intacto, mismo nº de rects,
