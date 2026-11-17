@@ -151,6 +151,26 @@ def batch_process(
     total = len(files)
     results: list[dict] = []
 
+    # Same-stem inputs (`cover.png` + `cover.jpg`) used to write the same
+    # bundle and silently overwrite each other. Keep the plain stem when it
+    # is unique; disambiguate duplicates by extension (and `_2` only for the
+    # pathological case where that still collides). Deterministic: computed
+    # once, before the pool/sequential split.
+    stem_counts: dict[str, int] = {}
+    for f in files:
+        stem_counts[f.stem] = stem_counts.get(f.stem, 0) + 1
+    used_bases: dict[str, int] = {}
+
+    def _base_for(f: Path) -> str:
+        base = f.stem
+        if stem_counts.get(f.stem, 0) > 1:
+            base = f"{f.stem}_{f.suffix.lstrip('.').lower()}"
+        seen = used_bases.get(base, 0) + 1
+        used_bases[base] = seen
+        return base if seen == 1 else f"{base}_{seen}"
+
+    base_by_name = {f.name: _base_for(f) for f in files}
+
     def _log(base: str, r: dict, meta=None) -> None:
         if store is not None and r["status"] == "ok":
             try:
@@ -160,7 +180,7 @@ def batch_process(
 
     pending: list[tuple] = []
     for i, f in enumerate(files):
-        base = f.stem
+        base = base_by_name[f.name]
         outs = _outputs_for(dst, base, preset)
         if cancel and cancel[0]:
             break
@@ -196,7 +216,7 @@ def batch_process(
                             _m["seeds"] = dict(r["seeds"])
                     except Exception:  # noqa: BLE001
                         pass
-                    _log(Path(r["file"]).stem, r, _m)
+                    _log(base_by_name.get(r["file"], Path(r["file"]).stem), r, _m)
                     if progress_cb:
                         progress_cb(len(results), total, r["file"])
             pool_ok = True

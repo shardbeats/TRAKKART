@@ -42,6 +42,9 @@ the server is a thin JSON-RPC skin over `run_cli`'s building blocks
 Unknown methods → JSON-RPC `-32601`; bad params → `-32602`;
 tool failure → `isError: true` with the message (never a traceback).
 Malformed JSON lines → `-32700` and the loop continues.
+Any request without `id` is a notification and gets no reply (valid or
+notifications like `notifications/initialized`); invalid requests still
+return `-32600` with `id: null`.
 
 ## 5. Tools
 
@@ -56,9 +59,10 @@ Malformed JSON lines → `-32700` and the loop continues.
 
 ### `estimate`
 - input: `{preset: str, width: int, height: int}`.
-- Output: the bundle filenames + byte estimate the Export dialog
-  plan line would show (`estimate_gif`/`estimate_webp` family),
-  plan-only, never a promise.
+- Output: the bundle filenames + byte estimate from `plan_export`,
+  i.e. the same dimensions/frames the CLI/batch `render` writes
+  (preset `gif_size` included, not the dialog's live size override).
+  Plan-only, never a promise.
 
 ## 6. Non-goals
 

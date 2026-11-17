@@ -655,9 +655,7 @@ def load_preset(name: str, presets_dir: Path | None = None) -> Preset:
             raise FileNotFoundError(f"preset does not exist: {name}")
         return Preset.from_dict(json.loads(path.read_text(encoding="utf-8")))
     # User dir first (own edits shadow bundled), repo copy as fallback.
-    if presets_dir is not None:
-        search = [Path(presets_dir)]
-    elif PRESETS_DIR != _BUNDLED_DIR:
+    if PRESETS_DIR != _BUNDLED_DIR:
         search = [Path(PRESETS_DIR)]  # test seam
     else:
         search = [_user_dir(), PRESETS_DIR]

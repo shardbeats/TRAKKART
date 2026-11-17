@@ -23,7 +23,9 @@ PACK_MANIFEST = "pack.json"
 def _safe_name(name: str) -> str:
     from app.names import safe_stem
 
-    return safe_stem(name, "", keep=("-", "_"), fill="_")
+    # Non-empty fallback: a blank name must never write `presets/.json`
+    # (an empty stem) into the pack.
+    return safe_stem(name, "pack", keep=("-", "_"), fill="_")
 
 
 def export_pack(preset_names: list[str], presets_dir: str | Path,
@@ -121,7 +123,7 @@ def import_pack(zip_path: str | Path, presets_dir: str | Path,
                 valid = normalize_custom_palette(colors)
                 if valid is None:
                     raise ValueError(f"invalid palette: {info.filename}")
-                name = raw.get("name", Path(info.filename).stem) \
+                name = (raw.get("name") or Path(info.filename).stem) \
                     if isinstance(raw, dict) else Path(info.filename).stem
                 dest = adir / f"{_safe_name(str(name))}.json"
                 if dest.exists():

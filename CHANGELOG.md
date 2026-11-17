@@ -2,6 +2,24 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.2] - 2026-11-17 — caza de bugs: batch, packs y nombres reservados
+- Batch: dos entradas con el mismo tallo (`cover.png` + `cover.jpg`)
+  escribían el mismo bundle y la segunda pisaba a la primera en
+  silencio. Ahora el tallo duplicado se desambigua por extensión
+  (`cover_png`, `cover_jpg`) de forma determinista; los tallos únicos
+  no cambian. Pin: `tests/test_batch.py` (+1).
+- Nombres reservados de Windows (`CON`, `NUL`, `COM1`…`LPT9`) como
+  base de export: `app/names.py` y `sanitize_base` añaden un `_` final
+  (también tras recortar bordes). Pin: `tests/test_presets.py` (+1).
+- Packs: un nombre vacío ya no genera `presets/.json` / `palettes/.json`
+  (fallback `pack`); al importar una paleta sin nombre se usa el tallo
+  del miembro. Pin: `tests/test_pack.py` (+1).
+- MCP: `estimate` reutiliza `plan_export` (mismas dimensiones/frames
+  que el bundle real, `gif_size` incluido) y las notificaciones JSON-RPC
+  (sin `id`) ya no reciben respuesta. Pins: `tests/test_mcp.py` (+2).
+- Limpieza: rama muerta en `load_preset` y en `export_full`
+  (`vector_cells` nunca se usaba). Gates 5/5, flake8 0.
+
 ## [2.14.1] - 2026-11-17 — clip con start obsoleto: autocorrección
 - Abrir un clip con "Start at" más allá de su duración ya no muestra
   el aviso modal: carga desde 0, resetea el spinner y lo anota en la

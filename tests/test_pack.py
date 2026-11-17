@@ -76,6 +76,24 @@ def test_pack_builtin_palette_needs_no_file(tmp_path):
     assert names == ["pack.json", "presets/Mine.json"]
 
 
+def test_pack_blank_names_never_write_empty_stem(tmp_path):
+    """A blank preset/palette name must not produce `.json` (empty stem)."""
+    from app.pack import _safe_name, import_pack
+
+    assert _safe_name("") == "pack"
+    assert _safe_name("!!!") == "___"  # non-empty: never `.json`
+    # A palette whose JSON name is blank imports under its member stem.
+    pack = tmp_path / "blank.zip"
+    with zipfile.ZipFile(pack, "w") as zf:
+        zf.writestr("pack.json", "{}")
+        zf.writestr("palettes/anon.json", json.dumps(
+            {"name": "", "colors": [[10, 20, 30], [200, 210, 220]]}))
+    dst_p, dst_a = tmp_path / "q", tmp_path / "b"
+    rep = import_pack(pack, dst_p, dst_a)
+    assert rep["palettes_imported"] == ["anon"]
+    assert (dst_a / "anon.json").exists()
+
+
 def test_bundle_zip_roundtrip_and_empty(tmp_path):
     import pytest
 

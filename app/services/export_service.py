@@ -41,7 +41,6 @@ def export_full(
     gif_fps: int | None = None,
     gif_size: int | None = None,
     gif_pingpong: bool | None = None,
-    vector_cells: tuple[int, int] | None = None,
     size: int | None = None,
     format: str | None = None,
     quality: int | None = None,
@@ -83,8 +82,6 @@ def export_full(
     SP-404MKII single file writes `{base}_sp404.bmp` (128x64 1-bit,
     the current still). Dialog-only.
     """
-    from app.vector import estimate_cells
-
     sel = selection or ExportSelection(
         vector=bool(preset.vector_export), anim=bool(preset.gif_export),
     )
@@ -103,21 +100,10 @@ def export_full(
     res = render_full(src, preset, dpi=int(dpi if dpi is not None else 300))
 
     svg = None
-    cols_rows = vector_cells
     if want_vector:
         from app.vector import vector_bundle
 
-        svg, cols, rows = vector_bundle(src, preset)
-        cols_rows = (cols, rows)
-    if cols_rows is None and want_vector:
-        from app.canvas import to_canvas
-
-        canvas = to_canvas(
-            src, ratio=preset.ratio, mode=preset.crop_mode,
-            fx=float(preset.focus_x), fy=float(preset.focus_y),
-            zoom=float(preset.crop_zoom),
-        )
-        cols_rows = estimate_cells(canvas.width, canvas.height, int(preset.vector_cell))
+        svg = vector_bundle(src, preset)[0]
 
     frames: list[Image.Image] | None = None
     fps = int(gif_fps if gif_fps is not None else getattr(preset, "gif_fps", 8))

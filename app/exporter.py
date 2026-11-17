@@ -99,12 +99,15 @@ def sanitize_base(base: str) -> str:
     No separators (anti `../`), no `_` runs or odd edges, so
     suffixes (`_gif.gif`...) never produce `__`.
     """
-    from app.names import safe_stem
+    from app.names import is_reserved, safe_stem
 
     safe = safe_stem(base, "", keep=("-", "_"), fill="_")
     while "__" in safe:
         safe = safe.replace("__", "_")
-    return safe.strip("_-") or "cover"
+    safe = safe.strip("_-") or "cover"
+    # safe_stem already suffixes reserved names, but the edge-trim above
+    # can strip that `_` ("nul" -> "nul_"); re-check before returning.
+    return f"{safe}_" if is_reserved(safe) else safe
 
 
 def _raster_name(base: str, key: str, fmt: str) -> str:

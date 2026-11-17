@@ -63,6 +63,38 @@ def test_mcp_list_presets_and_estimate(tmp_path):
     assert all(v["bytes"] >= 0 and v["file"] for v in est["files"].values())
 
 
+def test_mcp_estimate_and_render_use_the_same_plan(tmp_path, monkeypatch):
+    """Estimate mirrors the bundle the CLI render actually writes."""
+    import app.presets as P
+    from app.presets import Preset, save_preset
+
+    monkeypatch.setattr(P, "PRESETS_DIR", tmp_path)
+    save_preset(Preset(name="EST_PLAN", method="bayer4", export_size=64,
+                       ratio="1:1", vector_export=True, vector_cell=8,
+                       gif_export=True, gif_frames=6, gif_size=480), tmp_path)
+    (reply,) = _run([json.dumps(_call(
+        "estimate", {"preset": "EST_PLAN", "width": 1000, "height": 500}))])
+    est = _text(reply)
+    assert est["files"]["image"]["file"] == "cover.png"
+    assert est["files"]["image"]["bytes"] == int(64 * 64 * 0.35)  # export_size, not source
+    # SVG grid: 1:1 cover caps the 500x500 canvas to the 64px document.
+    assert est["files"]["vector"]["bytes"] == 8 * 8 * 60
+    # GIF: preset.gif_size (480 long side), not the 1000x500 source.
+    assert est["files"]["anim"]["bytes"] == int(480 * 240 * 0.5 * 6)
+
+
+def test_mcp_notifications_never_get_a_reply():
+    replies = _run([
+        json.dumps({"jsonrpc": "2.0", "method": "nope"}),
+        json.dumps({"jsonrpc": "2.0", "method": "tools/call",
+                    "params": {"name": "list_presets", "arguments": {}}}),
+        json.dumps({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+    ])
+    assert [r["id"] for r in replies] == [3]  # only the request answers
+    (bad,) = _run([json.dumps({"jsonrpc": "2.0"})])
+    assert bad["error"]["code"] == -32600 and bad["id"] is None
+
+
 def test_mcp_render_roundtrip(tmp_path):
     src = tmp_path / "cover.png"
     Image.new("RGB", (96, 64), (200, 60, 40)).save(src)

@@ -98,6 +98,23 @@ def test_batch_jpg_small(tmp_path: Path):
     assert again[0]["status"] == "skipped"
 
 
+def test_batch_same_stem_inputs_do_not_overwrite(tmp_path: Path):
+    """cover.png + cover.jpg: same base used to write one bundle twice."""
+    src = tmp_path / "in"
+    dst = tmp_path / "out"
+    src.mkdir()
+    Image.new("RGB", (32, 32), (200, 10, 10)).save(src / "cover.png")
+    Image.new("RGB", (32, 32), (10, 200, 10)).save(src / "cover.jpg")
+    preset = Preset(name="t", method="bayer4", export_format="png")
+    results = batch_process(src, dst, preset, jobs=1)
+    assert [r["status"] for r in results] == ["ok", "ok"]
+    images = sorted(p.name for p in dst.glob("cover*.png") if "thumb" not in p.name)
+    assert images == ["cover_jpg.png", "cover_png.png"]
+    # Running again must skip both (naming stays stable run to run).
+    again = batch_process(src, dst, preset, jobs=1)
+    assert [r["status"] for r in again] == ["skipped", "skipped"]
+
+
 def test_batch_unit_helpers(tmp_path: Path):
     import json
 

@@ -296,3 +296,17 @@ def test_safe_stem_single_home():
     assert lib_name("!!!") == "palette" and preset_name("") == "preset"
     assert sanitize_base("Mi Beat v2.0 (final)") == "Mi_Beat_v2_0_final"
     assert sanitize_base("../../evil") == "evil"
+
+
+def test_windows_reserved_names_get_suffix():
+    """CON/NUL/... cannot be file stems on Windows (extension included)."""
+    from app.exporter import sanitize_base
+    from app.names import is_reserved, safe_stem
+
+    assert is_reserved("CON") and is_reserved("nul.") and is_reserved(" LPT9 ")
+    assert not is_reserved("CONSOLE") and not is_reserved("COM10")
+    for name in ("CON", "nul", "AUX", "PRN", "COM1", "LPT9"):
+        assert safe_stem(name, "preset") == f"{name}_"
+        assert sanitize_base(name) == f"{name}_"
+    # The suffix must not undo the no-edge-underscore rule for normal names.
+    assert sanitize_base("mix") == "mix"
