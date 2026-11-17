@@ -53,3 +53,8 @@ Feature: Clip import
     Given a 48x48 gradient image
     When I lay out a 120-frame strip
     Then it holds 10 stops from first to last
+
+  Scenario: Source estimate outweighs proxy
+    Given a 48x48 gradient image
+    When I compare proxy and source estimates
+    Then the source weight is larger

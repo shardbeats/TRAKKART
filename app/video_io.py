@@ -46,7 +46,8 @@ def _require_video() -> None:
         raise VideoBackendMissing()
 
 
-def write_mp4(frames: list[Image.Image], path: str | Path, fps: int = 24) -> Path:
+def write_mp4(frames: list[Image.Image], path: str | Path, fps: int = 24,
+              quality: int = 8) -> Path:
     """Write RGB frames to MP4 (H.264 software via imageio-ffmpeg)."""
     _require_video()
     import imageio.v3 as iio
@@ -57,21 +58,24 @@ def write_mp4(frames: list[Image.Image], path: str | Path, fps: int = 24) -> Pat
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fps = max(MIN_MP4_FPS, min(MAX_MP4_FPS, int(fps)))
+    q = max(0, min(10, int(quality)))
     arr = [np.asarray(f.convert("RGB"), dtype=np.uint8) for f in frames]
     # No explicit -pix_fmt: imageio adds yuv420p itself (passing it twice
     # only spams ffmpeg's "Multiple -pix_fmt options specified" warning).
-    iio.imwrite(str(out), arr, fps=fps, codec="libx264", quality=8,
+    iio.imwrite(str(out), arr, fps=fps, codec="libx264", quality=q,
                 macro_block_size=2,
                 ffmpeg_params=["-movflags", "+faststart"])
     return out
 
 
-def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24) -> tuple[Path, int]:
+def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24,
+                   quality: int = 8) -> tuple[Path, int]:
     """Stream frames to MP4 without holding the list in RAM (O(1) memory).
 
     `frame_iter` yields PIL images. Returns (path, n_written). Lets
     long hold-heavy dissolve/morph clips export on full-doc canvas:
     3600 frames stream at ~27MB where a list would need ~38GB at 3000px.
+    `quality` is the imageio 0-10 q (higher = bigger = sharper grain).
     """
     _require_video()
     import imageio.v2 as iio2
@@ -80,8 +84,9 @@ def write_mp4_iter(frame_iter, path: str | Path, fps: int = 24) -> tuple[Path, i
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fps = max(MIN_MP4_FPS, min(MAX_MP4_FPS, int(fps)))
+    q = max(0, min(10, int(quality)))
     n = 0
-    writer = iio2.get_writer(str(out), fps=fps, codec="libx264", quality=8,
+    writer = iio2.get_writer(str(out), fps=fps, codec="libx264", quality=q,
                              macro_block_size=2,
                              ffmpeg_params=["-movflags", "+faststart"])
     try:

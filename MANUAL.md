@@ -120,6 +120,13 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   decoded in 120f windows so RAM stays flat. Same pixels as a full-RAM
   render (global seeds + envelopes). Trim spins do not apply to the
   full export; GIF/ZIP always stay on the trim range.
+- **MP4 size & quality:** Clip size defaults to **Proxy 720p** (fast,
+  reuses the session frames); **Source ≤1920** re-decodes the trim/full
+  range at native size instead of upscaling proxy pixels (same canvas
+  crop, sharper input — heavy). Quality is **Balanced q8** by default,
+  **Compact q5** (~0.5x bytes) or **High q10** (~1.5x, sharper grain).
+  The plan rows tag each MP4 (`720p`/`source`, `q5`/`q8`/`q10`).
+  GIF/ZIP stay proxy by design.
 - **MP4 weight estimate:** the plan rows show `~XB` on clip MP4s (trim
   and full): animated grain/dust multiplies weight ~9x (measured 720p
   bayer4: 0.87MB quiet vs 7.6MB at grain 30 over 120f), so the estimate

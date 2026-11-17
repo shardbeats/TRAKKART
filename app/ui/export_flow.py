@@ -459,6 +459,15 @@ def _run_clip_exports(win, base: str, out_dir, clip: dict | None,
     except Exception:  # noqa: BLE001
         fps = 24
     track = str(clip.get("track", "") or "").strip()
+    try:
+        res = str(clip.get("res", "proxy") or "proxy").lower()
+        res = "source" if res == "source" else "proxy"
+    except Exception:  # noqa: BLE001
+        res = "proxy"
+    try:
+        quality = max(0, min(10, int(clip.get("quality", 8))))
+    except (TypeError, ValueError):
+        quality = 8
     names: list[str] = []
     full_mp4 = bool(clip.get("mp4") and clip.get("full"))
     short_span = len(span)
@@ -474,14 +483,16 @@ def _run_clip_exports(win, base: str, out_dir, clip: dict | None,
             out = _free_path(Path(out_dir) / clip_names(base)[kind])
             if kind == "mp4" and full_mp4:
                 try:
-                    _cc.render_clip_export_long(win, preset, fps, out, track)
+                    _cc.render_clip_export_long(win, preset, fps, out, track,
+                                                res, quality)
                 except Exception as e:  # noqa: BLE001
                     QMessageBox.warning(win, "TRAKKART", f"Clip export error ({kind}): {e}")
                     continue
                 names.append(out.name)
                 continue
             try:
-                _cc.render_clip_export(win, kind, preset, span, fps, out, track)
+                _cc.render_clip_export(win, kind, preset, span, fps, out, track,
+                                       res, quality)
             except Exception as e:  # noqa: BLE001
                 QMessageBox.warning(win, "TRAKKART", f"Clip export error ({kind}): {e}")
                 continue

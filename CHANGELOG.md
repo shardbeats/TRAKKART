@@ -2,7 +2,7 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
-## [2.7.0] - 2026-11-16 — filmstrip + Motion descansa en clip (P2 video)
+## [2.8.0] - 2026-11-17 — selector res/calidad MP4 de clip
 Primera release que empaqueta v1.8 (delivery), v1.9 (motores/print),
 v2.0 (clip import + dither + export), v2.1 (caza de bugs QThread/mux)
 y las candidatas v2.x #1 (in-point seek) y #2 (VFR), más la pasada de
@@ -140,6 +140,14 @@ bitácora detallada por fase.
   hint; Drift/Grain siguen en ambos paths). Pins:
   `tests/test_clip_strip.py` + Gherkin +1 (clip.feature 10). Suite 834
   (684 fast + 150 slow). Gherkin 75/75.
+- Selector res/calidad MP4 de clip (nov-2026, a pedido): tamaño Proxy
+  720p (defecto, rápido) / Source ≤1920 (re-decode nativo del
+  trim/full, sin upscale de proxy; mismo crop de canvas) + calidad
+  q5/q8/q10 (Compact ~0.5x / Balanced / High ~1.5x, medido en ruido).
+  Estimador con factor de calidad, plan taggea `720p`/`source` + `q`;
+  GIF/ZIP quedan proxy. Pins: `tests/test_clip_resquality.py` (6) +
+  Gherkin +1 (clip.feature 11). Suite 841 (691 fast + 150 slow).
+  Gherkin 76/76.
 - P0 video (nov-2026, a pedido): ventanas MP4 pineadas contiguas
   (test: 200f ventana == lectura única) + estimador de peso del MP4 de
   clip (`estimate_clip_mp4`: 0.03 B/px + 0.006 por punto de ruido,

@@ -191,3 +191,16 @@ def layout_strip(ctx):
 def strip_ok(ctx):
     assert len(ctx["strip"]) == 10
     assert ctx["strip"][0] == 0 and ctx["strip"][-1] == 119
+
+
+@when("I compare proxy and source estimates")
+def compare_estimates(ctx):
+    from app.gif import estimate_clip_mp4
+
+    ctx["est_proxy"] = estimate_clip_mp4(720, 405, 10, 0.0, 8)
+    ctx["est_source"] = estimate_clip_mp4(1280, 720, 10, 0.0, 8)
+
+
+@then("the source weight is larger")
+def source_heavier(ctx):
+    assert ctx["est_source"] > ctx["est_proxy"]

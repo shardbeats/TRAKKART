@@ -27,6 +27,13 @@ from app.video_io import VideoBackendMissing, has_video
 
 CLIP_MAX_FRAMES = 120
 CLIP_PROXY_SIDE = 720
+#: Source MP4 size: native frames capped so the pipe never carries
+#: absurd pixels (1920 covers 1080p; anything bigger downscales to it).
+CLIP_SOURCE_SIDE = 1920
+#: Clip MP4 quality presets (imageio 0-10 q, higher = bigger/sharper).
+#: Balanced stays the default (what the estimator was calibrated at).
+CLIP_QUALITY_Q = {"compact": 5, "balanced": 8, "high": 10}
+CLIP_QUALITY_FACTOR = {5: 0.5, 8: 1.0, 10: 1.5}
 #: Video containers go through imageio-ffmpeg (any container it reads
 #: frames from); animations go through Pillow (no ffmpeg decode).
 CLIP_VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm")
@@ -405,15 +412,47 @@ def save_clip_zip(frames, out_path: str | Path) -> Path:
     return out
 
 
+def iter_dither_trim_source(path: str | Path, preset, start_s: float,
+                            skip: int, n: int,
+                            proxy_side: int = CLIP_SOURCE_SIDE,
+                            dpi: int = 300, envelopes=None):
+    """Yield dithered trim frames re-decoded at `proxy_side` (streaming).
+
+    The session holds 720p proxies; picking Source re-decodes the same
+    trim window from the file at native size instead of upscaling proxy
+    pixels. Seeds/progress match `iter_dither_clip` over the trim (t =
+    i/(n-1)), so the look is identical, only sharper. Raises like the
+    other iterators on bad input.
+    """
+    try:
+        take = max(1, int(n))
+        off = max(0, int(skip))
+    except (TypeError, ValueError):
+        raise ValueError(f"bad trim window: {skip}+{n}")
+    import itertools as _it
+
+    from app.pipeline import render_spec
+
+    src = iter_source_frames(path, start_s, off + take, proxy_side)
+    window = list(_it.islice(src, off, off + take))
+    if not window:
+        raise ValueError(f"no frames: {path}")
+    total = len(window)
+    for i, frame in enumerate(window):
+        yield render_spec(frame.convert("RGB"),
+                          _spec_for(preset, i, total, dpi, envelopes))
+
+
 def write_clip_mp4(frames_or_iter, out_path: str | Path,
-                   fps: int = 24) -> Path:
+                   fps: int = 24, quality: int = 8) -> Path:
     """Silent clip MP4 (software libx264-only, same writer as still MP4)."""
     from app.video_io import write_mp4, write_mp4_iter
 
     out = Path(out_path)
+    q = max(0, min(10, int(quality)))
     if isinstance(frames_or_iter, list):
-        return write_mp4(list(frames_or_iter), out, fps=fps)
-    wrote, _ = write_mp4_iter(frames_or_iter, out, fps=fps)
+        return write_mp4(list(frames_or_iter), out, fps=fps, quality=q)
+    wrote, _ = write_mp4_iter(frames_or_iter, out, fps=fps, quality=q)
     return wrote
 
 
@@ -549,6 +588,42 @@ def mux_soundtrack(silent_mp4: str | Path, audio_path: str | Path,
 # same as write_mp4_iter): the limit becomes CPU/time, not memory.
 # ---------------------------------------------------------------------------
 LONG_MP4_MAX_FRAMES = 3600
+
+
+def source_dims(path: str | Path) -> tuple[int, int] | None:
+    """Native source dims (w, h) without decoding frames (None unknown).
+
+    GIF/WebP via Pillow header; containers via the ffmpeg header probe
+    (`source_size` first, `size` fallback). Never raises (plan-only).
+    """
+    try:
+        p = Path(path)
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        if not p.is_file():
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        if p.suffix.lower() in CLIP_ANIM_EXTS:
+            from PIL import Image as _Img
+
+            with _Img.open(p) as im:
+                w, h = int(im.width), int(im.height)
+            return (w, h) if w > 0 and h > 0 else None
+        meta = _probe_meta(p)
+        for key in ("source_size", "size"):
+            try:
+                w, h = meta.get(key)
+                w, h = int(w), int(h)
+                if w > 0 and h > 0:
+                    return (w, h)
+            except (TypeError, ValueError):
+                continue
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 
 def clip_full_length(path: str | Path, start_s: float = 0.0,
@@ -734,7 +809,7 @@ def write_clip_mp4_long(path: str | Path, out_path: str | Path, preset,
                         start_s: float = 0.0, fps: int = 24,
                         max_total: int = LONG_MP4_MAX_FRAMES,
                         proxy_side: int = CLIP_PROXY_SIDE, dpi: int = 300,
-                        envelopes=None) -> tuple[Path, int]:
+                        envelopes=None, quality: int = 8) -> tuple[Path, int]:
     """Full-length silent MP4 from the source file (streaming, O(window)).
 
     Returns (path, n_written). Same pixels as a full-RAM render over the
@@ -747,17 +822,22 @@ def write_clip_mp4_long(path: str | Path, out_path: str | Path, preset,
     total = plan["total_frames"]
     stream = iter_dither_source(path, preset, plan["start_s"], max_total,
                                 proxy_side, dpi, envelopes, total)
-    wrote, n = write_mp4_iter(stream, out, fps=int(plan["fps"] if fps is None else fps or plan["fps"]))
+    wrote, n = write_mp4_iter(
+        stream, out,
+        fps=int(plan["fps"] if fps is None else fps or plan["fps"]),
+        quality=max(0, min(10, int(quality))))
     return wrote, n
 
 
-__all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_EXTS",
+__all__ = ["CLIP_MAX_FRAMES", "CLIP_PROXY_SIDE", "CLIP_SOURCE_SIDE",
+           "CLIP_QUALITY_Q", "CLIP_QUALITY_FACTOR", "CLIP_EXTS",
            "CLIP_VIDEO_EXTS", "CLIP_ANIM_EXTS",
            "VideoBackendMissing", "has_clip_io",
            "import_clip", "trim_clip", "clip_duration",
-           "audio_duration", "track_fit_note",
+           "source_dims", "audio_duration", "track_fit_note",
            "iter_dither_clip", "dither_clip",
            "save_clip_zip", "write_clip_mp4", "mux_soundtrack",
            "LONG_MP4_MAX_FRAMES", "clip_full_length",
            "iter_source_frames", "iter_dither_source",
+           "iter_dither_trim_source",
            "write_clip_mp4_long"]

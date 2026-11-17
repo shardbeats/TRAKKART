@@ -251,13 +251,16 @@ def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
                      + max(0, int(n_hold)) * MP4_BYTES_PER_PX_HOLD))
 
 
-def estimate_clip_mp4(w: int, h: int, n: int, noise: float = 0.0) -> int:
+def estimate_clip_mp4(w: int, h: int, n: int, noise: float = 0.0,
+                      quality: int = 8) -> int:
     """Rough clip MP4 weight (bytes): every frame is a P-frame of moving
     content, and animated grain/dust adds fresh noise per frame.
 
     `noise` = peak grain/dust 0-100 (envelope-aware via `envelope_peak`).
     Rate = QUIET + PER_NOISE * noise (calibrated 720x405 bayer4 BW q8:
-    0.025 @0, 0.216 @30). ±2x across methods/sizes; warnings only.
+    0.025 @0, 0.216 @30). `quality` scales by the measured q curve
+    (q5 ~0.5x, q10 ~1.5x of q8 on noise frames). ±2x across methods/sizes;
+    warnings only.
     """
     from app.anim.limits import CLIP_MP4_BPX_PER_NOISE, CLIP_MP4_BPX_QUIET
 
@@ -266,7 +269,17 @@ def estimate_clip_mp4(w: int, h: int, n: int, noise: float = 0.0) -> int:
         nz = max(0.0, min(100.0, float(noise)))
     except (TypeError, ValueError):
         nz = 0.0
-    return int(px * max(0, int(n)) * (CLIP_MP4_BPX_QUIET + CLIP_MP4_BPX_PER_NOISE * nz))
+    try:
+        q = max(0, min(10, int(quality)))
+    except (TypeError, ValueError):
+        q = 8
+    try:
+        from app.clip import CLIP_QUALITY_FACTOR
+
+        factor = float(CLIP_QUALITY_FACTOR.get(q, 1.0))
+    except Exception:  # noqa: BLE001
+        factor = 1.0
+    return int(px * max(0, int(n)) * (CLIP_MP4_BPX_QUIET + CLIP_MP4_BPX_PER_NOISE * nz) * factor)
 
 
 __all__ = ["_clamp_frames", "plan_dissolve", "leg_transitions",

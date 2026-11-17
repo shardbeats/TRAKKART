@@ -329,6 +329,24 @@ class ExportDialog(QDialog):
             self.spn_clip_fps.valueChanged.connect(self._refresh_plan)
             clip_fps_row.addWidget(self.spn_clip_fps)
             col.addLayout(clip_fps_row)
+            clip_q_row = QHBoxLayout()
+            clip_q_row.addWidget(QLabel("Clip size:"))
+            from PySide6.QtWidgets import QComboBox as _QC
+
+            self.cmb_clip_res = _QC()
+            self.cmb_clip_res.addItems(["Proxy 720p (light)", "Source ≤1920 (heavy)"])
+            self.cmb_clip_res.setToolTip(
+                "MP4 pixels: Proxy reuses the 720p session frames (fast); "
+                "Source re-decodes the trim/full range at native size (≤1920, heavy). "
+                "GIF/ZIP stay proxy.")
+            self.cmb_clip_res.currentIndexChanged.connect(lambda _i: self._refresh_plan())
+            clip_q_row.addWidget(self.cmb_clip_res, 1)
+            clip_q_row.addWidget(QLabel("Quality:"))
+            self.cmb_clip_q = _QC()
+            self.cmb_clip_q.addItems(["Balanced (q8)", "Compact (q5, smaller)", "High (q10, larger)"])
+            self.cmb_clip_q.setToolTip("MP4 quality: imageio q (higher = bigger/sharper grain).")
+            self.cmb_clip_q.currentIndexChanged.connect(lambda _i: self._refresh_plan())
+            col.addLayout(clip_q_row)
             track_row = QHBoxLayout()
             track_row.addWidget(QLabel("Track:"))
             self.edit_track = QLineEdit(str(clip_track or ""))
@@ -349,6 +367,7 @@ class ExportDialog(QDialog):
         else:
             self.chk_clip_gif = self.chk_clip_mp4 = self.chk_clip_zip = None
             self.chk_clip_full = None
+            self.cmb_clip_res = self.cmb_clip_q = None
         # -- distributor readiness (honest hints, nothing blocked) --
         self.lbl_distro = QLabel()
         self.lbl_distro.setWordWrap(True)
@@ -424,6 +443,38 @@ class ExportDialog(QDialog):
         except (TypeError, ValueError):
             return (0, 0)
 
+    def _clip_res(self) -> str:
+        """Clip MP4 pixels: "source" only when the combo says so."""
+        try:
+            if (self.cmb_clip_res is not None
+                    and self.cmb_clip_res.currentIndex() == 1):
+                return "source"
+        except Exception:  # noqa: BLE001
+            pass
+        return "proxy"
+
+    def _clip_q(self) -> int:
+        """Clip MP4 quality q (5/8/10, default Balanced)."""
+        try:
+            idx = int(self.cmb_clip_q.currentIndex())
+        except Exception:  # noqa: BLE001
+            return 8
+        return {0: 8, 1: 5, 2: 10}.get(idx, 8)
+
+    def _clip_est_wh(self) -> tuple[int, int]:
+        """Estimate dims for the selected res (source probe, proxy fallback)."""
+        if self._clip_res() == "source":
+            try:
+                from app.clip import CLIP_SOURCE_SIDE, _proxy_dims, source_dims
+
+                path = str((self._clip_info or {}).get("path", "") or "")
+                nat = source_dims(path) if path else None
+                if nat:
+                    return _proxy_dims(int(nat[0]), int(nat[1]), CLIP_SOURCE_SIDE)
+            except Exception:  # noqa: BLE001
+                pass
+        return self._clip_wh()
+
     def _clip_noise(self) -> float:
         """Peak animated noise (grain/dust) for the clip estimate.
 
@@ -454,10 +505,10 @@ class ExportDialog(QDialog):
             from app.gif import estimate_clip_mp4
 
             n = max(0, int((self._clip_info or {}).get("span", 0)))
-            w, h = self._clip_wh()
+            w, h = self._clip_est_wh()
             if n <= 0 or w <= 0 or h <= 0:
                 return 0
-            return int(estimate_clip_mp4(w, h, n, self._clip_noise()))
+            return int(estimate_clip_mp4(w, h, n, self._clip_noise(), self._clip_q()))
         except Exception:  # noqa: BLE001
             return 0
 
@@ -728,11 +779,15 @@ class ExportDialog(QDialog):
                         if total_f:
                             full_video_len = total_f / max(1, fps_f)
                         noise = self._clip_noise()
-                        cw, ch_ = self._clip_wh()
-                        full_est = (estimate_clip_mp4(cw, ch_, total_f or 0, noise)
+                        cw, ch_ = self._clip_est_wh()
+                        full_est = (estimate_clip_mp4(cw, ch_, total_f or 0, noise,
+                                                      self._clip_q())
                                     if total_f else 0)
+                        res_tag = "source" if self._clip_res() == "source" else "720p"
+                        q_tag = f"q{self._clip_q()}"
                         full_note = (f"full {total_f}f"
                                      if total_f is not None else "full length")
+                        full_note += f", {res_tag}, {q_tag}"
                         if full_est:
                             full_note += f", {_fmt_size(full_est)}"
                         if plan.get("capped"):
@@ -754,8 +809,11 @@ class ExportDialog(QDialog):
                             else:
                                 short_est = self._clip_short_mp4_est()
                                 if short_est:
+                                    res_tag = ("source" if self._clip_res() == "source"
+                                               else "720p")
                                     self.list_files.addItem(
                                         f"{fname}  (trim {self._clip_info.get('span', 0)}f"
+                                        f", {res_tag}, q{self._clip_q()}"
                                         f", {_fmt_size(short_est)}, rendered at export)")
                                     total += short_est
                                 else:
@@ -863,8 +921,13 @@ class ExportDialog(QDialog):
             return None
         if not (gif or mp4 or zip_):
             return None
+        try:
+            res = self._clip_res()
+            q = self._clip_q()
+        except Exception:  # noqa: BLE001
+            res, q = "proxy", 8
         return {"gif": gif, "mp4": mp4, "zip": zip_, "fps": fps,
-                "track": track, "full": full}
+                "track": track, "full": full, "res": res, "quality": q}
 
     def _sync_distro_label(self) -> None:
         """Distributor readiness hints (never blocks; honest, not nagging)."""

@@ -831,18 +831,22 @@ def clip_names(base: str) -> dict:
             "mp4": f"{base}_clip.mp4"}
 
 
-def render_clip_export_long(win, preset, fps: int, out, track: str = ""):
+def render_clip_export_long(win, preset, fps: int, out, track: str = "",
+                            res: str = "proxy", quality: int = 8):
     """Full-length MP4 from the source file (streaming, O(window) RAM).
 
     From the session in-point (`_clip_info.start_s`) to the source end,
     capped at 3600f. Same pixels as a full-RAM render over the range
     (global seeds/progress + session envelopes). Trim spins do not apply
     (they drive the 120f preview + short exports); the dialog says so.
-    Muxes `track` like the short path (video copied, never re-encoded).
+    `res` = "proxy" (720p, light) or "source" (native ≤1920, heavy);
+    `quality` = imageio 0-10 q. Muxes `track` like the short path
+    (video copied, never re-encoded).
     """
     from pathlib import Path
 
-    from app.clip import clip_full_length, iter_dither_source, mux_soundtrack
+    from app.clip import (CLIP_PROXY_SIDE, CLIP_SOURCE_SIDE,
+                          clip_full_length, iter_dither_source, mux_soundtrack)
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -858,15 +862,21 @@ def render_clip_export_long(win, preset, fps: int, out, track: str = ""):
         env = dict(getattr(win, "_envelopes", {}) or {})
     except Exception:  # noqa: BLE001
         env = {}
+    try:
+        q = max(0, min(10, int(quality)))
+    except (TypeError, ValueError):
+        q = 8
+    side = CLIP_SOURCE_SIDE if str(res or "proxy").lower() == "source" else CLIP_PROXY_SIDE
     plan = clip_full_length(src, start_s)
     stream = iter_dither_source(src, preset, plan["start_s"],
                                 total_hint=plan["total_frames"],
+                                proxy_side=side,
                                 envelopes=env)
     from app.video_io import write_mp4_iter
 
     silent = out.parent / f"{out.stem}_silent.mp4"
     try:
-        _wrote, n = write_mp4_iter(stream, silent, fps=fps)
+        _wrote, n = write_mp4_iter(stream, silent, fps=fps, quality=q)
     except Exception:
         try:
             silent.unlink(missing_ok=True)
@@ -897,12 +907,15 @@ def render_clip_export_long(win, preset, fps: int, out, track: str = ""):
 
 
 def render_clip_export(win, kind: str, preset, span: list, fps: int,
-                       out, track: str = ""):
+                       out, track: str = "", res: str = "proxy",
+                       quality: int = 8):
     """Render one clip export (no dialogs; raises on error). Returns the path.
 
     `out` is the exact destination; callers own the naming policy
     (panel: first-free `_free_path`; Export window: dialog base+rename).
     Envelopes come from the session (`win._envelopes`, drift+grain).
+    `res`/`quality` only affect MP4: "source" re-decodes the trim window
+    at native size (no proxy upscale); GIF/ZIP stay proxy by design.
     """
     from pathlib import Path
 
@@ -924,11 +937,38 @@ def render_clip_export(win, kind: str, preset, span: list, fps: int,
 
         return save_clip_zip(dither_clip(list(span), preset, envelopes=env), out)
     if kind == "mp4":
-        from app.clip import iter_dither_clip, mux_soundtrack, write_clip_mp4
+        from app.clip import (CLIP_SOURCE_SIDE,
+                              iter_dither_clip, iter_dither_trim_source,
+                              mux_soundtrack, write_clip_mp4)
 
+        try:
+            q = max(0, min(10, int(quality)))
+        except (TypeError, ValueError):
+            q = 8
         silent = out.parent / f"{out.stem}_silent.mp4"
         try:
-            write_clip_mp4(iter_dither_clip(list(span), preset, envelopes=env), silent, fps=fps)
+            if str(res or "proxy").lower() == "source":
+                try:
+                    info = dict(getattr(win, "_clip_info", {}) or {})
+                    src = str(info.get("path", "") or "")
+                    start_s = float(info.get("start_s", 0.0) or 0.0)
+                except Exception:  # noqa: BLE001
+                    src, start_s = "", 0.0
+                try:
+                    skip = int(win._clip_start)
+                except Exception:  # noqa: BLE001
+                    skip = 0
+                if src and Path(src).is_file():
+                    stream = iter_dither_trim_source(
+                        src, preset, start_s, skip, len(list(span)),
+                        CLIP_SOURCE_SIDE, 300, env)
+                    write_clip_mp4(stream, silent, fps=fps, quality=q)
+                else:
+                    write_clip_mp4(iter_dither_clip(list(span), preset, envelopes=env),
+                                   silent, fps=fps, quality=q)
+            else:
+                write_clip_mp4(iter_dither_clip(list(span), preset, envelopes=env),
+                               silent, fps=fps, quality=q)
         except Exception:
             # No half-written MP4 left behind (ffmpeg failure).
             try:

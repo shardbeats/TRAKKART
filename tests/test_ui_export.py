@@ -681,7 +681,7 @@ def test_export_dialog_clip_section_plans_and_reports(qt_app, tmp_path):
     dlg.chk_clip_zip.setChecked(True)
     opts = dlg.clip_options()
     assert opts == {"gif": True, "mp4": False, "zip": True, "fps": 10,
-                    "track": "t.mp3", "full": False}
+                    "track": "t.mp3", "full": False, "res": "proxy", "quality": 8}
     rows = [dlg.list_files.item(i).text() for i in range(dlg.list_files.count())]
     assert any(r.startswith("d_clip.gif") for r in rows)
     assert any(r.startswith("d_frames.zip") for r in rows)
