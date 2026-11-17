@@ -56,8 +56,9 @@ def dust(img: Image.Image, amount: float = 0.0, seed: int = 0xD57) -> Image.Imag
     vals = np.where(rng.random(n) < 0.5, 0, 255).astype(np.uint8)
     out = arr.copy()
     out[ys, xs] = vals[:, None]
-    # Scratches: a handful of faint vertical streaks.
-    for _ in range(int(a // 20)):
+    # Scratches: a handful of faint vertical streaks. A 1-2px tall strip
+    # has no scratch length range (h//8 == h//3 == 0): skip, don't crash.
+    for _ in range(int(a // 20) if h >= 3 else 0):
         x = int(rng.integers(0, w))
         y0 = int(rng.integers(0, h))
         ln = int(rng.integers(h // 8, h // 3))

@@ -29,11 +29,13 @@ def default_config() -> dict:
 def normalize_config(raw: dict | None) -> dict:
     cfg = {"bands": []}
     bands = (raw or {}).get("bands", []) if isinstance(raw, dict) else []
+    # A shared/hand-edited preset can carry any JSON under "bands": only a
+    # list of dicts is usable. Garbage falls back to the band defaults,
+    # never a crash in the render.
+    if not isinstance(bands, (list, tuple)):
+        bands = []
     for i in range(4):
-        try:
-            b = bands[i] if i < len(bands) else {}
-        except (TypeError, IndexError):
-            b = {}
+        b = bands[i] if i < len(bands) and isinstance(bands[i], dict) else {}
         shape = str(b.get("shape", default_config()["bands"][i]["shape"]))
         if shape not in SHAPES:
             shape = "dot"

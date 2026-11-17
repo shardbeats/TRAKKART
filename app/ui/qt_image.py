@@ -62,7 +62,12 @@ def qimage_to_pil(qimg) -> Image.Image:
         raise ValueError("empty QImage")
     conv = qimg.convertToFormat(QImage.Format_RGB888)
     w, h = conv.width(), conv.height()
-    arr = np.frombuffer(conv.bits(), dtype=np.uint8).reshape(h, w, 3).copy()
+    # Qt pads each row to a 4-byte boundary: bytesPerLine is w*3 only when
+    # that is already aligned. Slice the padding off instead of assuming
+    # tightly packed rows (odd widths used to raise on reshape).
+    bpl = conv.bytesPerLine()
+    buf = np.frombuffer(conv.constBits(), dtype=np.uint8, count=bpl * h)
+    arr = buf.reshape(h, bpl)[:, : w * 3].reshape(h, w, 3).copy()
     return Image.fromarray(arr)
 
 

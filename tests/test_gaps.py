@@ -510,6 +510,9 @@ def test_motif_and_palette_library_edges(tmp_path):
     from app.palette_library import ensure_bundled_palettes, is_bw, list_palettes, parse_gpl, save_palette
 
     assert normalize_config(None)["bands"][0]["shape"] == "dot"
+    # A shared preset may carry any JSON shape under "bands": defaults, no crash.
+    assert normalize_config({"bands": "oops"})["bands"][0] == {"shape": "dot", "size": 2}
+    assert normalize_config({"bands": [None, "x"]})["bands"][1]["shape"] == "line"
     weird = normalize_config({"bands": [{"shape": "nope", "size": "x"},
                                         {"shape": "line"}]})
     assert weird["bands"][0] == {"shape": "dot", "size": 2}

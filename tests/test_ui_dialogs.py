@@ -100,7 +100,7 @@ def test_batch_handlers(window):
 
 
 def test_run_batch_starts_worker(window, tmp_path: Path, monkeypatch):
-    calls: dict = {}
+    calls: dict = {"connects": [], "starts": 0}
 
     class FakeSig:
         def __init__(self):
@@ -108,6 +108,7 @@ def test_run_batch_starts_worker(window, tmp_path: Path, monkeypatch):
 
         def connect(self, slot):
             self.slot = slot
+            calls["connects"].append(slot)
 
     class FakeWorker:
         def __init__(self, *a, **k):
@@ -120,7 +121,7 @@ def test_run_batch_starts_worker(window, tmp_path: Path, monkeypatch):
             return False
 
         def start(self):
-            calls["started"] = True
+            calls["starts"] += 1
             self.finished.slot([])
 
     import app.ui.main_window as MW
@@ -131,7 +132,10 @@ def test_run_batch_starts_worker(window, tmp_path: Path, monkeypatch):
     dst = tmp_path / "dst"
     src.mkdir()
     window.run_batch(src, dst)
-    assert calls.get("started") is True
+    assert calls["created"] is True
+    # One wiring, one start: duplicated connects ran "Batch done" twice.
+    assert calls["starts"] == 1
+    assert len(calls["connects"]) == 3
 
 
 def test_crop_editor_accept_applies(window, monkeypatch):

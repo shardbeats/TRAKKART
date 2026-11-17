@@ -113,14 +113,6 @@ def run_batch(win, src, dst, jobs: int | None = None, preset=None,
     win.progress.show()
     win.btn_cancel.show()
     win._batch_worker.start()
-    win._batch_worker.progress.connect(win._on_batch_progress)
-    win._batch_worker.finished.connect(win._on_batch_finished)
-    win._batch_worker.error.connect(win._on_batch_error)
-    win.btn_batch.setEnabled(False)
-    win.progress.setValue(0)
-    win.progress.show()
-    win.btn_cancel.show()
-    win._batch_worker.start()
 
 
 def cancel_batch(win) -> None:

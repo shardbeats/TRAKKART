@@ -2,6 +2,23 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.3] - 2026-11-17 — caza de bugs: pegado Qt, batch y texturas
+- Pegar/arrastrar una imagen cuyo ancho no es múltiplo de 4 fallaba con
+  "No image in the clipboard": `qimage_to_pil` daba por hecho filas
+  empaquetadas, pero Qt rellena cada fila a 4 bytes. Ahora usa
+  `bytesPerLine` y recorta el relleno. Pin: `tests/test_stability.py` (+1).
+- Batch: `run_batch` cableaba el worker dos veces (señales duplicadas y
+  doble `start()`), así que al terminar salían dos diálogos "Batch done".
+  Ahora se conecta y arranca una sola vez. Pin: `tests/test_ui_dialogs.py`.
+- Textura polvo: una imagen de 1-2 px de alto con `dust` >= 20 reventaba
+  en el rango de longitud de las rayas (`rng.integers(0, 0)`). Ahora se
+  omiten las rayas en tiras sin altura útil. Pin: `tests/test_texture.py` (+1).
+- Motivo: un preset compartido con `motif.bands` que no es lista de
+  objetos (texto, `null`…) pasaba `validate()` y rompía el render con
+  `AttributeError`. Ahora cae a los valores por defecto de banda. Pin:
+  `tests/test_gaps.py`.
+- Gates 5/5, flake8 0.
+
 ## [2.14.2] - 2026-11-17 — caza de bugs: batch, packs y nombres reservados
 - Batch: dos entradas con el mismo tallo (`cover.png` + `cover.jpg`)
   escribían el mismo bundle y la segunda pisaba a la primera en

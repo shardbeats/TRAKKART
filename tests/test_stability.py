@@ -249,6 +249,20 @@ def test_pil_to_pixmap_empty_never_crashes(qt_app):
     assert pix.isNull()
 
 
+def test_qimage_to_pil_handles_padded_rows(qt_app):
+    """Qt pads rows to 4 bytes: odd widths must not raise on reshape."""
+    from PySide6.QtGui import QColor, QImage
+
+    from app.ui.qt_image import qimage_to_pil
+
+    for w in (1, 3, 5, 501):
+        q = QImage(w, 3, QImage.Format_RGB888)
+        q.fill(QColor(9, 8, 7))
+        out = qimage_to_pil(q)
+        assert out.size == (w, 3)
+        assert out.getpixel((w - 1, 2)) == (9, 8, 7)
+
+
 def test_crop_editor_ratio_syncs_canvas_dims(window, qt_app):
     from app.ui.crop_editor import CropEditorDialog
     from tests.conftest import accept_next_dialog

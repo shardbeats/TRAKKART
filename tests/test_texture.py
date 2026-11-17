@@ -36,6 +36,13 @@ def test_dust_deterministic_and_off():
     assert _flat(a) != _flat(_img())
 
 
+def test_dust_thin_strip_never_crashes():
+    # 1-2px tall strips used to raise on the scratch length range.
+    for h in (1, 2):
+        out = dust(Image.new("RGB", (200, h), (9, 9, 9)), amount=50)
+        assert out.size == (200, h)
+
+
 def test_border_and_letterbox():
     assert border(_img()).size == (32, 32)
     assert border(_img(), px=0).size == (32, 32)
