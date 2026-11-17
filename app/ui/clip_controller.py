@@ -233,8 +233,18 @@ def open_path(win, path) -> bool:
     except Exception:  # noqa: BLE001
         start_s = 0.0
     _busy(win, True, "Importing clip...")
+    reset_start = False
     try:
-        frames, info = import_clip(Path(path), start_s=start_s)
+        try:
+            frames, info = import_clip(Path(path), start_s=start_s)
+        except Exception as e:  # noqa: BLE001
+            if start_s > 0 and "beyond clip length" in str(e):
+                # Stale start from a longer clip: load from 0 and reset
+                # the spinner instead of warning (owner nov-2026).
+                frames, info = import_clip(Path(path), start_s=0.0)
+                reset_start = True
+            else:
+                raise
     except VideoBackendMissing as e:
         QMessageBox.warning(win, "TRAKKART", str(e))
         return False
@@ -258,13 +268,20 @@ def open_path(win, path) -> bool:
         pass
     build_strip(win)
     set_motion_source(win, "clip")
+    if reset_start:
+        try:
+            win.spn_clip_start_s.blockSignals(True)
+            win.spn_clip_start_s.setValue(0.0)
+        finally:
+            win.spn_clip_start_s.blockSignals(False)
     sync_ui(win)
     scrub(win, 0)
     try:
         trunc = " · truncated to 120f" if info.get("truncated") else ""
         start_tag = f" · from {info.get('start_s', 0.0):.1f}s" if info.get("start_s") else ""
+        reset_tag = " · start reset to 0 (was beyond clip length)" if reset_start else ""
         win._status(f"Clip: {Path(path).name} · {len(frames)}f"
-                    f" @{info.get('fps', 24)}fps{start_tag}{trunc} (proxy 720p)")
+                    f" @{info.get('fps', 24)}fps{start_tag}{trunc}{reset_tag} (proxy 720p)")
     except Exception:  # noqa: BLE001
         pass
     return True

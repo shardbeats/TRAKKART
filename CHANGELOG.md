@@ -2,6 +2,11 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.1] - 2026-11-17 — clip con start obsoleto: autocorrección
+- Abrir un clip con "Start at" más allá de su duración ya no muestra
+  el aviso modal: carga desde 0, resetea el spinner y lo anota en la
+  línea de estado. Pin: `tests/test_clip_strip.py` (+1).
+
 ## [2.14.0] - 2026-11-17 — MCP stdio + fuzzer (v2.x #9, #10: roadmap done)
 - Servidor MCP stdio (`python main.py --mcp`): JSON-RPC 2.0 por
   stdin/stdout con la superficie headless (spec primero en
