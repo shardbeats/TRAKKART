@@ -81,6 +81,12 @@ huge canvases use Still. "SP-404 OLED preview" shows the still as the
   stops is identity. Stored as plain stops in the preset, so it
   shares/saves like any recipe field; legacy presets render
   byte-identical.
+- **CRT drift (v2.x #5):** MOTION video mode `crt` — scanline roll +
+  tracking wobble + chroma bleed over time, on top of the matrix march
+  (frozen on error-diffusion, like phase; roll/tracking/bleed move on
+  every method). Each channel follows its FX knob (Scanlines/Slices/
+  Chroma/Wave, 0 = off, motion 0 = freeze); clean presets on ordered
+  methods still march.
 
 ## Clip import (v2.0)
 

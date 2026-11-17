@@ -27,6 +27,10 @@ GIF_MODE_INFO: dict[str, tuple[str, str]] = {
              "March part needs an ordered method."),
     "glitch": ("CRT wobble",
                "Chroma shift + slice offset + wave. Moves on every method."),
+    "crt": ("CRT drift",
+            "Scanline roll + tracking wobble + chroma bleed over time. "
+            "March part needs an ordered method (frozen on error-diffusion); "
+            "roll/tracking/bleed move on every method."),
     "mix": ("Full mix",
             "March + hue + wobble + light sweep + grain shimmer. Maximum motion."),
     "dissolve": ("Disperse",
@@ -205,7 +209,7 @@ def gif_frames(
     drift_amount and grain over t=i/n; empty/None renders byte-identical.
     """
     from app.ordered_maps import march_offset
-    from app.render_params import normalize_slice_bands
+    from app.render_params import normalize_scanlines, normalize_slice_bands
 
     if mode not in GIF_MODES:
         mode = "both"
@@ -258,9 +262,13 @@ def gif_frames(
     base_grain = float(getattr(preset, "grain", 0.0) or 0.0)
     base_dust = float(getattr(preset, "dust", 0.0) or 0.0)
 
-    want_phase = mode in ("phase", "both", "glitch", "mix")
+    want_phase = mode in ("phase", "both", "glitch", "mix", "crt")
     want_hue = mode in ("hue", "both", "mix")
     want_glitch = mode in ("glitch", "mix")
+    want_crt = mode == "crt"
+    base_scan = 0
+    if want_crt:
+        base_scan = normalize_scanlines(int(getattr(preset, "scanlines", 0) or 0))
     # Light sweep: soft traveling sheen (hue/both/mix). Continuous and
     # subtle, unlike discrete ink jumps; 0 amount freezes with the rest.
     want_sheen = mode in ("hue", "both", "mix")
@@ -273,6 +281,10 @@ def gif_frames(
     base_kwargs["mosh"] = 0.0
     base_kwargs["grain"] = 0.0
     base_kwargs["dust"] = 0.0
+    if want_crt:
+        # Scanlines roll per frame (temporal); the static rows must not
+        # bake in or the roll would double-darken.
+        base_kwargs["scanlines"] = 0
 
     out: list[Image.Image] = []
     march_method = str(getattr(preset, "method", "bayer4"))
@@ -345,6 +357,34 @@ def gif_frames(
                 frame = apply_mosh(frame, mode=mosh_mode,
                                    amount=max(0.0, mosh_amt),
                                    seed=mosh_seed, size=mosh_size)
+
+        if want_crt:
+            # Temporal CRT: scanline roll + tracking wobble + chroma bleed.
+            # Strict 0=off: each channel only runs on its FX value (no
+            # forced wobble on clean presets); the march above still moves
+            # on ordered methods (frozen on error-diffusion, like phase).
+            from app.fx import scanlines_roll
+            from app.glitch import chromatic_aberration, tracking_wobble
+            from app.glitch import wave_loop
+
+            if base_scan >= 2 and amt > 0:
+                frame = scanlines_roll(frame, every=int(base_scan),
+                                       progress=progress)
+            if base_bands >= 2 and base_max > 0:
+                maxoff = int(round(float(base_max) * amt))
+                if maxoff > 0:
+                    frame = tracking_wobble(frame, max_offset=maxoff,
+                                            progress=progress)
+            if base_chroma > 0:
+                dx = int(round(float(base_chroma) * amt * math.sin(t)))
+                if dx:
+                    frame = chromatic_aberration(frame, dx=dx)
+            if base_wave > 0:
+                amp_w = int(round(float(base_wave) * amt))
+                if amp_w > 0:
+                    frame = wave_loop(frame, amplitude=amp_w,
+                                      seed=int(getattr(preset, "wave_seed", 0x9A9E) or 0),
+                                      progress=progress)
 
         # Grain shimmer in mix: strict 0=off (no forced grain on clean
         # presets). Loop-perfect breathing so the loop point has no jump.

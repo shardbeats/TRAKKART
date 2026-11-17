@@ -599,6 +599,15 @@ keep/cut.
    tracking wobble, chroma bleed over time) reusing the march/hue
    engine; ED-frozen rule respected (post-fx animation only).
    Pins: determinism + Gherkin +1.
+   DONE (nov-2026): GIF mode `crt` ("CRT drift") in `gif_frames`:
+   phase march (ordered; frozen on ED) + per-frame scanline roll
+   (`fx.scanlines_roll`, loop-perfect, 0 == static), traveling-band
+   tracking wobble (`glitch.tracking_wobble`, slice knobs), chroma
+   bleed (sin envelope), wave reuse; no hue/sheen/mosh. Strict 0=off
+   (FX 0 on ordered == phase output), motion 0 freezes. UI: combo
+   auto-lists it; ED hint covers `crt`. Pins: `tests/test_crt.py` (7)
+   + Gherkin +1 (motion.feature). Suite 857 (707 fast + 150 slow).
+   Gherkin 78/78.
 6. SVG color-region export (one layer per ink). Vector Pro extension:
    rect runs grouped per palette ink (display + separation reuse).
    Pins: layer count + byte checks.

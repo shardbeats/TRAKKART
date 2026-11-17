@@ -358,6 +358,29 @@ def motion_levels_ok(ctx):
     assert len(set(flat(ctx["out_b"]))) > 1
 
 
+@when("I render crt frames twice and roll scanlines round-trip")
+def render_crt_twice(ctx):
+    from app.fx import scanlines_roll
+    from app.gif import gif_frames
+    from app.presets import Preset
+
+    base = dict(name="c", method="bayer8", palette="SLIME", scanlines=4,
+                glitch_chroma=4, glitch_slice_bands=4, glitch_slice_max=12)
+    ctx["out_a"] = gif_frames(ctx["img"], Preset(**base), frames=4, mode="crt")
+    ctx["out_b"] = gif_frames(ctx["img"], Preset(**base), frames=4, mode="crt")
+    ctx["roll_0"] = scanlines_roll(ctx["img"], 4, 0.0)
+    ctx["roll_1"] = scanlines_roll(ctx["img"], 4, 1.0)
+
+
+@then("both crt renders match and the roll loop closes")
+def crt_loop_ok(ctx):
+    flat = lambda frames: [tuple(f.get_flattened_data()) for f in frames]  # noqa: E731
+    assert flat(ctx["out_a"]) == flat(ctx["out_b"])
+    assert len(set(flat(ctx["out_a"]))) > 1
+    assert (list(ctx["roll_1"].get_flattened_data())
+            == list(ctx["roll_0"].get_flattened_data()))
+
+
 @given("no video backend installed")
 def no_backend(ctx):
     import pytest

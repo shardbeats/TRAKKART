@@ -6,7 +6,7 @@ callers keep importing from app.gif (shim).
 
 from __future__ import annotations
 
-GIF_MODES = ("phase", "hue", "both", "glitch", "mix", "dissolve", "morph")
+GIF_MODES = ("phase", "hue", "both", "glitch", "mix", "crt", "dissolve", "morph")
 
 GIF_MAX_SIDE = 480
 GIF_MIN_SIDE = 240

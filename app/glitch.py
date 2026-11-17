@@ -162,6 +162,45 @@ def wave_loop(
     return Image.fromarray(out)
 
 
+def tracking_wobble(
+    img: Image.Image, max_offset: int = 0, progress: float = 0.0,
+) -> Image.Image:
+    """Loop-perfect VHS tracking wobble: a soft band of shifted rows that
+    travels top -> bottom once per loop (progress 1 wraps to 0).
+
+    Triangular falloff over a H/5 window, peak `max_offset` px. <=0 = off.
+    Deterministic geometry, no seeds (the band position is the timeline).
+    """
+    import math
+
+    m = int(max_offset)
+    if m <= 0:
+        return img
+    try:
+        p = float(progress or 0.0) % 1.0
+    except (TypeError, ValueError):
+        p = 0.0
+    arr = np.array(img.convert("RGB"))
+    h = arr.shape[0]
+    if h < 2:
+        return img
+    width = max(2.0, h / 5.0)
+    center = p * h
+    ys = np.arange(h, dtype=np.float32)
+    dist = np.abs(ys - center)
+    dist = np.minimum(dist, h - dist)  # wrap: band exits bottom, enters top
+    env = np.clip(1.0 - dist / width, 0.0, 1.0)
+    amp = env * float(m) * math.sin(2.0 * math.pi * p)
+    offsets = np.round(amp).astype(int)
+    if not bool((offsets != 0).any()):
+        return img
+    out = arr.copy()
+    for y in range(h):
+        if int(offsets[y]) != 0:
+            out[y] = np.roll(arr[y], int(offsets[y]), axis=0)
+    return Image.fromarray(out)
+
+
 def datamosh(img: Image.Image, amount: float = 0.0, seed: int = 0x405) -> Image.Image:
     """Randomly shifted blocks (datamosh). 0 = off.
 

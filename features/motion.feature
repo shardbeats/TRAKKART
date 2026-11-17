@@ -19,6 +19,11 @@ Feature: Motion from stills
     When I render mix frames with motion 0 and motion 1
     Then the motion-0 frames match and the motion-1 frames move
 
+  Scenario: CRT drift is deterministic and loop-perfect
+    Given a 48x48 gradient image
+    When I render crt frames twice and roll scanlines round-trip
+    Then both crt renders match and the roll loop closes
+
   Scenario: Missing video backend fails with install instructions
     Given no video backend installed
     When I try to write an MP4

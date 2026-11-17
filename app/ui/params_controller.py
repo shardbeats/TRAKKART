@@ -603,12 +603,15 @@ def sync_anim_ui(win) -> None:
         win.lbl_mode_desc.setText(f"{mode_label(mode)} — {mode_desc(mode)}")
     except Exception:  # noqa: BLE001
         pass
-    frozen = mode in ("phase", "both") and method in set(ED_METHODS) | {"hilbert"}
+    frozen = mode in ("phase", "both", "crt") and method in set(ED_METHODS) | {"hilbert"}
     try:
-        win.lbl_compat.setText(
-            f"March is frozen on {method} (error-diffusion ignores the matrix). "
-            "Hue still cycles; wobble/shimmer still move."
-            if frozen else "")
+        if mode == "crt":
+            hint = (f"March is frozen on {method} (error-diffusion ignores the matrix). "
+                    "Roll/tracking/bleed still move.")
+        else:
+            hint = (f"March is frozen on {method} (error-diffusion ignores the matrix). "
+                    "Hue still cycles; wobble/shimmer still move.")
+        win.lbl_compat.setText(hint if frozen else "")
         win.btn_use_ordered.setVisible(bool(frozen))
     except Exception:  # noqa: BLE001
         pass

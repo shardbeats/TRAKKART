@@ -169,6 +169,28 @@ def apply_scanlines(img: Image.Image, every: int = 0, darken: float = 0.4) -> Im
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
 
+def scanlines_roll(img: Image.Image, every: int = 0, progress: float = 0.0,
+                   darken: float = 0.4) -> Image.Image:
+    """Loop-perfect rolling scanlines (VHS head roll): the dark rows crawl.
+
+    `progress` 0->1 shifts the mask exactly `every` rows, so progress 1
+    lands back on progress 0 (0 also equals `apply_scanlines`). every<2
+    = off. Deterministic, no seeds.
+    """
+    e = int(every)
+    if e < 2:
+        return img
+    try:
+        p = float(progress or 0.0) % 1.0
+    except (TypeError, ValueError):
+        p = 0.0
+    off = int(round(p * e)) % e
+    arr = np.array(_rgb(img), dtype=np.float32)
+    rows = (np.arange(arr.shape[0]) + off) % e == e - 1
+    arr[rows] *= 1.0 - float(darken)
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
 def parse_hex(color: str) -> tuple[int, int, int] | None:
     s = (color or "").strip().lstrip("#")
     if len(s) != 6:

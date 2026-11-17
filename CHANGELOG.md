@@ -2,6 +2,14 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.10.0] - 2026-11-17 — modos CRT temporales (v2.x #5)
+- MOTION modo `crt` ("CRT drift"): scanline roll + tracking wobble +
+  chroma bleed sobre el matrix march (congelado en error-diffusion,
+  como phase). Cada canal sigue su knob FX (0 = off, motion 0 =
+  freeze); presets limpios en ordered siguen con march. Pins:
+  `tests/test_crt.py` (7) + Gherkin +1 (motion.feature). Docs
+  (MANUAL/ROADMAP), gates 5/5, flake8 0.
+
 ## [2.9.0] - 2026-11-17 — gradient-map multistop (v2.x #4)
 - GRADE → Gradient map: rampa de N tintas sobre luminancia (duotone
   con más paradas: Ember/Abyss/Acid/Bone, Off = bypass) como item del
