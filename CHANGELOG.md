@@ -2,6 +2,28 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.4] - 2026-11-18 — caza de bugs: glitch, partículas y video
+- Glitch: `slice_shift` con `max_offset` negativo reventaba en numpy
+  (`ValueError: low >= high`); cero/negativo ahora es identidad, igual
+  que `slice_shift_loop`. Pin: `tests/test_glitch.py` (+1).
+- Partículas: `_resolve_anim_spec` con `wind` malformado (`()`, 1-tupla)
+  tumbaba el export con `IndexError`; ahora cae al viento por defecto.
+  Pin: `tests/test_disintegrate.py` (+1).
+- Partículas: la rama de rejillas distintas recortaba las columnas RGB
+  de tintas por los límites del canvas (R → `0..h-1`) y destruía las
+  tintas de paleta; los colores viajan 1:1 con las coords, intactos.
+  Pin: `tests/test_disintegrate.py` (+1).
+- Video: `on_done`/`on_error` nunca retiraban el `VideoWorker`
+  terminado (hilos acumulados sin `deleteLater`); ahora se retira como
+  el preview. Pin: `tests/test_ui_video.py` (+1).
+- Export: `resolve_collision` ignoraba el BMP del SP-404 y el diálogo
+  no avisaba cuando solo ese archivo chocaba; ahora lo lista. Pin:
+  `tests/test_ui_export.py` (+1).
+- Higiene: `sync_stale_badge` traía un bloque muerto copiado de
+  `_morph_imgs`; los tres `blockSignals(False)` del video van en
+  `finally`; el docstring de `fps_changed` ya no promete "sin re-render".
+- Gates 5/5, flake8 0.
+
 ## [2.14.3] - 2026-11-17 — caza de bugs: pegado Qt, batch y texturas
 - Pegar/arrastrar una imagen cuyo ancho no es múltiplo de 4 fallaba con
   "No image in the clipboard": `qimage_to_pil` daba por hecho filas

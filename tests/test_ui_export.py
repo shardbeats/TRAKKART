@@ -299,6 +299,54 @@ def test_resolve_collision_branches(tmp_path, qt_app, monkeypatch):
     assert _ef.resolve_collision(None, tmp_path, opts) is None
 
 
+def test_resolve_collision_lists_sp404(tmp_path, qt_app, monkeypatch):
+    # Regression: resolve_collision ignored the SP-404 BMP, so the
+    # dialog never warned when only `{base}_sp404.bmp` clashed.
+    import app.ui.export_flow as _ef
+    from app.exporter import ExportOptions, ExportSelection
+
+    created = {"n": 0}
+
+    class _RecBox:
+        class Icon:
+            Warning = 0
+
+        class StandardButton:
+            Cancel = 0
+
+        class ButtonRole:
+            DestructiveRole = 0
+            ActionRole = 1
+
+        def __init__(self, *a, **k):
+            created["n"] += 1
+            self._rename = object()
+
+        def addButton(self, label, role):
+            if "Rename" in str(label):
+                return self._rename
+            return object()
+
+        def setDefaultButton(self, b):
+            pass
+
+        def exec(self):
+            return 0
+
+        def clickedButton(self):
+            return self._rename
+
+    opts = ExportOptions(base="c", selection=ExportSelection(
+        image=True, thumb_1080p=False, vector=False, anim=False, metadata=False))
+    (tmp_path / "c_sp404.bmp").write_bytes(b"x")
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox", _RecBox)
+    assert _ef.resolve_collision(None, tmp_path, opts,
+                                 want_sp404=True) == "rename"
+    assert created["n"] == 1  # the clash was listed, user was asked
+    assert _ef.resolve_collision(None, tmp_path, opts) == "rename"
+    assert created["n"] == 1  # sp404 alone is not a stills clash
+
+
 def test_collision_rename_writes_suffixed(window, qt_app, monkeypatch):
     import app.ui.export_flow as _ef
     from app.ui.export_dialog import ExportDialog

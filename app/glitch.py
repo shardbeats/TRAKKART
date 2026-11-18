@@ -32,6 +32,9 @@ def slice_shift(
     bands = int(bands)
     if bands < 2:
         return img
+    max_offset = int(max_offset)
+    if max_offset <= 0:
+        return img
     arr = np.array(img.convert("RGB"))
     h = arr.shape[0]
     rng = np.random.default_rng(int(seed))

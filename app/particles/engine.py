@@ -406,7 +406,10 @@ def _iter_morph_chain_core(imgs: list[Image.Image], method: str = "bayer8",
             still_arr_list.append(np.asarray(still.convert("RGB")))
         else:
             coord_list.append(_refit_coords(coords, hh, ww, h, w))
-            col_list.append(None if cols is None else _refit_coords(cols, hh, ww, h, w))
+            # Colors ride 1:1 with coords (no drops, no reorder), so the
+            # inks pass through untouched: clipping RGB through coord
+            # bounds would destroy them (R -> 0..h-1).
+            col_list.append(cols)
             still_list.append(still if still.size == (w, h)
                               else still.resize((w, h), Image.BICUBIC))
             still_arr_list.append(np.asarray(still_list[-1].convert("RGB")))

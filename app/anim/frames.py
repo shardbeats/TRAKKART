@@ -68,12 +68,17 @@ def _resolve_anim_spec(preset, max_side=None, seed=None, wind=None, mode=None):
     seed_v = 0xD15C if seed is None else int(seed)
     if preset is not None and seed is None:
         seed_v = int(getattr(preset, "dissolve_seed", seed_v) or seed_v)
-    wind_v = (120.0, -40.0) if wind is None else (float(wind[0]), float(wind[1]))
+    wind_v = (120.0, -40.0)
     if preset is not None and wind is None:
         wx = getattr(preset, "dissolve_wind_x", None)
         wy = getattr(preset, "dissolve_wind_y", None)
         if wx is not None and wy is not None:
             wind_v = (float(wx), float(wy))
+    else:
+        try:
+            wind_v = (float(wind[0]), float(wind[1]))
+        except (TypeError, ValueError, IndexError):
+            wind_v = (120.0, -40.0)
     mode_v = "wind" if mode is None else str(mode)
     if preset is not None and mode is None:
         mode_v = str(getattr(preset, "dissolve_mode", mode_v) or mode_v)

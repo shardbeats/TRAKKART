@@ -1488,3 +1488,44 @@ def test_preset_match_and_dot_shape_roundtrip():
         Preset(name="x", dissolve_match="nope").validate()
     with pytest.raises(ValueError):
         Preset(name="x", dissolve_dot_shape="nope").validate()
+
+
+def test_morph_size_mismatch_keeps_palette_inks(monkeypatch):
+    # Regression: the dither-size fallback branch clipped the RGB ink
+    # columns through the coord bounds (R -> 0..h-1), destroying
+    # palette inks whenever two chain forms dithered to different
+    # grids. Inks must ride 1:1 with coords, untouched.
+    import numpy as np
+
+    from app.disintegrate import morph_chain_frames
+    from app.particles import engine as _eng
+
+    real = _eng.morph_ink
+    seen = {"n": 0}
+
+    def _shrunk_second(im, *a, **k):
+        still, coords, cols, hh, ww = real(im, *a, **k)
+        seen["n"] += 1
+        if seen["n"] == 2:
+            return still, coords, cols, max(1, hh // 2), max(1, ww // 2)
+        return still, coords, cols, hh, ww
+
+    monkeypatch.setattr(_eng, "morph_ink", _shrunk_second)
+    inks = [(200, 100, 50), (20, 20, 20)]
+    a = Image.new("RGB", (48, 48), (10, 10, 10))
+    b = Image.new("RGB", (48, 48), (240, 240, 240))
+    frames = morph_chain_frames([a, b], frames=8, max_side=48, seed=7,
+                                palette=inks, loop=False)
+    assert seen["n"] == 2
+    mid = np.asarray(frames[4].convert("RGB")).reshape(-1, 3)
+    assert any(tuple(px) == (200, 100, 50) for px in mid)
+
+
+def test_anim_spec_malformed_wind_falls_back():
+    # Regression: wind=() crashed with IndexError; malformed wind
+    # now falls back to the default instead of killing the export.
+    from app.anim.frames import _resolve_anim_spec
+
+    assert _resolve_anim_spec(None, 400, None, (), None)[5] == (120.0, -40.0)
+    assert _resolve_anim_spec(None, 400, None, None, None)[5] == (120.0, -40.0)
+    assert _resolve_anim_spec(None, 400, None, (10.0, 20.0), None)[5] == (10.0, 20.0)

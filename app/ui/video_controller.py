@@ -115,16 +115,6 @@ def sync_stale_badge(win) -> None:
             lbl.setText("⚠ Preview predates your edits — export re-renders fresh, or rebuild now.")
     except Exception:  # noqa: BLE001
         pass
-    try:
-        from app.ui import params_controller as _par
-
-        chain = _par.morph_chain_data(win)
-        if chain:
-            return chain
-        single = getattr(win, "morph_src", None)
-        return [single] if single is not None else None
-    except Exception:  # noqa: BLE001
-        return None
 
 
 def toggle(win) -> None:
@@ -153,7 +143,7 @@ def toggle(win) -> None:
 
 
 def fps_changed(win) -> None:
-    """FPS retimes the player; Length stays sacred, so re-solve + re-render.
+    """FPS retimes the player and re-solves Length (no silent drift).
 
     Particle: Hold re-solves to the same seconds (slider follows).
     Rest: n = Length x fps recomputes (Frames combo follows). Either way
@@ -319,8 +309,10 @@ def sync_duration_ui(win) -> None:
         try:
             spin = win.spn_duration
             spin.blockSignals(True)
-            spin.setValue(round(plan["total"] / max(1, plan["fps"]), 1))
-            spin.blockSignals(False)
+            try:
+                spin.setValue(round(plan["total"] / max(1, plan["fps"]), 1))
+            finally:
+                spin.blockSignals(False)
         except Exception:  # noqa: BLE001
             pass
         n_eff = plan["total"]
@@ -527,6 +519,11 @@ def start_async(win) -> None:
 def on_done(win, frames: list, token: int) -> None:
     if token != win._video_token:
         return
+    from app.ui.thread_safe import retire
+
+    w = win._video_worker
+    win._video_worker = None
+    retire(w)  # never drop a live QThread (hard crash)
     from app.gif import GIF_MAX_FPS, GIF_MIN_FPS
 
     win._video_frames = list(frames or [])
@@ -536,9 +533,11 @@ def on_done(win, frames: list, token: int) -> None:
     fps = max(GIF_MIN_FPS, min(GIF_MAX_FPS, int(s["fps"])))
     win._video_timer.setInterval(1000 // fps)
     win.sld_video.blockSignals(True)
-    win.sld_video.setRange(0, max(0, len(win._video_frames) - 1))
-    win.sld_video.setValue(0)
-    win.sld_video.blockSignals(False)
+    try:
+        win.sld_video.setRange(0, max(0, len(win._video_frames) - 1))
+        win.sld_video.setValue(0)
+    finally:
+        win.sld_video.blockSignals(False)
     win._video_idx = 0
     show_frame(win)
     if win._video_playing and len(win._video_frames) > 1:
@@ -550,6 +549,11 @@ def on_done(win, frames: list, token: int) -> None:
 def on_error(win, msg: str, token: int) -> None:
     if token != win._video_token:
         return
+    from app.ui.thread_safe import retire
+
+    w = win._video_worker
+    win._video_worker = None
+    retire(w)  # never drop a live QThread (hard crash)
     win._status(f"Video error: {msg}")
 
 
@@ -576,8 +580,10 @@ def show_frame(win, force: bool = False) -> None:
     win.lbl_video_pos.setText(f"{idx + 1}/{len(win._video_frames)}")
     if win.sld_video.value() != idx:
         win.sld_video.blockSignals(True)
-        win.sld_video.setValue(idx)
-        win.sld_video.blockSignals(False)
+        try:
+            win.sld_video.setValue(idx)
+        finally:
+            win.sld_video.blockSignals(False)
 
 
 def next_frame(win) -> None:

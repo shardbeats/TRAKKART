@@ -87,3 +87,10 @@ def test_grille_every2_no_crash_and_tints():
     # Deterministic.
     a = rgb_grille(_img(), every=2)
     assert _flat(rgb_grille(_img(), every=2)) == _flat(a)
+
+
+def test_slice_nonpositive_offset_identity():
+    # Regression: negative max_offset crashed numpy
+    # "ValueError: low >= high"; zero/negative now means no shift.
+    assert _flat(slice_shift(_img(), bands=4, max_offset=0)) == _flat(_img())
+    assert _flat(slice_shift(_img(), bands=4, max_offset=-5)) == _flat(_img())

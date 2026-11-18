@@ -181,6 +181,7 @@ def export(win, quick: bool = False) -> None:
                                    want_tiff=bool(gopts.get("tiff", False)),
                                    want_social=bool(gopts.get("social", False)),
                                    want_sep=bool(gopts.get("sep", False)),
+                                   want_sp404=bool(gopts.get("sp404", False)),
                                    want_clip=clip)
         if choice is None:
             win._status("Export cancelled")
@@ -234,6 +235,7 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
                       want_webp: bool = False, want_apng: bool = False, want_tiff: bool = False,
                       want_social: bool = False,
                       want_sep: bool = False,
+                      want_sp404: bool = False,
                       want_clip: dict | None = None) -> str | None:
     """Post-accept collision check: "overwrite" | "rename" | None (cancel).
 
@@ -272,6 +274,8 @@ def resolve_collision(win, out_dir, options, want_mp4: bool = False,
                 names[f"sep{i}"] = p.name
         except OSError:
             pass
+    if want_sp404:
+        names["sp404"] = f"{options.base}_sp404.bmp"
     if want_clip:
         try:
             from app.ui.clip_controller import clip_names as _clip_names

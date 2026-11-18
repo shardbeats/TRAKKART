@@ -670,6 +670,11 @@ class MainWindow(QMainWindow):
     def _on_video_error(self, msg: str, token: int) -> None:
         if token != self._video_token:
             return
+        from app.ui import thread_safe as _ts
+
+        w = self._video_worker
+        self._video_worker = None
+        _ts.retire(w)  # never drop a live QThread (hard crash)
         self._report_error("Video error", msg)
 
     # -- hold-to-compare (single canvas; behavior in compare_controller) --

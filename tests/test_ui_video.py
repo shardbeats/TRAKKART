@@ -84,6 +84,35 @@ def test_video_on_done_and_error(window):
     assert "boom" in window.lbl_status.text()
 
 
+def test_video_done_and_error_retire_worker(window):
+    # Regression: on_done/on_error never retired the finished
+    # VideoWorker (finished QThreads piled up instead of deleteLater).
+    from app.ui import video_controller as vc
+
+    retired = {"n": 0}
+
+    class _DoneWorker:
+        def isRunning(self):
+            return False
+
+        def deleteLater(self):
+            retired["n"] += 1
+
+    window._video_token = 7
+    window._video_worker = _DoneWorker()
+    vc.on_done(window, _frames(), 7)
+    assert window._video_worker is None
+    assert retired["n"] == 1
+    window._video_worker = _DoneWorker()
+    vc.on_error(window, "boom", 7)
+    assert window._video_worker is None
+    assert retired["n"] == 2
+    window._video_worker = _DoneWorker()
+    vc.on_done(window, [], 999)  # stale token: worker untouched
+    assert window._video_worker is not None
+    assert retired["n"] == 2
+
+
 def test_video_start_async_and_pending(window, monkeypatch):
     from app.ui import preview_controller as pc
     from app.ui import preview_worker as pw
