@@ -341,6 +341,19 @@ and MP4. Nothing to install, nothing to pick.
 
 Full list: Help → Keyboard shortcuts.
 
+**Teclado en el canvas:** la insignia de zoom (Fit/%) se opera con
+Enter/Espacio; cada slider responde a flechas y vuelve a su valor
+con Inicio (Home); doble-click también restaura. Todas las etiquetas
+están vinculadas a su control (lector de pantalla anuncia nombre +
+ayuda); el estado y los errores exponen descripción accesible.
+
+**Movimiento reducido:** con `TRAKKART_REDUCED_MOTION=1` el debounce
+del preview pasa a 700ms y los timers de video/resize a 500ms.
+
+**Vacio y errores:** sin imagen hay un boton `Open image… (Ctrl+O)`;
+ante un fallo del preview aparece `Retry preview (F5)` junto al
+canvas (foco automatico).
+
 **Custom shortcuts:** open Help → Keyboard shortcuts, click any
 shortcut cell and press the new keys (Esc cancels, Del clears).
 Conflicts are refused with a message naming the other action;

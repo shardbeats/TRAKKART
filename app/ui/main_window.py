@@ -172,6 +172,15 @@ class MainWindow(QMainWindow):
         self._clip_timer = QTimer(self)
         self._clip_timer.timeout.connect(self._next_clip_frame)
         self._clip_timer.setInterval(125)  # retimed to the clip fps on play
+        try:
+            import os
+
+            if os.environ.get("TRAKKART_REDUCED_MOTION") == "1":
+                self._preview_timer.setInterval(700)
+                self._video_timer.setInterval(500)
+                self._clip_timer.setInterval(500)
+        except Exception:  # noqa: BLE001
+            pass
         self._setup_ui()
         self._build_menus()
         try:
@@ -296,6 +305,13 @@ class MainWindow(QMainWindow):
         except Exception:  # noqa: BLE001
             fast = False
         interval = int(resolve_interval("live", fast=fast) or 350)
+        try:
+            import os
+
+            if os.environ.get("TRAKKART_REDUCED_MOTION") == "1":
+                interval = max(interval, 700)
+        except Exception:  # noqa: BLE001
+            pass
         if not self._preview_timer.isActive():
             self._preview_timer.setInterval(interval)
             self._preview_timer.start()
@@ -428,6 +444,10 @@ class MainWindow(QMainWindow):
         """Single status line (action bar). The status bar keeps only the
         viewport/version readouts, so the same text never appears twice."""
         self.lbl_status.setText(msg)
+        try:
+            self.lbl_status.setAccessibleDescription(msg)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _report_error(self, prefix: str, msg: str) -> None:
         """Show a worker error with its report id + plain-language hint.
@@ -446,6 +466,11 @@ class MainWindow(QMainWindow):
                 self._status(f"{prefix}: {hint}")
         except Exception:  # noqa: BLE001
             self._status(f"{prefix}: {msg}")
+        try:
+            self.lbl_res.setAccessibleDescription(
+                f"{prefix}: {self.lbl_status.text()}. Retry with F5.")
+        except Exception:  # noqa: BLE001
+            pass
 
     def copy_last_error(self) -> None:
         """Help > Copy last error report: full text to the clipboard."""

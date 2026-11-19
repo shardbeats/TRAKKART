@@ -5,7 +5,7 @@
 QMainWindow, QWidget {
     background-color: #151617;
     color: #E5E5E5;
-    font-family: "Segoe UI", sans-serif;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 13px;
 }
 
@@ -17,7 +17,7 @@ QLabel#titleLabel {
 }
 
 QLabel#valueLabel {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: bold;
     color: #F5A623;
 }
@@ -25,31 +25,30 @@ QLabel#valueLabel {
 /* Section header inside an accordion page: one hierarchy level above
    the slider labels, quieter than the page button itself. */
 QLabel#sectionLabel {
-    color: #A7AAB0;
-    font-size: 11px;
+    color: #B8BBC0;
+    font-size: 12px;
     font-weight: bold;
     letter-spacing: 1px;
-    padding-top: 7px;
-    padding-bottom: 3px;
+    padding-top: 8px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #2C2E31;
     margin-bottom: 2px;
 }
 
 QLabel#subtitleLabel {
-    font-size: 11px;
+    font-size: 12px;
     color: #92959A;
-    letter-spacing: 1px;
 }
 
 QLabel#previewTitle {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: bold;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     color: #92959A;
 }
 
 QLabel#vecLabel {
-    font-size: 11px;
+    font-size: 12px;
     color: #92959A;
 }
 
@@ -63,9 +62,9 @@ QGroupBox {
     border: 1px solid #45474A;
     border-radius: 6px;
     margin-top: 14px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: bold;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     color: #92959A;
 }
 
@@ -79,8 +78,9 @@ QGroupBox::title {
 QPushButton {
     background-color: #202124;
     border: 1px solid #45474A;
-    border-radius: 4px;
-    padding: 6px 12px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-height: 24px;
     color: #E5E5E5;
     font-weight: bold;
     font-size: 12px;
@@ -105,15 +105,17 @@ QPushButton:checked {
 }
 
 QPushButton#opBtn {
-    padding: 6px 4px;
-    font-size: 11px;
+    padding: 8px 8px;
+    font-size: 12px;
+    min-height: 24px;
+    min-width: 48px;
 }
 
 QPushButton#accordion {
     text-align: left;
     background-color: #1A1B1D;
     border: 1px solid #2C2E31;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 8px 12px;
     color: #C9CBCE;
     font-size: 12px;
@@ -136,14 +138,15 @@ QPushButton#accordion:checked {
 QPushButton:disabled {
     background-color: #1C1D1F;
     border-color: #45474A;
-    color: #383B40;
+    color: #6B6E73;
 }
 
 QPushButton#exportBtn {
     background-color: #F5A623;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 12px 24px;
+    min-height: 28px;
     color: #161617;
     font-size: 15px;
     font-weight: bold;
@@ -163,14 +166,15 @@ QPushButton#exportBtn:pressed {
 QPushButton#exportBtn:disabled {
     background-color: #2A2C30;
     border: 1px solid #45474A;
-    color: #383B40;
+    color: #6B6E73;
 }
 
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
     background-color: #202124;
     border: 1px solid #45474A;
-    border-radius: 4px;
-    padding: 4px 8px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-height: 22px;
     color: #E5E5E5;
     font-size: 12px;
     selection-background-color: #F5A623;
@@ -220,10 +224,10 @@ QSlider::groove:horizontal {
 QSlider::handle:horizontal {
     background-color: #F5A623;
     border: none;
-    border-radius: 6px;
-    width: 14px;
-    height: 14px;
-    margin: -4px 0;
+    border-radius: 9px;
+    width: 18px;
+    height: 18px;
+    margin: -6px 0;
 }
 
 QSlider::handle:horizontal:hover {
@@ -246,8 +250,8 @@ QCheckBox:hover {
 }
 
 QCheckBox::indicator {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     border: 1px solid #45474A;
     border-radius: 3px;
     background-color: #202124;
@@ -262,7 +266,7 @@ QCheckBox::indicator:checked {
 QProgressBar {
     background-color: #202124;
     border: 1px solid #45474A;
-    border-radius: 4px;
+    border-radius: 6px;
     text-align: center;
     color: #E5E5E5;
     font-weight: bold;
@@ -362,32 +366,34 @@ QInputDialog QLineEdit {
     color: #E5E5E5;
 }
 
-QPushButton:focus {
-    border: 1px solid #F5A623;
+QPushButton:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
+QLineEdit:focus, QCheckBox:focus, QRadioButton:focus, QSlider:focus,
+QListWidget:focus {
+    border: 2px solid #FFB52E;
     outline: none;
 }
 
 QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled {
     background-color: #1C1D1F;
-    color: #383B40;
-    border-color: #45474A;
+    color: #6B6E73;
+    border-color: #2C2E31;
 }
 
 QSlider::handle:horizontal:disabled {
-    background-color: #383B40;
+    background-color: #6B6E73;
 }
 
 QSlider::handle:horizontal:focus {
-    border: 1px solid #FFB52E;
+    border: 2px solid #FFB52E;
 }
 
 QCheckBox:disabled {
-    color: #383B40;
+    color: #6B6E73;
 }
 
 QCheckBox::indicator:disabled {
     background-color: #1C1D1F;
-    border-color: #383B40;
+    border-color: #6B6E73;
 }
 
 QRadioButton {
@@ -401,10 +407,10 @@ QRadioButton:hover {
 }
 
 QRadioButton::indicator {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     border: 1px solid #45474A;
-    border-radius: 8px;
+    border-radius: 9px;
     background-color: #202124;
 }
 
@@ -416,7 +422,7 @@ QRadioButton::indicator:checked {
 QListWidget {
     background-color: #1C1D1F;
     border: 1px solid #2C2E31;
-    border-radius: 4px;
+    border-radius: 6px;
     color: #E5E5E5;
     font-size: 12px;
     outline: none;
@@ -439,10 +445,29 @@ QListWidget::item:hover {
 QLabel#previewFrame {
     background-color: #000000;
     border: 1px solid #45474A;
-    border-radius: 4px;
+    border-radius: 8px;
 }
 
 QLabel#previewFrame[dragHover="true"] {
     border: 2px solid #F5A623;
     background-color: #1C1D1F;
+}
+
+QLabel#previewEmpty {
+    font-size: 13px;
+    color: #92959A;
+}
+
+QLabel#previewEmptyTitle {
+    font-size: 20px;
+    font-weight: bold;
+    color: #E5E5E5;
+}
+
+/* Motion: Qt QSS has no transitions; hover/pressed feedback is instant
+   by design (dither canvas stays crisp). Reduced motion honored in
+   Python via TRAKKART_REDUCED_MOTION=1 (timers 500/700ms). */
+QPushButton#emptyCta {
+    padding: 8px 16px;
+    min-height: 24px;
 }

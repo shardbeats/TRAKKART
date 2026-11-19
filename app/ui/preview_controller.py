@@ -129,6 +129,14 @@ def show(win, orig, res) -> None:
     from app.ui import compare_controller as _cc
 
     _cc.redisplay(win)
+    try:
+        if getattr(win, "btn_empty_open", None) is not None:
+            win.btn_empty_open.setVisible(getattr(win, "src", None) is None)
+        if getattr(win, "btn_preview_retry", None) is not None:
+            win.btn_preview_retry.hide()
+        win.lbl_res.setAccessibleDescription("Preview ready")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def start_async(win, *, full: bool = False,
@@ -187,6 +195,13 @@ def on_done(win, qimg, pil_img, token: int) -> None:
 
     _cc.redisplay(win)
     win._status("Preview ready")
+    try:
+        if getattr(win, "btn_empty_open", None) is not None:
+            win.btn_empty_open.setVisible(False)
+        if getattr(win, "btn_preview_retry", None) is not None:
+            win.btn_preview_retry.hide()
+    except Exception:  # noqa: BLE001
+        pass
     w = win._preview_worker
     win._preview_worker = None
     if w is not None:
@@ -226,6 +241,12 @@ def on_error(win, msg: str, token: int) -> None:
         return
     _restore_cursor(win)
     win._report_error("Preview error", msg)
+    try:
+        if getattr(win, "btn_preview_retry", None) is not None:
+            win.btn_preview_retry.show()
+            win.btn_preview_retry.setFocus()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def drain_pending(win) -> None:

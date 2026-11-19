@@ -152,3 +152,10 @@ def new_project(win) -> None:
         win._status("New empty project. Open an image to start.")
     except Exception:  # noqa: BLE001
         pass
+    try:
+        if getattr(win, "btn_empty_open", None) is not None:
+            win.btn_empty_open.show()
+        if getattr(win, "btn_preview_retry", None) is not None:
+            win.btn_preview_retry.hide()
+    except Exception:  # noqa: BLE001
+        pass

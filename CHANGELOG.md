@@ -2,6 +2,24 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.14.5] - 2026-11-19 — UI + a11y §12 Fase A-D
+- A11y bloqueante: insignia zoom con foco + Enter/Espacio y nombres
+  accesibles; `ValueSlider` con Inicio (Home) como reset de teclado;
+  etiquetas vinculadas (`buddy`) + descripciones; contraste disabled
+  `#383B40` → `#6B6E73`; anillo de foco en todos los interactivos;
+  `TRAKKART_REDUCED_MOTION=1` (preview 700ms, video/resize 500ms).
+  Pin: `tests/test_ui_a11y.py` (8).
+- Tokens visuales: rejilla 8px, radios 6px + 8px heroe, alturas min
+  boton 24px / input 22px / handle-indicador 18px, fuente
+  `Inter,Segoe UI,system-ui` + piso 12px, `dice 🎲` → boton `Roll`,
+  borde del canvas por paleta (radio 8). Sin romper `test_layout`
+  (panel ≤480 con margenes 4 + `Roll` 56px).
+- Estados: vacio con CTA `Open image… (Ctrl+O)` (solo sin imagen);
+  error de preview con `Retry preview (F5)` + foco + descripcion
+  accesible; export `560x720` adaptativo a pantalla + lista 140-220px.
+- Docs: MANUAL (teclado canvas, movimiento reducido, vacio/retry);
+  ROADMAP §12 pasa a DONE. Gates 5/5, flake8 0.
+
 ## [2.14.4] - 2026-11-18 — caza de bugs: glitch, partículas y video
 - Glitch: `slice_shift` con `max_offset` negativo reventaba en numpy
   (`ValueError: low >= high`); cero/negativo ahora es identidad, igual

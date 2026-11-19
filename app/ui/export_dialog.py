@@ -82,7 +82,16 @@ class ExportDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Export")
         self.setMinimumWidth(480)
-        self.resize(560, 820)
+        self.resize(560, 720)
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            scr = QApplication.primaryScreen()
+            avail = scr.availableGeometry().height() if scr is not None else 900
+            if avail < 800:
+                self.resize(560, max(560, int(avail * 0.9)))
+        except Exception:  # noqa: BLE001
+            pass
         self._img = img
         self._meta = meta or {}
         self._vector_cells = vector_cells
@@ -385,8 +394,9 @@ class ExportDialog(QDialog):
         # -- plan (classic editors show estimated size: here the list + ~weight) --
         hlab(col, "Files to write:")
         self.list_files = QListWidget()
-        self.list_files.setMinimumHeight(110)
-        self.list_files.setMaximumHeight(180)
+        self.list_files.setMinimumHeight(140)
+        self.list_files.setMaximumHeight(220)
+        self.list_files.setAccessibleName("Files to write")
         col.addWidget(self.list_files, 1)
         self.lbl_total = QLabel()
         col.addWidget(self.lbl_total)

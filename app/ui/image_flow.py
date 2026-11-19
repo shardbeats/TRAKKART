@@ -300,6 +300,13 @@ def load_pil(win, img) -> None:
     win.src = img
     win._full_preview = False
     win.lbl_res.fit()
+    try:
+        if getattr(win, "btn_empty_open", None) is not None:
+            win.btn_empty_open.hide()
+        if getattr(win, "btn_preview_retry", None) is not None:
+            win.btn_preview_retry.hide()
+    except Exception:  # noqa: BLE001
+        pass
     win.refresh()
 
 

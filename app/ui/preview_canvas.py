@@ -18,7 +18,7 @@ Contract (kept small on purpose):
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
+from PySide6.QtGui import QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel
 
 #: Display pixmaps above this side are downscaled once (memory guard).
@@ -58,6 +58,13 @@ class PreviewCanvas(QLabel):
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(250)
+        try:
+            import os
+
+            if os.environ.get("TRAKKART_REDUCED_MOTION") == "1":
+                self._resize_timer.setInterval(500)
+        except Exception:  # noqa: BLE001
+            pass
         self._resize_timer.timeout.connect(self.viewportResized.emit)
 
     # -- QLabel compatibility ------------------------------------------------
@@ -296,13 +303,33 @@ class PreviewCanvas(QLabel):
         scale = self.effective_scale()
         rect = self._target_rect(scale)
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("#000000"))
+        try:
+            from PySide6.QtGui import QPalette
+
+            pal = self.palette()
+            painter.fillRect(self.rect(), pal.color(QPalette.Base))
+            hover = str(self.property("dragHover") or "").lower() == "true"
+            if hover:
+                border = pal.color(QPalette.Highlight)
+            else:
+                border = pal.color(QPalette.Mid)
+        except Exception:  # noqa: BLE001
+            from PySide6.QtGui import QColor
+
+            painter.fillRect(self.rect(), QColor("#000000"))
+            hover = str(self.property("dragHover") or "").lower() == "true"
+            border = QColor("#F5A623") if hover else QColor("#45474A")
+            pen = QPen(border)
+            pen.setWidth(2 if hover else 1)
+            painter.setPen(pen)
+            painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 8, 8)
+            painter.end()
+            return
         # Downscale smooth; upscale nearest so dither pixels stay crisp.
         painter.setRenderHint(QPainter.SmoothPixmapTransform, scale < 1.0)
         painter.drawPixmap(rect, pm, QRectF(0.0, 0.0, pm.width(), pm.height()))
-        hover = str(self.property("dragHover") or "").lower() == "true"
-        pen = QPen(QColor("#F5A623") if hover else QColor("#45474A"))
+        pen = QPen(border)
         pen.setWidth(2 if hover else 1)
         painter.setPen(pen)
-        painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 4, 4)
+        painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 8, 8)
         painter.end()

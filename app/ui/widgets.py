@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QLabel, QSlider
 
 
 def set_warning(widget, on: bool) -> None:
-    """Amber flag via a dynamic property (QSS: QLabel[warning=\"true\"])."""
+    """Amber flag via a dynamic property (QSS: QLabel[warning="true"])."""
     if bool(widget.property("warning")) == bool(on):
         return
     widget.setProperty("warning", bool(on))
@@ -24,6 +24,9 @@ class ClickableLabel(QLabel):
     def __init__(self, text: str = "", parent=None) -> None:
         super().__init__(text, parent)
         self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName("Zoom level")
+        self.setAccessibleDescription("Activate to toggle Fit and 100 percent")
         self._on_click = None
 
     def onClick(self, callback) -> None:  # noqa: N802
@@ -35,12 +38,21 @@ class ClickableLabel(QLabel):
             self._on_click()
         super().mouseReleaseEvent(event)
 
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+            if self._on_click is not None:
+                self._on_click()
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
 
 class ValueSlider(QSlider):
     """Horizontal QSlider that returns to its default value on double-click."""
 
     def __init__(self, orientation=Qt.Horizontal, parent=None) -> None:
         super().__init__(orientation, parent)
+        self.setFocusPolicy(Qt.StrongFocus)
         self._default = 0
 
     def setDefault(self, value: int) -> None:  # noqa: N802
@@ -50,6 +62,13 @@ class ValueSlider(QSlider):
 
     def defaultValue(self) -> int:  # noqa: N802
         return self._default
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.key() == Qt.Key_Home:
+            self.setValue(self._default)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
         self.setValue(self._default)

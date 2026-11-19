@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 def make_group(host: QVBoxLayout, title: str) -> QVBoxLayout:
     box = QGroupBox(title)
     lay = QVBoxLayout(box)
-    lay.setSpacing(4)
+    lay.setSpacing(8)
     host.addWidget(box)
     return lay
 
@@ -43,8 +43,8 @@ def make_accordion(host: QVBoxLayout):
         host.addWidget(btn)
         content = QWidget()
         lay = QVBoxLayout(content)
-        lay.setSpacing(4)
-        lay.setContentsMargins(2, 2, 2, 2)
+        lay.setSpacing(8)
+        lay.setContentsMargins(4, 4, 4, 4)
         host.addWidget(content)
 
         def _on_toggle(on: bool, _content=content, _btn=btn, _title=title) -> None:
@@ -98,7 +98,8 @@ def labeled_slider(win, parent, label, lo, hi, val, tooltip="", div=None, unit="
     lab = QLabel(label)
     lab.setMinimumWidth(120)
     row.addWidget(lab)
-    sld, val_lbl = mini_slider(win, lo, hi, val, tooltip, div, unit)
+    sld, val_lbl = mini_slider(win, lo, hi, val, tooltip, div, unit, label=label)
+    lab.setBuddy(sld)
     row.addWidget(sld, 1)
     row.addWidget(val_lbl)
     parent.addLayout(row)
@@ -116,19 +117,23 @@ def value_text(v, div=None, unit: str = "") -> str:
     return f"{text}{unit}"
 
 
-def mini_slider(win, lo, hi, val, tooltip="", div=None, unit=""):
+def mini_slider(win, lo, hi, val, tooltip="", div=None, unit="", label="Value"):
     from app.ui.widgets import ValueSlider
 
     sld = ValueSlider(Qt.Horizontal)
     sld.setRange(lo, hi)
     sld.setValue(val)
     sld.setDefault(val)
+    sld.setAccessibleName(label)
     if tooltip:
         sld.setToolTip(tooltip)
+        sld.setAccessibleDescription(tooltip)
     val_lbl = QLabel()
     val_lbl.setObjectName("valueLabel")
     val_lbl.setMinimumWidth(46)
     val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+    val_lbl.setAccessibleName(f"{label} value")
+    val_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
     def _show(v, _lbl=val_lbl, _div=div, _unit=unit):
         _lbl.setText(value_text(v, _div, _unit))
@@ -143,11 +148,15 @@ def spin_row(parent, label: str, lo: int, hi: int, val: int, tooltip: str = "") 
     spn = QSpinBox()
     spn.setRange(lo, hi)
     spn.setValue(val)
+    spn.setAccessibleName(label)
     if tooltip:
         spn.setToolTip(tooltip)
+        spn.setAccessibleDescription(tooltip)
     spn.setFixedWidth(56)
+    lab = QLabel(label)
+    lab.setBuddy(spn)
     row = QHBoxLayout()
-    row.addWidget(QLabel(label))
+    row.addWidget(lab)
     row.addWidget(spn)
     row.addStretch()
     parent.addLayout(row)
@@ -157,7 +166,7 @@ def spin_row(parent, label: str, lo: int, hi: int, val: int, tooltip: str = "") 
 def seed_row(parent, win, spin_attr: str, dice_attr: str, label_text: str,
              value: int, tooltip: str = "", dice_tip: str = "",
              on_roll=None) -> tuple:
-    """One seed per row: [96px label | 80px spin | 36px dice | stretch].
+    """One seed per row: [96px label | 80px spin | Roll | stretch].
 
     Shared geometry so seed rows never overflow the 360-460px panel
     (the scroll has no horizontal bar: wide rows get hard-clipped).
@@ -166,20 +175,26 @@ def seed_row(parent, win, spin_attr: str, dice_attr: str, label_text: str,
     """
     row = QHBoxLayout()
     lab = QLabel(label_text)
-    lab.setFixedWidth(96)
+    lab.setFixedWidth(88)
     row.addWidget(lab)
     spn = QSpinBox()
     spn.setRange(0, 999999)
     spn.setValue(int(value))
-    spn.setFixedWidth(80)
+    spn.setFixedWidth(72)
+    spn.setAccessibleName(label_text)
     if tooltip:
         spn.setToolTip(tooltip)
+        spn.setAccessibleDescription(tooltip)
+    lab.setBuddy(spn)
     spn.valueChanged.connect(lambda _: win._schedule_refresh())
     row.addWidget(spn)
-    dice = QPushButton("🎲")
-    dice.setFixedWidth(36)
+    dice = QPushButton("Roll")
+    dice.setObjectName("opBtn")
+    dice.setFixedWidth(56)
+    dice.setAccessibleName(f"{label_text} random roll")
     if dice_tip:
         dice.setToolTip(dice_tip)
+        dice.setAccessibleDescription(dice_tip)
     if on_roll is not None:
         dice.clicked.connect(on_roll)
     row.addWidget(dice)

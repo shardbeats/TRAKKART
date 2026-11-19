@@ -1376,5 +1376,6 @@ orquestando; `theme.qss` unica fuente de tokens; nada entra a
 `requirements.txt`. Fuera de alcance: rewrite web, nuevos icon packs
 (eso es §11 S3), GPU (eso es §10 4b).
 
-Estado: analisis cerrado nov-2026, implementacion pendiente de GO
-explicito del dueno (por fases A→D o solo A).
+Estado: DONE nov-2026 (Fases A-D implementadas). Commit: UI + a11y §12.
+Gates: suite rapida verde + flake8 0 + fuzzer 120 casos + `test_layout` verde.
+ pins: `tests/test_ui_a11y.py` (8: foco/teclado/buddies/contraste/estados).
