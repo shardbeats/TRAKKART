@@ -28,3 +28,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 dist-installer/
+
+# Helper promocional personal del dueño (fuera del repo, no lintear en CI)
+tools/make_slideshow.py
