@@ -471,3 +471,31 @@ QPushButton#emptyCta {
     padding: 8px 16px;
     min-height: 24px;
 }
+
+/* Settings sidebar nav (design/shadcn Tabs equivalent): quiet list,
+   active section reads as navigation (left accent + amber text). */
+QListWidget#settingsNav {
+    background-color: #1A1B1D;
+    border: 1px solid #2C2E31;
+    border-radius: 6px;
+    color: #C9CBCE;
+    font-size: 12px;
+    font-weight: bold;
+    outline: none;
+}
+
+QListWidget#settingsNav::item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #232528;
+    border-left: 3px solid transparent;
+}
+
+QListWidget#settingsNav::item:selected {
+    background-color: #232528;
+    border-left: 3px solid #F5A623;
+    color: #F5A623;
+}
+
+QListWidget#settingsNav::item:hover {
+    background-color: #232528;
+}
