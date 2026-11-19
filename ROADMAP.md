@@ -1196,3 +1196,127 @@ served as the transcription reference.
   nov-2026 in `docs/srs-gpu-postfx.md` (subset scope + all-or-nothing
   tail rule + parity criteria) — needs explicit owner approval
   before any implementation.
+
+## 11. OSS adoption queue (researched nov-2026, not scheduled)
+
+External survey (licenses + weights + maintenance checked nov-2026
+against PyPI/crates/docs) crossed with the house rules (§4 + v2.x
+queue header): offline, Pillow+numpy (+ffmpeg only where video
+already uses it), deterministic (seed = base + index), MP4 stays
+libx264-only, batch stays stills-only, base exe stays light, MIT
+source stays original. Each item lands in A/B/C/D phases (engine →
+UI → export → docs+gates) with pinned tests, MANUAL + QA.md updates,
+and 5/5 gates + flake8 before commit. A real-render utility check
+decides keep/cut. Nothing below is approved: each needs an explicit
+owner GO before any implementation, like §10 step 4b.
+
+Weight = delta to the Windows portable exe (PyInstaller one-dir,
+measured where noted, else wheel-size estimate). `pip` lines are for
+evaluation only — nothing enters `requirements.txt` without a GO.
+
+### S — small, adopt first (in order)
+
+- S1 DaltonLens-Python (CVD reference) — GO candidate.
+  Replaces the hand-rolled matrices in `app/color_access.py` with
+  Vienot1999/Brettel1997/Machado2009 reference (sRGB decode done
+  right). MIT, pure-python + numpy, offline, deterministic, ~+0.2MB.
+  `pip install daltonlens`. Pins: `tests/test_color_access.py`
+  (anchors + determinism + severity 0=identity) + keep Gherkin
+  `color_pro.feature` green.
+- S2 fontTools (font subset/inspect) — GO candidate.
+  `TTFont`/`pyftsubset` for the bundled JetBrainsMono (ASCII
+  renderer) + future Motif glyph checks. MIT, pure-python, offline,
+  ~+1MB. `pip install fonttools brotli`. Pins:
+  `tests/test_ascii.py` (+ subset keeps cmap + license name IDs
+  13/14) — no preset surface.
+- S3 QtAwesome (icons) — GO candidate.
+  `qta.icon('fa6s.flag')` replaces hand-made PNG icons, inherits
+  `theme.qss` via `color=`. MIT, pure-python wheel + bundled fonts
+  (OFL/Apache/MIT/CC-BY, attribution-safe), offline, ~+1-2MB.
+  `pip install qtawesome`. Pins: `tests/test_ux.py` (+ icon loads
+  offscreen, no-network) — style unchanged.
+- S4 Hypothesis (preset fuzzer) — GO candidate, DEV ONLY.
+  Property-based strategies over `FIELDS` replace/augment the manual
+  `tools/fuzz_presets.py` loop (edge values + shrink to minimal
+  failing case). MPL-2.0 file-level, dev-only, +0MB to the exe
+  (never shipped). `pip install hypothesis`. Pins:
+  `tests/test_preset_fuzz.py` (+ strategies, max_examples capped
+  for CI) — CI fast-job keeps the 120-case shape.
+
+### M — medium, one at a time (in order)
+
+- M1 vtracer (curved color SVG engine) — GO candidate, biggest leap.
+  Rust `vtracer` (MIT, PyPI wheels, offline, deterministic under
+  fixed `Config`) as a SECOND engine behind `vector_curves`: fixed
+  palette snap to active inks, `poster/bw` presets, `filter_speckle`,
+  `cutout` for editable output. Current grid+RLE `app/vector.py`
+  stays default + fallback (legacy bytes intact). ~+3-6MB.
+  `pip install vtracer==0.6.15` (stable; 1.0a4 only for eval).
+  Pins: `tests/test_svg_curves.py` (layer count, palette snap,
+  determinism, fallback without dep) + Gherkin +1 (vector.feature).
+  Photos stay grid (vtracer over-segments photoreal — documented).
+- M2 pyoxipng-ng / oxipng (lossless PNG squeeze) — GO candidate.
+  `oxipng.optimize_from_memory()` post-export for distro/seps
+  (`DISTRO_3000`, `{base}_sep_*`). MIT, Rust, offline, ~+2-3MB,
+  5-15% smaller, pixels identical. `pip install pyoxipng-ng`. Pins:
+  `tests/test_png_optimize.py` (bytes smaller, pixels equal,
+  missing-opt fallback) — never in preview hot path.
+- M3 superqt (missing Qt widgets) — GO candidate.
+  `QRangeSlider` for Envelopes (flat/ramp/LFO/keys) + clip trim,
+  `QCollapsible`/`QToggleSwitch` where the accordion needs it.
+  BSD-3, pure-python, PySide6-tested, offline, ~+0.5MB, QSS-safe.
+  `pip install superqt`. Pins: `tests/test_ux.py`
+  (+ range slider offscreen, session-only curves) — no theme change.
+- M4 Pillow-AllSIMD (drop-in Pillow) — EVAL ONLY, not default.
+  3-6x resize/blur/filter wins, same `PIL` API, ~+0MB (replaces
+  Pillow). BUT fast-mode pixels differ a few levels → breaks
+  bit-identical parity. Rule: eval in `exact` mode
+  (`PILLOW_ALLSIMD_FAST=0`, still 2-5x) behind a build variant;
+  final renders revalidate `test_gpu_parity`-style gates before any
+  switch. `pip install pillow-allsimd`. No preset surface.
+
+### L — large / external-only (owner-gated extras)
+
+- L1 gifsicle (GIF squeeze) — EXTERNAL ONLY, never bundled.
+  `-O2 --lossy=80` crushes the 29MB GIF warning class. GPL-2.0-only:
+  same arms-length pattern as ffmpeg (detect in PATH →
+  `subprocess`, user installs it). +0MB. Pins:
+  `tests/test_gif_optimize.py` (missing-bin skip, estimate honesty).
+  Bundling it would drag GPL notices like FFmpeg — rejected.
+- L2 rawpy / LibRaw (RAW import CR2/NEF/ARW/DNG) — EXTRA ONLY.
+  `rawpy` MIT wrapper over LGPL LibRaw (DLL notices + relink like
+  Qt), ~+15-20MB, no GPL demosaic packs. Session-only, stills-first
+  (like clip: ≤120f proxy thinking), never in base. Needs a real
+  shooter workflow to justify. `pip install rawpy`. Pins: new
+  `tests/test_raw.py` (import caps, determinism, missing-extra).
+- L3 AVIF read via Pillow built-in — ZERO-DEP IF PRESENT.
+  Pillow ≥11.3 reads/writes AVIF when the wheel bundles `libavif`
+  (`features.check("avif")`). No new dep, no weight. If absent,
+  skip (no `pillow-avif-plugin` shim in the bundle). Pins:
+  `tests/test_avif.py` (present-skip clean).
+
+### CUT (do not adopt — reason recorded)
+
+- `libimagequant`/`imagequant-python`/`piliq`: best quantizer, but
+  GPL-3 + commercial $950+/yr. Median-cut 27ms @1080p already wins.
+- `potrace` bundled: B/W gold standard, but GPL-2.0 + single-color
+  only. `vtracer` (M1) covers color under MIT; potrace stays
+  external-only if ever needed.
+- `didder` (Go, GPL-3) / `hitherdither` (MIT, dormant since 2016) /
+  `tensorhead/dithering` (Rust): roster 38 + serpentine +
+  ostromoukhov already ahead. Port IDEAS only (strength %, EXIF
+  rotation, custom-matrix JSON), never as deps.
+- `pillow-heif` in base: BSD code but binary wheels GPLv2
+  (`libheif`) + `pi-heif` discontinued + CVE-2026-84383. HEIC only
+  as L-style extra with notices, if a distributor demands it.
+- `pillow-jxl-plugin`: good codec (BSD `libjxl`), but new Rust dep
+  + weight for near-zero social demand. Stays CUT (v1.9 verdict).
+- `colour-science`: BSD but huge (datasets/SciPy) for what
+  DaltonLens (S1) does in 0.2MB.
+- `mcp` Python SDK (`modelcontextprotocol/python-sdk`, MIT): right
+  SDK, wrong size for 3 stdio tools — `httpx/pydantic/anyio`
+  ≈ +10-20MB. Keep hand-rolled `app/mcp.py` stdlib until MCP grows
+  past stdio (resources/prompts/HTTP).
+- `wgpu-py` in core: BSD, future for web/WGSL, but spec churn +
+  `wgpu-native` ~30MB + drivers. Core stays `moderngl` (§10);
+  wgpu = web-port track only.
