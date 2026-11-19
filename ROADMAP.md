@@ -166,7 +166,9 @@ Root cause of the WhatsApp bug: `Path("")` == `Path(".")` -> `is_dir()` True + u
 
 ### v1.0 — Standalone release
 TRAKK apps 100% standalone: no TRAKKOUT/TRAKKNAME bridges or shared naming. Each app lives on its own.
-- [ ] EN docs + screenshots (before/after, sample GIF) + GitHub release `shardbeats/TRAKKART`.
+- [ ] EN docs + screenshots (DONE: README/MANUAL in English, 4 shots
+  in `docs/screenshots/`) + GitHub release 2.x (OPEN, owner-gated:
+  tags stop at v1.7.0; publish from a built + smoke-tested 2.x).
 
 ### v1.1 — Color Pro (done)
 Gap: auto-extracted palettes, depth control, lock/shuffle per swatch, Source category.
@@ -504,7 +506,7 @@ only (no audio playback in-app); sound joins at MP4 export.
 - Out of scope: webcam, audio analysis/BPM, audio trimming/fades,
   in-app audio playback, clips in batch, >120f, 4K clip edit.
 
-### v2.1 — Stabilize (in progress: bug hunt done nov-2026)
+### v2.1 — Stabilize (done nov-2026: hunt + 2.14.2–2.14.4 follow-ups)
 
 No new features until the tree is compact and hunted:
 - [x] Bug-hunt test pass (nov-2026): reproduced the reported hard crash
@@ -675,10 +677,12 @@ keep/cut.
    has no JXL codec — needs pillow-jxl plugin = new dep + bundle
    weight, offline); PyAV CUT (not installed; imageio-ffmpeg path
    already 0.5–1.2s; native dep weight unjustified).
-    PyAV backend evaluation (imageio-ffmpeg's own README recommends
-    it, but after ffmpeg-side scaling our 120f proxy import is
-    0.5–1.2s; the bundled-FFmpeg weight must be measured first —
-    likely cut).
+    PyAV backend evaluation — CUT nov-2026 (measured): PyAV is not
+    installed and would add a new native dep plus bundled-FFmpeg
+    weight; the current path imports a pathological 1080p-noise 266MB
+    clip (120f, 720px proxy) in 2.32s, realistic clips stay ~0.5–1.2s.
+    No gain justifies the weight — imageio-ffmpeg stays the single
+    video path.
 Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
 
 ## 4. Decisions made (do not reopen without reason)
@@ -1108,13 +1112,12 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
 - Cloud AI, accounts, uploads, login, auto-update/store: they break
   offline-first and §6. In-app text layer: already removed in v0.14.
 
-### Recommended (next)
-
-1. R5+R6 DONE + Hold-manda DONE + R1+R2+R3 DONE → 2. R7 (WebP) or
-   R9 (separations) by social vs print pull → 3. morph F1 (§7.7).
-2. New tracks below (§9 pro polish + §10 GPU preview) run after the
-   above; §9 ships first (small, no arch change), §10 needs explicit
-   plan approval before any implementation.
+### Recommended (next) — updated nov-2026: the whole queue above is
+DONE (R1–R14, morph F1/F2, candidates 1–10 incl. the PyAV CUT).
+What remains is owner-gated, not code: publish the 2.x GitHub
+release (tags stop at v1.7.0; `gh` is authenticated), buy the
+code-signing cert (installer/SIGNING.md), and approve a plan for
+§10 step 4b (GPU post-FX) before any implementation there.
 
 ## 9. Professional polish — visual UI + preview fluency (done)
 
@@ -1185,4 +1188,7 @@ served as the transcription reference.
    (+~0.1MB to the exe, reviewed). Export/batch/CLI/video stay
    untouched (CPU).
 - Step 4b — GPU post-FX: NOT started (future work; post runs on CPU
-  today, fast enough at proxy size for v1).
+  today, fast enough at proxy size for v1). Proposal drafted
+  nov-2026 in `docs/srs-gpu-postfx.md` (subset scope + all-or-nothing
+  tail rule + parity criteria) — needs explicit owner approval
+  before any implementation.
