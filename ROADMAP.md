@@ -1297,8 +1297,7 @@ evaluation only — nothing enters `requirements.txt` without a GO.
 
 ### CUT (do not adopt — reason recorded)
 
-- `libimagequant`/`imagequant-python`/`piliq`: best quantizer, but
-  GPL-3 + commercial $950+/yr. Median-cut 27ms @1080p already wins.
+- `libimagequant`/`imagequant-python`/`piliq`: best quantizer, but  GPL-3 + commercial $950+/yr. Median-cut 27ms @1080p already wins.
 - `potrace` bundled: B/W gold standard, but GPL-2.0 + single-color
   only. `vtracer` (M1) covers color under MIT; potrace stays
   external-only if ever needed.
@@ -1320,3 +1319,62 @@ evaluation only — nothing enters `requirements.txt` without a GO.
 - `wgpu-py` in core: BSD, future for web/WGSL, but spec churn +
   `wgpu-native` ~30MB + drivers. Core stays `moderngl` (§10);
   wgpu = web-port track only.
+
+## 12. Auditoria UI + a11y nov-2026 (analisis, sin codigo aun)
+
+Origen: revision `ui-review` + `ai-slop-detector` + `accessibility` +
+`typography` + `color-system` + `spacing` sobre `window_assembly.py` +
+`theme.qss` + `preview_canvas.py` + `widgets.py` + `export_dialog.py`.
+Nota Qt: no hay Tailwind/shadcn; los criterios web se traducen a QSS
+(QSS sin `line-height`, sin transiciones) y Qt (`focusPolicy`,
+`accessibleName`, `buddy`).
+
+Resultado global: 6.4/10 (18 hallazgos). No es `ship it` (ninguna
+dimension llega a 9). No se toca codigo hasta GO explicito del dueno.
+
+| Dimension | Nota | Causa raiz (archivos) | Impacto |
+|---|---|---|---|
+| Tipografia | 7/10 | `theme.qss`: base `Segoe UI` sin fallback Linux/mac; `11px` bajo el piso 12px; `letter-spacing 1-2px` en 11px; `NO IMAGE` inline `28px/4px` fuera de tokens | Legibilidad baja en Linux, etiquetas densas |
+| Espaciado | 6/10 | `window_assembly`: margenes `8`, `panel 2/2/6/2`, `spacing 4` fuera de rejilla 8px; targets `~28px` (boton `6x12`), slider `14px`, checkbox `14px` | Tacto pequeno, ritmo vertical apretado |
+| Jerarquia | 7/10 | 7 acordeones mismo peso; header doble etiqueta; `COVER` 11px tenue compite con wipe/video/zoom | Sin ruta de entrada clara; Export CTA bien dominante |
+| Accesibilidad | 5/10 | `ClickableLabel` sin foco/teclado/SR; `ValueSlider` reset solo doble-click; labels sin `buddy`; disabled `#383B40/#1C1D1F` ~2.1:1; foco solo en botones; sin modo movimiento reducido | Bloquea teclado + lector; contraste fail |
+| Responsiveness | 7/10 | `min 1060x640` bien; `export 560x820` sufre en 768p (scroll lo salva); `list_files max 180px` + 15 checks = scroll largo | Laptop pequena apretada, desktop OK |
+| Consistencia | 7/10 | Radios `3/4/6px` + `8px`; colores bien (un acento `#F5A623`); iconos emoji `dice` vs texto; timers `125/250/350ms` sin token; `QColor("#000")` hardcode en canvas | Detalle visual, deuda QSS |
+| Animaciones | 6/10 | Sin easing, sin GPU `transform/opacity` (QPainter directo), timers hardcode, sin opt-out movimiento reducido | Feedback seco pero correcto; falta sistema |
+| Estados | 6/10 | Vacio `NO IMAGE` sin CTA; carga `QProgressBar` sin skeleton; error `_report_error` + status sin retry inline en canvas | Usuario nuevo/orientacion floja |
+
+Slop (3): iconos aleatorios (`dice` emoji), layouts repetitivos
+(7 acordeones identicos), tipografia pobre (tracking en 11px).
+Limpio: sin hero generico, sin gradientes full-page, un solo acento.
+
+Plan propuesto (fases A/B/C/D, offline, sin deps, sin cambio de
+arquitectura; cada fase con tests + MANUAL/QA + 5/5 gates + flake8):
+
+- Fase A — a11y bloqueante (prioridad maxima): `ClickableLabel`
+  enfocable + Enter/Espacio + `accessibleName`; `ValueSlider`
+  `Home` = reset + anuncio; `buddy` + `accessibleName` en
+  `labeled_slider/mini_slider/seed_row/spin_row`; contraste
+  disabled `→ #6B6E73`; anillo foco en todos los interactivos;
+  `TRAKKART_REDUCED_MOTION=1` para timers. Pins:
+  `tests/test_ui_a11y.py` (foco, teclado, buddies, contraste).
+- Fase B — tokens visuales: rejilla 8px (`col 12`, `root 12`,
+  `panel 8`), radios `6px` + `8px` hero, alturas min `boton 32px`
+  / input `22px` / handle `18px` / indicador `18px`, fuente
+  `Inter,Segoe UI,system-ui` + piso `12px` + tracking `<=0.04em`,
+  `dice → Roll` con estilo `opBtn`, `QColor` hardcode → palette.
+  Pins: `test_layout.py` + QSS tokens + offscreen screenshot.
+- Fase C — estados: vacio con CTA `Abrir imagen (Ctrl+O)` visible
+  solo sin `src`; error inline con reintentar en canvas
+  (`role=alert` via `accessibleDescription`); export `resize`
+  adaptativo a `screen()` + `list_files 140-220px`. Pins:
+  `test_empty_state_*` + `test_export_dialog_*`.
+- Fase D — docs + gates: MANUAL (atajos teclado, movimiento
+  reducido) + QA.md + CHANGELOG; suite rapida + flake8 limpios.
+
+Reglas: sin tocar renders/export/batch/CLI; `MainWindow` sigue
+orquestando; `theme.qss` unica fuente de tokens; nada entra a
+`requirements.txt`. Fuera de alcance: rewrite web, nuevos icon packs
+(eso es §11 S3), GPU (eso es §10 4b).
+
+Estado: analisis cerrado nov-2026, implementacion pendiente de GO
+explicito del dueno (por fases A→D o solo A).
