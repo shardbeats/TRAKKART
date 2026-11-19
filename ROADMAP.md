@@ -683,7 +683,7 @@ keep/cut.
     clip (120f, 720px proxy) in 2.32s, realistic clips stay ~0.5–1.2s.
     No gain justifies the weight — imageio-ffmpeg stays the single
     video path.
-Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
+Ops (not code): none — the build ships unsigned by decision (see below).
 
 ## 4. Decisions made (do not reopen without reason)
 
@@ -760,6 +760,10 @@ Ops (not code): code-signing cert to end SmartScreen warnings on the Setup.
   All worker handoff goes through `app/ui/thread_safe.py`
   (`retire`/`drop`/`stop`); `closeEvent` waits bounded and orphans a
   stuck render. `new_project` cancels preview + clip + video token.
+- No code-signing certificate (owner nov-2026, final): the build
+  ships unsigned with a SmartScreen note in the release + MANUAL
+  (`installer/SIGNING.md` holds the unsigned-release notes, not a
+  signing plan); the `TRAKKART_PFX` hooks stay as no-op optionals.
 
 ## 5. Known tech debt
 
@@ -1115,9 +1119,9 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
 ### Recommended (next) — updated nov-2026: the whole queue above is
 DONE (R1–R14, morph F1/F2, candidates 1–10 incl. the PyAV CUT).
 What remains is owner-gated, not code: publish the 2.x GitHub
-release (tags stop at v1.7.0; `gh` is authenticated), buy the
-code-signing cert (installer/SIGNING.md), and approve a plan for
-§10 step 4b (GPU post-FX) before any implementation there.
+release (tags stop at v1.7.0; `gh` is authenticated), and approve
+a plan for §10 step 4b (GPU post-FX) before any implementation
+there. No code-signing cert: ships unsigned + SmartScreen note.
 
 ## 9. Professional polish — visual UI + preview fluency (done)
 

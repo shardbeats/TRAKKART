@@ -1,37 +1,24 @@
-# Signing TRAKKART for Windows (Authenticode)
+# Shipping TRAKKART unsigned (Authenticode: decided against)
 
-Why: an unsigned `.exe` triggers Windows SmartScreen ("Unknown publisher").
-Users can still run it (More info → Run anyway), but a signature is what
-separates "downloaded tool" from "professional product".
+Decision (owner nov-2026): no code-signing certificate, ever. TRAKKART
+ships unsigned; users click through SmartScreen once
+(*More info → Run anyway*). This file is the unsigned-release notes,
+not a signing plan. The optional `TRAKKART_PFX` hooks in the build
+scripts stay as dead-safe no-ops (they only sign when the env vars
+exist); nothing depends on them.
 
-## Option A — No certificate (today, free)
+Why unsigned is fine here: an unsigned `.exe` triggers Windows
+SmartScreen ("Unknown publisher") on first run, but still runs.
+Reputation builds over time: identical binaries gain SmartScreen
+trust as more users run them (a new filename/version resets it).
 
-1. Build: `python build_portable.py --skip-tests` (prints `unsigned build` and keeps going).
-2. Ship `dist/TRAKKART-portable-<version>.zip` + a note in the release:
-   "Windows may show SmartScreen on first run (unsigned build):
-   click *More info → Run anyway*."
-3. Reputation builds over time: identical signed-by-nobody binaries gain
-   SmartScreen trust as more users run them. New filename/version resets it.
+## Build
 
-## Option B — OV certificate (recommended when you sell/distribute)
+```bat
+python build_portable.py --skip-tests
+```
 
-1. Buy an OV code-signing certificate (Sectigo/DigiCert via reseller,
-   ~€80-200/year). It arrives on a USB token or as `.pfx`.
-2. Install Windows SDK `signtool.exe` (ships with Visual Studio Build Tools).
-3. Set env and build:
-   ```bat
-   set TRAKKART_PFX=C:\certs\trakkart.pfx
-   set TRAKKART_PFX_PASSWORD=***
-   python build_portable.py
-   ```
-   The build signs `dist/portable/TRAKKART/TRAKKART.exe` automatically (SHA256 + RFC3161
-   timestamp so the signature survives certificate expiry).
-4. Verify: `signtool verify /pa /v dist\portable\TRAKKART\TRAKKART.exe`.
-
-## Option C — EV certificate (SmartScreen reputation from day one)
-
-Same as B, but EV gives immediate SmartScreen trust instead of building
-reputation over weeks. Worth it only once downloads are frequent.
+Prints `unsigned build` and keeps going.
 
 ## Installer
 
@@ -42,15 +29,17 @@ reputation over weeks. Worth it only once downloads are frequent.
 python build_installer.py
 ```
 
-It reads the version from `app.__version__`, checks `dist/portable/TRAKKART/TRAKKART.exe`
-exists, and calls `ISCC /DMyVersion=<v> installer/trakkart.iss`.
-Sign the setup too: `signtool sign ... dist\TRAKKART-Setup-*.exe`.
+It reads the version from `app.__version__`, checks
+`dist/portable/TRAKKART/TRAKKART.exe` exists, and calls
+`ISCC /DMyVersion=<v> installer/trakkart.iss`.
 The exe ships everything (numba + video, ~146MB portable).
 
 ## Checklist per release
 
 1. Bump `app/__init__.py` + `pyproject.toml` version.
-2. `python build_portable.py` (tests run first; signs if `TRAKKART_PFX` set).
-3. `python build_installer.py` (signs the setup too).
+2. `python build_portable.py` (tests run first).
+3. `python build_installer.py`.
 4. Smoke test on a clean VM: install, run, export, uninstall.
-5. Publish exe + setup + `MANUAL.md` with the CHANGELOG entry.
+5. Publish exe + setup + `MANUAL.md` with the CHANGELOG entry and
+   this SmartScreen note: "Windows may show SmartScreen on first
+   run (unsigned build): click *More info → Run anyway*."

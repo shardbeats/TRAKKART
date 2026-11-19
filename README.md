@@ -53,7 +53,7 @@ Verify integrity with the published SHA-256 checksums before running.
 2. **Portable:** unzip `TRAKKART-portable-<version>.zip` and run
    `TRAKKART.exe`. Your presets/palettes travel with the `data/` folder.
 3. **First launch:** Windows SmartScreen may warn on an unsigned build —
-   *More info → Run anyway*. See `installer/SIGNING.md` for the signing plan.
+   *More info → Run anyway*. See `installer/SIGNING.md` for the unsigned-release notes.
 
 ## Quick start
 
