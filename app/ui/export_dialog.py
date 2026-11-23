@@ -269,7 +269,7 @@ class ExportDialog(QDialog):
         self.cmb_mp4_size.addItems(list(MP4_SIZES))
         cur_mp4 = str(mp4_size) if str(mp4_size) in MP4_SIZES else "1080p"
         self.cmb_mp4_size.setCurrentText(cur_mp4)
-        self.cmb_mp4_size.setToolTip("MP4 resolution (main image always stays at canvas size). 1080p is social-ready; Canvas is full-doc and heavy.")
+        self.cmb_mp4_size.setToolTip("MP4 resolution (main image always stays at canvas size). Canvas keeps the doc exact (Spotify-safe with an exact doc like 576×1024); 720p/1080p snap to the nearest exact 9:16 and stay estimates elsewhere.")
         self.cmb_mp4_size.currentTextChanged.connect(self._refresh_plan)
         mp4_row.addWidget(self.cmb_mp4_size, 1)
         col.addLayout(mp4_row)
@@ -670,9 +670,9 @@ class ExportDialog(QDialog):
                         n_trans_m = int(plan_m["n_trans"])
                     except Exception:  # noqa: BLE001
                         total_m = nf
-                from app.gif import estimate_mp4, mp4_dims
+                from app.gif import estimate_mp4, mp4_dims_exact
 
-                mw, mh = mp4_dims(dw, dh, str(go.get("mp4_size", "1080p")))
+                mw, mh = mp4_dims_exact(dw, dh, str(go.get("mp4_size", "1080p")))
                 est = estimate_mp4(mw, mh, n_trans_m, max(0, total_m - n_trans_m))
                 mp4_fname = mp4_name(sanitize_base(self.edit_base.text().strip() or "cover"))
                 self.list_files.addItem(f"{mp4_fname}  ({_fmt_size(est)} · {mw}×{mh})")
@@ -684,13 +684,32 @@ class ExportDialog(QDialog):
                 elif est > 100 * 1024 * 1024:
                     mp4_hint = (f"MP4 ~{_fmt_size(est)} — consider 720p / "
                                 "30fps / less Hold.")
-                # R2 Canvas check (size half lives here: mp4_size is dialog-local).
+                # Spotify strictness (9:16 exact + 720-1080 tall + 3-8s):
+                # the plan ships snapped dims (mw×mh), so the note only
+                # explains what snapping changed and what is still off.
                 actual_m = total_m / max(1, fps_m)
-                if abs(dw / max(1, dh) - 9 / 16) < 0.01 and (
-                        str(go.get("mp4_size", "1080p")) == "Canvas"
-                        or actual_m < 3.0 or actual_m > 8.0):
-                    note = "· Canvas: 9:16 wants 720p/1080p and 3–8s."
-                    mp4_hint = f"{mp4_hint} {note}" if mp4_hint else note
+                if abs(dw / max(1, dh) - 9 / 16) < 0.01:
+                    from app.canvas import is_exact_ratio as _is_exact
+
+                    try:
+                        doc_exact = bool(_is_exact(dw, dh, "9:16"))
+                    except Exception:  # noqa: BLE001
+                        doc_exact = True
+                    notes_916: list[str] = []
+                    if not doc_exact:
+                        notes_916.append(
+                            f"inexact doc — MP4 ships snapped exact "
+                            f"({mw}×{mh}); SPOTIFY_916 (576×1024) + "
+                            f"MP4 Canvas is exact end to end.")
+                    if mh < 720 or mh > 1080:
+                        notes_916.append(
+                            f"MP4 is {mh}px tall — Spotify wants "
+                            f"720-1080 (Canvas keeps the doc height).")
+                    if actual_m < 3.0 or actual_m > 8.0:
+                        notes_916.append("out of the Spotify 3–8s window.")
+                    if notes_916:
+                        note = "· 9:16 Spotify: " + " ".join(notes_916)
+                        mp4_hint = f"{mp4_hint} {note}" if mp4_hint else note
             except Exception:  # noqa: BLE001
                 pass
         if self.chk_webp.isChecked():

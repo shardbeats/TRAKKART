@@ -96,11 +96,105 @@ def output_budget_note(w: int, h: int) -> str | None:
 
 
 def canvas_size_for(ratio: str, long_side: int = 3000) -> tuple[int, int]:
-    """Export dimensions for a ratio (long side = long_side)."""
+    """Export dimensions for a ratio (long side = long_side).
+
+    Legacy rounding: the short side rounds to nearest, so 9:16 at 3000
+    is (1688, 3000), off by 8px from exact (1688*16 != 3000*9).
+    Kept byte-identical for presets/docs/tests; strict callers use
+    `exact_canvas_size_for` (Spotify Canvas rejects inexact ratios).
+    """
     rw, rh = RATIOS[ratio]
     if rw >= rh:
         return (long_side, max(1, round(long_side * rh / rw)))
     return (max(1, round(long_side * rw / rh)), long_side)
+
+
+def is_exact_ratio(w: int, h: int, ratio: str) -> bool:
+    """True when W:H matches the ratio bit-for-bit (w*rh == h*rw)."""
+    try:
+        rw, rh = RATIOS[ratio]
+    except KeyError:
+        return False
+    try:
+        w, h = int(w), int(h)
+    except (TypeError, ValueError):
+        return False
+    return w > 0 and h > 0 and w * rh == h * rw
+
+
+def exact_canvas_size_for(ratio: str, long_side: int = 3000,
+                          over: bool = True) -> tuple[int, int]:
+    """Nearest even dims with a bit-exact ratio (long side ~= long_side).
+
+    H.264 (yuv420p) needs even sides, and an exact even 9:16 only exists
+    as 18m x 32m (long side multiple of 32): 3000 itself is impossible,
+    so this returns the nearest match (3000 -> 1692x3008; ties go down,
+    never upscaling on ambiguity). `over=False` only looks down (720p /
+    1080p budgets never grow: 1080 -> 594x1056). Unknown ratio falls
+    back to even-down of `canvas_size_for`. Always even, always clamped
+    to MIN/MAX_DIM. `canvas_size_for` stays untouched (presets/docs/tests
+    pin it).
+    """
+    rw, rh = RATIOS[ratio]
+    try:
+        want = max(MIN_DIM, min(MAX_DIM, int(long_side or 3000)))
+    except (TypeError, ValueError):
+        want = 3000
+    landscape = rw >= rh
+    # Search even long sides nearest-first (down wins ties: d=0 down/up
+    # order), so the result never exceeds the request on ambiguity.
+    base = want & ~1  # parity anchor: odd requests still find even pairs
+    for d in range(0, 129, 2):
+        cands = (base,) if d == 0 else (base - d, base + d)
+        for cand in cands:
+            if not over and cand > want:
+                continue
+            if cand < 2 or cand % 2:
+                continue
+            if landscape:
+                if cand * rh % rw:
+                    continue
+                short = cand * rh // rw
+            else:
+                if cand * rw % rh:
+                    continue
+                short = cand * rw // rh
+            if short % 2 or not (MIN_DIM <= short <= MAX_DIM):
+                continue
+            if not (MIN_DIM <= cand <= MAX_DIM):
+                continue
+            return (cand, short) if landscape else (short, cand)
+    # No exact even pair in range (should not happen for bundled ratios):
+    # even-down legacy, honest but inexact.
+    w, h = canvas_size_for(ratio, want)
+    w, h = max(2, w & ~1), max(2, h & ~1)
+    return (w, h)
+
+
+def snap_to_exact_ratio(w: int, h: int, ratio: str,
+                        tol: float = 0.01) -> tuple[int, int]:
+    """Nearest exact-even dims when already ~ratio, else unchanged.
+
+    Export-only helper: a 1688x3000 doc (near 9:16, inexact) snaps to
+    1692x3008; exact docs (576x1024, 1080x1920) and far ratios pass
+    through untouched. `tol` is the absolute aspect gap (same 0.01
+    convention as the R2 Canvas checks).
+    """
+    try:
+        w, h = int(w), int(h)
+    except (TypeError, ValueError):
+        return (w, h)
+    if w % 2 == 0 and h % 2 == 0 and is_exact_ratio(w, h, ratio):
+        return (w, h)
+    try:
+        rw, rh = RATIOS[ratio]
+    except KeyError:
+        return (w, h)
+    if h <= 0:
+        return (w, h)
+    if abs(w / h - rw / rh) > tol:
+        return (w, h)
+    return exact_canvas_size_for(ratio, max(w, h))
 
 
 def resolve_frame(ratio: str, long_side: int, canvas_w: int = 0,

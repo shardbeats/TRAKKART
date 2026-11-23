@@ -1057,6 +1057,17 @@ YT thumb 1280x720 16:9; square 1080x1080; 4:5 1080x1350; safe areas with
   GIF+WebP dialog (256f plan once) and `_estimate_bytes` (extra
   gif_trans/gif_forms, default = old shape). Measured real 480p:
   12.7x→3.8x over, same safe direction.
+- [x] R10 — strict 9:16 exactness (Spotify rejects inexact ratios while
+  reading "720-1080px tall" literally: 1080x1920 = 1920 tall rejected,
+  576x1024 uploads). Cost S.
+  Done: `exact_canvas_size_for()` / `is_exact_ratio()` /
+  `snap_to_exact_ratio()` in `app/canvas.py` (`canvas_size_for` default
+  1688x3000 untouched); `mp4_dims_exact()` in `app/anim/plan.py`
+  (Canvas snaps nearest, 720p/1080p snap down, other ratios identical
+  to `mp4_dims`) used by `export_full` + the export dialog plan
+  (dims shown are what ships; hint covers snap/height/3-8s);
+  bundled `SPOTIFY_916` (9:16/1024 = 576x1024 exact, dissolve 64f/30fps/
+  Hold 1.5 = 154f ≈ 5.1s loop). Pin: `tests/test_spotify_exact.py` (7).
 
 ### 8.3 Print (pairs with Vector Pro)
 

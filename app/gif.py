@@ -34,7 +34,7 @@ from app.anim.limits import (CLIP_MP4_BPX_PER_NOISE, CLIP_MP4_BPX_QUIET,  # noqa
 from app.anim.plan import (Segment, _check_gif_budget, _clamp_frames, estimate_apng, estimate_clip_mp4,  # noqa: F401
                            estimate_gif,
                            estimate_mp4, estimate_webp, _even_down,
-                           leg_transitions, mp4_dims, plan_segments,
+                           leg_transitions, mp4_dims, mp4_dims_exact, plan_segments,
                            plan_dissolve, segment_total, solve_hold_for_length)
 
 
@@ -58,4 +58,4 @@ __all__ = ["GIF_MODES", "GIF_MODE_INFO", "mode_label", "mode_desc",
            "save_apng", "estimate_apng",
            "MP4_BYTES_PER_PX_TRANS", "MP4_BYTES_PER_PX_HOLD", "MP4_SIZES",
            "CLIP_MP4_BPX_QUIET", "CLIP_MP4_BPX_PER_NOISE",
-           "_even_down", "mp4_dims", "estimate_mp4", "estimate_clip_mp4"]
+           "_even_down", "mp4_dims", "mp4_dims_exact", "estimate_mp4", "estimate_clip_mp4"]

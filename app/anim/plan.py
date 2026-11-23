@@ -235,6 +235,8 @@ def mp4_dims(doc_w: int, doc_h: int, size_opt: str | int = "1080p") -> tuple[int
     Always even (H.264/yuv420p requires multiples of 2; imageio would
     otherwise rescale to a multiple of 16, e.g. 1080x1920 -> 1088x1920).
     Rounds down to even so the long side never exceeds the request.
+    Legacy rounding kept verbatim: 9:16 outputs are usually inexact
+    (608x1080); strict callers (Spotify Canvas) use `mp4_dims_exact`.
     """
     dw, dh = max(1, int(doc_w)), max(1, int(doc_h))
     if isinstance(size_opt, int) or str(size_opt).isdigit():
@@ -249,6 +251,33 @@ def mp4_dims(doc_w: int, doc_h: int, size_opt: str | int = "1080p") -> tuple[int
     if r >= 1.0:
         return (_even_down(dw), _even_down(dh))
     return (_even_down(round(dw * r)), _even_down(round(dh * r)))
+
+
+def mp4_dims_exact(doc_w: int, doc_h: int,
+                   size_opt: str | int = "1080p") -> tuple[int, int]:
+    """`mp4_dims` snapped to a bit-exact even 9:16 when the doc is ~9:16.
+
+    Export-only (Spotify Canvas rejects inexact ratios): 1688x3000 doc
+    + Canvas ships 1692x3008; 1080p ships 594x1056 (720p ships 396x704,
+    under Spotify's 720px floor — the dialog says so). Non-9:16 docs
+    (|aspect - 9/16| >= 0.01, same tolerance as the R2 checks) and
+    already-exact outputs pass through untouched, so every other ratio
+    renders byte-identical to `mp4_dims`.
+    """
+    bw, bh = mp4_dims(doc_w, doc_h, size_opt)
+    try:
+        dw, dh = max(1, int(doc_w)), max(1, int(doc_h))
+    except (TypeError, ValueError):
+        return (bw, bh)
+    if dh <= 0 or abs(dw / dh - 9 / 16) >= 0.01:
+        return (bw, bh)
+    from app.canvas import exact_canvas_size_for, is_exact_ratio, snap_to_exact_ratio
+
+    if bw % 2 == 0 and bh % 2 == 0 and is_exact_ratio(bw, bh, "9:16"):
+        return (bw, bh)
+    if str(size_opt) == "Canvas":
+        return snap_to_exact_ratio(bw, bh, "9:16")
+    return exact_canvas_size_for("9:16", max(bw, bh), over=False)
 
 
 def estimate_mp4(w: int, h: int, n_trans: int, n_hold: int) -> int:
@@ -298,4 +327,5 @@ __all__ = ["_clamp_frames", "plan_dissolve", "leg_transitions",
            "Segment", "plan_segments", "segment_total",
            "solve_hold_for_length",
            "_check_gif_budget", "estimate_gif", "estimate_webp",
-           "_even_down", "mp4_dims", "estimate_mp4", "estimate_clip_mp4"]
+           "_even_down", "mp4_dims", "mp4_dims_exact",
+           "estimate_mp4", "estimate_clip_mp4"]

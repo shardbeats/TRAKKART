@@ -66,7 +66,9 @@ def export_full(
     MP4 is written as an extra `{base}_vid.mp4` file outside the bundle
     (single-export; batch keeps the GIF route). Stills stay full-doc;
     MP4 renders at `mp4_size` (Canvas/1080p/720p, default 1080p) so a
-    3000px doc at 60fps doesn't ship hundreds of MB.
+    3000px doc at 60fps doesn't ship hundreds of MB. ~9:16 docs snap
+    to bit-exact even dims (Spotify rejects 608x1080); other ratios
+    render byte-identical to `mp4_dims`.
     WebP is written as an extra `{base}_anim.webp` with the same frames
     as the GIF (~1/3 the weight, full color). Dialog-only like MP4.
     APNG is written as `{base}_anim.png` with the same frames (full
@@ -145,10 +147,10 @@ def export_full(
                 # Long clip: GIF keeps its capped list; MP4 streams the full
                 # clip forward-only (ping-pong a 3600f list = 7k frames in
                 # RAM, so it is intentionally off here).
-                from app.gif import mp4_dims
+                from app.gif import mp4_dims_exact
 
                 try:
-                    mw, mh = mp4_dims(res.width, res.height, mp4_size_eff)
+                    mw, mh = mp4_dims_exact(res.width, res.height, mp4_size_eff)
                     mp4_long = max(mw, mh)
                 except Exception:  # noqa: BLE001
                     mp4_long = 1080
@@ -182,10 +184,12 @@ def export_full(
                     mp4_path = Path(out_dir) / f"{options.base}_{i}{MP4_SUFFIX}"
                     i += 1
             mp4_fps_eff = int(mp4_fps if mp4_fps is not None else fps)
-            from app.gif import mp4_dims as _mp4_dims
+            from app.gif import mp4_dims_exact as _mp4_dims_exact
 
             try:
-                mp4_w, mp4_h = _mp4_dims(res.width, res.height, mp4_size_eff)
+                # ~9:16 docs snap to bit-exact (Spotify rejects 608x1080);
+                # other ratios render byte-identical to mp4_dims.
+                mp4_w, mp4_h = _mp4_dims_exact(res.width, res.height, mp4_size_eff)
             except Exception:  # noqa: BLE001
                 mp4_w, mp4_h = res.width, res.height
             if mp4_stream_info is not None:

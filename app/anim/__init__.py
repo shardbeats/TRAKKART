@@ -21,8 +21,8 @@ from app.anim.limits import (GIF_FRAMES_SUGGESTED, GIF_FPS_SUGGESTED, GIF_LIMIT_
                              VIDEO_DEFAULT_SIZE, VIDEO_MAX_SIZE, VIDEO_MIN_SIZE)
 from app.anim.plan import (Segment, _check_gif_budget, _clamp_frames, estimate_gif,  # noqa: F401
                            estimate_mp4, estimate_webp, _even_down, leg_transitions,
-                           mp4_dims, plan_dissolve, plan_segments, segment_total,
-                           solve_hold_for_length)
+                           mp4_dims, mp4_dims_exact, plan_dissolve, plan_segments,
+                           segment_total, solve_hold_for_length)
 
 __all__ = ["GIF_MODES", "GIF_MODE_INFO", "mode_label", "mode_desc",
            "GIF_MAX_SIDE", "GIF_MIN_SIDE", "GIF_LIMIT_SIDE",
@@ -42,4 +42,4 @@ __all__ = ["GIF_MODES", "GIF_MODE_INFO", "mode_label", "mode_desc",
            "MAX_GIF_PIXELS", "_check_gif_budget", "save_gif",
            "estimate_gif", "save_webp", "estimate_webp",
            "MP4_BYTES_PER_PX_TRANS", "MP4_BYTES_PER_PX_HOLD", "MP4_SIZES",
-           "_even_down", "mp4_dims", "estimate_mp4"]
+           "_even_down", "mp4_dims", "mp4_dims_exact", "estimate_mp4"]

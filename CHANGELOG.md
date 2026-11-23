@@ -2,6 +2,13 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [2.15.0] - 2026-11-23 — 9:16 exacto para Spotify Canvas
+- Nuevo preset `SPOTIFY_916` (9:16, `576×1024` exacto, dissolve 64f/30fps/Hold 1.5 = 154f ≈ 5.1s en loop): sube donde `1080×1920` (1920 de alto) es rechazado.
+- Helpers exactos en `app/canvas.py`: `exact_canvas_size_for()` (par exacto más cercano; a 3000 clavado es imposible → `1692×3008`), `is_exact_ratio()`, `snap_to_exact_ratio()`. El default `1688×3000` no se mueve (presets/docs/tests lo pinean).
+- MP4: `mp4_dims_exact()` — los docs ~9:16 salen con ratio bit-exacto (Canvas ajusta al más cercano, 720p/1080p solo hacia abajo sin superar el presupuesto); el resto de ratios sale idéntico a `mp4_dims`. Pin: `tests/test_spotify_exact.py` (7).
+- Diálogo de export: la línea del plan muestra las dims ajustadas y el aviso explica snap/altura 720-1080/ventana 3-8s en vez del viejo "quiere 720p/1080p".
+- Gates 5/5, flake8 0.
+
 ## [2.14.5] - 2026-11-19 — UI + a11y §12 Fase A-D
 - A11y bloqueante: insignia zoom con foco + Enter/Espacio y nombres
   accesibles; `ValueSlider` con Inicio (Home) como reset de teclado;
