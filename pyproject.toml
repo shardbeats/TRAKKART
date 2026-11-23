@@ -2,6 +2,7 @@
 name = "trakkart"
 version = "2.14.1"
 description = "TRAKKART — offline cover art studio (ShardBeats TRAKK SUITE)"
+license = { text = "GPL-3.0-only" }
 requires-python = ">=3.11"
 dependencies = [
   "PySide6>=6.6,<7.0",

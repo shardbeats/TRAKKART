@@ -1,6 +1,7 @@
 # THIRD-PARTY-NOTICES — TRAKKART
 
-TRAKKART code is MIT (`LICENSE`). The components below keep their own
+TRAKKART code is GPL-3.0-only (`LICENSE`, see `LICENSING.md`;
+versions ≤ v1.7.0 remain MIT). The components below keep their own
 licenses. They apply when running from source AND inside the frozen
 portable folder / installer.
 
@@ -27,9 +28,10 @@ portable folder / installer.
   GPL components in the binary include libx264, libx265 and libxvid;
   LGPL/permissive parts include libaom, libvpx, libopus, libwebp and zimg.
   TRAKKART runs `ffmpeg.exe` as a **separate process** (subprocess/pipe)
-  for MP4 export; no FFmpeg library is linked into the MIT Python code.
+  for MP4 export; no FFmpeg library is linked into the GPL Python code.
   The GPL applies to the distributed FFmpeg binary and its corresponding
-  source, not to TRAKKART's own MIT source. This is the project's reading
+  source, and the whole TRAKKART work is distributed under GPL-3.0-only
+  (MIT for versions ≤ v1.7.0). This is the project's reading
   of the licenses, not legal advice.
 - **Qt DLLs** (via PySide6): LGPLv3. Relink right: replace the
   `PySide6/*.dll` / `.pyd` next to a source install, or rebuild
@@ -72,7 +74,7 @@ the exact binary name, SHA-256, `ffmpeg -version` output (including the
 
 ## Compliance checklist for the release
 
-1. Ship `LICENSE` (MIT) + `NOTICE.md` + this file + `licenses/GPL-3.0.txt`
+1. Ship `LICENSE` (GPL-3.0-only) + `NOTICE.md` + `LICENSING.md` + this file + `licenses/GPL-3.0.txt`
    + `licenses/LGPL-3.0.txt` + `FFMPEG-BUILD-INFO.txt` alongside the app.
    `build_portable.py` copies/bundles all of them.
 2. Keep the source links above alive and publish the written offer in the

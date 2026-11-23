@@ -245,7 +245,7 @@ def test_window_tutorial_samples_drop(window, qt_app, monkeypatch, tmp_path):
     monkeypatch.setattr(QDesktopServices, "openUrl", lambda *a, **k: True)
     window.open_samples()
     assert "samples" in window.lbl_status.text().lower()
-    # About dialog (static QMessageBox.about mocked): version + MIT shown.
+    # About dialog (static QMessageBox.about mocked): version + GPL shown.
     from app import __version__ as _ver
     from app.ui import about_dialog as _about
 
@@ -255,8 +255,8 @@ def test_window_tutorial_samples_drop(window, qt_app, monkeypatch, tmp_path):
         lambda *a, **k: seen.setdefault("text", a[2] if len(a) > 2 else k.get("text", "")),
     )
     window.show_about()
-    assert f"v{_ver}" in seen.get("text", "") and "MIT" in seen.get("text", "")
-    assert "MIT" in _about.about_text() and f"v{_ver}" in _about.about_text()
+    assert f"v{_ver}" in seen.get("text", "") and "GPL" in seen.get("text", "")
+    assert "GPL" in _about.about_text() and f"v{_ver}" in _about.about_text()
 
     # Drop-folder gate: toggle off / empty / confirm-no / confirm-yes.
     src = tmp_path / "drop"
