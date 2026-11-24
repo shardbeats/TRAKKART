@@ -1,4 +1,4 @@
-"""MCP stdio server over the headless CLI (v2.x #9, MIT).
+"""MCP stdio server over the headless CLI (v2.x #9, GPL-3.0-only).
 
 Newline-delimited JSON-RPC 2.0 on stdin/stdout (the framing MCP
 itself uses on stdio). Thin skin over `app.cli` building blocks —

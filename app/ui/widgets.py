@@ -1,4 +1,4 @@
-"""Custom TRAKKART widgets (MIT): slider with value and double-click reset."""
+"""Custom TRAKKART widgets (GPL-3.0-only): slider with value and double-click reset."""
 
 from __future__ import annotations
 

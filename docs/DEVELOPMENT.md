@@ -1,6 +1,6 @@
 # TRAKKART — Development
 
-Developer reference for TRAKKART (offline cover art studio, GPL-3.0-only; ≤ v1.7.0 MIT).
+Developer reference for TRAKKART (offline cover art studio, GPL-3.0-only; see `LICENSING.md` for pre-2026-11-23 terms).
 User documentation lives in `../README.md` and `../MANUAL.md`.
 
 ```

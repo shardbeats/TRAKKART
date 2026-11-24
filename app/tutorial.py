@@ -1,4 +1,4 @@
-"""TRAKKART in-app tutorial + sample pack (MIT).
+"""TRAKKART in-app tutorial + sample pack (GPL-3.0-only).
 
 No network, no binaries: samples are generated with Pillow at runtime
 into data/samples/, and the "seen" flag is a marker file next to them.

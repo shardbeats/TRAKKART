@@ -1,4 +1,4 @@
-"""TRAKKART dither engine (MIT).
+"""TRAKKART dither engine (GPL-3.0-only).
 
 Ordered: bayer2/4/8/16, halftone/cluster/pattern/checker/ign/cross/bluenoise
 (own maps or standard math). Error-diffusion: floyd/atkinson/burkes/sierra/

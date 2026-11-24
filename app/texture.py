@@ -1,4 +1,4 @@
-"""TRAKKART texture/decay pack (MIT). Post-dither, deterministic.
+"""TRAKKART texture/decay pack (GPL-3.0-only). Post-dither, deterministic.
 
 Dot/line print halftone (print style, different from the engine dither),
 dust & scratches with fixed seed, solid border and cinematic letterbox.

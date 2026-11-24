@@ -1,4 +1,4 @@
-"""TRAKKART datamosh module (MIT). Pure numpy + Pillow.
+"""TRAKKART datamosh module (GPL-3.0-only). Pure numpy + Pillow.
 
 Ten codec-damage flavors, all deterministic (per-mode base seed plus a
 user `seed` variation plus an optional frame offset, so GIF animation

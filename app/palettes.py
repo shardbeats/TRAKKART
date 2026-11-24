@@ -1,4 +1,4 @@
-"""Original TRAKKART palettes (MIT).
+"""Original TRAKKART palettes (GPL-3.0-only).
 
 Designed from scratch for type-beat covers; these RGB values are
 original to the TRAKK SUITE.

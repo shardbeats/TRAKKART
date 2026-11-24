@@ -1,4 +1,4 @@
-"""TRAKKART Signal Drift (MIT). Numpy + Pillow only.
+"""TRAKKART Signal Drift (GPL-3.0-only). Numpy + Pillow only.
 
 9 animated retro-screen noise patterns overlaid on the canvas BEFORE the
 dither (so the dither eats them like a real CRT chain). Fully seeded and

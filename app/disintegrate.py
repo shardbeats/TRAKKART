@@ -1,4 +1,4 @@
-"""TRAKKART particle disperse + morph (dither-boy style, MIT). Numpy + Pillow only.
+"""TRAKKART particle disperse + morph (dither-boy style, GPL-3.0-only). Numpy + Pillow only.
 
 Single-image loop (dissolve_frames: assembled -> dispersed -> assembled)
 plus one-shot swap (morph_frames: A -> B through one shared particle cloud).

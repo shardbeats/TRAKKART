@@ -1,4 +1,4 @@
-"""TRAKKART ink separations (R9, MIT): spot plates for RISO/screen print.
+"""TRAKKART ink separations (R9, GPL-3.0-only): spot plates for RISO/screen print.
 
 One PNG per palette color (black ink on white) + corner registration
 marks on every plate. Offline, Pillow + numpy only, deterministic.

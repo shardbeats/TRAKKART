@@ -1,4 +1,4 @@
-"""TRAKKART grade pack (MIT). Pre/post-dither color grading.
+"""TRAKKART grade pack (GPL-3.0-only). Pre/post-dither color grading.
 
 Duotone and posterize run BEFORE the dither (on continuous tone, like the
 adjustments: the dither works over the grade). Split-tone and fade

@@ -1,4 +1,4 @@
-"""TRAKKART JPEG glitch (MIT). Pillow-only, deterministic.
+"""TRAKKART JPEG glitch (GPL-3.0-only). Pillow-only, deterministic.
 
 Recompresses the dithered image through JPEG bytes (quality driven by
 amount) and reloads it: blockiness + chroma-subsampling + ringing, the

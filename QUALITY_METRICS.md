@@ -13,4 +13,4 @@ Gates (TRAKK SUITE standard). All must be PASS for release.
 Report: `data/quality_report.json` (generated, do not commit).
 
 Banned in `app/`: local user paths, emails, non-GPL license expressions.
-Reason: keep the codebase GPL-3.0-only with no personal data (MIT only in versions ≤ v1.7.0).
+Reason: keep the codebase GPL-3.0-only with no personal data (see `LICENSING.md` for earlier terms).

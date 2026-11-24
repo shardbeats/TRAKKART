@@ -1,4 +1,4 @@
-"""TRAKKART effects (MIT). Pillow + numpy pre/post processing.
+"""TRAKKART effects (GPL-3.0-only). Pillow + numpy pre/post processing.
 
 All original work. No opencv, no numba.
 """

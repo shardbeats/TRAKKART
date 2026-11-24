@@ -1,4 +1,4 @@
-"""TRAKKART headless CLI (R10, MIT): presets over files/folders, no UI.
+"""TRAKKART headless CLI (R10, GPL-3.0-only): presets over files/folders, no UI.
 
 Contract: `--out` is always a directory (`<in-stem>.<ext>` per file,
 same bundle as UI batch: image + thumb + metadata, SVG/GIF per preset).

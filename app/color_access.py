@@ -1,4 +1,4 @@
-"""Color confidence (v1.9 Fase C, MIT): daltonism preview, WCAG contrast,
+"""Color confidence (v1.9 Fase C, GPL-3.0-only): daltonism preview, WCAG contrast,
 Lospec-compatible offline palette parsers. Numpy + Pillow only, offline.
 
 Daltonism preview is display-only (like the safe-area guides and the

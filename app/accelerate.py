@@ -1,4 +1,4 @@
-"""Optional TRAKKART accelerator (MIT).
+"""Optional TRAKKART accelerator (GPL-3.0-only).
 
 If numba is installed, ED kernels use @njit (10-50x). Otherwise,
 automatic fallback to pure numpy. numba imports LAZILY (P1): the

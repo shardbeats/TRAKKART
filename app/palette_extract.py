@@ -1,4 +1,4 @@
-"""TRAKKART palette extraction (MIT).
+"""TRAKKART palette extraction (GPL-3.0-only).
 
 Auto-extract N dominant colors from an image (median-cut, numpy-only,
 deterministic). No ML, no sklearn, offline.

@@ -1,4 +1,4 @@
-"""TRAKKART cross-dissolve frame interpolation (numpy-only, MIT).
+"""TRAKKART cross-dissolve frame interpolation (numpy-only, GPL-3.0-only).
 
 Optional smoothing between clip/dissolve frames: `steps` linear blends
 inserted per gap (numpy lerp, rounded, deterministic — no seeds, no

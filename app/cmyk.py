@@ -1,4 +1,4 @@
-"""TRAKKART CMYK halftone (MIT). Numpy + Pillow only.
+"""TRAKKART CMYK halftone (GPL-3.0-only). Numpy + Pillow only.
 
 Simplified print-style halftone: RGB -> CMY + K, each channel screened
 with an angled Bayer threshold, then back to RGB. Deterministic;

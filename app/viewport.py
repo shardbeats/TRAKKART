@@ -1,4 +1,4 @@
-"""TRAKKART viewport modes (MIT). No Qt, pure logic.
+"""TRAKKART viewport modes (GPL-3.0-only). No Qt, pure logic.
 
 Full / Live / Still (debounced live-iteration control):
 - full:  debounce 0ms, every change re-renders immediately (fast machines).

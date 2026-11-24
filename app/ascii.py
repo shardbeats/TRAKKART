@@ -1,4 +1,4 @@
-"""TRAKKART ASCII engine (MIT). Pillow + numpy.
+"""TRAKKART ASCII engine (GPL-3.0-only). Pillow + numpy.
 
 Design rules:
 - Density is resolution-independent: `columns` (not cell px). The same

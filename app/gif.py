@@ -1,4 +1,4 @@
-"""Animated TRAKKART GIF (MIT). Pillow only, no ffmpeg.
+"""Animated TRAKKART GIF (GPL-3.0-only). Pillow only, no ffmpeg.
 
 Modes:
   phase  = dither-matrix march (clean, ordered methods)
