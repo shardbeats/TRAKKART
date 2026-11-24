@@ -1,6 +1,12 @@
 # TRAKKART
 
-Part of the ShardBeats **TRAKK SUITE**. Offline cover-art studio: turn any image
+Part of the ShardBeats **TRAKK SUITE** — see the full suite at
+[shardbeats/shardbeats](https://github.com/shardbeats/shardbeats):
+`Idea → Production → Artwork → Video → Promo`.
+TRAKKART covers **Artwork** (pairs with
+[TRAKKOUT](https://github.com/shardbeats/TRAKKOUT) for Video).
+
+Offline cover-art studio: turn any image
 into dithered artwork for singles, posters, merch and socials. 100% local —
 nothing is uploaded, nothing is tracked.
 
@@ -73,6 +79,11 @@ Full guide: [`MANUAL.md`](MANUAL.md) (also bundled — Help → User manual, F1)
 Zero network (unless you drop an image URL yourself), zero telemetry,
 zero accounts. Everything lives in the app's data folder
 (Help → Show logs folder). Deleting it factory-resets the app.
+
+## Suite
+
+Part of [TRAKK SUITE](https://github.com/shardbeats/shardbeats) — simple, lightweight,
+offline-first tools for beatmakers. No accounts, no mandatory cloud.
 
 ## License
 
