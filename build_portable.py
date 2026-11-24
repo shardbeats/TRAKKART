@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 EXE_DIR = ROOT / "dist" / "portable" / "TRAKKART"
-DOCS = ("MANUAL.md", "LICENSE", "NOTICE.md", "THIRD-PARTY-NOTICES.md",
+DOCS = ("MANUAL.md", "LICENSE", "LICENSING.md", "TRADEMARK.md", "NOTICE.md", "THIRD-PARTY-NOTICES.md",
         "icon.ico", "icon.png")
 
 
@@ -62,7 +62,7 @@ def write_version_info(version: str, exe_name: str = "TRAKKART.exe") -> Path:
         "    StringStruct('FileDescription', 'TRAKKART - offline cover art studio'),\n"
         "    StringStruct('FileVersion', '%s'),\n"
         "    StringStruct('InternalName', '%s'),\n"
-        "    StringStruct('LegalCopyright', 'MIT (app); bundled FFmpeg is GPLv3'),\n"
+        "    StringStruct('LegalCopyright', 'GPL-3.0-only (app); bundled FFmpeg is GPLv3'),\n"
         "    StringStruct('OriginalFilename', '%s'),\n"
         "    StringStruct('ProductName', 'TRAKKART'),\n"
         "    StringStruct('ProductVersion', '%s')])]),\n"

@@ -32,7 +32,7 @@ GATES = {
 BANNED = [
     "@gmail.com",
     "@hotmail.com",
-    "GPL-3.0 AND",  # only our own MIT is accepted
+    "GPL-3.0 AND",  # only our own GPL-3.0-only is accepted (MIT was pre-relicense)
 ]
 
 #: Personal Windows profile paths (``C:\Users\<name>\...``) and emails in

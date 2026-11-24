@@ -1,6 +1,6 @@
 # TRAKKART — Development
 
-Developer reference for TRAKKART (offline cover art studio, MIT licensed).
+Developer reference for TRAKKART (offline cover art studio, GPL-3.0-only; ≤ v1.7.0 MIT).
 User documentation lives in `../README.md` and `../MANUAL.md`.
 
 ```
@@ -94,7 +94,7 @@ app/ui/image_flow.py     :: open/drop/clipboard/zoom/ops/crop editor
 app/ui/color_actions.py  :: brand/duotone/border + custom palette strip/library
 app/ui/crop_editor.py    :: CropEditorDialog (visual crop, owned box, cached paint)
 app/ui/palette_dialog.py :: palette editor (swatches, locks, shuffle)
-app/ui/about_dialog.py   :: About (version, MIT, offline note)
+app/ui/about_dialog.py   :: About (version, GPL, offline note)
 app/ui/shortcuts_dialog.py :: shortcut reference table
 app/ui/fx_stack_controller.py :: stack list sync (reorder/enable/add)
 app/ui/theme.qss        :: static dark stylesheet (tokens #151617/#F5A623, no switching)

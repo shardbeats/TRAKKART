@@ -2,6 +2,13 @@
 
 Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 
+## [Unreleased] — Relicense to GPL-3.0-only
+- License change (not retroactive): from commit b36653af0d14175b270d44424b99c5cd1830d5a6
+  (2026-11-23) onward the code is GPL-3.0-only (`LICENSE`, `LICENSING.md`).
+  Versions up to and including v1.7.0 remain MIT.
+- Trademark: forks must rebrand, see `TRADEMARK.md` (+ GPLv3 §7(e)).
+- About box, installer metadata, and compliance docs updated. No code changes.
+
 ## [2.15.0] - 2026-11-23 — 9:16 exacto para Spotify Canvas
 - Nuevo preset `SPOTIFY_916` (9:16, `576×1024` exacto, dissolve 64f/30fps/Hold 1.5 = 154f ≈ 5.1s en loop): sube donde `1080×1920` (1920 de alto) es rechazado.
 - Helpers exactos en `app/canvas.py`: `exact_canvas_size_for()` (par exacto más cercano; a 3000 clavado es imposible → `1692×3008`), `is_exact_ratio()`, `snap_to_exact_ratio()`. El default `1688×3000` no se mueve (presets/docs/tests lo pinean).

@@ -1,4 +1,4 @@
-"""About dialog: version + MIT + offline note. No network, no links."""
+"""About dialog: version + GPL + offline note. No network, no links."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def about_text() -> str:
         "Dither still images · Animate them · Export the bundle.\n"
         "No accounts, no cloud.\n"
         "\n"
-        "TRAKKART code: MIT (see LICENSE + THIRD-PARTY-NOTICES.md).\n"
+        "TRAKKART code: GPL-3.0-only (see LICENSE + LICENSING.md + THIRD-PARTY-NOTICES.md).\n"
         "Bundled FFmpeg: GPLv3 (licenses/GPL-3.0.txt)."
     )
 

@@ -87,14 +87,16 @@ offline-first tools for beatmakers. No accounts, no mandatory cloud.
 
 ## License
 
-- **TRAKKART source code:** MIT — see [`LICENSE`](LICENSE).
+- **TRAKKART source code:** GPL-3.0-only — see [`LICENSE`](LICENSE) and
+  [`LICENSING.md`](LICENSING.md). Versions up to and including v1.7.0
+  remain under their original MIT terms (not retroactive).
 - **Bundled FFmpeg binary:** GPLv3 — ships with `licenses/GPL-3.0.txt`,
   `licenses/LGPL-3.0.txt` (Qt) and a generated `FFMPEG-BUILD-INFO.txt`.
   Source offer in every release notes. Details in
   [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 - **Brand:** `ShardBeats™`, `TRAKK™`, `TRAKKART™`, the icon and bundled
-  preset/palette names are trademarks, not covered by MIT —
-  see [`NOTICE.md`](NOTICE.md).
+  preset/palette names are trademarks, not covered by the code license —
+  see [`NOTICE.md`](NOTICE.md) and [`TRADEMARK.md`](TRADEMARK.md).
 
 ## For developers
 
