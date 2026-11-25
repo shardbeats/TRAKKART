@@ -217,7 +217,7 @@ QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
 QSlider::groove:horizontal {
     background-color: #202124;
     border: 1px solid #45474A;
-    border-radius: 3px;
+    border-radius: 4px;
     height: 8px;
 }
 
@@ -236,7 +236,7 @@ QSlider::handle:horizontal:hover {
 
 QSlider::sub-page:horizontal {
     background-color: #5A451F;
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 QCheckBox {
@@ -313,7 +313,7 @@ QStatusBar {
     background-color: #1C1D1F;
     border-top: 1px solid #45474A;
     color: #92959A;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 QStatusBar::item {
@@ -451,17 +451,6 @@ QLabel#previewFrame {
 QLabel#previewFrame[dragHover="true"] {
     border: 2px solid #F5A623;
     background-color: #1C1D1F;
-}
-
-QLabel#previewEmpty {
-    font-size: 13px;
-    color: #92959A;
-}
-
-QLabel#previewEmptyTitle {
-    font-size: 20px;
-    font-weight: bold;
-    color: #E5E5E5;
 }
 
 /* Motion: Qt QSS has no transitions; hover/pressed feedback is instant

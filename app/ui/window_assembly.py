@@ -25,7 +25,7 @@ def setup_ui(win) -> None:
 
     win.setWindowTitle(f"TRAKKART {__version__}")
     win.resize(1280, 780)
-    win.setMinimumSize(1060, 640)
+    win.setMinimumSize(960, 600)
     from app.paths import bundle_path
 
     icon = bundle_path("icon.png")
@@ -87,7 +87,7 @@ def setup_ui(win) -> None:
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    scroll.setMinimumWidth(360)
+    scroll.setMinimumWidth(320)
     scroll.setMaximumWidth(460)
     panel_host = QWidget()
     panel = QVBoxLayout(panel_host)
@@ -235,6 +235,7 @@ def setup_previews(win, root) -> None:
     res_col = QVBoxLayout()
     res_col.setSpacing(8)
     title_row = QHBoxLayout()
+    title_row.setSpacing(8)
     win.lbl_res_title = QLabel("COVER")
     win.lbl_res_title.setObjectName("previewTitle")
     win.lbl_res_title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -271,12 +272,11 @@ def setup_previews(win, root) -> None:
     win._video_bar_widget.setVisible(False)
     res_col.addWidget(win._video_bar_widget)
     win.lbl_res = PreviewCanvas()
+    win.lbl_res.setTextFormat(Qt.PlainText)
     win.lbl_res.setText(
-        "<div style='color:#92959A;'>"
-        "<span style='font-size:28px; font-weight:bold; letter-spacing:4px; color:#E5E5E5;'>"
-        "NO IMAGE</span><br/><br/>"
-        "Drop a file onto the window &middot; Ctrl+O to open"
-        "<br/>Help &rarr; Quick tour for the 5-step tour</div>"
+        "NO IMAGE\n\n"
+        "Drop a file onto the window \u00b7 Ctrl+O to open\n"
+        "Help \u2192 Quick tour for the 5-step tour"
     )
     win.lbl_res.setAlignment(Qt.AlignCenter)
     win.lbl_res.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -305,6 +305,7 @@ def setup_previews(win, root) -> None:
         pass
     # Wipe compare: drag divider (ORIGINAL left, result right). 0 = off.
     wipe_row = QHBoxLayout()
+    wipe_row.setSpacing(8)
     wipe_row.addWidget(QLabel("Wipe:"))
     win.sld_wipe = QSlider(Qt.Horizontal)
     win.sld_wipe.setRange(0, 100)

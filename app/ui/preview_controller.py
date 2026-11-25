@@ -172,6 +172,10 @@ def start_async(win, *, full: bool = False,
     except Exception:  # noqa: BLE001
         pass
     win._preview_worker.start()
+    try:
+        win.lbl_res.setAccessibleDescription("Rendering preview…")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def on_done(win, qimg, pil_img, token: int) -> None:
