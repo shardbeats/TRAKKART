@@ -1,6 +1,6 @@
 [project]
 name = "trakkart"
-version = "2.14.1"
+version = "2.15.0"
 description = "TRAKKART — offline cover art studio (ShardBeats TRAKK SUITE)"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.11"
