@@ -1135,6 +1135,10 @@ a plan for §10 step 4b (GPU post-FX) before any implementation
 there. No code-signing cert: ships unsigned + SmartScreen note.
 
 ### Release v2.15.0 — calendario (owner-gated, no olvidar)
+- Decisión (owner nov-2026): UN solo release acumulado, sin tags 2.x
+  intermedios. Salto grande `1.7.0 → 2.15.0` (clip import + caza de bugs
+  QThread + Spotify 9:16 + iconos + todo lo 2.8–2.15); después se vuelve
+  a releases pequeños normales. No adelantar al 10 dic.
 - Contenido: `[2.15.0]` = Spotify 9:16 exacto + fix iconos ventana/acceso
   directo (`tests/test_window_icon.py`). `app/__init__.py` y
   `pyproject.toml` ya en `2.15.0`, GPL-3.0-only.
