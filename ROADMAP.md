@@ -1134,6 +1134,17 @@ release (tags stop at v1.7.0; `gh` is authenticated), and approve
 a plan for §10 step 4b (GPU post-FX) before any implementation
 there. No code-signing cert: ships unsigned + SmartScreen note.
 
+### Release v2.15.0 — calendario (owner-gated, no olvidar)
+- Contenido: `[2.15.0]` = Spotify 9:16 exacto + fix iconos ventana/acceso
+  directo (`tests/test_window_icon.py`). `app/__init__.py` y
+  `pyproject.toml` ya en `2.15.0`, GPL-3.0-only.
+- Dry-run en curso (27 nov): `build_portable.py --full-tests` +
+  `build_installer.py` + smoke local + `FFMPEG-BUILD-INFO.txt`.
+- Freeze ~8 dic: solo bugfix (gates 5/5 + fuzzer + flake8 antes de commit).
+- 10–15 dic, con GO explícito del owner: tag `v2.15.0` + GitHub release
+  (portable ZIP + Setup exe + `MANUAL.md` + párrafo licencia + nota
+  SmartScreen, checklist en `installer/SIGNING.md`).
+
 ## 9. Professional polish — visual UI + preview fluency (done)
 
 Goal: feel modern without a rewrite. Two micro-packs, each mergeable
