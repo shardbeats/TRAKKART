@@ -73,6 +73,16 @@ def main() -> int:
     app.setApplicationName("TRAKKART")
     app.setOrganizationName("ShardBeats")
     app.setApplicationVersion(__version__)
+    try:
+        from PySide6.QtGui import QIcon
+
+        from app.paths import find_app_icon
+
+        _icon = find_app_icon("icon.png")
+        if _icon is not None:
+            app.setWindowIcon(QIcon(str(_icon)))
+    except Exception:  # noqa: BLE001
+        pass
     w = MainWindow()
     w.show()
     return app.exec()

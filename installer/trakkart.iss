@@ -38,9 +38,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\dist\portable\TRAKKART\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\TRAKKART"; Filename: "{app}\TRAKKART.exe"
+Name: "{group}\TRAKKART"; Filename: "{app}\TRAKKART.exe"; IconFilename: "{app}\TRAKKART.exe"
 Name: "{group}\User manual"; Filename: "{app}\MANUAL.md"
-Name: "{autodesktop}\TRAKKART"; Filename: "{app}\TRAKKART.exe"; Tasks: desktopicon
+Name: "{autodesktop}\TRAKKART"; Filename: "{app}\TRAKKART.exe"; Tasks: desktopicon; IconFilename: "{app}\TRAKKART.exe"
 
 [Run]
 Filename: "{app}\TRAKKART.exe"; Description: "{cm:LaunchProgram,TRAKKART}"; Flags: nowait postinstall skipifsilent

@@ -26,10 +26,10 @@ def setup_ui(win) -> None:
     win.setWindowTitle(f"TRAKKART {__version__}")
     win.resize(1280, 780)
     win.setMinimumSize(960, 600)
-    from app.paths import bundle_path
+    from app.paths import bundle_path, find_app_icon
 
-    icon = bundle_path("icon.png")
-    if icon.is_file():
+    icon = find_app_icon("icon.png")
+    if icon is not None:
         from PySide6.QtGui import QIcon
 
         win.setWindowIcon(QIcon(str(icon)))

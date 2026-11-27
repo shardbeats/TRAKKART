@@ -54,7 +54,45 @@ def bundle_path(*parts: str) -> Path:
     """File shipped next to the code (dev) or inside the bundle (frozen).
 
     Covers MANUAL.md, icons, samples: in dev they live in the repo root,
-    frozen (PyInstaller onefile) they come from sys._MEIPASS via --add-data.
+    frozen (PyInstaller onedir) they come from sys._MEIPASS via --add-data.
     """
     base = Path(getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent.parent)
     return base.joinpath(*parts)
+
+
+def find_app_icon(name: str = "icon.png") -> Path | None:
+    """Runtime app icon with frozen-layout fallback (never raises).
+
+    Order: _MEIPASS/name (PyInstaller --add-data) -> exe dir/name ->
+    exe dir/_internal/name -> dev root/name. Returns None when missing
+    so callers can skip silently (same as before, but no longer blind
+    to the onedir exe-dir layout).
+    """
+    cands: list[Path] = []
+    try:
+        cands.append(bundle_path(name))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if getattr(sys, "frozen", False):
+            exe_dir = Path(sys.executable).resolve().parent
+            cands.append(exe_dir / name)
+            cands.append(exe_dir / "_internal" / name)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        cands.append(Path(__file__).resolve().parent.parent / name)
+    except Exception:  # noqa: BLE001
+        pass
+    seen: set[str] = set()
+    for c in cands:
+        key = str(c).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            if c.is_file():
+                return c
+        except Exception:  # noqa: BLE001
+            continue
+    return None
