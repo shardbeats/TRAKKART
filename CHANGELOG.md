@@ -14,6 +14,7 @@ Release history (newest first). Details live in `git log` and `ROADMAP.md`.
 - Helpers exactos en `app/canvas.py`: `exact_canvas_size_for()` (par exacto más cercano; a 3000 clavado es imposible → `1692×3008`), `is_exact_ratio()`, `snap_to_exact_ratio()`. El default `1688×3000` no se mueve (presets/docs/tests lo pinean).
 - MP4: `mp4_dims_exact()` — los docs ~9:16 salen con ratio bit-exacto (Canvas ajusta al más cercano, 720p/1080p solo hacia abajo sin superar el presupuesto); el resto de ratios sale idéntico a `mp4_dims`. Pin: `tests/test_spotify_exact.py` (7).
 - Diálogo de export: la línea del plan muestra las dims ajustadas y el aviso explica snap/altura 720-1080/ventana 3-8s en vez del viejo "quiere 720p/1080p".
+- Icono de ventana + acceso directo (nov-2026): la esquina superior izquierda usaba el default de W11 porque el icono solo se seteaba en la ventana principal y con búsqueda frágil (`_MEIPASS` o nada). Nuevo `find_app_icon()` con fallback (`_MEIPASS` → dir del exe → `_internal` → root dev) + `app.setWindowIcon()` global (todas las ventanas heredan) + `IconFilename` explícito en `installer/trakkart.iss`. Pin: `tests/test_window_icon.py` (4).
 - Gates 5/5, flake8 0.
 
 ## [2.14.5] - 2026-11-19 — UI + a11y §12 Fase A-D
